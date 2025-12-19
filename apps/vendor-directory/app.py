@@ -29,6 +29,30 @@ def init_db() -> None:
             """
         )
 
+def migrate_db() -> None:
+    """
+    Add new columns to the vendors table if they do not exist.
+    Safe to run repeatedly.
+    """
+    desired_columns: dict[str, str] = {
+        "company": "TEXT",
+        "role": "TEXT",
+        "service_area": "TEXT",
+        "status": "TEXT",
+        "source": "TEXT",
+        "external_source": "TEXT",
+        "external_id": "TEXT",
+        "updated_at": "TEXT",
+    }
+
+    with get_connection() as conn:
+        existing = conn.execute("PRAGMA table_info(vendors)").fetchall()
+        existing_names = {row[1] for row in existing}  # row[1] is column name
+
+        for col_name, col_type in desired_columns.items():
+            if col_name not in existing_names:
+                conn.execute(f"ALTER TABLE vendors ADD COLUMN {col_name} {col_type}")
+
 
 def add_vendor(
     name: str,
@@ -36,7 +60,15 @@ def add_vendor(
     email: str | None,
     phone: str | None,
     notes: str | None,
+    company: str | None,
+    role: str | None,
+    service_area: str | None,
+    status: str | None,
+    source: str | None,
+    external_source: str | None,
+    external_id: str | None,
 ) -> None:
+
     now = datetime.utcnow().isoformat()
 
     with get_connection() as conn:
@@ -44,20 +76,40 @@ def add_vendor(
             """
             INSERT INTO vendors (
                 name, category, email, phone,
-                last_contacted, notes, created_at
+                last_contacted, notes, created_at, updated_at,
+                company, role, service_area, status, source,
+                external_source, external_id
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (name, category, email, phone, now, notes, now),
+            (
+                name, category, email, phone,
+                now, notes, now, now,
+                company, role, service_area, status, source,
+                external_source, external_id,
+            ),
         )
+
 
 def list_vendors() -> None:
     with get_connection() as conn:
         rows = conn.execute(
             """
-            SELECT id, name, category, email, phone, last_contacted
+            SELECT
+                id,
+                name,
+                company,
+                role,
+                category,
+                email,
+                phone,
+                service_area,
+                status,
+                last_contacted
             FROM vendors
-            ORDER BY name
+            ORDER BY
+                COALESCE(company, ''),
+                name
             """
         ).fetchall()
 
@@ -66,12 +118,30 @@ def list_vendors() -> None:
         return
 
     for row in rows:
-        vid, name, category, email, phone, last_contacted = row
+        (
+            vid,
+            name,
+            company,
+            role,
+            category,
+            email,
+            phone,
+            service_area,
+            status,
+            last_contacted,
+        ) = row
+
+        org = company or "-"
+        role_txt = role or "-"
+        area = service_area or "-"
+        stat = status or "unknown"
+
         print(
-            f"[{vid}] {name} | {category} | "
-            f"{email or '-'} | {phone or '-'} | "
+            f"[{vid}] {name} | {org} | {role_txt} | {category} | "
+            f"{email or '-'} | {phone or '-'} | {area} | {stat} | "
             f"last contacted: {last_contacted}"
         )
+
 
 
 def export_csv(path: str) -> None:
@@ -81,12 +151,20 @@ def export_csv(path: str) -> None:
             SELECT
                 id,
                 name,
+                company,
+                role,
                 category,
                 email,
                 phone,
+                service_area,
+                status,
+                source,
+                external_source,
+                external_id,
                 last_contacted,
                 notes,
-                created_at
+                created_at,
+                updated_at
             FROM vendors
             ORDER BY name
             """
@@ -99,12 +177,20 @@ def export_csv(path: str) -> None:
     headers = [
         "id",
         "name",
+        "company",
+        "role",
         "category",
         "email",
         "phone",
+        "service_area",
+        "status",
+        "source",
+        "external_source",
+        "external_id",
         "last_contacted",
         "notes",
         "created_at",
+        "updated_at",
     ]
 
     with open(path, "w", newline="", encoding="utf-8") as f:
@@ -126,6 +212,13 @@ def parse_args() -> argparse.Namespace:
     add.add_argument("--email")
     add.add_argument("--phone")
     add.add_argument("--notes")
+    add.add_argument("--company")
+    add.add_argument("--role")
+    add.add_argument("--service-area")
+    add.add_argument("--status", choices=["preferred", "approved", "backup", "avoid", "unknown"])
+    add.add_argument("--source")
+    add.add_argument("--external-source")
+    add.add_argument("--external-id")
 
     subparsers.add_parser("list-vendors", help="List all vendors")
 
@@ -141,6 +234,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     init_db()
+    migrate_db()
     args = parse_args()
 
     if args.command == "add-vendor":
@@ -150,7 +244,15 @@ def main() -> None:
             email=args.email,
             phone=args.phone,
             notes=args.notes,
+            company=args.company,
+            role=args.role,
+            service_area=args.service_area,
+            status=args.status,
+            source=args.source,
+            external_source=args.external_source,
+            external_id=args.external_id,
         )
+
         print(f"Vendor added: {args.name}")
 
     elif args.command == "list-vendors":
