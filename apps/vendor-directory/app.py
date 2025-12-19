@@ -1,5 +1,7 @@
 import argparse
 import sqlite3
+import csv
+
 from pathlib import Path
 from datetime import datetime
 
@@ -72,6 +74,47 @@ def list_vendors() -> None:
         )
 
 
+def export_csv(path: str) -> None:
+    with get_connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT
+                id,
+                name,
+                category,
+                email,
+                phone,
+                last_contacted,
+                notes,
+                created_at
+            FROM vendors
+            ORDER BY name
+            """
+        ).fetchall()
+
+    if not rows:
+        print("No vendors to export.")
+        return
+
+    headers = [
+        "id",
+        "name",
+        "category",
+        "email",
+        "phone",
+        "last_contacted",
+        "notes",
+        "created_at",
+    ]
+
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(headers)
+        writer.writerows(rows)
+
+    print(f"Exported {len(rows)} vendors to {path}")
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Vendor Directory")
 
@@ -85,6 +128,13 @@ def parse_args() -> argparse.Namespace:
     add.add_argument("--notes")
 
     subparsers.add_parser("list-vendors", help="List all vendors")
+
+    export = subparsers.add_parser("export-csv", help="Export vendors to CSV")
+    export.add_argument(
+        "--path",
+        default="vendors.csv",
+        help="Output CSV file path (default: vendors.csv)",
+    )
 
     return parser.parse_args()
 
@@ -105,6 +155,9 @@ def main() -> None:
 
     elif args.command == "list-vendors":
         list_vendors()
+
+    elif args.command == "export-csv":
+        export_csv(args.path)
 
 
 if __name__ == "__main__":
