@@ -3,7 +3,7 @@ import sqlite3
 import csv
 
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, UTC
 
 DB_PATH = Path(__file__).parent / "vendors.db"
 
@@ -69,7 +69,7 @@ def add_vendor(
     external_id: str | None,
 ) -> None:
 
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(UTC).isoformat()
 
     with get_connection() as conn:
         conn.execute(
