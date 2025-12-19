@@ -49,6 +49,28 @@ def add_vendor(
             (name, category, email, phone, now, notes, now),
         )
 
+def list_vendors() -> None:
+    with get_connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT id, name, category, email, phone, last_contacted
+            FROM vendors
+            ORDER BY name
+            """
+        ).fetchall()
+
+    if not rows:
+        print("No vendors found.")
+        return
+
+    for row in rows:
+        vid, name, category, email, phone, last_contacted = row
+        print(
+            f"[{vid}] {name} | {category} | "
+            f"{email or '-'} | {phone or '-'} | "
+            f"last contacted: {last_contacted}"
+        )
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Vendor Directory")
@@ -61,6 +83,8 @@ def parse_args() -> argparse.Namespace:
     add.add_argument("--email")
     add.add_argument("--phone")
     add.add_argument("--notes")
+
+    subparsers.add_parser("list-vendors", help="List all vendors")
 
     return parser.parse_args()
 
@@ -78,6 +102,9 @@ def main() -> None:
             notes=args.notes,
         )
         print(f"Vendor added: {args.name}")
+
+    elif args.command == "list-vendors":
+        list_vendors()
 
 
 if __name__ == "__main__":
