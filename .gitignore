@@ -1,4 +1,20 @@
-.venv/
+# Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.dist-info/
+.venv/
+
+# Local env/secrets
 .env
+.env.*
+*.key
+*.pem
+credentials*.json
+token*.json
+
+# App runtime artifacts
+logs/
+cache/
