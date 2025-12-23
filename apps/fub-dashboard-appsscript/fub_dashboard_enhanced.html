@@ -1,0 +1,476 @@
+<!doctype html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FUB Lead Intelligence</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin:0; background:#0e3b55; }
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    .header { background:#fff; border-radius:14px; padding:18px 20px; display:flex; align-items:center; justify-content:space-between; }
+    .title { font-size: 26px; color:#0e3b55; margin:0; }
+    .subtitle { margin:4px 0 0; color:#6b7b86; font-size: 13px; }
+    .btn { background:#0e3b55; color:#fff; border:0; border-radius:10px; padding:10px 14px; cursor:pointer; }
+    .muted { color:#8b99a3; font-size: 12px; margin-left: 12px; }
+
+    .cards { display:grid; grid-template-columns: repeat(6, 1fr); gap: 14px; margin-top: 14px; }
+    .card { background:#fff; border-radius:14px; padding: 14px; min-height: 96px; }
+    .card h4 { margin:0; font-size: 12px; color:#5a6a73; letter-spacing: .06em; text-transform: uppercase; }
+    .card .num { margin-top: 10px; font-size: 40px; color:#0e3b55; font-weight: 800; line-height: 1; }
+    .card .hint { margin-top: 8px; font-size: 12px; color:#7a8a94; }
+
+    .panel { background:#fff; border-radius:14px; margin-top: 14px; padding: 14px; }
+    .panelTop { display:flex; align-items:center; justify-content:space-between; gap: 12px; flex-wrap: wrap; }
+    .panelTitle { font-size: 22px; color:#0e3b55; margin: 0; }
+    .filters { display:flex; gap:10px; flex-wrap: wrap; align-items:center; }
+
+    .chip { border: 1px solid #d6dde2; border-radius: 999px; padding: 8px 12px; cursor:pointer; font-size: 13px; background:#fff; user-select:none; }
+    .chip.active { background:#0e3b55; border-color:#0e3b55; color:#fff; }
+
+    .search { flex:1; min-width: 260px; border: 1px solid #d6dde2; border-radius: 10px; padding: 10px 12px; font-size: 14px; }
+
+    table { width:100%; border-collapse: collapse; margin-top: 12px; }
+    th, td { text-align:left; padding: 10px 8px; border-bottom: 1px solid #edf1f4; font-size: 13px; color:#1e2a31; }
+    th { color:#5a6a73; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
+    th.sortable { cursor:pointer; }
+    th.sortable:hover { background:#f6f8fa; }
+
+    .empty { padding: 60px 0; text-align:center; color:#6b7b86; }
+    .err { background:#fff1f1; color:#8b99a3; border:1px solid #f3bcbc; padding: 10px 12px; border-radius: 10px; margin-top: 12px; display:none; }
+    .hidden { display:none; }
+
+    @media (max-width: 1100px) { .cards { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 700px) { .cards { grid-template-columns: repeat(2, 1fr); } }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="header">
+      <div>
+        <h1 class="title">FUB Lead Intelligence</h1>
+        <div class="subtitle">Advanced Lead Scoring & Analytics Dashboard</div>
+      </div>
+      <div>
+        <button class="btn" id="btnRefresh">Refresh</button>
+        <span class="muted" id="updatedAt">Updated: --</span>
+      </div>
+    </div>
+
+    <div id="errorBox" class="err"></div>
+
+    <div class="cards">
+      <div class="card"><h4>Total Leads</h4><div class="num" id="mTotal">0</div><div class="hint">In database</div></div>
+      <div class="card"><h4>Hot Leads</h4><div class="num" id="mHot">0</div><div class="hint">Adaptive top N</div></div>
+      <div class="card"><h4>High Value</h4><div class="num" id="mValue">0</div><div class="hint">Adaptive top N</div></div>
+      <div class="card"><h4>Active (7d)</h4><div class="num" id="mActive">0</div><div class="hint">Recent activity</div></div>
+      <div class="card"><h4>Avg Priority</h4><div class="num" id="mAvg">0</div><div class="hint">Overall score</div></div>
+      <div class="card"><h4>High Intent</h4><div class="num" id="mIntent">0</div><div class="hint">≥ 2 intent signals</div></div>
+    </div>
+
+    <div class="panel">
+      <div class="panelTop">
+        <h2 class="panelTitle">Views</h2>
+        <div class="filters">
+          <div class="chip active" id="tabLeads">Leads</div>
+          <div class="chip" id="tabAction">Action Queue</div>
+        </div>
+        <div class="muted" id="viewHint">Select a view</div>
+      </div>
+    </div>
+
+    <div class="panel" id="panelLeads">
+      <div class="panelTop">
+        <h2 class="panelTitle">Leads</h2>
+        <input class="search" id="search" placeholder="Search by name, email, phone, or stage..." />
+        <div class="filters">
+          <div class="chip active" data-view="all">All Leads</div>
+          <div class="chip" data-view="hot">🔥 Hot</div>
+          <div class="chip" data-view="p90">🔥 90+ Priority</div>
+          <div class="chip" data-view="intent">🎯 High Intent</div>
+          <div class="chip" data-view="value">💎 High Value</div>
+          <div class="chip" data-view="active7">⚡ Active 7d</div>
+        </div>
+      </div>
+      <div class="muted" id="cutoffLine" style="margin-top:10px;">Cutoffs: --</div>
+      <div id="tableWrap"></div>
+    </div>
+
+    <div class="panel hidden" id="panelAction">
+      <div class="panelTop">
+        <h2 class="panelTitle">Action Queue</h2>
+        <div class="muted" id="aqCount">0 items</div>
+      </div>
+
+      <div class="muted" style="margin-top:6px; line-height:1.6;">
+        Tier 1: Immediate contact (hot + recent) |
+        Tier 2: High value warm |
+        Tier 3: Nurture (relationship building) |
+        Tier 4: Re-engage (stale but valuable)
+      </div>
+
+      <div id="actionWrap"></div>
+    </div>
+  </div>
+
+<script>
+  let masterLeads = [];
+  let actionQueue = [];
+  let thresholds = null;
+  let counts = null;
+  let currentView = 'all';
+
+  let aqSortKey = 'tier';
+  let aqSortDir = 'asc';
+
+  let sortKey = 'priority';
+  let sortDir = 'desc';
+
+  // Legacy compatibility, safe no-op for old cached code paths
+  let leads = [];
+
+  function $(id) { return document.getElementById(id); }
+
+  function showError(msg) {
+    const box = $('errorBox');
+    box.style.display = 'block';
+    box.style.color = '#8a1f1f';
+    box.textContent = msg;
+  }
+
+  function clearError() {
+    const box = $('errorBox');
+    box.style.display = 'none';
+    box.textContent = '';
+  }
+
+  function setTab(tab) {
+    const leadsOn = tab === 'leads';
+    $('panelLeads').classList.toggle('hidden', !leadsOn);
+    $('panelAction').classList.toggle('hidden', leadsOn);
+    $('tabLeads').classList.toggle('active', leadsOn);
+    $('tabAction').classList.toggle('active', !leadsOn);
+    $('viewHint').textContent = leadsOn ? 'Lead list and filters' : 'Daily action plan by tier';
+  }
+
+  function setUpdatedAt(iso) {
+    if (!iso) { $('updatedAt').textContent = 'Updated: --'; return; }
+    const d = new Date(iso);
+    $('updatedAt').textContent = 'Updated: ' + (isNaN(d.getTime()) ? iso : d.toLocaleString());
+  }
+
+  function setMetricsFromPayload(payload) {
+    const m = payload.metrics || {};
+    const c = payload.counts || {};
+
+    $('mTotal').textContent = m.totalLeads ?? 0;
+    $('mHot').textContent = c.hot ?? 0;
+    $('mValue').textContent = c.value ?? 0;
+    $('mActive').textContent = m.active7d ?? 0;
+    $('mAvg').textContent = m.avgPriority ?? 0;
+    $('mIntent').textContent = m.highIntent ?? 0;
+  }
+
+  function setChipLabels() {
+    const map = {};
+    document.querySelectorAll('#panelLeads .chip[data-view]').forEach(c => { map[c.dataset.view] = c; });
+
+    const all = counts?.all ?? 0;
+    const hot = counts?.hot ?? 0;
+    const p90 = counts?.p90 ?? 0;
+    const intent = counts?.intent ?? 0;
+    const value = counts?.value ?? 0;
+    const active7 = counts?.active7 ?? 0;
+
+    if (map.all) map.all.textContent = `All Leads (${all})`;
+    if (map.hot) map.hot.textContent = `🔥 Hot (${hot})`;
+    if (map.p90) map.p90.textContent = `🔥 90+ Priority (${p90})`;
+    if (map.intent) map.intent.textContent = `🎯 High Intent (${intent})`;
+    if (map.value) map.value.textContent = `💎 High Value (${value})`;
+    if (map.active7) map.active7.textContent = `⚡ Active 7d (${active7})`;
+  }
+
+  function setCutoffLine() {
+    const el = $('cutoffLine');
+    if (!el || !thresholds) { el.textContent = 'Cutoffs: --'; return; }
+
+    el.textContent =
+      `Cutoffs: Hot = top ${thresholds.hotTopN} priority (cutoff ${thresholds.hotPriorityCutoff}), ` +
+      `High Value = top ${thresholds.valueTopN} value (cutoff ${thresholds.valueCutoff}), ` +
+      `High Intent = ≥ ${thresholds.intentMinSignals} signals, Active = ≤ ${thresholds.activeDays} days`;
+  }
+
+  function setActiveChip(view) {
+    document.querySelectorAll('#panelLeads .chip[data-view]').forEach(c => {
+      c.classList.toggle('active', c.dataset.view === view);
+    });
+  }
+
+  function viewFilter(inputLeads, view) {
+    const arr = Array.isArray(inputLeads) ? inputLeads : [];
+
+    if (view === 'hot') {
+      const cut = Number(thresholds?.hotPriorityCutoff) || 0;
+      return arr.filter(l => (Number(l.priority) || 0) >= cut);
+    }
+
+    if (view === 'p90') return arr.filter(l => (Number(l.priority) || 0) >= 90);
+
+    if (view === 'intent') return arr.filter(l => (l.intentSignals || []).length >= 2);
+
+    if (view === 'value') {
+      const cut = Number(thresholds?.valueCutoff) || 0;
+      return arr.filter(l => (Number(l.value) || 0) >= cut);
+    }
+
+    if (view === 'active7') return arr.filter(l => (Number(l.daysSinceActivity) || 999) <= 7);
+
+    return arr;
+  }
+
+  function searchFilter(inputLeads, q) {
+    const arr = Array.isArray(inputLeads) ? inputLeads : [];
+    q = (q || '').trim().toLowerCase();
+    if (!q) return arr;
+
+    return arr.filter(l => {
+      const hay = [l.name, l.email, l.phone, l.stage]
+        .map(x => String(x || '').toLowerCase())
+        .join(' ');
+      return hay.includes(q);
+    });
+  }
+
+  function compare(a, b, key, dir) {
+    const mult = dir === 'asc' ? 1 : -1;
+    const av = a?.[key];
+    const bv = b?.[key];
+
+    if (key === 'name' || key === 'stage') {
+      return mult * String(av || '').localeCompare(String(bv || ''));
+    }
+    return mult * ((Number(av) || 0) - (Number(bv) || 0));
+  }
+
+  function num(v) {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return '0';
+    return (Math.round(n * 10) / 10).toString();
+  }
+
+  function escapeHtml(s) {
+    return String(s || '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#039;');
+  }
+
+  function renderLeadsTable() {
+    const q = $('search').value || '';
+    const base = viewFilter(masterLeads, currentView);
+    const shown = searchFilter(base, q);
+
+    const wrap = $('tableWrap');
+    if (!shown.length) {
+      wrap.innerHTML = '<div class="empty">No leads found</div>';
+      return;
+    }
+
+    const rows = shown
+      .slice()
+      .sort((a,b) => compare(a, b, sortKey, sortDir))
+      .slice(0, 250);
+
+    wrap.innerHTML = `
+      <table>
+        <thead>
+          <tr>
+            <th class="sortable" data-sort="name">Name</th>
+            <th class="sortable" data-sort="stage">Stage</th>
+            <th class="sortable" data-sort="priority">Priority</th>
+            <th class="sortable" data-sort="heat">Heat</th>
+            <th class="sortable" data-sort="value">Value</th>
+            <th class="sortable" data-sort="intentCount">Intent</th>
+            <th class="sortable" data-sort="daysSinceActivity">Days Since</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(r => `
+            <tr>
+              <td>${escapeHtml(r.name)}</td>
+              <td>${escapeHtml(r.stage)}</td>
+              <td>${num(r.priority)}</td>
+              <td>${num(r.heat)}</td>
+              <td>${num(r.value)}</td>
+              <td>${num(r.intentCount)}</td>
+              <td>${num(r.daysSinceActivity)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+
+    wrap.querySelectorAll('th[data-sort]').forEach(th => {
+      th.addEventListener('click', () => {
+        const key = th.dataset.sort;
+        if (sortKey === key) {
+          sortDir = (sortDir === 'asc') ? 'desc' : 'asc';
+        } else {
+          sortKey = key;
+          sortDir = (key === 'name' || key === 'stage') ? 'asc' : 'desc';
+        }
+        renderLeadsTable();
+      });
+    });
+  }
+
+  function renderActionQueue() {
+    const wrap = $('actionWrap');
+    $('aqCount').textContent = `${actionQueue.length} items`;
+
+    if (!actionQueue.length) {
+      wrap.innerHTML = '<div class="empty">No action items right now</div>';
+      return;
+    }
+
+    const rows = actionQueue
+      .slice()
+      .sort((a, b) => compare(a, b, aqSortKey, aqSortDir))
+      .slice(0, 250);
+
+    wrap.innerHTML = `
+      <table>
+        <thead>
+          <tr>
+            <th class="sortable" data-aqsort="tier">Tier</th>
+            <th class="sortable" data-aqsort="name">Name</th>
+            <th class="sortable" data-aqsort="stage">Stage</th>
+            <th>Reason</th>
+            <th class="sortable" data-aqsort="priority">Priority</th>
+            <th class="sortable" data-aqsort="heat">Heat</th>
+            <th class="sortable" data-aqsort="value">Value</th>
+            <th class="sortable" data-aqsort="intentCount">Intent</th>
+            <th class="sortable" data-aqsort="daysSinceActivity">Days Since</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(r => `
+            <tr>
+              <td>${num(r.tier)}</td>
+              <td>${escapeHtml(r.name)}</td>
+              <td>${escapeHtml(r.stage)}</td>
+              <td>${escapeHtml(r.reason)}</td>
+              <td>${num(r.priority)}</td>
+              <td>${num(r.heat)}</td>
+              <td>${num(r.value)}</td>
+              <td>${num(r.intentCount)}</td>
+              <td>${num(r.daysSinceActivity)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+
+    wrap.querySelectorAll('th[data-aqsort]').forEach(th => {
+      th.addEventListener('click', () => {
+        const key = th.dataset.aqsort;
+        if (aqSortKey === key) {
+          aqSortDir = (aqSortDir === 'asc') ? 'desc' : 'asc';
+        } else {
+          aqSortKey = key;
+          aqSortDir = (key === 'name' || key === 'stage') ? 'asc' : 'desc';
+          if (key === 'tier') aqSortDir = 'asc';
+        }
+        renderActionQueue();
+      });
+    });
+  }
+
+
+  function loadData() {
+    clearError();
+    $('tableWrap').innerHTML = '<div class="empty">Loading…</div>';
+    $('actionWrap').innerHTML = '<div class="empty">Loading…</div>';
+
+    google.script.run
+      .withSuccessHandler((payload) => {
+        if (payload?.meta?.error) {
+          showError(payload.meta.error + (payload.meta.missing ? (' | missing: ' + payload.meta.missing.join(', ')) : ''));
+          masterLeads = [];
+          leads = [];
+          actionQueue = [];
+          thresholds = null;
+          counts = null;
+
+          setMetricsFromPayload(payload);
+          setUpdatedAt(payload.meta?.updatedAt || '');
+          setChipLabels();
+          setCutoffLine();
+
+          renderLeadsTable();
+          renderActionQueue();
+          return;
+        }
+
+        masterLeads = Array.isArray(payload.leads) ? payload.leads : [];
+        leads = masterLeads; // legacy compatibility
+        actionQueue = Array.isArray(payload.actionQueue) ? payload.actionQueue : [];
+        thresholds = payload.thresholds || null;
+        counts = payload.counts || null;
+
+        setMetricsFromPayload(payload);
+        setUpdatedAt(payload.meta?.updatedAt || '');
+        setChipLabels();
+        setCutoffLine();
+
+        renderLeadsTable();
+        renderActionQueue();
+      })
+      .withFailureHandler((err) => {
+        showError(String(err?.message || err));
+        masterLeads = [];
+        leads = [];
+        actionQueue = [];
+        thresholds = null;
+        counts = null;
+
+        setUpdatedAt('');
+        $('mTotal').textContent = 0;
+        $('mHot').textContent = 0;
+        $('mValue').textContent = 0;
+        $('mActive').textContent = 0;
+        $('mAvg').textContent = 0;
+        $('mIntent').textContent = 0;
+
+        setChipLabels();
+        setCutoffLine();
+        renderLeadsTable();
+        renderActionQueue();
+      })
+      .getDashboardData();
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    $('tabLeads').addEventListener('click', () => setTab('leads'));
+    $('tabAction').addEventListener('click', () => setTab('action'));
+    setTab('leads');
+
+    document.querySelectorAll('#panelLeads .chip[data-view]').forEach(c => {
+      c.addEventListener('click', () => {
+        currentView = c.dataset.view;
+        setActiveChip(currentView);
+        renderLeadsTable();
+      });
+    });
+
+    $('search').addEventListener('input', () => renderLeadsTable());
+    $('btnRefresh').addEventListener('click', () => loadData());
+
+    loadData();
+  });
+</script>
+</body>
+</html>
