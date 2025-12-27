@@ -1,0 +1,32 @@
+# Credentials and secrets (CRITICAL - never commit these!)
+.env
+service_account.json
+
+# Virtual environments
+venv_fub/
+venv/
+env/
+
+# Logs, cache and debug
+logs/
+cache/
+debug/
+*.log
+
+# Local mounts
+versions/
+mnt/
+
+# Archives and downloads
+*.zip
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# OS files
+.DS_Store
+Thumbs.db
