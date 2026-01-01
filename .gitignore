@@ -42,3 +42,8 @@ cron_logs/
 # IDE
 .vscode/settings.json
 .idea/
+
+# Backup files
+BACKUP.*
+*.backup
+*.bak
