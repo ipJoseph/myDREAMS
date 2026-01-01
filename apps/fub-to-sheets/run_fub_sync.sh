@@ -1,22 +1,43 @@
 #!/bin/bash
+# myDREAMS FUB Sync - Cron Wrapper
+# Runs the FUB to Sheets sync with proper environment and logging
 
-# FUB to Sheets Cron Wrapper
-# This script ensures the proper working directory and environment for cron execution
+set -e  # Exit on error
 
-# Set the script directory (change this to your actual path)
-SCRIPT_DIR="/home/bigeug/Insync/joseph@integritypursuits.com/Google Drive/fub-sheets-v2"
+# Project paths
+PROJECT_ROOT="/home/bigeug/myDREAMS"
+SCRIPT_DIR="$PROJECT_ROOT/apps/fub-to-sheets"
+VENV_PYTHON="$PROJECT_ROOT/.venv/bin/python"
+CRON_LOG_DIR="$SCRIPT_DIR/cron_logs"
+
+# Create log directory if it doesn't exist
+mkdir -p "$CRON_LOG_DIR"
+
+# Log file with timestamp
+LOG_FILE="$CRON_LOG_DIR/$(date +%Y%m%d_%H%M%S).log"
 
 # Change to script directory
 cd "$SCRIPT_DIR" || exit 1
 
-# Load environment variables from .env if it exists
-if [ -f "$SCRIPT_DIR/.env" ]; then
-    export $(grep -v '^#' "$SCRIPT_DIR/.env" | xargs)
+# Run the sync and log output
+# Note: Python script loads .env itself via python-dotenv
+echo "========================================" >> "$LOG_FILE"
+echo "myDREAMS FUB Sync - $(date)" >> "$LOG_FILE"
+echo "========================================" >> "$LOG_FILE"
+
+"$VENV_PYTHON" "$SCRIPT_DIR/fub_to_sheets_v2.py" >> "$LOG_FILE" 2>&1
+
+EXIT_CODE=$?
+
+if [ $EXIT_CODE -eq 0 ]; then
+    echo "✅ Sync completed successfully" >> "$LOG_FILE"
+else
+    echo "❌ Sync failed with exit code: $EXIT_CODE" >> "$LOG_FILE"
 fi
 
-# Run the Python script with full path to Python interpreter
-# Using python3 explicitly to ensure correct version
-"$REPO_ROOT/.venv/bin/python" "$SCRIPT_DIR/fub_to_sheets_v2.py"
+echo "========================================" >> "$LOG_FILE"
 
-# Exit with the same code as the Python script
-exit $?
+# Keep only last 30 days of cron logs
+find "$CRON_LOG_DIR" -name "*.log" -mtime +30 -delete
+
+exit $EXIT_CODE
