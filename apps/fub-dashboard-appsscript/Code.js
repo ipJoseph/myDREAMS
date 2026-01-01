@@ -1,3 +1,4 @@
+// myDREAMS Dashboard - Professional Apps Script Development
 /**
  * John Tharp Team Lead Intelligence Dashboard - v4
  * Single source of truth: Contacts sheet -> getDashboardData()
