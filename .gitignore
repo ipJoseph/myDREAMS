@@ -18,3 +18,27 @@ token*.json
 # App runtime artifacts
 logs/
 cache/
+
+# myDREAMS Secrets (never commit!)
+.env
+.env.*
+service_account.json
+session.json
+*.json.bak
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# Logs and cache
+logs/
+cache/
+*.log
+cron_logs/
+
+# IDE
+.vscode/settings.json
+.idea/
