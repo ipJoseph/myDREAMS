@@ -1,0 +1,22 @@
+Here's a thought. Ultimately, we are building a Desktop Real Estate Agent Management System (DREAM)
+
+Our ultimate goal is to match people to the property they are searching for.  On one side we have their interests as captured in direct communication, or more often, exhibited in the searches they make, favorites, saves, shares, and inquiries. We should be able to get those activities through screen scrapes (True Geeks) or directly through the API FUB).
+
+On the other hand, we have properties -- A WORLD OF PROPERTIES. We see these in public sources, like Zillow, Trulia, Realtor.com, and Homes.com,  We can scrape and get limited amounts of information here.
+
+We see them in private sources like an MLS. In an given MLS that we have agent's access to, we have much more data, but is is limited in geography to that MLS, and it is formatted to the specs of that MLS.  THis means if we are putting together packages for taking our clients on showings, the formats are not the same and we cannot send a link to see these all in one convenient place. This is another problem.  
+
+We can get information via hybrid sources like the team's IDX website (smokymountainhomes4sale.com) . The public can access these properties, but the agent's on that team should have access to even more information. Unfortunately, in my situation, on the JonTharpHomes team, I do not have extended access to information.
+
+So when Dolores is working. Most of the time see is retrieving what the customer wants via emails and texts in  FUB off through the activity panel in FUB. [ITEM 1]
+
+She then begins a search for property. Zillow is a great source because it is not bound by geography like the MLS, or IDX site, is. However, since she does not have access to all the information in the MLS, she can get MLS numbers and then go and to the MLS and get more info (parcel id, listing agent details and number, agent's notes, etc). [ITEM 2]
+
+Finally we must put together a coherent, world class, attractive package [ITEM 3] that can be given to the client. (RPR does a good job of this but is constrained to one property at a time.)
+
+I am telling you all this as it bounds where I want to go with myDREAMS. Image us, Claude, [ITEM 1] -  providing Dolores with an interface that automatically monitors and gets the requirements from buyers from their actions and their words. This is collated and updated periodically or triggered in real time via a webhook, or some other equally cool technology.
+
+Once we have that in a table, we use those to search first the properties table we have built, then go out to zillow (realtor,com . . .) and search on those criteria. [ITEM 2] We automatically download that information into our property table. Then we generate a list of MLS numbers that Dolores can enter into the MLS or IDX, create a saved search. Ultimately, we automate this too.
+
+[ITEM3] Finally, we use Canva, airtable, notion, RPR, or some other tool that you recommend, or build ,to automate putting the package information together for a showing day. 
+

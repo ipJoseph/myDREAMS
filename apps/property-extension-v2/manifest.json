@@ -1,0 +1,47 @@
+{
+  "manifest_version": 3,
+  "name": "myDREAMS Property Capture",
+  "version": "2.0.0",
+  "description": "Capture Zillow property data for the DREAMS platform. Supports single property and bulk search result scraping.",
+  "author": "Jon Tharp Homes",
+  
+  "permissions": [
+    "activeTab",
+    "storage",
+    "downloads",
+    "scripting",
+    "tabs"
+  ],
+  
+  "host_permissions": [
+    "https://www.zillow.com/*",
+    "https://api.notion.com/*"
+  ],
+  
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  
+  "content_scripts": [
+    {
+      "matches": ["https://www.zillow.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  
+  "background": {
+    "service_worker": "background.js"
+  }
+}

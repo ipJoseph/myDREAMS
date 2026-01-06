@@ -111,24 +111,6 @@ class Config:
     CALL_LIST_MIN_PRIORITY = int(os.getenv("CALL_LIST_MIN_PRIORITY", "45"))
     CALL_LIST_MAX_ROWS = int(os.getenv("CALL_LIST_MAX_ROWS", "50"))
 
-    # Exclusion Filters
-    EXCLUDE_LEAD_IDS = os.getenv("EXCLUDE_LEAD_IDS", "")
-    EXCLUDE_EMAILS = os.getenv("EXCLUDE_EMAILS", "")
-
-    @classmethod
-    def get_excluded_ids(cls) -> set:
-        """Parse comma-separated excluded lead IDs into a set"""
-        if not cls.EXCLUDE_LEAD_IDS:
-            return set()
-        return {id.strip() for id in cls.EXCLUDE_LEAD_IDS.split(",") if id.strip()}
-
-    @classmethod
-    def get_excluded_emails(cls) -> set:
-        """Parse comma-separated excluded emails into a set (lowercase for comparison)"""
-        if not cls.EXCLUDE_EMAILS:
-            return set()
-        return {email.strip().lower() for email in cls.EXCLUDE_EMAILS.split(",") if email.strip()}
-
     @classmethod
     def validate(cls):
         """Validate required configuration"""
@@ -829,35 +811,6 @@ def write_table_to_worksheet(worksheet, header: List[str], rows: List[List]):
     logger.info(f"✓ Wrote {len(rows)} rows to {worksheet.title}")
 
 
-def should_exclude_person(person: Dict, excluded_ids: set, excluded_emails: set) -> bool:
-    """
-    Check if a person should be excluded based on ID or email
-    
-    Args:
-        person: FUB person record
-        excluded_ids: Set of lead IDs to exclude
-        excluded_emails: Set of email addresses to exclude (lowercase)
-    
-    Returns:
-        True if person should be excluded, False otherwise
-    """
-    # Check ID exclusion
-    person_id = str(person.get("id", ""))
-    if person_id in excluded_ids:
-        return True
-    
-    # Check email exclusion
-    emails = person.get("emails", [])
-    if isinstance(emails, list):
-        for email_obj in emails:
-            if isinstance(email_obj, dict):
-                email = email_obj.get("value", "").strip().lower()
-                if email and email in excluded_emails:
-                    return True
-    
-    return False
-
-
 def build_contact_rows(
     people: List[Dict],
     person_stats: Dict[str, Dict],
@@ -1299,26 +1252,6 @@ def main():
 
         # Fetch data from FUB
         people = fub.fetch_people()
-        
-        # Apply exclusion filters
-        excluded_ids = Config.get_excluded_ids()
-        excluded_emails = Config.get_excluded_emails()
-        
-        if excluded_ids or excluded_emails:
-            original_count = len(people)
-            people = [p for p in people if not should_exclude_person(p, excluded_ids, excluded_emails)]
-            excluded_count = original_count - len(people)
-            
-            logger.info("Applied exclusion filters:")
-            if excluded_ids:
-                logger.info(f"  - Excluded IDs: {len(excluded_ids)} configured")
-            if excluded_emails:
-                logger.info(f"  - Excluded emails: {len(excluded_emails)} configured")
-            logger.info(f"  - Filtered out: {excluded_count} contacts")
-            logger.info(f"  - Remaining: {len(people)} contacts")
-        else:
-            logger.info("No exclusion filters configured")
-        
         calls = fub.fetch_calls()
         texts = fub.fetch_text_messages_parallel(people)
         events = fub.fetch_events()

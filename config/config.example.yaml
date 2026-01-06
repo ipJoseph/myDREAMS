@@ -1,0 +1,131 @@
+# DREAMS Platform Configuration
+# Copy to config.yaml and customize
+
+# Database settings
+database:
+  path: ${DREAMS_DB_PATH}
+  wal_mode: true
+  busy_timeout: 5000
+  backup:
+    enabled: true
+    frequency: daily
+    retain_days: 30
+
+# Sync schedules (cron format)
+sync:
+  leads:
+    enabled: true
+    schedule: "0 6,18 * * *"  # 6 AM and 6 PM
+    batch_size: 100
+    full_sync_days: 7  # Full resync every 7 days
+  
+  properties:
+    enabled: true
+    schedule: "0 7 * * *"  # 7 AM daily
+    monitoring_enabled: true
+    monitoring_batch_size: 50
+  
+  activities:
+    enabled: true
+    schedule: "*/15 * * * *"  # Every 15 minutes
+    lookback_hours: 24
+
+# Matching algorithm settings
+matching:
+  weights:
+    price: 0.25
+    location: 0.20
+    size: 0.20
+    features: 0.15
+    style: 0.10
+    recency: 0.10
+  
+  # How much to weight behavioral vs stated preferences
+  behavioral_weight: 0.6
+  stated_weight: 0.4
+  
+  # Minimum score to consider a match
+  min_score_threshold: 50
+  
+  # Maximum matches to generate per buyer
+  max_matches_per_buyer: 20
+
+# Adapter configuration
+adapters:
+  crm:
+    active: followupboss
+    available:
+      - followupboss
+      - salesforce
+      - sierra
+    
+    followupboss:
+      # Additional FUB-specific settings
+      include_tags: true
+      include_custom_fields: true
+  
+  property:
+    active: 
+      - zillow_extension
+      - scraperapi
+    available:
+      - zillow_extension
+      - scraperapi
+      - realtor
+      - mls_api
+    
+    scraperapi:
+      max_concurrent_requests: 5
+      retry_attempts: 3
+  
+  presentation:
+    active: notion
+    available:
+      - notion
+      - airtable
+      - sheets
+    
+    notion:
+      sync_bidirectional: true
+      sync_interval_minutes: 30
+    
+    sheets:
+      # For backwards compatibility with existing myDREAMS setup
+      enabled: true
+      lead_sheet_name: "FUB Contacts"
+      scoring_sheet_name: "Lead Scoring"
+
+# Reporting settings
+reporting:
+  daily_report:
+    enabled: true
+    time: "06:30"
+    include_priority_list: true
+    include_hot_leads: true
+    max_priority_leads: 20
+  
+  weekly_summary:
+    enabled: true
+    day: monday
+    time: "07:00"
+
+# Package generation settings
+packages:
+  default_template: "showing_package"
+  include_photos: true
+  max_photos_per_property: 5
+  include_map: true
+  include_driving_directions: true
+  branding:
+    company_name: "Jon Tharp Homes"
+    logo_path: "./templates/assets/logo.png"
+    primary_color: "#1a365d"
+    accent_color: "#2b6cb0"
+
+# Logging
+logging:
+  level: INFO
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "./logs/dreams.log"
+  max_size_mb: 10
+  backup_count: 5

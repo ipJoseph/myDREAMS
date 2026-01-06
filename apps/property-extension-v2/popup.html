@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>myDREAMS Property Capture</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      width: 440px;
+      min-height: 850px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 13px;
+      color: #1a1a1a;
+      background: #f8f9fa;
+    }
+    
+    .header {
+      background: linear-gradient(135deg, #1a365d 0%, #2b6cb0 100%);
+      color: white;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    
+    .header img {
+      width: 28px;
+      height: 28px;
+    }
+    
+    .header h1 {
+      font-size: 15px;
+      font-weight: 600;
+    }
+    
+    .header-actions {
+      margin-left: auto;
+      display: flex;
+      gap: 8px;
+    }
+    
+    .header-btn {
+      background: rgba(255,255,255,0.2);
+      border: none;
+      color: white;
+      padding: 4px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 11px;
+    }
+    
+    .header-btn:hover {
+      background: rgba(255,255,255,0.3);
+    }
+    
+    /* Page mode indicator */
+    .mode-banner {
+      padding: 8px 16px;
+      font-size: 12px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .mode-banner.search-mode {
+      background: #e8f4fd;
+      color: #1565c0;
+    }
+    
+    .mode-banner.property-mode {
+      background: #e6f4ea;
+      color: #137333;
+    }
+    
+    .mode-banner.error-mode {
+      background: #fce8e6;
+      color: #c5221f;
+    }
+    
+    .content {
+      padding: 16px;
+    }
+    
+    .status {
+      padding: 10px 12px;
+      border-radius: 6px;
+      margin-bottom: 12px;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .status.loading { background: #e8f4fd; color: #1a73e8; }
+    .status.ready { background: #e6f4ea; color: #137333; }
+    .status.error { background: #fce8e6; color: #c5221f; }
+    
+    .spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid currentColor;
+      border-right-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      display: inline-block;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    /* Property Preview */
+    .property-preview {
+      background: white;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 14px;
+      margin-top: 12px;
+    }
+    
+    .property-preview h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #1a365d;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #eee;
+    }
+    
+    .property-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px 16px;
+    }
+    
+    .property-detail {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      padding: 2px 0;
+    }
+    
+    .property-detail span { color: #666; }
+    .property-detail strong { color: #1a1a1a; }
+    
+    /* Bulk Results */
+    .bulk-results {
+      background: white;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      max-height: 250px;
+      overflow-y: auto;
+    }
+    
+    .bulk-header {
+      padding: 10px 14px;
+      background: #f5f5f5;
+      border-bottom: 1px solid #e0e0e0;
+      font-weight: 600;
+      font-size: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+    }
+    
+    .bulk-actions {
+      display: flex;
+      gap: 8px;
+    }
+    
+    .bulk-action-btn {
+      background: #2b6cb0;
+      color: white;
+      border: none;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      cursor: pointer;
+    }
+    
+    .bulk-action-btn:hover { background: #1a4971; }
+    .bulk-action-btn.secondary { background: #666; }
+    
+    .property-row {
+      padding: 10px 14px;
+      border-bottom: 1px solid #f0f0f0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .property-row:last-child { border-bottom: none; }
+    
+    .property-row input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+    }
+    
+    .property-row-info {
+      flex: 1;
+      min-width: 0;
+    }
+    
+    .property-row-address {
+      font-size: 12px;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    
+    .property-row-details {
+      font-size: 10px;
+      color: #666;
+      margin-top: 2px;
+    }
+    
+    .property-row-price {
+      font-size: 12px;
+      font-weight: 600;
+      color: #137333;
+    }
+    
+    .data-legend {
+      font-size: 10px;
+      color: #666;
+      text-align: center;
+      padding: 8px;
+      border-top: 1px solid #eee;
+      margin-top: 4px;
+    }
+    
+    /* Research Context */
+    .research-context {
+      background: white;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+    
+    .research-context h4 {
+      font-size: 12px;
+      font-weight: 600;
+      color: #1a365d;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    
+    .form-group {
+      margin-bottom: 10px;
+    }
+    
+    .form-group:last-child { margin-bottom: 0; }
+    
+    .form-row {
+      display: flex;
+      gap: 12px;
+    }
+    
+    .form-row .form-group {
+      margin-bottom: 8px;
+    }
+    
+    .form-group label {
+      display: block;
+      font-size: 11px;
+      font-weight: 500;
+      color: #555;
+      margin-bottom: 4px;
+    }
+    
+    .form-group input,
+    .form-group select {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 13px;
+    }
+    
+    .form-group input:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: #2b6cb0;
+    }
+    
+    .form-hint {
+      font-size: 10px;
+      color: #888;
+      margin-top: 3px;
+    }
+    
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    
+    .checkbox-row input { width: 16px; height: 16px; }
+    .checkbox-row label { font-size: 12px; color: #555; }
+    
+    /* Buttons */
+    .btn-primary {
+      width: 100%;
+      padding: 12px;
+      background: linear-gradient(135deg, #137333 0%, #1e8e3e 100%);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(19, 115, 51, 0.3);
+    }
+    
+    .btn-primary:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    
+    .btn-secondary {
+      background: linear-gradient(135deg, #2b6cb0 0%, #3182ce 100%);
+    }
+    
+    .btn-secondary:hover:not(:disabled) {
+      box-shadow: 0 4px 12px rgba(43, 108, 176, 0.3);
+    }
+    
+    /* Export buttons row */
+    .export-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    
+    .export-row button {
+      flex: 1;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      background: white;
+      font-size: 11px;
+      cursor: pointer;
+    }
+    
+    .export-row button:hover {
+      background: #f5f5f5;
+      border-color: #2b6cb0;
+    }
+    
+    /* Bulk action buttons */
+    .bulk-buttons {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    
+    .bulk-buttons .btn-primary {
+      flex: 1;
+      font-size: 12px;
+      padding: 12px 8px;
+    }
+    
+    .btn-deep {
+      background: linear-gradient(135deg, #1a5f7a 0%, #2d8b5a 100%) !important;
+    }
+    
+    .btn-deep:hover:not(:disabled) {
+      background: linear-gradient(135deg, #134a5f 0%, #236b46 100%) !important;
+    }
+    
+    /* Progress bar */
+    .scrape-progress {
+      margin: 12px 0;
+      padding: 12px;
+      background: #f0f7ff;
+      border-radius: 8px;
+      border: 1px solid #cce0ff;
+    }
+    
+    .progress-bar {
+      height: 20px;
+      background: #e0e0e0;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #1a73e8, #34a853);
+      border-radius: 10px;
+      transition: width 0.3s ease;
+      width: 0%;
+    }
+    
+    .progress-text {
+      text-align: center;
+      margin-top: 8px;
+      font-size: 12px;
+      color: #444;
+    }
+    
+    .progress-text.error {
+      color: #d32f2f;
+    }
+    
+    .progress-text.success {
+      color: #2d8b5a;
+      font-weight: 600;
+    }
+    
+    /* Config Section */
+    #config-section {
+      display: none;
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid #e0e0e0;
+    }
+    
+    #config-section h4 {
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+    
+    /* Footer */
+    .footer {
+      padding: 8px 16px;
+      background: #f0f0f0;
+      border-top: 1px solid #e0e0e0;
+      font-size: 10px;
+      color: #888;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <img src="icons/icon48.png" alt="myDREAMS">
+    <h1>myDREAMS Property Capture</h1>
+    <div class="header-actions">
+      <button id="refresh-btn" class="header-btn" title="Refresh">🔄</button>
+      <button id="settings-btn" class="header-btn" title="Settings">⚙️</button>
+    </div>
+  </div>
+  
+  <div id="mode-banner" class="mode-banner">
+    <!-- Populated by JS -->
+  </div>
+  
+  <div class="content">
+    <div id="status" class="status loading">
+      <span class="spinner"></span> Detecting page...
+    </div>
+    
+    <!-- Single Property View -->
+    <div id="single-property-view" style="display: none;">
+      <div class="research-context">
+        <h4>📋 Research Context</h4>
+        <div class="form-row">
+          <div class="form-group" style="flex: 2;">
+            <label for="initiated-for">Added For (Lead Name)</label>
+            <input type="text" id="initiated-for" placeholder="e.g., Jim Lathren">
+          </div>
+          <div class="form-group" style="flex: 1;">
+            <label for="added-by">Added By</label>
+            <select id="added-by">
+              <option value="Joseph">Joseph</option>
+              <option value="Dolores">Dolores</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+        </div>
+        <div class="checkbox-row">
+          <input type="checkbox" id="open-in-notion" checked>
+          <label for="open-in-notion">Open in Notion after saving</label>
+        </div>
+      </div>
+      
+      <button id="capture-btn" class="btn-primary" disabled>
+        ✅ Add to DREAMS
+      </button>
+      
+      <div class="property-preview" id="property-preview"></div>
+    </div>
+    
+    <!-- Bulk Results View -->
+    <div id="bulk-results-view" style="display: none;">
+      <div class="bulk-results">
+        <div class="bulk-header">
+          <span id="bulk-count">0 Properties Found</span>
+          <div class="bulk-actions">
+            <button id="select-all-btn" class="bulk-action-btn">Select All</button>
+            <button id="deselect-all-btn" class="bulk-action-btn secondary">Deselect</button>
+          </div>
+        </div>
+        <div id="bulk-list">
+          <!-- Property rows populated by JS -->
+        </div>
+      </div>
+      
+      <div class="research-context">
+        <h4>📋 Bulk Research Context</h4>
+        <div class="form-group">
+          <label for="bulk-initiated-for">Added For (Lead Name)</label>
+          <input type="text" id="bulk-initiated-for" placeholder="e.g., Jim Lathren">
+        </div>
+        <div class="form-group">
+          <label for="bulk-added-by">Added By</label>
+          <select id="bulk-added-by">
+            <option value="Joseph">Joseph</option>
+            <option value="Dolores">Dolores</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+      </div>
+      
+      <!-- Progress indicator for deep scrape -->
+      <div id="scrape-progress" class="scrape-progress" style="display: none;">
+        <div class="progress-bar">
+          <div class="progress-fill" id="progress-fill"></div>
+        </div>
+        <div class="progress-text" id="progress-text">Preparing...</div>
+      </div>
+      
+      <div class="bulk-buttons">
+        <button id="bulk-capture-btn" class="btn-primary" disabled title="Quick add with basic data from search results">
+          ⚡ Quick Add Selected
+        </button>
+        <button id="deep-scrape-btn" class="btn-primary btn-deep" disabled title="Opens each listing to capture full details (slower but complete)">
+          🔍 Deep Scrape Selected
+        </button>
+      </div>
+      
+      <div class="export-row">
+        <button id="export-csv-btn">📄 Export CSV</button>
+        <button id="copy-data-btn">📋 Copy Data</button>
+      </div>
+    </div>
+    
+    <!-- Config Section -->
+    <div id="config-section">
+      <h4>⚙️ Configuration</h4>
+      <div class="form-group">
+        <label>Notion API Key</label>
+        <input type="password" id="api-key" placeholder="ntn_...">
+      </div>
+      <button id="save-config" class="btn-primary" style="margin-top: 8px;">
+        Save Configuration
+      </button>
+    </div>
+  </div>
+  
+  <div class="footer">
+    myDREAMS Platform v2 • Jon Tharp Homes
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>

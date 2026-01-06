@@ -1,0 +1,50 @@
+{
+  "manifest_version": 3,
+  "name": "myDREAMS Property Capture",
+  "version": "1.0.0",
+  "description": "Capture property details from Zillow, Realtor.com, and MLS sites directly to Notion",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://*.zillow.com/*",
+    "https://*.realtor.com/*",
+    "https://*.trulia.com/*",
+    "https://*.homes.com/*",
+    "https://www.smokymountainhomes4sale.com/*",
+    "https://smokymountainhomes4sale.com/*",
+    "https://api.notion.com/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.zillow.com/*",
+        "https://*.realtor.com/*",
+        "https://*.trulia.com/*",
+        "https://*.homes.com/*",
+        "https://www.smokymountainhomes4sale.com/*",
+        "https://smokymountainhomes4sale.com/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

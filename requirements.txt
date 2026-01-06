@@ -1,0 +1,51 @@
+# DREAMS Platform Dependencies
+
+# Core
+python-dotenv>=1.0.0
+pyyaml>=6.0
+
+# Database
+# SQLite is built into Python, no additional package needed
+
+# HTTP & APIs
+requests>=2.31.0
+httpx>=0.25.0
+tenacity>=8.2.0  # Retry logic
+
+# CRM Adapters
+# Follow Up Boss uses standard REST API
+
+# Presentation Layer Adapters
+notion-client>=2.2.0
+gspread>=5.12.0
+google-auth>=2.25.0
+google-auth-oauthlib>=1.2.0
+
+# Web Scraping (property monitoring)
+beautifulsoup4>=4.12.0
+lxml>=5.0.0
+
+# PDF Generation
+weasyprint>=60.0
+jinja2>=3.1.0
+
+# Data Processing
+pandas>=2.1.0  # Optional, for data analysis
+
+# CLI
+click>=8.1.0
+rich>=13.7.0  # Beautiful terminal output
+
+# Scheduling (optional - can use system cron instead)
+schedule>=1.2.0
+
+# Development
+pytest>=7.4.0
+pytest-cov>=4.1.0
+black>=23.12.0
+ruff>=0.1.0
+
+# Type checking
+mypy>=1.8.0
+types-requests>=2.31.0
+types-PyYAML>=6.0.0
