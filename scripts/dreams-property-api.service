@@ -1,0 +1,15 @@
+[Unit]
+Description=DREAMS Property API Server
+After=network.target
+
+[Service]
+Type=simple
+User=bigeug
+WorkingDirectory=/home/bigeug/myDREAMS/apps/property-api
+Environment="PATH=/home/bigeug/myDREAMS/apps/property-api/venv/bin"
+ExecStart=/home/bigeug/myDREAMS/apps/property-api/venv/bin/python app.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

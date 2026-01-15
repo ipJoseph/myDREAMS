@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DREAMS Property Scraper</title>
+  <link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="header-content">
+      <h1>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+          <polyline points="9 22 9 12 15 12 15 22"/>
+        </svg>
+        DREAMS
+      </h1>
+      <div class="header-actions">
+        <button id="popOutBtn" class="icon-btn" title="Pop Out Window">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+            <polyline points="15 3 21 3 21 9"/>
+            <line x1="10" y1="14" x2="21" y2="3"/>
+          </svg>
+        </button>
+        <button id="refreshBtn" class="icon-btn" title="Refresh">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M23 4v6h-6M1 20v-6h6"/>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+          </svg>
+        </button>
+        <button id="settingsBtn" class="icon-btn" title="Settings">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Status Banner -->
+  <div class="status-banner">
+    <div class="status-indicator">
+      <span id="statusDot" class="status-dot checking"></span>
+      <span id="statusText" class="status-text">Checking server...</span>
+    </div>
+    <div class="status-right">
+      <span id="sourceBadge" class="source-badge">-</span>
+      <div id="queueBadge" class="queue-badge hidden">0 queued</div>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <!-- Loading State -->
+    <div id="loadingState" class="card">
+      <div class="card-body text-center">
+        <div class="spinner" style="margin: 0 auto 16px; border-color: var(--primary); border-top-color: var(--primary-light);"></div>
+        <p>Loading property data...</p>
+      </div>
+    </div>
+
+    <!-- Error State -->
+    <div id="errorState" class="card hidden">
+      <div class="card-body">
+        <div class="message message-error">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <span id="errorMessage">Unable to load property data</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Property View -->
+    <div id="propertyView" class="hidden">
+      <!-- Property Card -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Property Details</span>
+          <span id="confidenceBadge" class="confidence-badge high">95% complete</span>
+        </div>
+        <div class="card-body">
+          <div id="propertyAddress" class="property-address">Loading...</div>
+          <div id="propertyPrice" class="property-price">$0</div>
+
+          <div class="property-grid">
+            <div class="property-field">
+              <span class="property-field-label">Beds</span>
+              <span id="fieldBeds" class="property-field-value">-</span>
+            </div>
+            <div class="property-field">
+              <span class="property-field-label">Baths</span>
+              <span id="fieldBaths" class="property-field-value">-</span>
+            </div>
+            <div class="property-field">
+              <span class="property-field-label">Sqft</span>
+              <span id="fieldSqft" class="property-field-value">-</span>
+            </div>
+            <div class="property-field">
+              <span class="property-field-label">Lot Size</span>
+              <span id="fieldLot" class="property-field-value">-</span>
+            </div>
+            <div class="property-field">
+              <span class="property-field-label">Year Built</span>
+              <span id="fieldYear" class="property-field-value">-</span>
+            </div>
+            <div class="property-field">
+              <span class="property-field-label">Days on Market</span>
+              <span id="fieldDOM" class="property-field-value">-</span>
+            </div>
+            <div class="property-field">
+              <span class="property-field-label">MLS #</span>
+              <span id="fieldMLS" class="property-field-value">-</span>
+            </div>
+            <div class="property-field">
+              <span class="property-field-label">Agent</span>
+              <span id="fieldAgent" class="property-field-value">-</span>
+            </div>
+            <div class="property-field">
+              <span class="property-field-label">Agent Phone</span>
+              <span id="fieldAgentPhone" class="property-field-value">-</span>
+            </div>
+            <div class="property-field">
+              <span class="property-field-label">Agent Email</span>
+              <span id="fieldAgentEmail" class="property-field-value">-</span>
+            </div>
+            <div class="property-field">
+              <span class="property-field-label">Brokerage</span>
+              <span id="fieldBrokerage" class="property-field-value">-</span>
+            </div>
+            <div class="property-field">
+              <span class="property-field-label">Views</span>
+              <span id="fieldViews" class="property-field-value">-</span>
+            </div>
+            <div class="property-field">
+              <span class="property-field-label">Favorites</span>
+              <span id="fieldFavorites" class="property-field-value">-</span>
+            </div>
+            <div class="property-field">
+              <span class="property-field-label">MLS Source</span>
+              <span id="fieldMLSSource" class="property-field-value">-</span>
+            </div>
+            <div class="property-field">
+              <span class="property-field-label">Parcel ID</span>
+              <span id="fieldParcelID" class="property-field-value">-</span>
+            </div>
+            <div class="property-field">
+              <span class="property-field-label">Latitude</span>
+              <span id="fieldLatitude" class="property-field-value">-</span>
+            </div>
+            <div class="property-field">
+              <span class="property-field-label">Longitude</span>
+              <span id="fieldLongitude" class="property-field-value">-</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Save Options -->
+      <div class="card">
+        <div class="card-body">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Added By</label>
+              <select id="addedBy" class="form-select">
+                <option value="Joseph">Joseph</option>
+                <option value="Dolores">Dolores</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Added For</label>
+              <input type="text" id="addedFor" class="form-input" placeholder="Client name">
+            </div>
+          </div>
+
+          <button id="saveBtn" class="btn btn-primary btn-block btn-lg">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+              <polyline points="17 21 17 13 7 13 7 21"/>
+              <polyline points="7 3 7 8 15 8"/>
+            </svg>
+            Add to DREAMS
+          </button>
+
+          <div id="saveMessage" class="message hidden mt-md"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Search Results View -->
+    <div id="searchView" class="hidden">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">
+            <span id="resultCount">0</span> Properties Found
+          </span>
+          <div class="flex gap-sm">
+            <button id="selectAllBtn" class="btn btn-secondary">Select All</button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div id="searchResults" class="search-results"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-body">
+          <div id="bulkProgress" class="progress-bar hidden">
+            <div id="bulkProgressFill" class="progress-fill" style="width: 0%"></div>
+          </div>
+          <div id="bulkStatus" class="text-center mb-md hidden">Processing 0 of 0...</div>
+
+          <div class="form-row">
+            <button id="quickAddBtn" class="btn btn-secondary btn-block">
+              Quick Add Selected
+            </button>
+            <button id="deepScrapeBtn" class="btn btn-primary btn-block">
+              Deep Scrape Selected
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings Panel -->
+    <div id="settingsPanel" class="settings-panel">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Settings</span>
+          <button id="closeSettingsBtn" class="icon-btn" style="background: var(--border);">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-primary)" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+        <div class="card-body">
+          <div class="form-group">
+            <label class="form-label">Server URL</label>
+            <input type="text" id="serverUrl" class="form-input" value="http://localhost:5000">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Default "Added By"</label>
+            <select id="defaultAddedBy" class="form-select">
+              <option value="Joseph">Joseph</option>
+              <option value="Dolores">Dolores</option>
+            </select>
+          </div>
+
+          <button id="saveSettingsBtn" class="btn btn-primary btn-block">Save Settings</button>
+
+          <hr style="margin: 16px 0; border: none; border-top: 1px solid var(--border);">
+
+          <button id="testConnectionBtn" class="btn btn-secondary btn-block">Test Connection</button>
+
+          <div id="settingsMessage" class="message hidden mt-md"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Unsupported Page -->
+    <div id="unsupportedView" class="hidden">
+      <div class="empty-state">
+        <div class="empty-state-icon">🏠</div>
+        <div class="empty-state-title">Navigate to a Property</div>
+        <p>Open a Zillow or Realtor.com property listing to capture data.</p>
+      </div>
+    </div>
+  </main>
+
+  <script src="popup.js"></script>
+</body>
+</html>

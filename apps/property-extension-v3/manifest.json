@@ -1,0 +1,57 @@
+{
+  "manifest_version": 3,
+  "name": "DREAMS Property Scraper",
+  "version": "3.8.7",
+  "description": "Capture property data from Zillow, Redfin, and Realtor.com for DREAMS platform",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "downloads",
+    "scripting",
+    "tabs",
+    "clipboardWrite"
+  ],
+  "host_permissions": [
+    "https://www.zillow.com/*",
+    "https://www.redfin.com/*",
+    "https://www.realtor.com/*",
+    "http://localhost:5000/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.zillow.com/*",
+        "https://www.realtor.com/*"
+      ],
+      "js": ["content/index.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://www.redfin.com/*"
+      ],
+      "js": [
+        "content/scrapers/redfin/scraper.js",
+        "content/index.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup/index.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

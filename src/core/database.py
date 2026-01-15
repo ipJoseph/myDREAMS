@@ -121,8 +121,11 @@ class DREAMSDatabase:
         CREATE TABLE IF NOT EXISTS properties (
             id TEXT PRIMARY KEY,
             mls_number TEXT,
+            mls_source TEXT,
             parcel_id TEXT,
             zillow_id TEXT,
+            realtor_id TEXT,
+            redfin_id TEXT,
             address TEXT,
             city TEXT,
             state TEXT,
@@ -149,8 +152,33 @@ class DREAMSDatabase:
             listing_agent_phone TEXT,
             listing_agent_email TEXT,
             listing_brokerage TEXT,
+            -- New financial fields
+            hoa_fee INTEGER,
+            tax_assessed_value INTEGER,
+            tax_annual_amount INTEGER,
+            zestimate INTEGER,
+            rent_zestimate INTEGER,
+            -- New metrics fields
+            page_views INTEGER,
+            favorites_count INTEGER,
+            -- New detail fields
+            heating TEXT,
+            cooling TEXT,
+            garage TEXT,
+            sewer TEXT,
+            roof TEXT,
+            stories INTEGER,
+            subdivision TEXT,
+            -- Location fields
+            latitude REAL,
+            longitude REAL,
+            school_elementary_rating INTEGER,
+            school_middle_rating INTEGER,
+            school_high_rating INTEGER,
+            -- URLs
             zillow_url TEXT,
             realtor_url TEXT,
+            redfin_url TEXT,
             mls_url TEXT,
             idx_url TEXT,
             photo_urls TEXT,
@@ -158,14 +186,26 @@ class DREAMSDatabase:
             source TEXT,
             notes TEXT,
             captured_by TEXT,
+            added_for TEXT,
+            added_by TEXT,
+            -- Notion sync tracking
+            notion_page_id TEXT,
+            notion_synced_at TEXT,
+            sync_status TEXT DEFAULT 'pending',
+            sync_error TEXT,
+            -- Timestamps
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
             last_monitored_at TEXT
         );
-        
+
         CREATE INDEX IF NOT EXISTS idx_properties_status ON properties(status);
         CREATE INDEX IF NOT EXISTS idx_properties_city ON properties(city);
         CREATE INDEX IF NOT EXISTS idx_properties_price ON properties(price);
+        CREATE INDEX IF NOT EXISTS idx_properties_zillow_id ON properties(zillow_id);
+        CREATE INDEX IF NOT EXISTS idx_properties_redfin_id ON properties(redfin_id);
+        CREATE INDEX IF NOT EXISTS idx_properties_mls ON properties(mls_number);
+        CREATE INDEX IF NOT EXISTS idx_properties_sync_status ON properties(sync_status);
         
         -- Matches table
         CREATE TABLE IF NOT EXISTS matches (
@@ -323,7 +363,7 @@ class DREAMSDatabase:
         """Get properties with optional filters."""
         query = 'SELECT * FROM properties WHERE status = ?'
         params = [status]
-        
+
         if city:
             query += ' AND city = ?'
             params.append(city)
@@ -333,13 +373,130 @@ class DREAMSDatabase:
         if max_price:
             query += ' AND price <= ?'
             params.append(max_price)
-        
+
         query += ' ORDER BY updated_at DESC LIMIT ?'
         params.append(limit)
-        
+
         with self._get_connection() as conn:
             rows = conn.execute(query, params).fetchall()
             return [dict(row) for row in rows]
+
+    def get_property_by_zillow_id(self, zillow_id: str) -> Optional[Dict[str, Any]]:
+        """Get property by Zillow ID."""
+        with self._get_connection() as conn:
+            row = conn.execute(
+                'SELECT * FROM properties WHERE zillow_id = ?',
+                (zillow_id,)
+            ).fetchone()
+            return dict(row) if row else None
+
+    def get_property_by_realtor_id(self, realtor_id: str) -> Optional[Dict[str, Any]]:
+        """Get property by Realtor.com ID."""
+        with self._get_connection() as conn:
+            row = conn.execute(
+                'SELECT * FROM properties WHERE realtor_id = ?',
+                (realtor_id,)
+            ).fetchone()
+            return dict(row) if row else None
+
+    def get_property_by_mls(self, mls_number: str) -> Optional[Dict[str, Any]]:
+        """Get property by MLS number."""
+        with self._get_connection() as conn:
+            row = conn.execute(
+                'SELECT * FROM properties WHERE mls_number = ?',
+                (mls_number,)
+            ).fetchone()
+            return dict(row) if row else None
+
+    def get_property_by_redfin_id(self, redfin_id: str) -> Optional[Dict[str, Any]]:
+        """Get property by Redfin ID."""
+        with self._get_connection() as conn:
+            row = conn.execute(
+                'SELECT * FROM properties WHERE redfin_id = ?',
+                (redfin_id,)
+            ).fetchone()
+            return dict(row) if row else None
+
+    def get_property_by_address(self, address: str, city: str = None) -> Optional[Dict[str, Any]]:
+        """Get property by address (and optionally city for more precise matching)."""
+        with self._get_connection() as conn:
+            # Normalize address for comparison (case-insensitive)
+            if city:
+                row = conn.execute(
+                    'SELECT * FROM properties WHERE LOWER(address) = LOWER(?) AND LOWER(city) = LOWER(?)',
+                    (address, city)
+                ).fetchone()
+            else:
+                row = conn.execute(
+                    'SELECT * FROM properties WHERE LOWER(address) = LOWER(?)',
+                    (address,)
+                ).fetchone()
+            return dict(row) if row else None
+
+    def upsert_property_dict(self, data: Dict[str, Any]) -> bool:
+        """Insert or update a property from a dictionary."""
+        with self._get_connection() as conn:
+            # Filter out None values and ensure we have an id
+            data = {k: v for k, v in data.items() if v is not None}
+
+            if 'id' not in data:
+                return False
+
+            # Build upsert query
+            columns = list(data.keys())
+            placeholders = ', '.join(['?' for _ in columns])
+            update_clause = ', '.join([f'{col} = ?' for col in columns if col != 'id'])
+
+            query = f'''
+                INSERT INTO properties ({', '.join(columns)})
+                VALUES ({placeholders})
+                ON CONFLICT(id) DO UPDATE SET {update_clause}
+            '''
+
+            # Values for insert + values for update (excluding id)
+            values = list(data.values())
+            update_values = [v for k, v in data.items() if k != 'id']
+
+            conn.execute(query, values + update_values)
+            conn.commit()
+            return True
+
+    def get_properties_by_sync_status(self, status: str) -> List[Dict[str, Any]]:
+        """Get properties by sync status (pending, synced, failed)."""
+        with self._get_connection() as conn:
+            rows = conn.execute(
+                'SELECT * FROM properties WHERE sync_status = ? ORDER BY updated_at DESC',
+                (status,)
+            ).fetchall()
+            return [dict(row) for row in rows]
+
+    def update_property_sync_status(
+        self,
+        property_id: str,
+        status: str,
+        notion_page_id: Optional[str] = None,
+        error: Optional[str] = None
+    ) -> bool:
+        """Update the sync status of a property."""
+        with self._get_connection() as conn:
+            if status == 'synced':
+                conn.execute('''
+                    UPDATE properties SET
+                        sync_status = ?,
+                        notion_page_id = ?,
+                        notion_synced_at = ?,
+                        sync_error = NULL
+                    WHERE id = ?
+                ''', (status, notion_page_id, datetime.now().isoformat(), property_id))
+            else:
+                conn.execute('''
+                    UPDATE properties SET
+                        sync_status = ?,
+                        sync_error = ?
+                    WHERE id = ?
+                ''', (status, error, property_id))
+            conn.commit()
+            return True
     
     # ==========================================
     # MATCH OPERATIONS
