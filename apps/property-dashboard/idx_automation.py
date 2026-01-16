@@ -189,7 +189,38 @@ class IDXPortfolioAutomation:
             if search_clicked:
                 # Wait for results to load
                 await page.wait_for_load_state('networkidle')
-                await page.wait_for_timeout(2000)
+                await page.wait_for_timeout(3000)
+
+                # Count results and compare to submitted MLS numbers
+                try:
+                    # Try to find result count on the page
+                    result_count = await page.evaluate('''() => {
+                        // Look for property cards/listings
+                        const cards = document.querySelectorAll('.property-card, .listing-card, .property-item, .listing, [class*="property"], [class*="listing"]');
+                        if (cards.length > 0) return cards.length;
+
+                        // Look for result count text
+                        const text = document.body.innerText;
+                        const match = text.match(/(\\d+)\\s*(?:properties|listings|results|homes)/i);
+                        if (match) return parseInt(match[1]);
+
+                        return -1;  // Unknown
+                    }''')
+
+                    submitted_count = len(mls_numbers)
+
+                    if result_count >= 0 and result_count < submitted_count:
+                        missing_count = submitted_count - result_count
+                        # Show alert dialog
+                        await page.evaluate(f'''() => {{
+                            alert("Note: {result_count} of {submitted_count} properties selected are available on this website.\\n\\n{missing_count} property(ies) may be from an MLS not covered by this IDX.");
+                        }}''')
+                        logger.info(f"MLS mismatch: {result_count} found of {submitted_count} submitted ({missing_count} missing)")
+                    elif result_count >= 0:
+                        logger.info(f"All {result_count} properties found")
+
+                except Exception as e:
+                    logger.warning(f"Could not count results: {e}")
 
             result_url = page.url
             logger.info(f"Current URL: {result_url}")
