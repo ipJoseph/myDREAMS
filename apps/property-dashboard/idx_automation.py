@@ -6,15 +6,34 @@ Uses Playwright to create property portfolios on the team IDX site
 
 import asyncio
 import logging
+import os
 from typing import List, Optional
 
 from playwright.async_api import async_playwright, Browser, Page
 
 logger = logging.getLogger(__name__)
 
+# Load environment variables
+def load_env_file():
+    env_path = '/home/bigeug/myDREAMS/.env'
+    if os.path.exists(env_path):
+        with open(env_path) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, value = line.split('=', 1)
+                    value = value.strip().strip('"').strip("'")
+                    os.environ[key] = value
+
+load_env_file()
+
 # IDX Site configuration
 IDX_BASE_URL = "https://www.smokymountainhomes4sale.com"
 IDX_MLS_SEARCH_URL = f"{IDX_BASE_URL}/search/mls_search/"
+
+# Login credentials from environment
+IDX_EMAIL = os.getenv('IDX_EMAIL', '')
+IDX_PHONE = os.getenv('IDX_PHONE', '')
 
 
 class IDXPortfolioAutomation:
@@ -44,9 +63,128 @@ class IDXPortfolioAutomation:
         self.playwright = await async_playwright().start()
         self.browser = await self.playwright.chromium.launch(
             headless=self.headless,
-            args=['--start-maximized']
+            args=[
+                '--window-position=50,50',
+                '--window-size=1500,900'
+            ]
         )
         logger.info("Browser started")
+
+    async def login(self, page: Page) -> bool:
+        """
+        Log into the IDX site.
+
+        Returns:
+            True if login successful, False otherwise
+        """
+        if not IDX_EMAIL or not IDX_PHONE:
+            logger.warning("IDX credentials not configured in .env file")
+            return False
+
+        try:
+            # Navigate to homepage first
+            logger.info(f"Navigating to {IDX_BASE_URL}")
+            await page.goto(IDX_BASE_URL, wait_until='domcontentloaded', timeout=30000)
+            await page.wait_for_timeout(1500)
+
+            # Click the person icon to open login panel
+            # The icon is in the top right, typically an <a> or <button> with person/user icon
+            person_icon = page.locator('a.fa-user, a[href*="login"], .user-icon, a:has(.fa-user), nav a:last-child').first
+
+            # Try multiple selectors for the person icon
+            clicked = False
+            selectors = [
+                'a.fa-user',
+                'a:has(i.fa-user)',
+                'header a:last-of-type',
+                'nav a:nth-last-child(1)',
+                '.login-link',
+                'a[title*="Sign"]',
+                'a[title*="Login"]',
+                'a[title*="Account"]',
+            ]
+
+            for selector in selectors:
+                try:
+                    element = page.locator(selector).first
+                    if await element.count() > 0 and await element.is_visible():
+                        logger.info(f"Clicking login icon with selector: {selector}")
+                        await element.click()
+                        clicked = True
+                        break
+                except Exception:
+                    continue
+
+            # Fallback: use JavaScript to find and click the person icon
+            if not clicked:
+                logger.info("Trying JavaScript to find person icon")
+                clicked = await page.evaluate('''() => {
+                    // Look for user/person icon in nav
+                    const links = document.querySelectorAll('header a, nav a');
+                    for (let link of links) {
+                        if (link.querySelector('.fa-user, .fa-person, [class*="user"]') ||
+                            link.innerHTML.includes('fa-user') ||
+                            link.href.includes('login') ||
+                            link.href.includes('account')) {
+                            link.click();
+                            return true;
+                        }
+                    }
+                    // Look for last icon in header (often the user icon)
+                    const headerIcons = document.querySelectorAll('header a');
+                    if (headerIcons.length > 0) {
+                        headerIcons[headerIcons.length - 1].click();
+                        return true;
+                    }
+                    return false;
+                }''')
+
+            if not clicked:
+                logger.error("Could not find login icon")
+                return False
+
+            # Wait for login panel to appear
+            await page.wait_for_timeout(1000)
+
+            # Fill in email
+            email_field = page.locator('input[type="email"], input[name="email"], input[placeholder*="Email"]').first
+            if await email_field.count() > 0:
+                logger.info("Filling email field")
+                await email_field.fill(IDX_EMAIL)
+            else:
+                logger.error("Could not find email field")
+                return False
+
+            # Fill in phone number
+            phone_field = page.locator('input[type="tel"], input[name="phone"], input[placeholder*="Phone"]').first
+            if await phone_field.count() > 0:
+                logger.info("Filling phone field")
+                await phone_field.fill(IDX_PHONE)
+            else:
+                logger.error("Could not find phone field")
+                return False
+
+            await page.wait_for_timeout(300)
+
+            # Click Log In button
+            login_button = page.locator('button:has-text("Log In"), input[value="Log In"], button:has-text("Sign In")').first
+            if await login_button.count() > 0:
+                logger.info("Clicking Log In button")
+                await login_button.click()
+            else:
+                logger.error("Could not find Log In button")
+                return False
+
+            # Wait for login to complete
+            await page.wait_for_timeout(2000)
+
+            # Check if login was successful (login panel should be gone)
+            logger.info("Login attempted - checking result")
+            return True
+
+        except Exception as e:
+            logger.error(f"Login failed: {e}")
+            return False
 
     async def stop(self):
         """Stop the browser"""
@@ -77,9 +215,17 @@ class IDXPortfolioAutomation:
         try:
             # Create new context and page
             context = await self.browser.new_context(
-                viewport={'width': 1400, 'height': 900}
+                viewport={'width': 1400, 'height': 850}
             )
             page = await context.new_page()
+
+            # Login first if credentials are configured
+            if IDX_EMAIL and IDX_PHONE:
+                login_success = await self.login(page)
+                if login_success:
+                    logger.info("Login completed")
+                else:
+                    logger.warning("Login failed or skipped - continuing without login")
 
             # Navigate to MLS search page
             logger.info(f"Navigating to {IDX_MLS_SEARCH_URL}")
