@@ -65,7 +65,7 @@ class IDXPortfolioAutomation:
             headless=self.headless,
             args=[
                 '--window-position=50,50',
-                '--window-size=1500,900'
+                '--window-size=1240,900'
             ]
         )
         logger.info("Browser started")

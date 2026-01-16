@@ -711,9 +711,8 @@
             }
 
             // Prompt for search name
-            const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-            const defaultName = `Portfolio - ${today}`;
-            const searchName = prompt('Enter a name for this saved search:', defaultName);
+            const defaultSuffix = ' - curated by Joseph Williams';
+            const searchName = prompt('Enter a name for this saved search:', defaultSuffix);
 
             if (searchName === null) {
                 // User cancelled
@@ -732,7 +731,7 @@
                     },
                     body: JSON.stringify({
                         mls_numbers: mlsNumbers,
-                        search_name: searchName.trim() || defaultName
+                        search_name: searchName.trim() || defaultSuffix
                     })
                 });
 
