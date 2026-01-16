@@ -314,6 +314,56 @@ def dashboard():
                          refresh_time=datetime.now().strftime('%B %d, %Y %I:%M %p'))
 
 
+@app.route('/lead/<client_name>')
+def lead_dashboard(client_name):
+    """Client-facing dashboard view - simplified for leads"""
+    # Get filter parameters
+    status = request.args.get('status', '')
+    city = request.args.get('city', '')
+    county = request.args.get('county', '')
+
+    # Fetch properties for this client
+    all_client_properties = fetch_properties(added_for=client_name)
+
+    # Get filter options from this client's properties only
+    cities = get_unique_cities(all_client_properties)
+    counties = get_unique_counties(all_client_properties)
+    statuses = get_unique_statuses(all_client_properties)
+
+    # Apply additional filters
+    properties = fetch_properties(
+        added_for=client_name,
+        status=status if status else None,
+        city=city if city else None,
+        county=county if county else None
+    )
+
+    # Calculate metrics
+    metrics = calculate_metrics(properties)
+
+    # Count by status
+    status_counts = {}
+    for p in properties:
+        s = p.get('status') or 'Unknown'
+        status_counts[s] = status_counts.get(s, 0) + 1
+    metrics['status_counts'] = status_counts
+
+    # Sort by price descending
+    properties.sort(key=lambda x: x['price'] or 0, reverse=True)
+
+    return render_template('lead_dashboard.html',
+                         properties=properties,
+                         metrics=metrics,
+                         client_name=client_name,
+                         cities=cities,
+                         counties=counties,
+                         statuses=statuses,
+                         selected_status=status,
+                         selected_city=city,
+                         selected_county=county,
+                         refresh_time=datetime.now().strftime('%B %d, %Y %I:%M %p'))
+
+
 @app.route('/api/properties')
 def api_properties():
     """API endpoint for properties data"""
