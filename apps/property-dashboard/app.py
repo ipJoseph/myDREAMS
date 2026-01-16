@@ -337,6 +337,7 @@ def create_idx_portfolio():
     """Launch IDX portfolio automation with selected MLS numbers"""
     data = request.get_json()
     mls_numbers = data.get('mls_numbers', [])
+    search_name = data.get('search_name', '')
 
     if not mls_numbers:
         return jsonify({'success': False, 'error': 'No MLS numbers provided'}), 400
@@ -347,8 +348,9 @@ def create_idx_portfolio():
 
     try:
         # Use shell script to properly detach the process
+        # Pass search_name as second argument
         result = subprocess.run(
-            [launch_script, mls_string],
+            [launch_script, mls_string, search_name],
             capture_output=True,
             text=True,
             timeout=5

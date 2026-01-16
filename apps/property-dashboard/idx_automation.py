@@ -194,12 +194,190 @@ class IDXPortfolioAutomation:
             await self.playwright.stop()
         logger.info("Browser stopped")
 
-    async def create_portfolio(self, mls_numbers: List[str], keep_open: bool = True) -> Optional[str]:
+    async def save_search(self, page: Page, search_name: str) -> bool:
+        """
+        Save the current search with the given name.
+
+        Args:
+            page: The Playwright page object
+            search_name: Name to save the search as
+
+        Returns:
+            True if save successful, False otherwise
+        """
+        if not search_name:
+            logger.warning("No search name provided, skipping save")
+            return False
+
+        try:
+            logger.info(f"Attempting to save search as: {search_name}")
+
+            # Look for the + button or save search button
+            # Based on the screenshot, it's likely a + icon or "Save Search" link
+            save_clicked = False
+
+            # Try various selectors for the save/add button
+            selectors = [
+                'a.fa-plus',
+                'a:has(i.fa-plus)',
+                'button:has(i.fa-plus)',
+                '.save-search',
+                'a[title*="Save"]',
+                'button[title*="Save"]',
+                'a:has-text("Save")',
+                '.add-search',
+                'a.add-to-saved',
+            ]
+
+            for selector in selectors:
+                try:
+                    element = page.locator(selector).first
+                    if await element.count() > 0 and await element.is_visible():
+                        logger.info(f"Clicking save button with selector: {selector}")
+                        await element.click()
+                        save_clicked = True
+                        break
+                except Exception:
+                    continue
+
+            # Fallback: JavaScript to find + button
+            if not save_clicked:
+                logger.info("Trying JavaScript to find save/+ button")
+                save_clicked = await page.evaluate('''() => {
+                    // Look for plus icons
+                    const plusLinks = document.querySelectorAll('a, button');
+                    for (let link of plusLinks) {
+                        if (link.querySelector('.fa-plus, .fa-plus-circle, [class*="plus"]') ||
+                            link.innerHTML.includes('fa-plus') ||
+                            link.title?.toLowerCase().includes('save') ||
+                            link.textContent?.toLowerCase().includes('save search')) {
+                            link.click();
+                            return true;
+                        }
+                    }
+                    return false;
+                }''')
+
+            if not save_clicked:
+                logger.error("Could not find save/+ button")
+                return False
+
+            # Wait for save dialog/form to appear
+            await page.wait_for_timeout(1500)
+
+            # Fill in the search name
+            name_filled = False
+
+            # Try various selectors for the name input
+            name_selectors = [
+                'input[name="search_name"]',
+                'input[name="name"]',
+                'input[placeholder*="name"]',
+                'input[placeholder*="Name"]',
+                'input[type="text"]:visible',
+                '.save-search-form input',
+                'input.search-name',
+            ]
+
+            for selector in name_selectors:
+                try:
+                    element = page.locator(selector).first
+                    if await element.count() > 0 and await element.is_visible():
+                        logger.info(f"Filling search name with selector: {selector}")
+                        await element.fill(search_name)
+                        name_filled = True
+                        break
+                except Exception:
+                    continue
+
+            # Fallback: JavaScript to find and fill name input
+            if not name_filled:
+                logger.info("Trying JavaScript to find name input")
+                name_filled = await page.evaluate(f'''() => {{
+                    const inputs = document.querySelectorAll('input[type="text"]');
+                    for (let input of inputs) {{
+                        if (input.offsetParent !== null) {{  // visible
+                            input.value = "{search_name}";
+                            input.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                            return true;
+                        }}
+                    }}
+                    return false;
+                }}''')
+
+            if not name_filled:
+                logger.error("Could not find search name input")
+                return False
+
+            await page.wait_for_timeout(500)
+
+            # Click the save/submit button
+            submit_clicked = False
+
+            submit_selectors = [
+                'button:has-text("Save")',
+                'input[value="Save"]',
+                'button[type="submit"]',
+                '.save-btn',
+                'button.btn-primary',
+                'input[type="submit"]',
+            ]
+
+            for selector in submit_selectors:
+                try:
+                    element = page.locator(selector).first
+                    if await element.count() > 0 and await element.is_visible():
+                        logger.info(f"Clicking submit with selector: {selector}")
+                        await element.click()
+                        submit_clicked = True
+                        break
+                except Exception:
+                    continue
+
+            # Fallback: JavaScript submit
+            if not submit_clicked:
+                logger.info("Trying JavaScript to submit save form")
+                submit_clicked = await page.evaluate('''() => {
+                    const buttons = document.querySelectorAll('button, input[type="submit"]');
+                    for (let btn of buttons) {
+                        if (btn.offsetParent !== null &&
+                            (btn.textContent?.toLowerCase().includes('save') ||
+                             btn.value?.toLowerCase().includes('save'))) {
+                            btn.click();
+                            return true;
+                        }
+                    }
+                    // Try form submit
+                    const forms = document.querySelectorAll('form');
+                    for (let form of forms) {
+                        if (form.offsetParent !== null) {
+                            form.submit();
+                            return true;
+                        }
+                    }
+                    return false;
+                }''')
+
+            if not submit_clicked:
+                logger.error("Could not click save submit button")
+                return False
+
+            # Wait for save to complete
+            await page.wait_for_timeout(2000)
+            logger.info("Search save attempted")
+            return True
+
+        except Exception as e:
+            logger.error(f"Error saving search: {e}")
+            return False
+
+    async def create_portfolio(self, mls_numbers: List[str], search_name: str = "", keep_open: bool = True) -> Optional[str]:
         """
         Create a portfolio search on the IDX site.
 
         Args:
             mls_numbers: List of MLS numbers to search
+            search_name: Name to save the search as (optional)
             keep_open: If True, leaves browser open for user interaction
 
         Returns:
@@ -365,6 +543,14 @@ class IDXPortfolioAutomation:
                 except Exception as e:
                     logger.warning(f"Could not count results: {e}")
 
+                # Save the search if a name was provided
+                if search_name:
+                    save_success = await self.save_search(page, search_name)
+                    if save_success:
+                        logger.info(f"Search saved as: {search_name}")
+                    else:
+                        logger.warning("Could not save search automatically")
+
             result_url = page.url
             logger.info(f"Current URL: {result_url}")
 
@@ -399,21 +585,22 @@ class IDXPortfolioAutomation:
             return None
 
 
-async def create_idx_portfolio(mls_numbers: List[str], headless: bool = False):
+async def create_idx_portfolio(mls_numbers: List[str], search_name: str = "", headless: bool = False):
     """
     Convenience function to create an IDX portfolio.
 
     Args:
         mls_numbers: List of MLS numbers
+        search_name: Name to save the search as (optional)
         headless: Whether to run headless (default False - shows browser)
     """
     async with IDXPortfolioAutomation(headless=headless) as automation:
-        return await automation.create_portfolio(mls_numbers, keep_open=True)
+        return await automation.create_portfolio(mls_numbers, search_name=search_name, keep_open=True)
 
 
-def run_portfolio(mls_numbers: List[str]):
+def run_portfolio(mls_numbers: List[str], search_name: str = ""):
     """Synchronous wrapper for running the portfolio automation"""
-    asyncio.run(create_idx_portfolio(mls_numbers))
+    asyncio.run(create_idx_portfolio(mls_numbers, search_name=search_name))
 
 
 if __name__ == '__main__':
@@ -422,6 +609,8 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
     # Example usage - can pass MLS numbers as command line args
+    # Arg 1: comma-separated MLS numbers
+    # Arg 2: search name (optional)
     if len(sys.argv) > 1:
         mls_list = sys.argv[1].split(',')
         mls_list = [m.strip() for m in mls_list]
@@ -429,5 +618,9 @@ if __name__ == '__main__':
         # Test with sample MLS numbers
         mls_list = ['4277940', '26040365', '154288']
 
+    search_name = sys.argv[2] if len(sys.argv) > 2 else ""
+
     print(f"Creating portfolio for: {mls_list}")
-    run_portfolio(mls_list)
+    if search_name:
+        print(f"Will save as: {search_name}")
+    run_portfolio(mls_list, search_name)
