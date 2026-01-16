@@ -165,40 +165,23 @@ class IDXPortfolioAutomation:
             # Small delay before clicking search
             await page.wait_for_timeout(500)
 
-            # Try to click the Search button
+            # Submit the form via JavaScript (most reliable)
             search_clicked = False
-            search_selectors = [
-                'input[type="submit"][value="Search"]',
-                'input[value="Search"]',
-                'button:has-text("Search")',
-                '#refine_search_form input[type="submit"]',
-            ]
+            await page.wait_for_timeout(500)
 
-            for selector in search_selectors:
+            try:
+                await page.evaluate("document.querySelector('#refine_search_form').submit()")
+                search_clicked = True
+                logger.info("Submitted form via JavaScript")
+            except Exception as e:
+                logger.error(f"JavaScript submit failed: {e}")
+                # Fallback: try clicking the button
                 try:
-                    btn = page.locator(selector).first
-                    count = await btn.count()
-                    logger.info(f"Trying selector '{selector}': found {count}")
-                    if count > 0:
-                        visible = await btn.is_visible()
-                        logger.info(f"  Visible: {visible}")
-                        if visible:
-                            await btn.click()
-                            search_clicked = True
-                            logger.info(f"Clicked Search using: {selector}")
-                            break
-                except Exception as e:
-                    logger.info(f"  Error with {selector}: {e}")
-                    continue
-
-            if not search_clicked:
-                logger.warning("Could not click Search button - trying JavaScript submit")
-                try:
-                    await page.evaluate("document.querySelector('#refine_search_form').submit()")
+                    await page.click('input[value="Search"]')
                     search_clicked = True
-                    logger.info("Submitted form via JavaScript")
-                except Exception as e:
-                    logger.error(f"JavaScript submit failed: {e}")
+                    logger.info("Clicked Search button as fallback")
+                except Exception as e2:
+                    logger.error(f"Button click also failed: {e2}")
 
             if search_clicked:
                 # Wait for results to load
