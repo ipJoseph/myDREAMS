@@ -365,6 +365,12 @@ class IDXPortfolioAutomation:
             # Wait for save to complete
             await page.wait_for_timeout(2000)
             logger.info("Search save attempted")
+
+            # Refresh the page to ensure saved searches list is updated
+            await page.reload(wait_until='domcontentloaded')
+            await page.wait_for_timeout(1500)
+            logger.info("Page refreshed after save")
+
             return True
 
         except Exception as e:
