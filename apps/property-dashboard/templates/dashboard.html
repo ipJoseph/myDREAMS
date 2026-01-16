@@ -149,6 +149,7 @@
 
         table {
             width: 100%;
+            min-width: 1400px;
             border-collapse: collapse;
             background: var(--surface);
             border-radius: 12px;
@@ -524,7 +525,16 @@
         });
 
         // Table sorting
-        let currentSort = { column: null, direction: 'asc' };
+        let currentSort = { column: null, direction: null }; // null = unsorted, 'asc', 'desc'
+        let originalOrder = []; // Store original row order
+
+        // Save original order on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const tbody = document.querySelector('#propertiesTable tbody');
+            if (tbody) {
+                originalOrder = Array.from(tbody.querySelectorAll('tr'));
+            }
+        });
 
         document.querySelectorAll('th[data-sort]').forEach(th => {
             th.addEventListener('click', () => sortTable(th));
@@ -535,11 +545,18 @@
             const isNumeric = th.dataset.type === 'number';
             const table = document.getElementById('propertiesTable');
             const tbody = table.querySelector('tbody');
-            const rows = Array.from(tbody.querySelectorAll('tr'));
+            let rows = Array.from(tbody.querySelectorAll('tr'));
 
-            // Toggle direction
+            // Cycle through: null -> asc -> desc -> null
             if (currentSort.column === column) {
-                currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+                if (currentSort.direction === 'asc') {
+                    currentSort.direction = 'desc';
+                } else if (currentSort.direction === 'desc') {
+                    currentSort.direction = null;
+                    currentSort.column = null;
+                } else {
+                    currentSort.direction = 'asc';
+                }
             } else {
                 currentSort.column = column;
                 currentSort.direction = 'asc';
@@ -547,26 +564,33 @@
 
             // Update header styling
             document.querySelectorAll('th').forEach(h => h.classList.remove('sorted-asc', 'sorted-desc'));
-            th.classList.add(currentSort.direction === 'asc' ? 'sorted-asc' : 'sorted-desc');
+            if (currentSort.direction) {
+                th.classList.add(currentSort.direction === 'asc' ? 'sorted-asc' : 'sorted-desc');
+            }
 
-            // Get column index
-            const colIndex = Array.from(th.parentElement.children).indexOf(th);
+            // If unsorted, restore original order
+            if (!currentSort.direction) {
+                rows = [...originalOrder];
+            } else {
+                // Get column index
+                const colIndex = Array.from(th.parentElement.children).indexOf(th);
 
-            // Sort rows
-            rows.sort((a, b) => {
-                let aVal = a.children[colIndex]?.textContent?.trim() || '';
-                let bVal = b.children[colIndex]?.textContent?.trim() || '';
+                // Sort rows
+                rows.sort((a, b) => {
+                    let aVal = a.children[colIndex]?.textContent?.trim() || '';
+                    let bVal = b.children[colIndex]?.textContent?.trim() || '';
 
-                if (isNumeric) {
-                    aVal = parseFloat(aVal.replace(/[$,]/g, '')) || 0;
-                    bVal = parseFloat(bVal.replace(/[$,]/g, '')) || 0;
-                    return currentSort.direction === 'asc' ? aVal - bVal : bVal - aVal;
-                } else {
-                    return currentSort.direction === 'asc'
-                        ? aVal.localeCompare(bVal)
-                        : bVal.localeCompare(aVal);
-                }
-            });
+                    if (isNumeric) {
+                        aVal = parseFloat(aVal.replace(/[$,]/g, '')) || 0;
+                        bVal = parseFloat(bVal.replace(/[$,]/g, '')) || 0;
+                        return currentSort.direction === 'asc' ? aVal - bVal : bVal - aVal;
+                    } else {
+                        return currentSort.direction === 'asc'
+                            ? aVal.localeCompare(bVal)
+                            : bVal.localeCompare(aVal);
+                    }
+                });
+            }
 
             // Rebuild table
             rows.forEach((row, i) => {
