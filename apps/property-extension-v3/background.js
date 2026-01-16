@@ -235,6 +235,10 @@ async function handleMessage(message, sender) {
       });
       return { success: true };
 
+    case 'DEEP_SCRAPE_BATCH':
+      // Deep scrape: open each URL, scrape full data, save to API
+      return await deepScrapeBatch(message.properties, message.metadata);
+
     default:
       return { error: 'Unknown message type' };
   }
@@ -267,6 +271,247 @@ async function saveProperty(data) {
     const queueId = await queueManager.addToQueue(data);
     return { success: true, queued: true, queueId };
   }
+}
+
+// ============================================
+// DEEP SCRAPE BATCH
+// Opens each property URL in a background tab,
+// scrapes full data, and saves to API
+// ============================================
+
+async function deepScrapeBatch(properties, metadata) {
+  const results = {
+    total: properties.length,
+    saved: 0,
+    queued: 0,
+    failed: 0,
+    errors: []
+  };
+
+  const SCRAPE_DELAY = 2000; // 2 seconds between tabs to avoid rate limiting
+
+  for (let i = 0; i < properties.length; i++) {
+    const property = properties[i];
+    const address = property.address || `Property ${i + 1}`;
+
+    // Send progress update
+    sendProgressUpdate({
+      current: i + 1,
+      total: properties.length,
+      property: address,
+      status: 'scraping'
+    });
+
+    try {
+      // Open the property URL in a background tab
+      const fullData = await scrapePropertyInTab(property.url);
+
+      if (fullData) {
+        // Add metadata
+        fullData.added_by = metadata.added_by;
+        fullData.added_for = metadata.added_for;
+
+        // Ensure we have the URL
+        if (!fullData.url) {
+          fullData.url = property.url;
+        }
+
+        // Ensure we have redfin_id if available
+        if (!fullData.redfin_id && property.redfin_id) {
+          fullData.redfin_id = property.redfin_id;
+        }
+
+        // Send progress update - saving
+        sendProgressUpdate({
+          current: i + 1,
+          total: properties.length,
+          property: address,
+          status: 'saving'
+        });
+
+        // Save to API
+        const saveResult = await saveProperty(fullData);
+
+        if (saveResult.success) {
+          if (saveResult.queued) {
+            results.queued++;
+          } else {
+            results.saved++;
+          }
+
+          sendProgressUpdate({
+            current: i + 1,
+            total: properties.length,
+            property: address,
+            status: 'complete'
+          });
+        } else {
+          results.failed++;
+          results.errors.push({ address, error: 'Save failed' });
+        }
+      } else {
+        // Scraping failed, use basic data from search results
+        const basicData = {
+          ...property,
+          added_by: metadata.added_by,
+          added_for: metadata.added_for
+        };
+
+        const saveResult = await saveProperty(basicData);
+        if (saveResult.success) {
+          if (saveResult.queued) {
+            results.queued++;
+          } else {
+            results.saved++;
+          }
+        } else {
+          results.failed++;
+          results.errors.push({ address, error: 'Scrape failed, basic save failed' });
+        }
+      }
+    } catch (error) {
+      console.error(`Failed to process ${address}:`, error);
+      results.failed++;
+      results.errors.push({ address, error: error.message });
+
+      sendProgressUpdate({
+        current: i + 1,
+        total: properties.length,
+        property: address,
+        status: 'failed',
+        error: error.message
+      });
+    }
+
+    // Wait before processing next property (rate limiting)
+    if (i < properties.length - 1) {
+      await new Promise(resolve => setTimeout(resolve, SCRAPE_DELAY));
+    }
+  }
+
+  // Send final progress update
+  sendProgressUpdate({
+    current: properties.length,
+    total: properties.length,
+    status: 'done',
+    results
+  });
+
+  return { success: true, results };
+}
+
+/**
+ * Opens a URL in a background tab, waits for content script to load,
+ * scrapes the property data, then closes the tab.
+ */
+async function scrapePropertyInTab(url) {
+  return new Promise(async (resolve) => {
+    let tab = null;
+    let timeoutId = null;
+
+    try {
+      // Create a background tab
+      tab = await chrome.tabs.create({
+        url: url,
+        active: false // Don't focus the tab
+      });
+
+      // Set timeout for the whole operation (30 seconds)
+      timeoutId = setTimeout(() => {
+        console.log('Scrape timeout for:', url);
+        if (tab) {
+          chrome.tabs.remove(tab.id).catch(() => {});
+        }
+        resolve(null);
+      }, 30000);
+
+      // Wait for tab to finish loading
+      await waitForTabLoad(tab.id);
+
+      // Give content script time to initialize
+      await new Promise(r => setTimeout(r, 1500));
+
+      // Send scrape message to content script
+      try {
+        const response = await chrome.tabs.sendMessage(tab.id, { type: 'SCRAPE_PROPERTY' });
+
+        clearTimeout(timeoutId);
+
+        if (response && response.data && !response.error) {
+          // Close the tab
+          await chrome.tabs.remove(tab.id).catch(() => {});
+          resolve(response.data);
+        } else {
+          console.log('Scrape failed for:', url, response?.error);
+          await chrome.tabs.remove(tab.id).catch(() => {});
+          resolve(null);
+        }
+      } catch (msgError) {
+        console.log('Message error for:', url, msgError.message);
+        clearTimeout(timeoutId);
+        await chrome.tabs.remove(tab.id).catch(() => {});
+        resolve(null);
+      }
+
+    } catch (error) {
+      console.error('Tab creation error:', error);
+      if (timeoutId) clearTimeout(timeoutId);
+      if (tab) {
+        await chrome.tabs.remove(tab.id).catch(() => {});
+      }
+      resolve(null);
+    }
+  });
+}
+
+/**
+ * Wait for a tab to finish loading
+ */
+function waitForTabLoad(tabId) {
+  return new Promise((resolve, reject) => {
+    const checkTab = async () => {
+      try {
+        const tab = await chrome.tabs.get(tabId);
+        if (tab.status === 'complete') {
+          resolve();
+        } else {
+          setTimeout(checkTab, 200);
+        }
+      } catch (error) {
+        reject(error);
+      }
+    };
+
+    // Also listen for onUpdated events
+    const listener = (updatedTabId, changeInfo) => {
+      if (updatedTabId === tabId && changeInfo.status === 'complete') {
+        chrome.tabs.onUpdated.removeListener(listener);
+        resolve();
+      }
+    };
+    chrome.tabs.onUpdated.addListener(listener);
+
+    // Start checking immediately
+    checkTab();
+
+    // Timeout after 20 seconds
+    setTimeout(() => {
+      chrome.tabs.onUpdated.removeListener(listener);
+      resolve(); // Resolve anyway after timeout
+    }, 20000);
+  });
+}
+
+/**
+ * Send progress update to popup
+ */
+function sendProgressUpdate(data) {
+  chrome.runtime.sendMessage({
+    type: 'BATCH_PROGRESS',
+    data
+  }).catch(() => {
+    // Popup might not be open, ignore
+  });
 }
 
 // ============================================

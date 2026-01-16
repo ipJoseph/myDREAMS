@@ -148,7 +148,65 @@ function setupEventListeners() {
     if (message.type === 'QUEUE_ITEM_PROCESSED' || message.type === 'QUEUE_ITEM_FAILED') {
       updateQueueBadge();
     }
+
+    // Handle batch progress updates
+    if (message.type === 'BATCH_PROGRESS' && message.data) {
+      const { current, total, property, status, error } = message.data;
+
+      // Update progress bar
+      const percent = (current / total) * 100;
+      elements.bulkProgressFill.style.width = `${percent}%`;
+
+      // Update status text based on status
+      if (status === 'scraping') {
+        elements.bulkStatus.textContent = `Scraping ${current}/${total}: ${property}...`;
+      } else if (status === 'saving') {
+        elements.bulkStatus.textContent = `Saving ${current}/${total}: ${property}...`;
+      } else if (status === 'complete') {
+        elements.bulkStatus.textContent = `Completed ${current}/${total}: ${property}`;
+      } else if (status === 'failed') {
+        elements.bulkStatus.textContent = `Failed ${current}/${total}: ${property} - ${error || 'Unknown error'}`;
+      } else if (status === 'done') {
+        // Final status handled by deepScrapeSelected response
+      }
+
+      // Update individual item status indicator
+      updateItemStatus(property, status);
+    }
   });
+}
+
+// Update the status indicator for a specific property
+function updateItemStatus(address, status) {
+  // Find the result item by address
+  const items = elements.searchResults.querySelectorAll('.result-item');
+  for (const item of items) {
+    const itemAddress = item.dataset.address;
+    if (itemAddress && address && itemAddress.includes(address.substring(0, 20))) {
+      const statusEl = item.querySelector('.status-indicator');
+      if (statusEl) {
+        switch (status) {
+          case 'scraping':
+            statusEl.textContent = '🔄';
+            statusEl.title = 'Scraping...';
+            break;
+          case 'saving':
+            statusEl.textContent = '💾';
+            statusEl.title = 'Saving...';
+            break;
+          case 'complete':
+            statusEl.textContent = '✅';
+            statusEl.title = 'Saved!';
+            break;
+          case 'failed':
+            statusEl.textContent = '❌';
+            statusEl.title = 'Failed';
+            break;
+        }
+      }
+      break;
+    }
+  }
 }
 
 // ============================================
@@ -230,6 +288,21 @@ async function loadPageData() {
     const source = pageInfo.source || pageInfo.data?.source || 'unknown';
     updateSourceBadge(source);
 
+    // Check if it's a search page first (even if property scrape returned an error)
+    if (pageInfo.pageType === 'search') {
+      // Try to get search results
+      const searchResponse = await chrome.runtime.sendMessage({ type: 'GET_SEARCH_RESULTS' });
+      if (searchResponse.data && searchResponse.data.length > 0) {
+        searchResults = searchResponse.data;
+        displaySearchResults(searchResults);
+        showState('search');
+        return;
+      } else {
+        showError('No properties found on this search page. Try scrolling to load more results.');
+        return;
+      }
+    }
+
     if (pageInfo.error) {
       if (pageInfo.error.includes('not loaded') || pageInfo.error.includes('refresh')) {
         showError('Please refresh the page and try again. The extension needs to load after the page.');
@@ -243,18 +316,8 @@ async function loadPageData() {
       currentProperty = pageInfo.data;
       displayProperty(pageInfo.data);
       showState('property');
-    } else if (pageInfo.pageType === 'search') {
-      // Try to get search results
-      const searchResponse = await chrome.runtime.sendMessage({ type: 'GET_SEARCH_RESULTS' });
-      if (searchResponse.data && searchResponse.data.length > 0) {
-        searchResults = searchResponse.data;
-        displaySearchResults(searchResults);
-        showState('search');
-      } else {
-        showState('unsupported');
-      }
     } else if (pageInfo.pageType === 'unknown') {
-      showError('This page type is not recognized. Navigate to a property detail page.');
+      showError('This page type is not recognized. Navigate to a property detail or search page.');
     } else {
       showState('unsupported');
     }
@@ -346,7 +409,7 @@ function displaySearchResults(results) {
   selectedResults.clear();
 
   elements.searchResults.innerHTML = results.map((result, index) => `
-    <div class="result-item" data-index="${index}">
+    <div class="result-item" data-index="${index}" data-address="${(result.address || '').replace(/"/g, '&quot;')}">
       <input type="checkbox" class="result-checkbox" data-index="${index}">
       <div class="result-info">
         <div class="result-address">${result.address || 'Unknown'}</div>
@@ -354,8 +417,8 @@ function displaySearchResults(results) {
           ${formatPrice(result.price)} · ${result.beds || '?'} bd · ${result.baths || '?'} ba · ${result.sqft ? formatNumber(result.sqft) + ' sqft' : ''}
         </div>
       </div>
-      <div class="result-quality" title="Data completeness">
-        ${getQualityIndicator(result)}
+      <div class="result-status" data-index="${index}" title="Status">
+        <span class="status-indicator">${getQualityIndicator(result)}</span>
       </div>
     </div>
   `).join('');
@@ -520,9 +583,60 @@ async function quickAddSelected() {
 }
 
 async function deepScrapeSelected() {
-  // Deep scrape would open each URL and get full data
-  // For now, just do quick add
-  await quickAddSelected();
+  if (selectedResults.size === 0) return;
+
+  const selected = Array.from(selectedResults).map(i => searchResults[i]);
+  const addedBy = elements.addedBy.value;
+  const addedFor = elements.addedFor.value;
+
+  // Disable buttons during operation
+  elements.quickAddBtn.disabled = true;
+  elements.deepScrapeBtn.disabled = true;
+  elements.deepScrapeBtn.textContent = 'Scraping...';
+
+  // Show progress UI
+  elements.bulkProgress.classList.remove('hidden');
+  elements.bulkStatus.classList.remove('hidden');
+  elements.bulkProgressFill.style.width = '0%';
+  elements.bulkStatus.textContent = 'Starting deep scrape...';
+
+  try {
+    // Send batch to background for deep scraping
+    const response = await chrome.runtime.sendMessage({
+      type: 'DEEP_SCRAPE_BATCH',
+      properties: selected,
+      metadata: {
+        added_by: addedBy,
+        added_for: addedFor
+      }
+    });
+
+    if (response.success && response.results) {
+      const r = response.results;
+      elements.bulkStatus.textContent = `Done! Saved: ${r.saved}, Queued: ${r.queued}, Failed: ${r.failed}`;
+      elements.bulkProgressFill.style.width = '100%';
+    } else {
+      elements.bulkStatus.textContent = 'Deep scrape completed';
+    }
+
+    updateQueueBadge();
+
+  } catch (error) {
+    console.error('Deep scrape error:', error);
+    elements.bulkStatus.textContent = `Error: ${error.message}`;
+  } finally {
+    // Re-enable buttons
+    elements.quickAddBtn.disabled = false;
+    elements.deepScrapeBtn.disabled = false;
+    updateBulkButtons();
+
+    // Hide progress after delay
+    setTimeout(() => {
+      elements.bulkProgress.classList.add('hidden');
+      elements.bulkStatus.classList.add('hidden');
+      elements.bulkProgressFill.style.width = '0%';
+    }, 5000);
+  }
 }
 
 // ============================================

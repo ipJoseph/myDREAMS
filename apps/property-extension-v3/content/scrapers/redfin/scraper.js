@@ -1,9 +1,9 @@
 /**
  * DREAMS Property Scraper - Redfin Module
- * Version 3.8.0 - Fixed CSP issues, improved extraction
+ * Version 3.9.2 - Improved search results extraction
  */
 
-const REDFIN_VERSION = '3.8.5';
+const REDFIN_VERSION = '3.9.5';
 
 // ============================================
 // PAGE TYPE DETECTION
@@ -366,18 +366,88 @@ function extractPropertyFromScripts() {
 }
 
 // ============================================
+// EXTRACT HOMES FROM ALL SCRIPT TAGS
+// ============================================
+function extractHomesFromScripts() {
+  console.log('Redfin: Searching all scripts for homes data...');
+  const homes = [];
+  const scripts = document.querySelectorAll('script:not([src])');
+
+  for (const script of scripts) {
+    const text = script.textContent || '';
+    if (text.length < 100) continue;
+
+    // Look for patterns that indicate home/property data
+    if (text.includes('propertyId') || text.includes('listingId') || text.includes('homeData')) {
+      // Try to find JSON objects with homes array
+      const jsonMatches = text.matchAll(/\{[^{}]*"(?:homes|listings|searchResults)"[^{}]*\[[\s\S]*?\][\s\S]*?\}/g);
+
+      for (const match of jsonMatches) {
+        try {
+          // This is a rough match, try to parse
+          const parsed = JSON.parse(match[0]);
+          if (parsed.homes && Array.isArray(parsed.homes)) {
+            homes.push(...parsed.homes);
+          }
+        } catch (e) {
+          // Not valid JSON, continue
+        }
+      }
+
+      // Also try to find individual home objects
+      const homeMatches = text.matchAll(/\{"propertyId":\d+[^}]+(?:"streetAddress"|"price")[^}]+\}/g);
+      for (const match of homeMatches) {
+        try {
+          const home = JSON.parse(match[0]);
+          if (home.propertyId) {
+            homes.push(home);
+          }
+        } catch (e) {
+          // Continue
+        }
+      }
+    }
+  }
+
+  // Deduplicate by propertyId
+  const seen = new Set();
+  const unique = homes.filter(h => {
+    const id = h.propertyId || h.listingId;
+    if (id && !seen.has(id)) {
+      seen.add(id);
+      return true;
+    }
+    return false;
+  });
+
+  console.log('Redfin: extractHomesFromScripts found', unique.length, 'unique homes');
+  return unique;
+}
+
+// ============================================
 // EXTRACT SEARCH RESULTS (Bulk Operations)
 // ============================================
 function scrapeRedfinSearchResults() {
   console.log('Redfin: Scraping search results');
   const results = [];
 
-  // Method 1: Extract from reactServerState
-  const serverState = extractReactServerState();
-  if (serverState?.searchResults?.homes) {
-    console.log('Redfin: Found homes in reactServerState');
-    for (const home of serverState.searchResults.homes) {
+  // Method 0: Search all script tags for JSON with homes array
+  const scriptsData = extractHomesFromScripts();
+  if (scriptsData.length > 0) {
+    console.log('Redfin: Found', scriptsData.length, 'homes from script tags');
+    for (const home of scriptsData) {
       results.push(normalizeRedfinSearchResult(home));
+    }
+  }
+
+  // Method 1: Extract from reactServerState
+  if (results.length === 0) {
+    const serverState = extractReactServerState();
+    if (serverState?.searchResults?.homes) {
+      console.log('Redfin: Found homes in reactServerState');
+      for (const home of serverState.searchResults.homes) {
+        results.push(normalizeRedfinSearchResult(home));
+      }
     }
   }
 
@@ -391,21 +461,57 @@ function scrapeRedfinSearchResults() {
     }
   }
 
-  // Method 3: Extract from DOM cards
+  // Method 3: Find property cards by looking for elements with price text
   if (results.length === 0) {
-    const cards = document.querySelectorAll('[data-rf-test-id="mapHomeCard"], .HomeCard, .HomeViews');
-    console.log('Redfin: Found', cards.length, 'property cards in DOM');
+    console.log('Redfin: Using price-based card detection');
 
-    cards.forEach((card, index) => {
-      try {
-        const result = parseRedfinCard(card);
-        if (result.address || result.price) {
-          results.push(result);
+    // Find all elements containing a price
+    const allElements = document.body.querySelectorAll('*');
+    const priceContainers = [];
+
+    // First, find all links to property pages
+    const propertyLinks = document.querySelectorAll('a[href*="/home/"]');
+    console.log('Redfin: Found', propertyLinks.length, 'property links');
+
+    const seenUrls = new Set();
+
+    propertyLinks.forEach(link => {
+      const url = link.href;
+      if (seenUrls.has(url) || !url.includes('/home/')) return;
+
+      // Walk up to find a container with price AND beds/baths info
+      let container = link;
+      let foundGoodContainer = false;
+
+      for (let i = 0; i < 10; i++) {
+        if (!container.parentElement) break;
+        container = container.parentElement;
+
+        const text = container.textContent || '';
+        const hasPrice = /\$[\d,]+/.test(text);
+        const hasBeds = /\d+\s*bed/i.test(text);
+
+        if (hasPrice && hasBeds && text.length < 5000) {
+          foundGoodContainer = true;
+          break;
         }
-      } catch (e) {
-        console.warn('Failed to parse card:', e);
+      }
+
+      if (foundGoodContainer) {
+        seenUrls.add(url);
+        try {
+          const result = parseRedfinCardFromContainer(container, link);
+          if (result.price || result.beds) {
+            results.push(result);
+            console.log('Redfin: Extracted property:', result.price, result.beds, 'beds');
+          }
+        } catch (e) {
+          console.warn('Failed to parse container:', e);
+        }
       }
     });
+
+    console.log('Redfin: Price-based detection found', results.length, 'properties');
   }
 
   console.log('Redfin: Extracted', results.length, 'search results');
@@ -802,36 +908,144 @@ function parseRedfinCard(card) {
     isSearchResult: true
   };
 
-  // Get link and property ID
-  const link = card.querySelector('a[href*="/home/"]');
+  // Get ALL text from the card for fallback parsing
+  const fullText = card.textContent || '';
+  console.log('Redfin: Parsing card with text length:', fullText.length);
+
+  // Get link and property ID - try multiple patterns
+  let link = card.querySelector('a[href*="/home/"]');
+  if (!link) {
+    // Try finding any link in the card
+    const allLinks = card.querySelectorAll('a[href]');
+    for (const l of allLinks) {
+      if (l.href && l.href.includes('redfin.com')) {
+        link = l;
+        break;
+      }
+    }
+  }
+
   if (link) {
     data.url = link.href.startsWith('http') ? link.href : 'https://www.redfin.com' + link.getAttribute('href');
     const idMatch = data.url.match(/\/home\/(\d+)/);
     if (idMatch) data.redfin_id = idMatch[1];
   }
 
-  // Address
-  const addressEl = card.querySelector('.homeAddressV2, .HomeCardAddress, [data-rf-test-id="home-card-address"]');
-  if (addressEl) data.address = addressEl.textContent.trim();
-
-  // Price
-  const priceEl = card.querySelector('.homePriceV2, .HomeCardPrice, [data-rf-test-id="home-card-price"]');
-  if (priceEl) {
-    const priceMatch = priceEl.textContent.match(/\$([\d,]+)/);
-    if (priceMatch) data.price = parseInt(priceMatch[1].replace(/,/g, ''));
+  // ALWAYS parse price from full text (most reliable)
+  const priceMatch = fullText.match(/\$\s*([\d,]+)/);
+  if (priceMatch) {
+    data.price = parseInt(priceMatch[1].replace(/,/g, ''));
   }
 
-  // Stats (beds, baths, sqft)
-  const statsEl = card.querySelector('.HomeStatsV2, .HomeCardStats');
-  if (statsEl) {
-    const text = statsEl.textContent;
-    const bedsMatch = text.match(/(\d+)\s*(?:bed|bd)/i);
-    const bathsMatch = text.match(/([\d.]+)\s*(?:bath|ba)/i);
-    const sqftMatch = text.match(/([\d,]+)\s*(?:sq|sf)/i);
+  // ALWAYS parse beds/baths/sqft from full text
+  const bedsMatch = fullText.match(/(\d+)\s*(?:bed|bd)/i);
+  const bathsMatch = fullText.match(/([\d.]+)\s*(?:bath|ba)/i);
+  const sqftMatch = fullText.match(/([\d,]+)\s*(?:sq\s*ft|sqft|sf)/i);
 
-    if (bedsMatch) data.beds = parseInt(bedsMatch[1]);
-    if (bathsMatch) data.baths = parseFloat(bathsMatch[1]);
-    if (sqftMatch) data.sqft = parseInt(sqftMatch[1].replace(/,/g, ''));
+  if (bedsMatch) data.beds = parseInt(bedsMatch[1]);
+  if (bathsMatch) data.baths = parseFloat(bathsMatch[1]);
+  if (sqftMatch) data.sqft = parseInt(sqftMatch[1].replace(/,/g, ''));
+
+  // Try to extract address - look for address-like patterns
+  // Pattern: number + street name + city + state + zip
+  const addressPatterns = [
+    /(\d+\s+[A-Za-z\s]+(?:St|Ave|Rd|Dr|Ln|Way|Blvd|Ct|Cir|Pl)[^,]*,\s*[A-Za-z\s]+,\s*[A-Z]{2}\s*\d{5})/i,
+    /(\d+\s+[A-Za-z\s]+(?:Street|Avenue|Road|Drive|Lane|Way|Boulevard|Court|Circle|Place)[^,]*,\s*[A-Za-z\s]+)/i,
+    /(\d+\s+[A-Za-z\s]+,\s*[A-Za-z\s]+,\s*[A-Z]{2}\s*\d{5})/,
+    /(\d+\s+[A-Za-z0-9\s]+,\s*[A-Za-z\s]+,\s*[A-Z]{2})/
+  ];
+
+  for (const pattern of addressPatterns) {
+    const match = fullText.match(pattern);
+    if (match) {
+      let addr = match[1].trim();
+      // Clean up: remove price/stats that might have been captured
+      addr = addr.replace(/\$[\d,]+.*$/, '').trim();
+      addr = addr.replace(/\d+\s*(?:bed|bath|sq).*$/i, '').trim();
+      if (addr.length > 10 && addr.length < 100) {
+        data.address = addr;
+        break;
+      }
+    }
+  }
+
+  // If still no address, try specific selectors
+  if (!data.address) {
+    const addressSelectors = [
+      '.homeAddressV2',
+      '.HomeCardAddress',
+      '[data-rf-test-id="home-card-address"]',
+      '.bp-Homecard__Address',
+      '.link-and-anchor',
+      '[class*="address"]',
+      '[class*="Address"]',
+      '.streetAddress',
+      'span[class*="street"]'
+    ];
+    for (const sel of addressSelectors) {
+      const el = card.querySelector(sel);
+      if (el && el.textContent.trim().length > 5) {
+        data.address = el.textContent.trim();
+        break;
+      }
+    }
+  }
+
+  console.log('Redfin: Card parsed -', 'price:', data.price, 'beds:', data.beds, 'address:', data.address?.substring(0, 30));
+  return data;
+}
+
+// ============================================
+// PARSE REDFIN CARD FROM CONTAINER (Link-based fallback)
+// ============================================
+function parseRedfinCardFromContainer(container, link) {
+  const data = {
+    source: 'redfin',
+    isSearchResult: true
+  };
+
+  // Get URL and property ID from the link
+  data.url = link.href.startsWith('http') ? link.href : 'https://www.redfin.com' + link.getAttribute('href');
+  const idMatch = data.url.match(/\/home\/(\d+)/);
+  if (idMatch) data.redfin_id = idMatch[1];
+
+  // Parse text content from container
+  const text = container.textContent || '';
+
+  // Extract price
+  const priceMatch = text.match(/\$([\d,]+)/);
+  if (priceMatch) {
+    data.price = parseInt(priceMatch[1].replace(/,/g, ''));
+  }
+
+  // Extract beds, baths, sqft
+  const bedsMatch = text.match(/(\d+)\s*(?:bed|bd)/i);
+  const bathsMatch = text.match(/([\d.]+)\s*(?:bath|ba)/i);
+  const sqftMatch = text.match(/([\d,]+)\s*(?:sq\s*ft|sqft|sf)/i);
+
+  if (bedsMatch) data.beds = parseInt(bedsMatch[1]);
+  if (bathsMatch) data.baths = parseFloat(bathsMatch[1]);
+  if (sqftMatch) data.sqft = parseInt(sqftMatch[1].replace(/,/g, ''));
+
+  // Extract address - look for patterns like "123 Street Name, City, ST 12345"
+  // Try to find text that looks like an address (has comma and state abbreviation or zip)
+  const addressMatch = text.match(/(\d+[^$\d]+(?:,\s*[A-Za-z\s]+)+(?:,\s*[A-Z]{2}\s*\d{5})?)/);
+  if (addressMatch) {
+    // Clean up the address
+    let addr = addressMatch[1].trim();
+    // Remove stats from address if they got included
+    addr = addr.replace(/\d+\s*(?:bed|bath|sq\s*ft|sqft|bd|ba|sf).*$/i, '').trim();
+    if (addr.length > 5 && addr.length < 100) {
+      data.address = addr;
+    }
+  }
+
+  // If no address found, try link text or alt text
+  if (!data.address) {
+    const linkText = link.textContent?.trim();
+    if (linkText && linkText.length > 5 && linkText.length < 100 && !linkText.includes('$')) {
+      data.address = linkText;
+    }
   }
 
   return data;

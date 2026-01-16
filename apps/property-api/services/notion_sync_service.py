@@ -301,6 +301,21 @@ class NotionSyncService:
                 'select': {'name': source_map.get(prop['source'].lower(), prop['source'].title())}
             }
 
+        # Main URL field - the URL where property was captured from
+        # Get URL based on source, with fallbacks
+        source = (prop.get('source') or '').lower()
+        if source == 'redfin':
+            listing_url = prop.get('redfin_url')
+        elif source == 'zillow':
+            listing_url = prop.get('zillow_url')
+        elif source == 'realtor':
+            listing_url = prop.get('realtor_url')
+        else:
+            listing_url = prop.get('redfin_url') or prop.get('zillow_url') or prop.get('realtor_url')
+
+        if listing_url:
+            properties['URL'] = {'url': listing_url}
+
         # URL fields - separate fields for each source to support multi-source monitoring
         if prop.get('zillow_url'):
             properties['Zillow URL'] = {'url': prop['zillow_url']}
