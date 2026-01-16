@@ -2,20 +2,27 @@
 """
 myDREAMS Property Monitor
 Checks property listings daily for changes (price, status, views, saves)
-Supports Zillow, Redfin, and Realtor.com via ScraperAPI
+Supports Zillow, Redfin, and Realtor.com via Playwright (replaces ScraperAPI)
 """
 
 import os
 import sys
 import re
 import time
+import asyncio
 import logging
 from datetime import datetime
 from typing import Dict, List, Optional
-import requests
 import httpx
-from bs4 import BeautifulSoup
 from notion_client import Client
+
+# Import Playwright scrapers
+from playwright_scraper import (
+    PlaywrightScraper,
+    RedfinPlaywrightScraper,
+    ZillowPlaywrightScraper,
+    get_scraper
+)
 
 # Load environment variables from .env file
 def load_env_file():
@@ -49,313 +56,17 @@ logger = logging.getLogger(__name__)
 NOTION_API_KEY = os.getenv('NOTION_API_KEY')
 NOTION_DATABASE_ID = os.getenv('NOTION_PROPERTIES_DB_ID', '2eb02656b6a4432dbac17d681adbb640')
 
-# ScraperAPI configuration
-SCRAPERAPI_KEY = os.getenv('SCRAPERAPI_KEY')
+# Proxy configuration (optional - for residential proxies)
+USE_PROXY = os.getenv('USE_PROXY', 'false').lower() == 'true'
 
 # Rate limiting
-RATE_LIMIT_DELAY = 2  # seconds between requests
-
-
-class BaseScraper:
-    """Base class for property scrapers"""
-
-    @staticmethod
-    def fetch_page(url: str) -> Optional[BeautifulSoup]:
-        """Fetch page content via ScraperAPI"""
-        if not SCRAPERAPI_KEY:
-            logger.error("SCRAPERAPI_KEY not set")
-            return None
-
-        try:
-            logger.info(f"Fetching via ScraperAPI: {url}")
-            api_url = f'http://api.scraperapi.com?api_key={SCRAPERAPI_KEY}&url={url}'
-            response = requests.get(api_url, timeout=60)
-            response.raise_for_status()
-            return BeautifulSoup(response.text, 'html.parser')
-        except requests.Timeout:
-            logger.error(f"Timeout fetching {url}")
-            return None
-        except Exception as e:
-            logger.error(f"Error fetching {url}: {e}")
-            return None
-
-    @staticmethod
-    def extract_price_from_text(text: str) -> Optional[float]:
-        """Extract price from text using common patterns"""
-        price_match = re.search(r'\$(\d{1,3}(?:,\d{3})+)', text)
-        if price_match:
-            price = int(price_match.group(1).replace(',', ''))
-            if 10000 < price < 10000000:
-                return float(price)
-        return None
-
-
-class ZillowScraper(BaseScraper):
-    """Scrapes property data from Zillow"""
-
-    @classmethod
-    def fetch_property_data(cls, url: str) -> Optional[Dict]:
-        """Fetch all property data from Zillow"""
-        soup = cls.fetch_page(url)
-        if not soup:
-            return None
-
-        text = soup.get_text()
-
-        data = {
-            'price': cls._extract_price(soup, text),
-            'status': cls._extract_status(text),
-            'dom': cls._extract_dom(text),
-            'views': cls._extract_views(text),
-            'saves': cls._extract_saves(text),
-        }
-
-        logger.info(f"Zillow extracted: {data}")
-        return data
-
-    @classmethod
-    def _extract_price(cls, soup: BeautifulSoup, text: str) -> Optional[float]:
-        """Extract current list price"""
-        # Method 1: Look for price in spans
-        spans = soup.find_all('span')
-        for span in spans:
-            span_text = span.get_text().strip()
-            if span_text.startswith('$') and len(span_text) > 4 and ',' in span_text:
-                price = int(''.join(filter(str.isdigit, span_text)))
-                if 10000 < price < 10000000:
-                    return float(price)
-
-        # Method 2: Search body text
-        return cls.extract_price_from_text(text)
-
-    @staticmethod
-    def _extract_status(text: str) -> Optional[str]:
-        """Extract listing status"""
-        text_lower = text.lower()
-        if 'pending' in text_lower:
-            return 'Pending'
-        elif 'sold' in text_lower and 'last sold' not in text_lower:
-            return 'Sold'
-        elif 'off market' in text_lower:
-            return 'Off Market'
-        elif 'for sale' in text_lower or 'buy' in text_lower:
-            return 'Active'
-        return 'Active'
-
-    @staticmethod
-    def _extract_dom(text: str) -> Optional[int]:
-        """Extract Days on Zillow"""
-        match = re.search(r'(\d+)\s*days?\s*on\s*zillow', text, re.IGNORECASE)
-        if match:
-            dom = int(match.group(1))
-            if 0 < dom < 1000:  # Sanity check
-                return dom
-        return None
-
-    @staticmethod
-    def _extract_views(text: str) -> Optional[int]:
-        """Extract view count"""
-        match = re.search(r'([\d,]+)\s*views?(?!\s*:)', text, re.IGNORECASE)
-        if match:
-            views = int(match.group(1).replace(',', ''))
-            if views > 0:
-                return views
-        return None
-
-    @staticmethod
-    def _extract_saves(text: str) -> Optional[int]:
-        """Extract save count"""
-        match = re.search(r'(\d+)\s*saves?(?!\s*:)', text, re.IGNORECASE)
-        if match:
-            saves = int(match.group(1))
-            if saves > 0:
-                return saves
-        return None
-
-
-class RedfinScraper(BaseScraper):
-    """Scrapes property data from Redfin"""
-
-    @classmethod
-    def fetch_property_data(cls, url: str) -> Optional[Dict]:
-        """Fetch all property data from Redfin"""
-        soup = cls.fetch_page(url)
-        if not soup:
-            return None
-
-        text = soup.get_text()
-
-        data = {
-            'price': cls._extract_price(soup, text),
-            'status': cls._extract_status(text),
-            'dom': cls._extract_dom(text),
-            'views': cls._extract_views(text),
-            'saves': cls._extract_saves(text),
-        }
-
-        logger.info(f"Redfin extracted: {data}")
-        return data
-
-    @classmethod
-    def _extract_price(cls, soup: BeautifulSoup, text: str) -> Optional[float]:
-        """Extract current list price"""
-        # Try specific Redfin selectors
-        price_selectors = [
-            '[data-rf-test-id="abp-price"]',
-            '.statsValue',
-            '.price-section .price',
-            '.home-main-stats-variant .stat-value',
-        ]
-        for sel in price_selectors:
-            el = soup.select_one(sel)
-            if el:
-                price_match = re.search(r'\$([\d,]+)', el.get_text())
-                if price_match:
-                    price = int(price_match.group(1).replace(',', ''))
-                    if 10000 < price < 10000000:
-                        return float(price)
-
-        # Fallback to text search
-        return cls.extract_price_from_text(text)
-
-    @staticmethod
-    def _extract_status(text: str) -> Optional[str]:
-        """Extract listing status"""
-        text_lower = text.lower()
-        if 'pending' in text_lower:
-            return 'Pending'
-        elif 'sold' in text_lower and 'last sold' not in text_lower:
-            return 'Sold'
-        elif 'off market' in text_lower:
-            return 'Off Market'
-        elif 'contingent' in text_lower:
-            return 'Contingent'
-        elif 'for sale' in text_lower or 'active' in text_lower:
-            return 'Active'
-        return 'Active'
-
-    @staticmethod
-    def _extract_dom(text: str) -> Optional[int]:
-        """Extract Days on Redfin"""
-        match = re.search(r'(\d+)\s*days?\s*on\s*redfin', text, re.IGNORECASE)
-        if match:
-            dom = int(match.group(1))
-            if 0 < dom < 1000:  # Sanity check - DOM should be < 1000 days
-                return dom
-        # Try generic days on market
-        match = re.search(r'(\d+)\s*days?\s*on\s*market', text, re.IGNORECASE)
-        if match:
-            dom = int(match.group(1))
-            if 0 < dom < 1000:
-                return dom
-        return None
-
-    @staticmethod
-    def _extract_views(text: str) -> Optional[int]:
-        """Extract view count"""
-        # Pattern: "208 views" in stats line
-        match = re.search(r'(\d+)\s*views?', text, re.IGNORECASE)
-        if match:
-            views = int(match.group(1))
-            if views > 0:
-                return views
-        return None
-
-    @staticmethod
-    def _extract_saves(text: str) -> Optional[int]:
-        """Extract favorites count"""
-        # Pattern: "6 favorites" in stats line
-        match = re.search(r'(\d+)\s*favorites?', text, re.IGNORECASE)
-        if match:
-            saves = int(match.group(1))
-            if saves > 0:
-                return saves
-        return None
-
-
-class RealtorScraper(BaseScraper):
-    """Scrapes property data from Realtor.com"""
-
-    @classmethod
-    def fetch_property_data(cls, url: str) -> Optional[Dict]:
-        """Fetch all property data from Realtor.com"""
-        soup = cls.fetch_page(url)
-        if not soup:
-            return None
-
-        text = soup.get_text()
-
-        data = {
-            'price': cls._extract_price(soup, text),
-            'status': cls._extract_status(text),
-            'dom': cls._extract_dom(text),
-            'views': None,  # Realtor.com doesn't typically show views
-            'saves': None,  # Realtor.com doesn't typically show saves
-        }
-
-        logger.info(f"Realtor.com extracted: {data}")
-        return data
-
-    @classmethod
-    def _extract_price(cls, soup: BeautifulSoup, text: str) -> Optional[float]:
-        """Extract current list price"""
-        # Try specific Realtor.com selectors
-        price_selectors = [
-            '[data-testid="list-price"]',
-            '.list-price',
-            '.price-section',
-            '.ldp-header-price',
-        ]
-        for sel in price_selectors:
-            el = soup.select_one(sel)
-            if el:
-                price_match = re.search(r'\$([\d,]+)', el.get_text())
-                if price_match:
-                    price = int(price_match.group(1).replace(',', ''))
-                    if 10000 < price < 10000000:
-                        return float(price)
-
-        # Fallback to text search
-        return cls.extract_price_from_text(text)
-
-    @staticmethod
-    def _extract_status(text: str) -> Optional[str]:
-        """Extract listing status"""
-        text_lower = text.lower()
-        if 'pending' in text_lower:
-            return 'Pending'
-        elif 'sold' in text_lower and 'last sold' not in text_lower:
-            return 'Sold'
-        elif 'off market' in text_lower:
-            return 'Off Market'
-        elif 'contingent' in text_lower:
-            return 'Contingent'
-        elif 'for sale' in text_lower or 'active' in text_lower:
-            return 'Active'
-        return 'Active'
-
-    @staticmethod
-    def _extract_dom(text: str) -> Optional[int]:
-        """Extract Days on Market"""
-        # Various patterns for DOM
-        patterns = [
-            r'(\d+)\s*days?\s*on\s*realtor',
-            r'(\d+)\s*days?\s*on\s*market',
-            r'listed\s*(\d+)\s*days?\s*ago',
-        ]
-        for pattern in patterns:
-            match = re.search(pattern, text, re.IGNORECASE)
-            if match:
-                dom = int(match.group(1))
-                if 0 < dom < 1000:  # Sanity check
-                    return dom
-        return None
+RATE_LIMIT_DELAY = 3  # seconds between requests (be gentle on the sites)
 
 
 class PropertyMonitor:
-    """Monitors properties in Notion database"""
+    """Monitors properties in Notion database using Playwright"""
 
-    def __init__(self):
+    def __init__(self, use_proxy: bool = False, headless: bool = True):
         if not NOTION_API_KEY:
             raise ValueError("NOTION_API_KEY not set")
 
@@ -364,12 +75,15 @@ class PropertyMonitor:
         db_id = NOTION_DATABASE_ID.replace('-', '')
         self.database_id = f"{db_id[:8]}-{db_id[8:12]}-{db_id[12:16]}-{db_id[16:20]}-{db_id[20:]}"
         self.changes_detected = []
+        self.use_proxy = use_proxy
+        self.headless = headless
 
-        # Source to scraper mapping
-        self.scrapers = {
-            'zillow': ZillowScraper,
-            'redfin': RedfinScraper,
-            'realtor': RealtorScraper,
+        # Playwright scrapers (instantiated per source)
+        self.scraper_map = {
+            'zillow': ZillowPlaywrightScraper,
+            'redfin': RedfinPlaywrightScraper,
+            # Realtor.com uses Redfin scraper as fallback (similar structure)
+            'realtor': RedfinPlaywrightScraper,
         }
 
     def fetch_monitored_properties(self) -> List[Dict]:
@@ -495,22 +209,16 @@ class PropertyMonitor:
 
         return (None, None)
 
-    def check_property(self, property_data: Dict) -> Optional[Dict]:
-        """Check a single property for changes using appropriate scraper"""
+    async def check_property(self, property_data: Dict, scraper: PlaywrightScraper) -> Optional[Dict]:
+        """Check a single property for changes using Playwright scraper"""
         address = property_data['address']
         monitoring_url = property_data['monitoring_url']
         monitoring_source = property_data['monitoring_source']
 
         logger.info(f"Checking: {address} via {monitoring_source}")
 
-        # Get the appropriate scraper
-        scraper_class = self.scrapers.get(monitoring_source)
-        if not scraper_class:
-            logger.warning(f"No scraper available for source: {monitoring_source}")
-            return None
-
-        # Fetch current data
-        new_data = scraper_class.fetch_property_data(monitoring_url)
+        # Fetch current data using the shared scraper instance
+        new_data = await scraper.fetch_property_data(monitoring_url)
         if not new_data:
             logger.warning(f"Failed to fetch data for {address}")
             return None
@@ -519,7 +227,7 @@ class PropertyMonitor:
         changes = {}
 
         # Price change
-        if new_data['price'] and new_data['price'] != property_data['current_price']:
+        if new_data.get('price') and new_data['price'] != property_data['current_price']:
             change_amount = new_data['price'] - (property_data['current_price'] or 0)
             changes['price'] = {
                 'old': property_data['current_price'],
@@ -528,28 +236,28 @@ class PropertyMonitor:
             }
 
         # Status change
-        if new_data['status'] and new_data['status'] != property_data['current_status']:
+        if new_data.get('status') and new_data['status'] != property_data['current_status']:
             changes['status'] = {
                 'old': property_data['current_status'],
                 'new': new_data['status']
             }
 
         # DOM change
-        if new_data['dom'] and new_data['dom'] != property_data['current_dom']:
+        if new_data.get('dom') and new_data['dom'] != property_data['current_dom']:
             changes['dom'] = {
                 'old': property_data['current_dom'],
                 'new': new_data['dom']
             }
 
         # Views change (if available for this source)
-        if new_data['views'] and new_data['views'] != property_data['current_views']:
+        if new_data.get('views') and new_data['views'] != property_data['current_views']:
             changes['views'] = {
                 'old': property_data['current_views'],
                 'new': new_data['views']
             }
 
         # Saves change (if available for this source)
-        if new_data['saves'] and new_data['saves'] != property_data['current_saves']:
+        if new_data.get('saves') and new_data['saves'] != property_data['current_saves']:
             changes['saves'] = {
                 'old': property_data['current_saves'],
                 'new': new_data['saves']
@@ -651,10 +359,10 @@ class PropertyMonitor:
 
         return report
 
-    def run(self):
-        """Main monitoring loop"""
+    async def run_async(self):
+        """Main monitoring loop (async version with Playwright)"""
         logger.info("=" * 60)
-        logger.info("Starting Property Monitor (Multi-Source)")
+        logger.info("Starting Property Monitor (Playwright)")
         logger.info("=" * 60)
 
         # Fetch properties to monitor
@@ -664,34 +372,50 @@ class PropertyMonitor:
             logger.warning("No properties to monitor")
             return
 
-        # Log source breakdown
-        sources = {}
+        # Group properties by source for efficient scraper reuse
+        by_source = {}
         for prop in properties:
             src = prop.get('monitoring_source', 'unknown')
-            sources[src] = sources.get(src, 0) + 1
-        logger.info(f"Properties by source: {sources}")
+            if src not in by_source:
+                by_source[src] = []
+            by_source[src].append(prop)
 
-        # Check each property
-        for prop in properties:
-            result = self.check_property(prop)
+        logger.info(f"Properties by source: {dict((k, len(v)) for k, v in by_source.items())}")
 
-            if result:
-                self.changes_detected.append(result)
-                self.update_notion_property(
-                    prop['id'],
-                    result['new_data'],
-                    result['changes']
-                )
-            else:
-                # Still update Last Updated timestamp
-                self.update_notion_property(
-                    prop['id'],
-                    {'price': prop['current_price']},
-                    {}
-                )
+        # Process each source group with a dedicated scraper
+        for source, props in by_source.items():
+            scraper_class = self.scraper_map.get(source)
+            if not scraper_class:
+                logger.warning(f"No scraper available for source: {source}")
+                continue
 
-            # Rate limiting
-            time.sleep(RATE_LIMIT_DELAY)
+            logger.info(f"\n--- Processing {len(props)} {source.title()} properties ---")
+
+            # Use context manager for proper browser lifecycle
+            async with scraper_class(use_proxy=self.use_proxy, headless=self.headless) as scraper:
+                for prop in props:
+                    try:
+                        result = await self.check_property(prop, scraper)
+
+                        if result:
+                            self.changes_detected.append(result)
+                            self.update_notion_property(
+                                prop['id'],
+                                result['new_data'],
+                                result['changes']
+                            )
+                        else:
+                            # Still update Last Updated timestamp
+                            self.update_notion_property(
+                                prop['id'],
+                                {'price': prop['current_price']},
+                                {}
+                            )
+                    except Exception as e:
+                        logger.error(f"Error checking {prop['address']}: {e}")
+
+                    # Rate limiting between requests
+                    await asyncio.sleep(RATE_LIMIT_DELAY)
 
         # Generate report
         report = self.generate_report()
@@ -699,6 +423,10 @@ class PropertyMonitor:
 
         logger.info("Monitor complete")
         logger.info("=" * 60)
+
+    def run(self):
+        """Synchronous entry point that runs the async monitor"""
+        asyncio.run(self.run_async())
 
     # Helper methods
     @staticmethod
@@ -730,8 +458,18 @@ class PropertyMonitor:
 
 def main():
     """Entry point"""
+    import argparse
+
+    parser = argparse.ArgumentParser(description='myDREAMS Property Monitor')
+    parser.add_argument('--proxy', action='store_true', help='Use proxy for requests')
+    parser.add_argument('--visible', action='store_true', help='Show browser (non-headless)')
+    args = parser.parse_args()
+
     try:
-        monitor = PropertyMonitor()
+        monitor = PropertyMonitor(
+            use_proxy=args.proxy or USE_PROXY,
+            headless=not args.visible
+        )
         monitor.run()
     except KeyboardInterrupt:
         logger.info("Monitor stopped by user")
