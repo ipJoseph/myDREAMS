@@ -64,8 +64,8 @@ class IDXPortfolioAutomation:
         self.browser = await self.playwright.chromium.launch(
             headless=self.headless,
             args=[
-                '--window-position=50,50',
-                '--window-size=1240,900'
+                '--window-position=0,0',
+                '--window-size=1280,900'
             ]
         )
         logger.info("Browser started")
@@ -392,8 +392,9 @@ class IDXPortfolioAutomation:
 
         try:
             # Create new context and page
+            # Viewport must match window size to avoid content being cut off
             context = await self.browser.new_context(
-                viewport={'width': 1400, 'height': 850}
+                viewport={'width': 1280, 'height': 850}
             )
             page = await context.new_page()
 
