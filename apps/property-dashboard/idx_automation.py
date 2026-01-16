@@ -48,6 +48,7 @@ class IDXPortfolioAutomation:
         """
         self.headless = headless
         self.browser: Optional[Browser] = None
+        self.context = None
         self.playwright = None
 
     async def __aenter__(self):
@@ -59,16 +60,26 @@ class IDXPortfolioAutomation:
         pass
 
     async def start(self):
-        """Start the browser"""
+        """Start the browser with persistent profile"""
         self.playwright = await async_playwright().start()
-        self.browser = await self.playwright.chromium.launch(
+
+        # Use persistent context to maintain session/cookies like a real browser
+        user_data_dir = os.path.expanduser('~/.idx-browser-profile')
+
+        self.context = await self.playwright.chromium.launch_persistent_context(
+            user_data_dir,
             headless=self.headless,
+            viewport={'width': 1280, 'height': 850},
             args=[
                 '--window-position=0,0',
-                '--window-size=1280,900'
-            ]
+                '--window-size=1280,900',
+                '--disable-blink-features=AutomationControlled',
+            ],
+            ignore_default_args=['--enable-automation'],
         )
-        logger.info("Browser started")
+        # For persistent context, browser is None - we use context directly
+        self.browser = None
+        logger.info("Browser started with persistent profile")
 
     async def login(self, page: Page) -> bool:
         """
@@ -82,11 +93,7 @@ class IDXPortfolioAutomation:
             return False
 
         try:
-            # Navigate to homepage first
-            logger.info(f"Navigating to {IDX_BASE_URL}")
-            await page.goto(IDX_BASE_URL, wait_until='domcontentloaded', timeout=30000)
-            await page.wait_for_timeout(1500)
-
+            # Page should already be on the homepage
             # Click the person icon to open login panel
             # The icon is in the top right, typically an <a> or <button> with person/user icon
             person_icon = page.locator('a.fa-user, a[href*="login"], .user-icon, a:has(.fa-user), nav a:last-child').first
@@ -188,6 +195,8 @@ class IDXPortfolioAutomation:
 
     async def stop(self):
         """Stop the browser"""
+        if self.context:
+            await self.context.close()
         if self.browser:
             await self.browser.close()
         if self.playwright:
@@ -393,19 +402,28 @@ class IDXPortfolioAutomation:
             logger.warning("No MLS numbers provided")
             return None
 
-        if not self.browser:
+        if not self.context:
             await self.start()
 
         try:
-            # Create new context and page
-            # Viewport must match window size to avoid content being cut off
-            context = await self.browser.new_context(
-                viewport={'width': 1280, 'height': 850}
-            )
-            page = await context.new_page()
+            # Use the persistent context - create a new page
+            page = await self.context.new_page()
 
-            # Login first if credentials are configured
-            if IDX_EMAIL and IDX_PHONE:
+            # Check if already logged in by looking for login indicators
+            await page.goto(IDX_BASE_URL, wait_until='domcontentloaded', timeout=30000)
+            await page.wait_for_timeout(1500)
+
+            # Check if we need to login (look for saved searches badge or logged-in state)
+            needs_login = await page.evaluate('''() => {
+                // If there's a number badge on the user icon, we're logged in
+                const badge = document.querySelector('.badge, .notification-count, [class*="badge"]');
+                if (badge && badge.textContent.trim()) return false;
+                // Otherwise assume we need to login
+                return true;
+            }''')
+
+            # Login if needed and credentials are configured
+            if needs_login and IDX_EMAIL and IDX_PHONE:
                 login_success = await self.login(page)
                 if login_success:
                     logger.info("Login completed")
@@ -574,9 +592,9 @@ class IDXPortfolioAutomation:
             # Keep the process alive while browser context exists
             while True:
                 try:
-                    # Check if browser is still running (not just the page)
-                    if not self.browser.is_connected():
-                        logger.info("Browser closed by user")
+                    # Check if context/browser is still running
+                    if self.context and len(self.context.pages) == 0:
+                        logger.info("All pages closed by user")
                         break
                     await asyncio.sleep(3)
                 except Exception as e:
