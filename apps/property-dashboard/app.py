@@ -5,6 +5,8 @@ A web-based summary view of properties from Notion
 """
 
 import os
+import sys
+import subprocess
 import statistics
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify
@@ -328,6 +330,41 @@ def api_properties():
         'properties': properties,
         'metrics': metrics
     })
+
+
+@app.route('/api/idx-portfolio', methods=['POST'])
+def create_idx_portfolio():
+    """Launch IDX portfolio automation with selected MLS numbers"""
+    data = request.get_json()
+    mls_numbers = data.get('mls_numbers', [])
+
+    if not mls_numbers:
+        return jsonify({'success': False, 'error': 'No MLS numbers provided'}), 400
+
+    # Path to the launch script
+    launch_script = os.path.join(os.path.dirname(__file__), 'launch_idx.sh')
+    mls_string = ','.join(mls_numbers)
+
+    try:
+        # Use shell script to properly detach the process
+        result = subprocess.run(
+            [launch_script, mls_string],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+
+        pid = result.stdout.strip()
+
+        return jsonify({
+            'success': True,
+            'message': f'Opening IDX portfolio with {len(mls_numbers)} properties',
+            'mls_count': len(mls_numbers),
+            'pid': pid
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 if __name__ == '__main__':

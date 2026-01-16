@@ -139,6 +139,53 @@
             color: var(--text);
         }
 
+        .results-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .action-btn {
+            padding: 8px 16px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .action-btn:hover {
+            background: var(--primary-light);
+        }
+
+        .action-btn.secondary {
+            background: var(--surface);
+            color: var(--primary);
+            border: 1px solid var(--primary);
+        }
+
+        .action-btn.secondary:hover {
+            background: var(--bg);
+        }
+
+        .action-btn.success {
+            background: var(--success);
+        }
+
+        .checkbox-col {
+            width: 40px;
+            text-align: center;
+        }
+
+        .checkbox-col input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            accent-color: var(--primary);
+        }
+
         /* Table */
         .table-container {
             padding: 0 24px 24px;
@@ -206,6 +253,30 @@
         .row-num {
             color: var(--text-secondary);
             font-size: 13px;
+        }
+
+        /* Address column - wider, no wrap */
+        td.address-col {
+            min-width: 280px;
+            white-space: nowrap;
+        }
+
+        /* IDX link button style */
+        .idx-link {
+            display: inline-block;
+            padding: 4px 10px;
+            background: var(--primary);
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            transition: background 0.15s;
+        }
+
+        .idx-link:hover {
+            background: var(--primary-light);
+            color: white;
         }
 
         /* Property image */
@@ -399,14 +470,6 @@
             <div class="metric-value">{{ metrics.avg_dom if metrics.avg_dom else 'N/A' }} days</div>
         </div>
         <div class="metric-card">
-            <div class="metric-label">Avg Bed/Bath</div>
-            <div class="metric-value">{{ metrics.avg_beds|default('?', true) }} / {{ metrics.avg_baths|default('?', true) }}</div>
-        </div>
-        <div class="metric-card">
-            <div class="metric-label">Avg Taxes</div>
-            <div class="metric-value">{{ "${:,.0f}".format(metrics.avg_taxes) if metrics.avg_taxes else 'N/A' }}</div>
-        </div>
-        <div class="metric-card">
             <div class="metric-label">Avg Lot Size</div>
             <div class="metric-value">{{ "{:.2f}".format(metrics.avg_lot_acres) if metrics.avg_lot_acres else 'N/A' }} ac</div>
         </div>
@@ -420,6 +483,17 @@
                 ({% for status, count in metrics.status_counts.items() %}{{ status }}: {{ count }}{% if not loop.last %}, {% endif %}{% endfor %})
             {% endif %}
         </div>
+        <div class="results-actions">
+            <button class="action-btn" onclick="copyMLSNumbers()" title="Copy MLS numbers to clipboard">
+                <span id="copyBtnText">Copy MLS #s</span>
+            </button>
+            <button class="action-btn secondary" onclick="openIDXSearch()" title="Open IDX search page (paste MLS numbers)">
+                Open IDX
+            </button>
+            <button class="action-btn" onclick="createIDXPortfolio()" title="Auto-fill IDX search with selected properties" style="background: var(--success);">
+                <span id="portfolioBtnText">Create IDX Portfolio</span>
+            </button>
+        </div>
     </div>
 
     <!-- Properties Table -->
@@ -427,6 +501,7 @@
         <table id="propertiesTable">
             <thead>
                 <tr>
+                    <th class="checkbox-col"><input type="checkbox" id="selectAll" checked onchange="toggleSelectAll(this)"></th>
                     <th>#</th>
                     <th>Image</th>
                     <th data-sort="address">Address</th>
@@ -445,11 +520,13 @@
                     <th class="num-col" data-sort="lot_acres" data-type="number">Lot</th>
                     <th data-sort="source">Source</th>
                     <th data-sort="mls_number">MLS #</th>
+                    <th>IDX</th>
                 </tr>
             </thead>
             <tbody>
                 {% for prop in properties %}
-                <tr>
+                <tr data-mls="{{ prop.mls_number or '' }}">
+                    <td class="checkbox-col"><input type="checkbox" class="row-select" checked onchange="updateSelectAll()"></td>
                     <td class="row-num">{{ loop.index }}</td>
                     <td>
                         {% if prop.photo_url %}
@@ -458,7 +535,7 @@
                         <div class="prop-image-placeholder">🏠</div>
                         {% endif %}
                     </td>
-                    <td>
+                    <td class="address-col">
                         {% if prop.url %}
                         <a href="{{ prop.url }}" target="_blank" class="address-link">{{ prop.address or 'Unknown' }}</a>
                         {% else %}
@@ -484,6 +561,13 @@
                     <td class="num-col">{{ "{:.2f}".format(prop.lot_acres) if prop.lot_acres else '-' }}</td>
                     <td>{{ prop.source or '-' }}</td>
                     <td>{{ prop.mls_number or '-' }}</td>
+                    <td>
+                        {% if prop.mls_number %}
+                        <a href="https://www.smokymountainhomes4sale.com/property/{{ prop.mls_number }}" target="_blank" class="idx-link" title="View on team site">View</a>
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -523,6 +607,139 @@
                 window.location.search = params.toString();
             }
         });
+
+        // Get MLS numbers from checked rows only
+        function getMLSNumbers() {
+            const table = document.getElementById('propertiesTable');
+            const rows = table.querySelectorAll('tbody tr');
+            const mlsNumbers = [];
+
+            rows.forEach(row => {
+                const checkbox = row.querySelector('.row-select');
+                if (checkbox && checkbox.checked) {
+                    const mls = row.dataset.mls;
+                    if (mls && mls !== '') {
+                        mlsNumbers.push(mls);
+                    }
+                }
+            });
+
+            return mlsNumbers;
+        }
+
+        // Toggle all checkboxes
+        function toggleSelectAll(headerCheckbox) {
+            const checkboxes = document.querySelectorAll('.row-select');
+            checkboxes.forEach(cb => cb.checked = headerCheckbox.checked);
+        }
+
+        // Update header checkbox based on row selections
+        function updateSelectAll() {
+            const checkboxes = document.querySelectorAll('.row-select');
+            const selectAll = document.getElementById('selectAll');
+            const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+            const someChecked = Array.from(checkboxes).some(cb => cb.checked);
+
+            selectAll.checked = allChecked;
+            selectAll.indeterminate = someChecked && !allChecked;
+        }
+
+        // Copy MLS numbers to clipboard
+        async function copyMLSNumbers() {
+            const mlsNumbers = getMLSNumbers();
+
+            if (mlsNumbers.length === 0) {
+                alert('No MLS numbers found in the current view.');
+                return;
+            }
+
+            const mlsString = mlsNumbers.join(', ');
+
+            try {
+                await navigator.clipboard.writeText(mlsString);
+
+                // Visual feedback
+                const btn = document.getElementById('copyBtnText');
+                const originalText = btn.textContent;
+                btn.textContent = 'Copied!';
+                btn.parentElement.classList.add('success');
+
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.parentElement.classList.remove('success');
+                }, 2000);
+
+            } catch (err) {
+                // Fallback for older browsers
+                const textarea = document.createElement('textarea');
+                textarea.value = mlsString;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                alert('Copied ' + mlsNumbers.length + ' MLS numbers to clipboard!');
+            }
+        }
+
+        // Open IDX search with MLS numbers
+        function openIDXSearch() {
+            const mlsNumbers = getMLSNumbers();
+
+            if (mlsNumbers.length === 0) {
+                alert('No MLS numbers found in the current view.');
+                return;
+            }
+
+            // IDX site URL - we'll test if URL params work
+            const baseUrl = 'https://www.smokymountainhomes4sale.com/search/mls_search/';
+
+            // First, copy to clipboard as backup
+            const mlsString = mlsNumbers.join(', ');
+            navigator.clipboard.writeText(mlsString).catch(() => {});
+
+            // Open the IDX page (user can paste if URL params don't work)
+            window.open(baseUrl, '_blank');
+        }
+
+        // Create IDX Portfolio - launches Playwright automation
+        async function createIDXPortfolio() {
+            const mlsNumbers = getMLSNumbers();
+
+            if (mlsNumbers.length === 0) {
+                alert('No properties selected. Check the boxes for properties you want to include.');
+                return;
+            }
+
+            const btn = document.getElementById('portfolioBtnText');
+            const originalText = btn.textContent;
+            btn.textContent = 'Launching...';
+
+            try {
+                const response = await fetch('/api/idx-portfolio', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ mls_numbers: mlsNumbers })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    btn.textContent = 'Launched!';
+                    btn.parentElement.classList.add('success');
+                    setTimeout(() => {
+                        btn.textContent = originalText;
+                    }, 3000);
+                } else {
+                    alert('Error: ' + data.error);
+                    btn.textContent = originalText;
+                }
+            } catch (error) {
+                alert('Error launching portfolio: ' + error.message);
+                btn.textContent = originalText;
+            }
+        }
 
         // Table sorting
         let currentSort = { column: null, direction: null }; // null = unsorted, 'asc', 'desc'
