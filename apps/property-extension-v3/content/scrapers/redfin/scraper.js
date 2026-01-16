@@ -3,7 +3,7 @@
  * Version 3.9.2 - Improved search results extraction
  */
 
-const REDFIN_VERSION = '3.9.5';
+const REDFIN_VERSION = '3.9.15';
 
 // ============================================
 // PAGE TYPE DETECTION
@@ -17,10 +17,13 @@ function detectRedfinPageType() {
     return 'property';
   }
 
-  // Search/filter results
+  // Search/filter results - includes filter URLs with price/beds/etc params
   if (path.includes('/city/') || path.includes('/zipcode/') ||
       path.includes('/neighborhood/') || path.includes('/school/') ||
-      url.includes('market=') || url.includes('region_id=')) {
+      path.includes('/filter/') || path.includes('/county/') ||
+      url.includes('market=') || url.includes('region_id=') ||
+      url.includes('min-price=') || url.includes('max-price=') ||
+      url.includes('min-beds=') || url.includes('max-beds=')) {
     return 'search';
   }
 
@@ -514,7 +517,13 @@ function scrapeRedfinSearchResults() {
     console.log('Redfin: Price-based detection found', results.length, 'properties');
   }
 
-  console.log('Redfin: Extracted', results.length, 'search results');
+  // Debug: count how many have photos
+  const withPhotos = results.filter(r => r.primary_photo).length;
+  console.log('Redfin: Extracted', results.length, 'search results,', withPhotos, 'with photos');
+  if (results.length > 0) {
+    console.log('Redfin: First result keys:', Object.keys(results[0]));
+    console.log('Redfin: First result primary_photo:', results[0].primary_photo);
+  }
   return results;
 }
 
@@ -871,6 +880,42 @@ function normalizeRedfinProperty(raw) {
 // NORMALIZE SEARCH RESULT (for bulk operations)
 // ============================================
 function normalizeRedfinSearchResult(home) {
+  // Debug: Log all photo-related fields to find the correct one
+  const photoFields = Object.keys(home).filter(k =>
+    k.toLowerCase().includes('photo') ||
+    k.toLowerCase().includes('image') ||
+    k.toLowerCase().includes('thumb') ||
+    k.toLowerCase().includes('media')
+  );
+  if (photoFields.length > 0) {
+    console.log('Redfin photo fields found:', photoFields, 'values:', photoFields.map(f => home[f]));
+  }
+
+  // Extract primary photo URL from various possible locations
+  let primaryPhoto = null;
+  if (home.primaryPhotoUrl) {
+    primaryPhoto = home.primaryPhotoUrl;
+  } else if (home.listingPhotoUrl) {
+    primaryPhoto = home.listingPhotoUrl;
+  } else if (home.thumbnailUrl) {
+    primaryPhoto = home.thumbnailUrl;
+  } else if (home.photoUrl) {
+    primaryPhoto = home.photoUrl;
+  } else if (home.mediaUrl) {
+    primaryPhoto = home.mediaUrl;
+  } else if (home.photoUrls && home.photoUrls.length > 0) {
+    primaryPhoto = home.photoUrls[0];
+  } else if (home.photos && home.photos.length > 0) {
+    const firstPhoto = home.photos[0];
+    primaryPhoto = firstPhoto.photoUrl || firstPhoto.url || firstPhoto;
+  } else if (home.listingPhoto) {
+    primaryPhoto = home.listingPhoto.photoUrl || home.listingPhoto.url || home.listingPhoto;
+  } else if (home.photo) {
+    primaryPhoto = home.photo.photoUrl || home.photo.url || home.photo;
+  }
+
+  console.log('Redfin: primaryPhoto extracted:', primaryPhoto ? primaryPhoto.substring(0, 80) + '...' : 'NONE');
+
   const data = {
     redfin_id: home.propertyId?.toString() || home.listingId?.toString() || null,
     mls_number: home.mlsId || null,
@@ -891,6 +936,8 @@ function normalizeRedfinSearchResult(home) {
     url: home.url || (home.propertyId ? `https://www.redfin.com/home/${home.propertyId}` : null),
     source: 'redfin',
     isSearchResult: true,
+    // Photo
+    primary_photo: primaryPhoto,
     // For bulk export
     listing_agent_name: home.listingAgent?.name || null,
     listing_agent_phone: home.listingAgent?.phone || null,
@@ -931,13 +978,28 @@ function parseRedfinCard(card) {
     if (idMatch) data.redfin_id = idMatch[1];
   }
 
-  // ALWAYS parse price from full text (most reliable)
-  const priceMatch = fullText.match(/\$\s*([\d,]+)/);
-  if (priceMatch) {
-    data.price = parseInt(priceMatch[1].replace(/,/g, ''));
+  // Extract primary photo from card
+  const imgSelectors = [
+    'img[src*="ssl.cdn-redfin"]',
+    'img[src*="rdcpix"]',
+    'img[src*="photos"]',
+    '.HomeCard img',
+    '.bp-Homecard__Photo img',
+    '[data-rf-test-id="home-card-photo"] img',
+    'img.photo',
+    'img[class*="photo"]',
+    'img[class*="Photo"]',
+    'img'
+  ];
+  for (const sel of imgSelectors) {
+    const img = card.querySelector(sel);
+    if (img && img.src && !img.src.includes('placeholder') && !img.src.includes('data:')) {
+      data.primary_photo = img.src;
+      break;
+    }
   }
 
-  // ALWAYS parse beds/baths/sqft from full text
+  // ALWAYS parse beds/baths/sqft from full text FIRST (to avoid price contamination)
   const bedsMatch = fullText.match(/(\d+)\s*(?:bed|bd)/i);
   const bathsMatch = fullText.match(/([\d.]+)\s*(?:bath|ba)/i);
   const sqftMatch = fullText.match(/([\d,]+)\s*(?:sq\s*ft|sqft|sf)/i);
@@ -945,6 +1007,13 @@ function parseRedfinCard(card) {
   if (bedsMatch) data.beds = parseInt(bedsMatch[1]);
   if (bathsMatch) data.baths = parseFloat(bathsMatch[1]);
   if (sqftMatch) data.sqft = parseInt(sqftMatch[1].replace(/,/g, ''));
+
+  // Parse price - use pattern that expects proper comma formatting (e.g., $465,000)
+  // This prevents capturing bed count that may be concatenated without space
+  const priceMatch = fullText.match(/\$\s*(\d{1,3}(?:,\d{3})*)/);
+  if (priceMatch) {
+    data.price = parseInt(priceMatch[1].replace(/,/g, ''));
+  }
 
   // Try to extract address - look for address-like patterns
   // Pattern: number + street name + city + state + zip
@@ -1009,16 +1078,45 @@ function parseRedfinCardFromContainer(container, link) {
   const idMatch = data.url.match(/\/home\/(\d+)/);
   if (idMatch) data.redfin_id = idMatch[1];
 
+  // Extract primary photo - search container, parent, grandparent, and siblings
+  let img = null;
+  const searchTargets = [
+    container,
+    container.parentElement,
+    container.parentElement?.parentElement,
+    container.parentElement?.parentElement?.parentElement
+  ].filter(Boolean);
+
+  for (const target of searchTargets) {
+    // Search within this element
+    img = target.querySelector('img[src*="ssl.cdn-redfin"], img[src*="rdcpix"], img[src*="photos"], img[src*="redfin"]');
+    if (img && img.src && !img.src.includes('placeholder') && !img.src.includes('data:') && img.src.startsWith('http')) {
+      break;
+    }
+    // Also check for background-image style on divs (Redfin sometimes uses this)
+    const bgDiv = target.querySelector('[style*="background-image"]');
+    if (bgDiv) {
+      const bgMatch = bgDiv.getAttribute('style')?.match(/url\(['"]?([^'")\s]+)['"]?\)/);
+      if (bgMatch && bgMatch[1] && bgMatch[1].startsWith('http')) {
+        data.primary_photo = bgMatch[1];
+        console.log('Redfin photo: captured from background-image:', data.primary_photo.substring(0, 80));
+        break;
+      }
+    }
+    img = null;
+  }
+
+  if (img && img.src && !img.src.includes('placeholder') && !img.src.includes('data:') && img.src.startsWith('http')) {
+    data.primary_photo = img.src;
+    console.log('Redfin photo: captured', img.src.substring(0, 80));
+  } else {
+    console.log('Redfin photo: no valid img found after searching parents');
+  }
+
   // Parse text content from container
   const text = container.textContent || '';
 
-  // Extract price
-  const priceMatch = text.match(/\$([\d,]+)/);
-  if (priceMatch) {
-    data.price = parseInt(priceMatch[1].replace(/,/g, ''));
-  }
-
-  // Extract beds, baths, sqft
+  // Extract beds, baths, sqft FIRST (to identify what not to include in price)
   const bedsMatch = text.match(/(\d+)\s*(?:bed|bd)/i);
   const bathsMatch = text.match(/([\d.]+)\s*(?:bath|ba)/i);
   const sqftMatch = text.match(/([\d,]+)\s*(?:sq\s*ft|sqft|sf)/i);
@@ -1026,6 +1124,13 @@ function parseRedfinCardFromContainer(container, link) {
   if (bedsMatch) data.beds = parseInt(bedsMatch[1]);
   if (bathsMatch) data.baths = parseFloat(bathsMatch[1]);
   if (sqftMatch) data.sqft = parseInt(sqftMatch[1].replace(/,/g, ''));
+
+  // Extract price - use pattern that expects proper comma formatting (e.g., $465,000)
+  // This prevents capturing bed count that may be concatenated without space
+  const priceMatch = text.match(/\$\s*(\d{1,3}(?:,\d{3})*)/);
+  if (priceMatch) {
+    data.price = parseInt(priceMatch[1].replace(/,/g, ''));
+  }
 
   // Extract address - look for patterns like "123 Street Name, City, ST 12345"
   // Try to find text that looks like an address (has comma and state abbreviation or zip)

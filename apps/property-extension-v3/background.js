@@ -321,6 +321,11 @@ async function deepScrapeBatch(properties, metadata) {
           fullData.redfin_id = property.redfin_id;
         }
 
+        // Preserve primary_photo from search results if not in full data
+        if (!fullData.primary_photo && property.primary_photo) {
+          fullData.primary_photo = property.primary_photo;
+        }
+
         // Send progress update - saving
         sendProgressUpdate({
           current: i + 1,

@@ -145,9 +145,10 @@ class RedfinPlaywrightScraper(PlaywrightScraper):
             'sqft': self._extract_sqft(text_content),
             'address': self._extract_address(html_content),
             'mls_number': self._extract_mls(text_content),
+            'primary_photo': self._extract_photo(html_content),
         }
 
-        logger.info(f"Redfin extracted: price={data['price']}, status={data['status']}, dom={data['dom']}")
+        logger.info(f"Redfin extracted: price={data['price']}, status={data['status']}, dom={data['dom']}, photo={'yes' if data['primary_photo'] else 'no'}")
         return data
 
     def _extract_price(self, html: str, text: str) -> Optional[float]:
@@ -302,6 +303,49 @@ class RedfinPlaywrightScraper(PlaywrightScraper):
                 # Verify it's likely an MLS number (at least 5 chars)
                 if len(mls) >= 5:
                     return mls
+        return None
+
+    def _extract_photo(self, html: str) -> Optional[str]:
+        """Extract primary photo URL from Redfin property page"""
+        # Method 1: Look for og:image meta tag (most reliable for primary photo)
+        og_match = re.search(r'<meta\s+property="og:image"\s+content="([^"]+)"', html, re.IGNORECASE)
+        if og_match:
+            url = og_match.group(1)
+            if url.startswith('http') and 'redfin' in url.lower():
+                return url
+
+        # Method 2: Look for main photo in JSON-LD data
+        json_ld_match = re.search(r'<script type="application/ld\+json">([^<]+)</script>', html)
+        if json_ld_match:
+            try:
+                ld_data = json.loads(json_ld_match.group(1))
+                if isinstance(ld_data, dict):
+                    photo = ld_data.get('image') or ld_data.get('photo')
+                    if isinstance(photo, str) and photo.startswith('http'):
+                        return photo
+                    elif isinstance(photo, list) and photo:
+                        return photo[0] if isinstance(photo[0], str) else photo[0].get('url')
+            except (json.JSONDecodeError, TypeError, KeyError):
+                pass
+
+        # Method 3: Look for Redfin CDN image URLs in img tags
+        img_patterns = [
+            r'<img[^>]+src="(https://ssl\.cdn-redfin\.com/[^"]+)"',
+            r'<img[^>]+src="(https://[^"]*redfin[^"]*photos[^"]+)"',
+        ]
+        for pattern in img_patterns:
+            match = re.search(pattern, html, re.IGNORECASE)
+            if match:
+                url = match.group(1)
+                # Skip thumbnails and icons
+                if 'thumb' not in url.lower() and 'icon' not in url.lower():
+                    return url
+
+        # Method 4: Look for background-image style with Redfin URL
+        bg_match = re.search(r'background-image:\s*url\(["\']?(https://[^"\')]+redfin[^"\')]+)["\']?\)', html, re.IGNORECASE)
+        if bg_match:
+            return bg_match.group(1)
+
         return None
 
 

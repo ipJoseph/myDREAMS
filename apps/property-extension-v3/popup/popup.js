@@ -66,6 +66,8 @@ const elements = {
   bulkProgress: document.getElementById('bulkProgress'),
   bulkProgressFill: document.getElementById('bulkProgressFill'),
   bulkStatus: document.getElementById('bulkStatus'),
+  searchAddedBy: document.getElementById('searchAddedBy'),
+  searchAddedFor: document.getElementById('searchAddedFor'),
 
   // Settings
   serverUrl: document.getElementById('serverUrl'),
@@ -109,10 +111,12 @@ async function loadSettings() {
   }
   if (settings.defaultAddedBy) {
     elements.addedBy.value = settings.defaultAddedBy;
+    elements.searchAddedBy.value = settings.defaultAddedBy;
     elements.defaultAddedBy.value = settings.defaultAddedBy;
   }
   if (settings.lastAddedFor) {
     elements.addedFor.value = settings.lastAddedFor;
+    elements.searchAddedFor.value = settings.lastAddedFor;
   }
 }
 
@@ -144,69 +148,97 @@ function setupEventListeners() {
   elements.deepScrapeBtn.addEventListener('click', () => deepScrapeSelected());
 
   // Listen for background messages
-  chrome.runtime.onMessage.addListener((message) => {
-    if (message.type === 'QUEUE_ITEM_PROCESSED' || message.type === 'QUEUE_ITEM_FAILED') {
-      updateQueueBadge();
-    }
-
-    // Handle batch progress updates
-    if (message.type === 'BATCH_PROGRESS' && message.data) {
-      const { current, total, property, status, error } = message.data;
-
-      // Update progress bar
-      const percent = (current / total) * 100;
-      elements.bulkProgressFill.style.width = `${percent}%`;
-
-      // Update status text based on status
-      if (status === 'scraping') {
-        elements.bulkStatus.textContent = `Scraping ${current}/${total}: ${property}...`;
-      } else if (status === 'saving') {
-        elements.bulkStatus.textContent = `Saving ${current}/${total}: ${property}...`;
-      } else if (status === 'complete') {
-        elements.bulkStatus.textContent = `Completed ${current}/${total}: ${property}`;
-      } else if (status === 'failed') {
-        elements.bulkStatus.textContent = `Failed ${current}/${total}: ${property} - ${error || 'Unknown error'}`;
-      } else if (status === 'done') {
-        // Final status handled by deepScrapeSelected response
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    // Use setTimeout to avoid blocking the message channel
+    setTimeout(() => {
+      if (message.type === 'QUEUE_ITEM_PROCESSED' || message.type === 'QUEUE_ITEM_FAILED') {
+        updateQueueBadge();
       }
 
-      // Update individual item status indicator
-      updateItemStatus(property, status);
-    }
+      // Handle batch progress updates
+      if (message.type === 'BATCH_PROGRESS' && message.data) {
+        const { current, total, property, status, error } = message.data;
+
+        // Update progress bar
+        const percent = (current / total) * 100;
+        elements.bulkProgressFill.style.width = `${percent}%`;
+
+        // Update status text based on status
+        if (status === 'scraping') {
+          elements.bulkStatus.textContent = `Scraping ${current}/${total}: ${property}...`;
+        } else if (status === 'saving') {
+          elements.bulkStatus.textContent = `Saving ${current}/${total}: ${property}...`;
+        } else if (status === 'complete') {
+          elements.bulkStatus.textContent = `Completed ${current}/${total}: ${property}`;
+        } else if (status === 'failed') {
+          elements.bulkStatus.textContent = `Failed ${current}/${total}: ${property} - ${error || 'Unknown error'}`;
+        } else if (status === 'done') {
+          // Final status handled by deepScrapeSelected response
+        }
+
+        // Update individual item status indicator
+        updateItemStatus(property, status);
+      }
+    }, 0);
+
+    // Return false since we're not sending an async response
+    return false;
   });
 }
 
+// Cache for status indicator elements to avoid repeated DOM queries
+let statusIndicatorCache = new Map();
+
 // Update the status indicator for a specific property
 function updateItemStatus(address, status) {
-  // Find the result item by address
-  const items = elements.searchResults.querySelectorAll('.result-item');
-  for (const item of items) {
-    const itemAddress = item.dataset.address;
-    if (itemAddress && address && itemAddress.includes(address.substring(0, 20))) {
-      const statusEl = item.querySelector('.status-indicator');
-      if (statusEl) {
-        switch (status) {
-          case 'scraping':
-            statusEl.textContent = '🔄';
-            statusEl.title = 'Scraping...';
-            break;
-          case 'saving':
-            statusEl.textContent = '💾';
-            statusEl.title = 'Saving...';
-            break;
-          case 'complete':
-            statusEl.textContent = '✅';
-            statusEl.title = 'Saved!';
-            break;
-          case 'failed':
-            statusEl.textContent = '❌';
-            statusEl.title = 'Failed';
-            break;
+  if (!address) return;
+
+  // Use requestAnimationFrame to batch DOM updates
+  requestAnimationFrame(() => {
+    // Try to find in cache first
+    let statusEl = null;
+    const cacheKey = address.substring(0, 20);
+
+    if (statusIndicatorCache.has(cacheKey)) {
+      statusEl = statusIndicatorCache.get(cacheKey);
+    } else {
+      // Find the result item by address
+      const items = elements.searchResults.querySelectorAll('.result-item');
+      for (const item of items) {
+        const itemAddress = item.dataset.address;
+        if (itemAddress && itemAddress.includes(cacheKey)) {
+          statusEl = item.querySelector('.status-indicator');
+          if (statusEl) {
+            statusIndicatorCache.set(cacheKey, statusEl);
+          }
+          break;
         }
       }
-      break;
     }
-  }
+
+    if (statusEl) {
+      switch (status) {
+        case 'scraping':
+          statusEl.textContent = '⏳';
+          statusEl.title = 'Scraping...';
+          break;
+        case 'saving':
+          statusEl.textContent = '💾';
+          statusEl.title = 'Saving...';
+          break;
+        case 'complete':
+          statusEl.textContent = '✓';
+          statusEl.title = 'Saved!';
+          statusEl.style.color = 'green';
+          break;
+        case 'failed':
+          statusEl.textContent = '✗';
+          statusEl.title = 'Failed';
+          statusEl.style.color = 'red';
+          break;
+      }
+    }
+  });
 }
 
 // ============================================
@@ -407,6 +439,7 @@ function displayProperty(data) {
 function displaySearchResults(results) {
   elements.resultCount.textContent = results.length;
   selectedResults.clear();
+  statusIndicatorCache.clear(); // Clear cache when displaying new results
 
   elements.searchResults.innerHTML = results.map((result, index) => `
     <div class="result-item" data-index="${index}" data-address="${(result.address || '').replace(/"/g, '&quot;')}">
@@ -435,17 +468,54 @@ function displaySearchResults(results) {
       updateBulkButtons();
     });
   });
+
+  // Check which properties already exist in database (async)
+  checkExistingProperties(results);
 }
 
 function getQualityIndicator(result) {
-  // Check data completeness
-  const hasPrice = !!result.price;
-  const hasDetails = result.beds && result.baths;
-  const hasMLS = !!result.mls_number;
+  // Initial indicator - will be updated after checking database
+  // ⏳ = checking, ✓ = new record, ↻ = update existing
+  return '⏳';
+}
 
-  if (hasMLS && hasPrice && hasDetails) return '🟢';
-  if (hasPrice && hasDetails) return '🟡';
-  return '🔴';
+// Check which properties exist in database and update indicators
+async function checkExistingProperties(results) {
+  try {
+    // Check each property against the API
+    for (let i = 0; i < results.length; i++) {
+      const result = results[i];
+      const indicator = await checkPropertyExists(result);
+
+      // Update the indicator in the DOM
+      const statusEl = document.querySelector(`.result-status[data-index="${i}"] .status-indicator`);
+      if (statusEl) {
+        statusEl.textContent = indicator;
+        statusEl.title = indicator === '✓' ? 'New record' : 'Update existing';
+      }
+    }
+  } catch (error) {
+    console.error('Error checking existing properties:', error);
+  }
+}
+
+async function checkPropertyExists(property) {
+  try {
+    // Check by redfin_id, address, or mls_number
+    const params = new URLSearchParams();
+    if (property.redfin_id) params.set('redfin_id', property.redfin_id);
+    if (property.address) params.set('address', property.address);
+    if (property.mls_number) params.set('mls', property.mls_number);
+
+    const response = await fetch(`${CONFIG.SERVER_URL}/api/v1/properties/check?${params}`);
+    if (response.ok) {
+      const data = await response.json();
+      return data.exists ? '↻' : '✓';  // ↻ for update, ✓ for new
+    }
+    return '?';  // Unknown - API error
+  } catch (error) {
+    return '?';  // Unknown - network error
+  }
 }
 
 function updateBulkButtons() {
@@ -545,8 +615,11 @@ async function quickAddSelected() {
   if (selectedResults.size === 0) return;
 
   const selected = Array.from(selectedResults).map(i => searchResults[i]);
-  const addedBy = elements.addedBy.value;
-  const addedFor = elements.addedFor.value;
+  const addedBy = elements.searchAddedBy.value;
+  const addedFor = elements.searchAddedFor.value;
+
+  // Save "Added For" for next time
+  await chrome.storage.sync.set({ lastAddedFor: addedFor });
 
   elements.bulkProgress.classList.remove('hidden');
   elements.bulkStatus.classList.remove('hidden');
@@ -586,8 +659,11 @@ async function deepScrapeSelected() {
   if (selectedResults.size === 0) return;
 
   const selected = Array.from(selectedResults).map(i => searchResults[i]);
-  const addedBy = elements.addedBy.value;
-  const addedFor = elements.addedFor.value;
+  const addedBy = elements.searchAddedBy.value;
+  const addedFor = elements.searchAddedFor.value;
+
+  // Save "Added For" for next time
+  await chrome.storage.sync.set({ lastAddedFor: addedFor });
 
   // Disable buttons during operation
   elements.quickAddBtn.disabled = true;

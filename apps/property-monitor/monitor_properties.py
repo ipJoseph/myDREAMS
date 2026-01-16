@@ -87,7 +87,7 @@ class PropertyMonitor:
         }
 
     def fetch_monitored_properties(self) -> List[Dict]:
-        """Fetch all properties with monitoring enabled from Notion, then get URLs from SQLite"""
+        """Fetch all properties with monitoring enabled from Notion"""
         try:
             # Query Notion for monitored properties
             headers = {
@@ -107,9 +107,6 @@ class PropertyMonitor:
             resp.raise_for_status()
             response = resp.json()
 
-            # Get URL data from SQLite (more reliable than Notion for URLs)
-            sqlite_urls = self._get_urls_from_sqlite()
-
             properties = []
             for page in response['results']:
                 # Skip archived/trashed pages
@@ -119,33 +116,31 @@ class PropertyMonitor:
                 props = page['properties']
                 address = self._extract_title(props.get('Address'))
 
-                # Look up URLs from SQLite by address
-                url_data = sqlite_urls.get(address, {})
+                # Get the main listing URL and source from Notion
+                listing_url = self._extract_url(props.get('URL'))
+                source = self._extract_select(props.get('Source'))
 
                 property_data = {
                     'id': page['id'],
-                    'url': page.get('url', ''),
+                    'notion_url': page.get('url', ''),  # Link to Notion page
                     'address': address,
-                    # Get URLs from SQLite (fallback to Notion if not in SQLite)
-                    'zillow_url': url_data.get('zillow_url') or self._extract_url(props.get('Zillow URL')),
-                    'redfin_url': url_data.get('redfin_url') or self._extract_url(props.get('Redfin URL')),
-                    'realtor_url': url_data.get('realtor_url') or self._extract_url(props.get('Realtor URL')),
-                    # Get the source field
-                    'source': url_data.get('source') or self._extract_select(props.get('Source')),
+                    'source': source,
+                    # The listing URL (Redfin/Zillow/Realtor page)
+                    'monitoring_url': listing_url,
+                    'monitoring_source': (source or '').lower() if source else self._detect_source_from_url(listing_url),
                     # Current values for comparison
                     'current_price': self._extract_number(props.get('Price')),
                     'current_status': self._extract_select(props.get('Status')),
                     'current_dom': self._extract_number(props.get('DOM')),
                     'current_views': self._extract_number(props.get('Page Views')),
                     'current_saves': self._extract_number(props.get('Favorites')),
+                    # Track how many times we've checked this property
+                    'current_view_count': self._extract_number(props.get('ViewCount')) or 0,
+                    # Check if photo exists
+                    'has_photo': self._has_files(props.get('Photos')),
                 }
 
-                # Determine which URL to use based on availability
-                monitoring_url, monitoring_source = self._get_monitoring_url(property_data)
-                property_data['monitoring_url'] = monitoring_url
-                property_data['monitoring_source'] = monitoring_source
-
-                if monitoring_url:
+                if listing_url:
                     properties.append(property_data)
                 else:
                     logger.warning(f"No URL available for {property_data['address']}")
@@ -157,57 +152,18 @@ class PropertyMonitor:
             logger.error(f"Error fetching properties: {e}")
             return []
 
-    def _get_urls_from_sqlite(self) -> Dict[str, Dict]:
-        """Fetch property URLs from SQLite database"""
-        import sqlite3
-        urls = {}
-        try:
-            db_path = '/home/bigeug/myDREAMS/data/dreams.db'
-            conn = sqlite3.connect(db_path)
-            cursor = conn.cursor()
-            cursor.execute('''
-                SELECT address, source, zillow_url, redfin_url, realtor_url
-                FROM properties
-                WHERE zillow_url IS NOT NULL OR redfin_url IS NOT NULL OR realtor_url IS NOT NULL
-            ''')
-            for row in cursor.fetchall():
-                urls[row[0]] = {
-                    'source': row[1],
-                    'zillow_url': row[2],
-                    'redfin_url': row[3],
-                    'realtor_url': row[4],
-                }
-            conn.close()
-            logger.info(f"Loaded {len(urls)} property URLs from SQLite")
-        except Exception as e:
-            logger.error(f"Error loading URLs from SQLite: {e}")
-        return urls
-
-    def _get_monitoring_url(self, prop: Dict) -> tuple:
-        """
-        Determine which URL to use for monitoring.
-        Priority: Original source > Zillow > Redfin > Realtor
-        Returns (url, source) tuple.
-        """
-        source = (prop.get('source') or '').lower()
-
-        # First, try the original source
-        if source == 'zillow' and prop.get('zillow_url'):
-            return (prop['zillow_url'], 'zillow')
-        elif source == 'redfin' and prop.get('redfin_url'):
-            return (prop['redfin_url'], 'redfin')
-        elif source == 'realtor' and prop.get('realtor_url'):
-            return (prop['realtor_url'], 'realtor')
-
-        # Fallback: try any available URL
-        if prop.get('zillow_url'):
-            return (prop['zillow_url'], 'zillow')
-        if prop.get('redfin_url'):
-            return (prop['redfin_url'], 'redfin')
-        if prop.get('realtor_url'):
-            return (prop['realtor_url'], 'realtor')
-
-        return (None, None)
+    def _detect_source_from_url(self, url: str) -> str:
+        """Detect the source (redfin/zillow/realtor) from a URL"""
+        if not url:
+            return 'unknown'
+        url_lower = url.lower()
+        if 'redfin.com' in url_lower:
+            return 'redfin'
+        elif 'zillow.com' in url_lower:
+            return 'zillow'
+        elif 'realtor.com' in url_lower:
+            return 'realtor'
+        return 'unknown'
 
     async def check_property(self, property_data: Dict, scraper: PlaywrightScraper) -> Optional[Dict]:
         """Check a single property for changes using Playwright scraper"""
@@ -265,16 +221,17 @@ class PropertyMonitor:
 
         if changes:
             logger.info(f"Changes detected: {changes}")
-            return {
-                'property': property_data,
-                'new_data': new_data,
-                'changes': changes
-            }
         else:
             logger.info("No changes detected")
-            return None
 
-    def update_notion_property(self, property_id: str, new_data: Dict, changes: Dict):
+        # Always return new_data so views/saves can be updated even without price/status changes
+        return {
+            'property': property_data,
+            'new_data': new_data,
+            'changes': changes
+        }
+
+    def update_notion_property(self, property_id: str, new_data: Dict, changes: Dict, current_view_count: int = 0, has_photo: bool = True):
         """Update Notion property with new data"""
         try:
             from zoneinfo import ZoneInfo
@@ -283,12 +240,17 @@ class PropertyMonitor:
             eastern = ZoneInfo('America/New_York')
             now_eastern = datetime.now(eastern)
 
+            # Increment ViewCount - tracks how many times we've visited this property
+            new_view_count = current_view_count + 1
+
             properties_to_update = {
                 'Last Updated': {
                     'date': {
                         'start': now_eastern.isoformat(),
                     }
-                }
+                },
+                # Increment our visit counter (for calculating real external views)
+                'ViewCount': {'number': new_view_count}
             }
 
             # Update price
@@ -311,12 +273,24 @@ class PropertyMonitor:
             if new_data.get('saves'):
                 properties_to_update['Favorites'] = {'number': new_data['saves']}
 
+            # Update photo if property doesn't have one and we found one
+            if not has_photo and new_data.get('primary_photo'):
+                logger.info(f"Adding photo to property: {new_data['primary_photo'][:60]}...")
+                properties_to_update['Photos'] = {
+                    'files': [{
+                        'type': 'external',
+                        'name': 'Primary Photo',
+                        'external': {'url': new_data['primary_photo']}
+                    }]
+                }
+
             self.notion.pages.update(
                 page_id=property_id,
                 properties=properties_to_update
             )
 
-            logger.info(f"Updated Notion property: {property_id}")
+            photo_status = " (added photo)" if not has_photo and new_data.get('primary_photo') else ""
+            logger.info(f"Updated Notion property: {property_id} (ViewCount: {new_view_count}){photo_status}")
 
         except Exception as e:
             logger.error(f"Error updating Notion: {e}")
@@ -355,6 +329,36 @@ class PropertyMonitor:
                 sc = change['changes']['status']
                 source = prop.get('monitoring_source', 'unknown').title()
                 report += f"• {prop['address']} ({source}) - {sc['old']} → {sc['new']}\n"
+            report += "\n"
+
+        # Views changes
+        views_changes = [c for c in self.changes_detected if 'views' in c['changes']]
+        if views_changes:
+            report += "👁️ VIEWS CHANGES:\n"
+            for change in views_changes:
+                prop = change['property']
+                vc = change['changes']['views']
+                old_views = vc['old'] or 0
+                new_views = vc['new'] or 0
+                diff = new_views - old_views
+                direction = "+" if diff > 0 else ""
+                source = prop.get('monitoring_source', 'unknown').title()
+                report += f"• {prop['address']} ({source}) - {old_views} → {new_views} ({direction}{diff})\n"
+            report += "\n"
+
+        # Saves/Favorites changes
+        saves_changes = [c for c in self.changes_detected if 'saves' in c['changes']]
+        if saves_changes:
+            report += "❤️ FAVORITES CHANGES:\n"
+            for change in saves_changes:
+                prop = change['property']
+                sc = change['changes']['saves']
+                old_saves = sc['old'] or 0
+                new_saves = sc['new'] or 0
+                diff = new_saves - old_saves
+                direction = "+" if diff > 0 else ""
+                source = prop.get('monitoring_source', 'unknown').title()
+                report += f"• {prop['address']} ({source}) - {old_saves} → {new_saves} ({direction}{diff})\n"
             report += "\n"
 
         return report
@@ -397,19 +401,28 @@ class PropertyMonitor:
                     try:
                         result = await self.check_property(prop, scraper)
 
-                        if result:
-                            self.changes_detected.append(result)
+                        if result and result.get('new_data'):
+                            # Track significant changes for the report
+                            if result.get('changes'):
+                                self.changes_detected.append(result)
+
+                            # Always update Notion with fresh data (including views/saves)
                             self.update_notion_property(
                                 prop['id'],
                                 result['new_data'],
-                                result['changes']
+                                result.get('changes', {}),
+                                prop.get('current_view_count', 0),
+                                prop.get('has_photo', True)
                             )
                         else:
-                            # Still update Last Updated timestamp
+                            # Scrape failed - just update timestamp and ViewCount
+                            logger.warning(f"No data fetched for {prop['address']}")
                             self.update_notion_property(
                                 prop['id'],
                                 {'price': prop['current_price']},
-                                {}
+                                {},
+                                prop.get('current_view_count', 0),
+                                prop.get('has_photo', True)
                             )
                     except Exception as e:
                         logger.error(f"Error checking {prop['address']}: {e}")
@@ -454,6 +467,13 @@ class PropertyMonitor:
         if prop and prop.get('rich_text') and len(prop['rich_text']) > 0:
             return prop['rich_text'][0]['plain_text']
         return None
+
+    @staticmethod
+    def _has_files(prop):
+        """Check if a files property has any files"""
+        if prop and prop.get('files') and len(prop['files']) > 0:
+            return True
+        return False
 
 
 def main():

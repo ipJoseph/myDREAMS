@@ -35,6 +35,12 @@ def create_property():
     """
     data = request.get_json()
 
+    # Debug: log if primary_photo is received
+    if data and data.get('primary_photo'):
+        print(f"API received primary_photo for {data.get('address')}: {data.get('primary_photo')[:80]}...")
+    elif data:
+        print(f"API received NO primary_photo for {data.get('address')}")
+
     if not data:
         return jsonify({
             'success': False,
@@ -149,6 +155,7 @@ def create_property():
             'realtor_url': data.get('url') if source == 'realtor' else data.get('realtor_url'),
             'redfin_url': data.get('url') if source == 'redfin' else data.get('redfin_url'),
             'photo_urls': json.dumps(data.get('photo_urls')) if isinstance(data.get('photo_urls'), list) else data.get('photo_urls'),
+            'primary_photo': data.get('primary_photo'),
             'virtual_tour_url': data.get('virtual_tour_url'),
             'source': source,
             'added_for': data.get('added_for'),
@@ -275,6 +282,43 @@ def list_properties():
             'success': True,
             'data': properties,
             'count': len(properties)
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': {'code': 'SERVER_ERROR', 'message': str(e)}
+        }), 500
+
+
+@properties_bp.route('/properties/check', methods=['GET'])
+def check_property_exists():
+    """Check if a property exists in the database."""
+    try:
+        db = get_db()
+
+        redfin_id = request.args.get('redfin_id')
+        address = request.args.get('address')
+        mls = request.args.get('mls')
+
+        existing = None
+
+        # Check by redfin_id first (most specific)
+        if redfin_id and not existing:
+            existing = db.get_property_by_redfin_id(redfin_id)
+
+        # Check by MLS number
+        if mls and not existing:
+            existing = db.get_property_by_mls(mls)
+
+        # Check by address (least specific)
+        if address and not existing:
+            existing = db.get_property_by_address(address)
+
+        return jsonify({
+            'success': True,
+            'exists': existing is not None,
+            'id': existing['id'] if existing else None
         })
 
     except Exception as e:

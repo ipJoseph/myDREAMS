@@ -324,6 +324,16 @@ class NotionSyncService:
         if prop.get('realtor_url'):
             properties['Realtor URL'] = {'url': prop['realtor_url']}
 
+        # Primary photo - stored as external file in Notion
+        if prop.get('primary_photo'):
+            properties['Photos'] = {
+                'files': [{
+                    'type': 'external',
+                    'name': 'Primary Photo',
+                    'external': {'url': prop['primary_photo']}
+                }]
+            }
+
         # Checkbox
         properties['Monitoring Active'] = {'checkbox': True}
 

@@ -4,7 +4,7 @@
  * Designed for bulk operations and data export
  */
 
-const VERSION = '3.9.5';
+const VERSION = '3.9.15';
 console.log(`DREAMS Property Scraper v${VERSION}: Content script loaded`);
 
 // Detect which site we're on
@@ -103,7 +103,9 @@ function detectPageType() {
       return 'property';
     }
     if (path.includes('/city/') || path.includes('/zipcode/') ||
-        path.includes('/neighborhood/') || url.includes('market=')) {
+        path.includes('/neighborhood/') || path.includes('/filter/') ||
+        path.includes('/county/') || url.includes('market=') ||
+        url.includes('min-price=') || url.includes('max-price=')) {
       return 'search';
     }
   }
