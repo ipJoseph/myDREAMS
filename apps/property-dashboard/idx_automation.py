@@ -60,26 +60,22 @@ class IDXPortfolioAutomation:
         pass
 
     async def start(self):
-        """Start the browser with persistent profile"""
+        """Start the browser"""
         self.playwright = await async_playwright().start()
 
-        # Use persistent context to maintain session/cookies like a real browser
-        user_data_dir = os.path.expanduser('~/.idx-browser-profile')
-
-        self.context = await self.playwright.chromium.launch_persistent_context(
-            user_data_dir,
+        self.browser = await self.playwright.chromium.launch(
             headless=self.headless,
-            viewport={'width': 1280, 'height': 850},
             args=[
                 '--window-position=0,0',
                 '--window-size=1280,900',
                 '--disable-blink-features=AutomationControlled',
             ],
-            ignore_default_args=['--enable-automation'],
         )
-        # For persistent context, browser is None - we use context directly
-        self.browser = None
-        logger.info("Browser started with persistent profile")
+        # Create context with viewport
+        self.context = await self.browser.new_context(
+            viewport={'width': 1280, 'height': 850}
+        )
+        logger.info("Browser started")
 
     async def login(self, page: Page) -> bool:
         """
@@ -402,7 +398,7 @@ class IDXPortfolioAutomation:
             logger.warning("No MLS numbers provided")
             return None
 
-        if not self.context:
+        if not self.browser:
             await self.start()
 
         try:
@@ -568,12 +564,11 @@ class IDXPortfolioAutomation:
             print(f"{'='*60}")
             print("\nBrowser will stay open. Close the browser window when done.")
 
-            # Keep the process alive while browser context exists
+            # Keep the process alive while browser is open
             while True:
                 try:
-                    # Check if context/browser is still running
-                    if self.context and len(self.context.pages) == 0:
-                        logger.info("All pages closed by user")
+                    if not self.browser.is_connected():
+                        logger.info("Browser closed by user")
                         break
                     await asyncio.sleep(3)
                 except Exception as e:
