@@ -79,7 +79,7 @@ class IDXPortfolioAutomation:
 
     async def login(self, page: Page) -> bool:
         """
-        Log into the IDX site.
+        Log into the IDX site quickly.
 
         Returns:
             True if login successful, False otherwise
@@ -89,100 +89,71 @@ class IDXPortfolioAutomation:
             return False
 
         try:
-            # Page should already be on the homepage
-            # Click the person icon to open login panel
-            # The icon is in the top right, typically an <a> or <button> with person/user icon
-            person_icon = page.locator('a.fa-user, a[href*="login"], .user-icon, a:has(.fa-user), nav a:last-child').first
+            # Go to homepage
+            logger.info(f"Navigating to {IDX_BASE_URL} for login")
+            await page.goto(IDX_BASE_URL, wait_until='domcontentloaded', timeout=15000)
+            await page.wait_for_timeout(1000)
 
-            # Try multiple selectors for the person icon
-            clicked = False
-            selectors = [
-                'a.fa-user',
-                'a:has(i.fa-user)',
-                'header a:last-of-type',
-                'nav a:nth-last-child(1)',
-                '.login-link',
-                'a[title*="Sign"]',
-                'a[title*="Login"]',
-                'a[title*="Account"]',
-            ]
-
-            for selector in selectors:
-                try:
-                    element = page.locator(selector).first
-                    if await element.count() > 0 and await element.is_visible():
-                        logger.info(f"Clicking login icon with selector: {selector}")
-                        await element.click()
-                        clicked = True
-                        break
-                except Exception:
-                    continue
-
-            # Fallback: use JavaScript to find and click the person icon
-            if not clicked:
-                logger.info("Trying JavaScript to find person icon")
-                clicked = await page.evaluate('''() => {
-                    // Look for user/person icon in nav
-                    const links = document.querySelectorAll('header a, nav a');
-                    for (let link of links) {
-                        if (link.querySelector('.fa-user, .fa-person, [class*="user"]') ||
-                            link.innerHTML.includes('fa-user') ||
-                            link.href.includes('login') ||
-                            link.href.includes('account')) {
-                            link.click();
-                            return true;
-                        }
-                    }
-                    // Look for last icon in header (often the user icon)
-                    const headerIcons = document.querySelectorAll('header a');
-                    if (headerIcons.length > 0) {
-                        headerIcons[headerIcons.length - 1].click();
+            # Click person icon using JavaScript (fastest)
+            logger.info("Clicking person icon")
+            clicked = await page.evaluate('''() => {
+                const links = document.querySelectorAll('header a, nav a');
+                for (let link of links) {
+                    if (link.innerHTML.includes('fa-user') ||
+                        link.querySelector('[class*="user"]')) {
+                        link.click();
                         return true;
                     }
-                    return false;
-                }''')
+                }
+                // Fallback: last link in header is usually the user icon
+                const headerLinks = document.querySelectorAll('header a');
+                if (headerLinks.length > 0) {
+                    headerLinks[headerLinks.length - 1].click();
+                    return true;
+                }
+                return false;
+            }''')
 
             if not clicked:
                 logger.error("Could not find login icon")
                 return False
 
-            # Wait for login panel to appear
-            await page.wait_for_timeout(1000)
+            # Wait for login panel
+            await page.wait_for_timeout(800)
 
-            # Fill in email
-            email_field = page.locator('input[type="email"], input[name="email"], input[placeholder*="Email"]').first
-            if await email_field.count() > 0:
-                logger.info("Filling email field")
-                await email_field.fill(IDX_EMAIL)
-            else:
-                logger.error("Could not find email field")
-                return False
-
-            # Fill in phone number
-            phone_field = page.locator('input[type="tel"], input[name="phone"], input[placeholder*="Phone"]').first
-            if await phone_field.count() > 0:
-                logger.info("Filling phone field")
-                await phone_field.fill(IDX_PHONE)
-            else:
-                logger.error("Could not find phone field")
-                return False
+            # Fill credentials using JavaScript (fastest)
+            logger.info("Filling login credentials")
+            await page.evaluate(f'''() => {{
+                const emailInput = document.querySelector('input[type="email"], input[name="email"]');
+                const phoneInput = document.querySelector('input[type="tel"], input[name="phone"]');
+                if (emailInput) {{
+                    emailInput.value = "{IDX_EMAIL}";
+                    emailInput.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                }}
+                if (phoneInput) {{
+                    phoneInput.value = "{IDX_PHONE}";
+                    phoneInput.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                }}
+            }}''')
 
             await page.wait_for_timeout(300)
 
             # Click Log In button
-            login_button = page.locator('button:has-text("Log In"), input[value="Log In"], button:has-text("Sign In")').first
-            if await login_button.count() > 0:
-                logger.info("Clicking Log In button")
-                await login_button.click()
-            else:
-                logger.error("Could not find Log In button")
-                return False
+            logger.info("Clicking Log In button")
+            await page.evaluate('''() => {
+                const buttons = document.querySelectorAll('button');
+                for (let btn of buttons) {
+                    if (btn.textContent.includes('Log In') || btn.textContent.includes('Sign In')) {
+                        btn.click();
+                        return true;
+                    }
+                }
+                return false;
+            }''')
 
             # Wait for login to complete
-            await page.wait_for_timeout(2000)
-
-            # Check if login was successful (login panel should be gone)
-            logger.info("Login attempted - checking result")
+            await page.wait_for_timeout(1500)
+            logger.info("Login completed")
             return True
 
         except Exception as e:
@@ -402,10 +373,18 @@ class IDXPortfolioAutomation:
             await self.start()
 
         try:
-            # Use the persistent context - create a new page
+            # Create a new page
             page = await self.context.new_page()
 
-            # Go directly to MLS search page (persistent profile keeps us logged in)
+            # Login first if credentials are configured
+            if IDX_EMAIL and IDX_PHONE:
+                login_success = await self.login(page)
+                if login_success:
+                    logger.info("Login completed")
+                else:
+                    logger.warning("Login failed - continuing anyway")
+
+            # Navigate to MLS search page
             logger.info(f"Navigating to {IDX_MLS_SEARCH_URL}")
             await page.goto(IDX_MLS_SEARCH_URL, wait_until='domcontentloaded', timeout=30000)
 
