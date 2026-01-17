@@ -710,77 +710,73 @@ adapters:
 
 ## Shared UI Design System
 
+**Implementation:** `shared/css/dreams.css`
+
+All DREAMS apps should include the shared stylesheet:
+```html
+<link rel="stylesheet" href="/shared/css/dreams.css">
+```
+
 ### Color Palette
 
 #### Primary Colors
 
-| Color | Hex | Preview | Usage |
-|-------|-----|---------|-------|
-| Primary Blue | `#007bff` | ![#007bff](https://via.placeholder.com/20/007bff/007bff.png) | Primary actions, links |
-| Success Green | `#28a745` | ![#28a745](https://via.placeholder.com/20/28a745/28a745.png) | Validated status, success states |
-| Warning Yellow | `#ffc107` | ![#ffc107](https://via.placeholder.com/20/ffc107/ffc107.png) | Pending status, warnings |
-| Danger Red | `#dc3545` | ![#dc3545](https://via.placeholder.com/20/dc3545/dc3545.png) | Errors, validation failures |
-| Info Cyan | `#17a2b8` | ![#17a2b8](https://via.placeholder.com/20/17a2b8/17a2b8.png) | Informational messages |
+| Color | Hex | Usage |
+|-------|-----|-------|
+| Primary (Navy) | `#1a365d` | Headers, primary buttons, table headers |
+| Primary Light | `#2b6cb0` | Links, hover states |
+| Success Green | `#137333` | Validated status, active listings |
+| Warning Yellow | `#f59e0b` | Pending status |
+| Error Red | `#dc2626` | Errors, sold/off-market |
 
-#### Status Colors (IDX Validation)
+#### Status Badge Colors
 
-| Status | Background | Text | Preview |
-|--------|------------|------|---------|
-| Validated | `#d4edda` | `#155724` | ![#d4edda](https://via.placeholder.com/60x20/d4edda/155724.png?text=+) |
-| Pending | `#fff3cd` | `#856404` | ![#fff3cd](https://via.placeholder.com/60x20/fff3cd/856404.png?text=+) |
-| Not Found | `#e2e3e5` | `#383d41` | ![#e2e3e5](https://via.placeholder.com/60x20/e2e3e5/383d41.png?text=+) |
-| Error | `#f8d7da` | `#721c24` | ![#f8d7da](https://via.placeholder.com/60x20/f8d7da/721c24.png?text=+) |
-
-#### Property Status Colors
-
-| Status | Color | Preview | CSS Class |
-|--------|-------|---------|-----------|
-| Active | `#28a745` | ![#28a745](https://via.placeholder.com/20/28a745/28a745.png) | `.status-active` |
-| Pending | `#ffc107` | ![#ffc107](https://via.placeholder.com/20/ffc107/ffc107.png) | `.status-pending` |
-| Sold | `#6c757d` | ![#6c757d](https://via.placeholder.com/20/6c757d/6c757d.png) | `.status-sold` |
-| Under Contract | `#fd7e14` | ![#fd7e14](https://via.placeholder.com/20/fd7e14/fd7e14.png) | `.status-contract` |
+| Status | Background | Text | CSS Class |
+|--------|------------|------|-----------|
+| Active/For Sale | `#dcfce7` | `#137333` | `.dreams-badge-active` |
+| Pending | `#fef3c7` | `#92400e` | `.dreams-badge-pending` |
+| Sold/Off-Market | `#fee2e2` | `#dc2626` | `.dreams-badge-sold` |
+| IDX Validated | `#dcfce7` | `#137333` | `.dreams-badge-validated` |
+| IDX Not Found | `#f3f4f6` | `#6b7280` | `.dreams-badge-not-found` |
 
 #### Background & Surface Colors
 
-| Element | Color | Preview |
-|---------|-------|---------|
-| Page Background | `#f8f9fa` | ![#f8f9fa](https://via.placeholder.com/20/f8f9fa/f8f9fa.png) |
-| Card Background | `#ffffff` | ![#ffffff](https://via.placeholder.com/20/ffffff/ffffff.png) |
-| Table Header | `#e9ecef` | ![#e9ecef](https://via.placeholder.com/20/e9ecef/e9ecef.png) |
-| Border Color | `#dee2e6` | ![#dee2e6](https://via.placeholder.com/20/dee2e6/dee2e6.png) |
-| Text Primary | `#212529` | ![#212529](https://via.placeholder.com/20/212529/212529.png) |
-| Text Secondary | `#6c757d` | ![#6c757d](https://via.placeholder.com/20/6c757d/6c757d.png) |
+| Element | Color | Variable |
+|---------|-------|----------|
+| Page Background | `#f8fafc` | `--bg-page` |
+| Card/Surface | `#ffffff` | `--bg-surface` |
+| Border Color | `#e2e8f0` | `--border-color` |
+| Text Primary | `#1a1a1a` | `--text-primary` |
+| Text Secondary | `#64748b` | `--text-secondary` |
 
-### CSS Variables (Proposed)
+### CSS Variables
 
 ```css
 :root {
   /* Primary palette */
-  --color-primary: #007bff;
-  --color-success: #28a745;
-  --color-warning: #ffc107;
-  --color-danger: #dc3545;
-  --color-info: #17a2b8;
-
-  /* IDX validation status */
-  --idx-validated-bg: #d4edda;
-  --idx-validated-text: #155724;
-  --idx-pending-bg: #fff3cd;
-  --idx-pending-text: #856404;
-  --idx-not-found-bg: #e2e3e5;
-  --idx-not-found-text: #383d41;
-  --idx-error-bg: #f8d7da;
-  --idx-error-text: #721c24;
+  --color-primary: #1a365d;
+  --color-primary-light: #2b6cb0;
+  --color-success: #137333;
+  --color-warning: #f59e0b;
+  --color-error: #dc2626;
 
   /* Surfaces */
-  --bg-page: #f8f9fa;
-  --bg-card: #ffffff;
-  --bg-header: #e9ecef;
-  --border-color: #dee2e6;
+  --bg-page: #f8fafc;
+  --bg-surface: #ffffff;
+  --border-color: #e2e8f0;
 
   /* Text */
-  --text-primary: #212529;
-  --text-secondary: #6c757d;
+  --text-primary: #1a1a1a;
+  --text-secondary: #64748b;
+
+  /* Spacing */
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+
+  /* Border radius */
+  --border-radius: 6px;
+  --border-radius-lg: 12px;
 }
 ```
 
@@ -789,25 +785,33 @@ adapters:
 | Element | Font | Size | Weight |
 |---------|------|------|--------|
 | Body | System UI / -apple-system | 14px | 400 |
-| Headings | System UI / -apple-system | 18-24px | 600 |
-| Table Data | Monospace (for numbers) | 13px | 400 |
-| Badges | System UI | 12px | 500 |
+| Headings | System UI / -apple-system | 20-24px | 600 |
+| Table Headers | System UI | 11px uppercase | 600 |
+| Badges | System UI | 11px | 600 |
+| Monospace (MLS#) | ui-monospace | 12px | 400 |
 
-### Component Patterns
+### Component Classes
 
 #### Status Badges
 ```html
-<span class="badge badge-success">Validated</span>
-<span class="badge badge-warning">Pending</span>
-<span class="badge badge-secondary">Not Found</span>
-<span class="badge badge-danger">Error</span>
+<span class="dreams-badge dreams-badge-active">Active</span>
+<span class="dreams-badge dreams-badge-pending">Pending</span>
+<span class="dreams-badge dreams-badge-sold">Sold</span>
+<span class="dreams-badge dreams-badge-validated">Validated</span>
 ```
 
-#### Action Buttons
+#### Buttons
 ```html
-<button class="btn btn-primary btn-sm">Primary Action</button>
-<button class="btn btn-outline-primary btn-sm">Secondary</button>
-<button class="btn btn-link btn-sm">Text Link</button>
+<button class="dreams-btn dreams-btn-primary">Primary</button>
+<button class="dreams-btn dreams-btn-secondary">Secondary</button>
+<button class="dreams-btn dreams-btn-success">Success</button>
+```
+
+#### IDX Links
+```html
+<a href="#" class="dreams-idx-link">View IDX</a>
+<a href="#" class="dreams-idx-link validated">View IDX</a>
+<a href="#" class="dreams-idx-link pending">Pending</a>
 ```
 
 ---

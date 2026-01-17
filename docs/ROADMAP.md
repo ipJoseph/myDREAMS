@@ -101,8 +101,8 @@
 
 | Issue | Priority | Status |
 |-------|----------|--------|
-| Multiple extension versions in repo | Low | Needs cleanup |
-| Backup files scattered | Low | Move to archive/ |
+| ~~Multiple extension versions in repo~~ | Low | Done - moved to archive/ |
+| ~~Backup files scattered~~ | Low | Done - archive/ created |
 | Inconsistent error handling | Medium | Standardize patterns |
 | Missing unit tests | Medium | Add test coverage |
 

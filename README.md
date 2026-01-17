@@ -89,6 +89,7 @@ myDREAMS/
 
 - **[Architecture](docs/ARCHITECTURE.md)** - System design, data flow, integrations
 - **[Roadmap](docs/ROADMAP.md)** - Current status, phases, what's next
+- **[Changelog](CHANGELOG.md)** - Version history and release notes
 - **[CLAUDE.md](CLAUDE.md)** - AI assistant context
 
 ## Environment Variables
