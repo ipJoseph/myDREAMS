@@ -238,8 +238,8 @@ class IDXPortfolioAutomation:
                 logger.error("Could not find save/+ button")
                 return False
 
-            # Wait for save dialog/form to appear
-            await page.wait_for_timeout(1500)
+            # Wait for save dialog/form to fully appear
+            await page.wait_for_timeout(2000)
 
             # Fill in the search name
             name_filled = False
@@ -285,61 +285,47 @@ class IDXPortfolioAutomation:
                 logger.error("Could not find search name input")
                 return False
 
-            await page.wait_for_timeout(500)
+            await page.wait_for_timeout(800)
 
-            # Click the save/submit button
-            submit_clicked = False
-
-            submit_selectors = [
-                'button:has-text("Save")',
-                'input[value="Save"]',
-                'button[type="submit"]',
-                '.save-btn',
-                'button.btn-primary',
-                'input[type="submit"]',
-            ]
-
-            for selector in submit_selectors:
-                try:
-                    element = page.locator(selector).first
-                    if await element.count() > 0 and await element.is_visible():
-                        logger.info(f"Clicking submit with selector: {selector}")
-                        await element.click()
-                        submit_clicked = True
-                        break
-                except Exception:
-                    continue
-
-            # Fallback: JavaScript submit
-            if not submit_clicked:
-                logger.info("Trying JavaScript to submit save form")
-                submit_clicked = await page.evaluate('''() => {
-                    const buttons = document.querySelectorAll('button, input[type="submit"]');
-                    for (let btn of buttons) {
-                        if (btn.offsetParent !== null &&
-                            (btn.textContent?.toLowerCase().includes('save') ||
-                             btn.value?.toLowerCase().includes('save'))) {
+            # Click the save/submit button using JavaScript (most reliable)
+            logger.info("Clicking Save button via JavaScript")
+            submit_clicked = await page.evaluate('''() => {
+                // Look for Save button/input in the visible dialog
+                const saveButtons = document.querySelectorAll('input[value="Save"], button');
+                for (let btn of saveButtons) {
+                    if (btn.offsetParent !== null) {  // visible
+                        const text = btn.value || btn.textContent || '';
+                        if (text.toLowerCase().trim() === 'save') {
+                            console.log('Found save button:', btn);
                             btn.click();
+                            // Also try form submit as backup
+                            const form = btn.closest('form');
+                            if (form) {
+                                setTimeout(() => form.submit(), 100);
+                            }
                             return true;
                         }
                     }
-                    // Try form submit
-                    const forms = document.querySelectorAll('form');
-                    for (let form of forms) {
-                        if (form.offsetParent !== null) {
-                            form.submit();
-                            return true;
-                        }
-                    }
-                    return false;
-                }''')
+                }
+                return false;
+            }''')
+
+            if not submit_clicked:
+                # Fallback: try Playwright click with force
+                logger.info("Fallback: trying Playwright force click")
+                try:
+                    save_btn = page.locator('input[value="Save"]').first
+                    await save_btn.click(force=True, timeout=3000)
+                    submit_clicked = True
+                except Exception as e:
+                    logger.error(f"Force click failed: {e}")
 
             if not submit_clicked:
                 logger.error("Could not click save submit button")
                 return False
 
-            # Wait for save to complete
-            await page.wait_for_timeout(2000)
+            # Wait longer for save to complete
+            await page.wait_for_timeout(3000)
             logger.info("Search save attempted")
 
             # Refresh the page to ensure saved searches list is updated
