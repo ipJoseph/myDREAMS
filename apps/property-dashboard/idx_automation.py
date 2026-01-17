@@ -409,28 +409,7 @@ class IDXPortfolioAutomation:
             # Use the persistent context - create a new page
             page = await self.context.new_page()
 
-            # Check if already logged in by looking for login indicators
-            await page.goto(IDX_BASE_URL, wait_until='domcontentloaded', timeout=30000)
-            await page.wait_for_timeout(1500)
-
-            # Check if we need to login (look for saved searches badge or logged-in state)
-            needs_login = await page.evaluate('''() => {
-                // If there's a number badge on the user icon, we're logged in
-                const badge = document.querySelector('.badge, .notification-count, [class*="badge"]');
-                if (badge && badge.textContent.trim()) return false;
-                // Otherwise assume we need to login
-                return true;
-            }''')
-
-            # Login if needed and credentials are configured
-            if needs_login and IDX_EMAIL and IDX_PHONE:
-                login_success = await self.login(page)
-                if login_success:
-                    logger.info("Login completed")
-                else:
-                    logger.warning("Login failed or skipped - continuing without login")
-
-            # Navigate to MLS search page
+            # Go directly to MLS search page (persistent profile keeps us logged in)
             logger.info(f"Navigating to {IDX_MLS_SEARCH_URL}")
             await page.goto(IDX_MLS_SEARCH_URL, wait_until='domcontentloaded', timeout=30000)
 
