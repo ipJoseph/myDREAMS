@@ -708,6 +708,110 @@ adapters:
 
 ---
 
+## Shared UI Design System
+
+### Color Palette
+
+#### Primary Colors
+
+| Color | Hex | Preview | Usage |
+|-------|-----|---------|-------|
+| Primary Blue | `#007bff` | ![#007bff](https://via.placeholder.com/20/007bff/007bff.png) | Primary actions, links |
+| Success Green | `#28a745` | ![#28a745](https://via.placeholder.com/20/28a745/28a745.png) | Validated status, success states |
+| Warning Yellow | `#ffc107` | ![#ffc107](https://via.placeholder.com/20/ffc107/ffc107.png) | Pending status, warnings |
+| Danger Red | `#dc3545` | ![#dc3545](https://via.placeholder.com/20/dc3545/dc3545.png) | Errors, validation failures |
+| Info Cyan | `#17a2b8` | ![#17a2b8](https://via.placeholder.com/20/17a2b8/17a2b8.png) | Informational messages |
+
+#### Status Colors (IDX Validation)
+
+| Status | Background | Text | Preview |
+|--------|------------|------|---------|
+| Validated | `#d4edda` | `#155724` | ![#d4edda](https://via.placeholder.com/60x20/d4edda/155724.png?text=+) |
+| Pending | `#fff3cd` | `#856404` | ![#fff3cd](https://via.placeholder.com/60x20/fff3cd/856404.png?text=+) |
+| Not Found | `#e2e3e5` | `#383d41` | ![#e2e3e5](https://via.placeholder.com/60x20/e2e3e5/383d41.png?text=+) |
+| Error | `#f8d7da` | `#721c24` | ![#f8d7da](https://via.placeholder.com/60x20/f8d7da/721c24.png?text=+) |
+
+#### Property Status Colors
+
+| Status | Color | Preview | CSS Class |
+|--------|-------|---------|-----------|
+| Active | `#28a745` | ![#28a745](https://via.placeholder.com/20/28a745/28a745.png) | `.status-active` |
+| Pending | `#ffc107` | ![#ffc107](https://via.placeholder.com/20/ffc107/ffc107.png) | `.status-pending` |
+| Sold | `#6c757d` | ![#6c757d](https://via.placeholder.com/20/6c757d/6c757d.png) | `.status-sold` |
+| Under Contract | `#fd7e14` | ![#fd7e14](https://via.placeholder.com/20/fd7e14/fd7e14.png) | `.status-contract` |
+
+#### Background & Surface Colors
+
+| Element | Color | Preview |
+|---------|-------|---------|
+| Page Background | `#f8f9fa` | ![#f8f9fa](https://via.placeholder.com/20/f8f9fa/f8f9fa.png) |
+| Card Background | `#ffffff` | ![#ffffff](https://via.placeholder.com/20/ffffff/ffffff.png) |
+| Table Header | `#e9ecef` | ![#e9ecef](https://via.placeholder.com/20/e9ecef/e9ecef.png) |
+| Border Color | `#dee2e6` | ![#dee2e6](https://via.placeholder.com/20/dee2e6/dee2e6.png) |
+| Text Primary | `#212529` | ![#212529](https://via.placeholder.com/20/212529/212529.png) |
+| Text Secondary | `#6c757d` | ![#6c757d](https://via.placeholder.com/20/6c757d/6c757d.png) |
+
+### CSS Variables (Proposed)
+
+```css
+:root {
+  /* Primary palette */
+  --color-primary: #007bff;
+  --color-success: #28a745;
+  --color-warning: #ffc107;
+  --color-danger: #dc3545;
+  --color-info: #17a2b8;
+
+  /* IDX validation status */
+  --idx-validated-bg: #d4edda;
+  --idx-validated-text: #155724;
+  --idx-pending-bg: #fff3cd;
+  --idx-pending-text: #856404;
+  --idx-not-found-bg: #e2e3e5;
+  --idx-not-found-text: #383d41;
+  --idx-error-bg: #f8d7da;
+  --idx-error-text: #721c24;
+
+  /* Surfaces */
+  --bg-page: #f8f9fa;
+  --bg-card: #ffffff;
+  --bg-header: #e9ecef;
+  --border-color: #dee2e6;
+
+  /* Text */
+  --text-primary: #212529;
+  --text-secondary: #6c757d;
+}
+```
+
+### Typography
+
+| Element | Font | Size | Weight |
+|---------|------|------|--------|
+| Body | System UI / -apple-system | 14px | 400 |
+| Headings | System UI / -apple-system | 18-24px | 600 |
+| Table Data | Monospace (for numbers) | 13px | 400 |
+| Badges | System UI | 12px | 500 |
+
+### Component Patterns
+
+#### Status Badges
+```html
+<span class="badge badge-success">Validated</span>
+<span class="badge badge-warning">Pending</span>
+<span class="badge badge-secondary">Not Found</span>
+<span class="badge badge-danger">Error</span>
+```
+
+#### Action Buttons
+```html
+<button class="btn btn-primary btn-sm">Primary Action</button>
+<button class="btn btn-outline-primary btn-sm">Secondary</button>
+<button class="btn btn-link btn-sm">Text Link</button>
+```
+
+---
+
 ## Error Handling
 
 ### Standard Error Response
@@ -765,5 +869,5 @@ def api_call_with_retry(func, *args, **kwargs):
 
 ---
 
-*Architecture document maintained by Joseph & Claude*  
-*Last updated: January 3, 2026*
+*Architecture document maintained by Joseph & Claude*
+*Last updated: January 17, 2026*
