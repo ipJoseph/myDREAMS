@@ -255,10 +255,12 @@
             font-size: 13px;
         }
 
-        /* Address column - wider, no wrap */
+        /* Address column - moderate width, allow 2 lines */
         td.address-col {
-            min-width: 280px;
-            white-space: nowrap;
+            min-width: 180px;
+            max-width: 220px;
+            white-space: normal;
+            line-height: 1.3;
         }
 
         /* IDX link button style */
@@ -566,20 +568,20 @@
                     <th data-sort="address">Address</th>
                     <th data-sort="mls_number">MLS #</th>
                     <th>IDX</th>
-                    <th data-sort="city">City</th>
-                    <th data-sort="county">County</th>
-                    <th data-sort="added_for">Client</th>
-                    <th data-sort="status">Status</th>
-                    <th class="num-col" data-sort="dom" data-type="number">DOM</th>
                     <th class="num-col" data-sort="price" data-type="number">Price</th>
-                    <th class="num-col" data-sort="price_per_sqft" data-type="number">$/SqFt</th>
-                    <th data-sort="property_type">Type</th>
-                    <th class="num-col" data-sort="year_built" data-type="number">Year</th>
+                    <th class="num-col" data-sort="dom" data-type="number">DOM</th>
                     <th class="num-col" data-sort="beds" data-type="number">Beds</th>
                     <th class="num-col" data-sort="baths" data-type="number">Baths</th>
                     <th class="num-col" data-sort="sqft" data-type="number">SqFt</th>
                     <th class="num-col" data-sort="lot_acres" data-type="number">Lot</th>
+                    <th class="num-col" data-sort="price_per_sqft" data-type="number">$/SqFt</th>
+                    <th data-sort="property_type">Type</th>
+                    <th class="num-col" data-sort="year_built" data-type="number">Year</th>
+                    <th data-sort="county">County</th>
+                    <th data-sort="added_for">Client</th>
+                    <th data-sort="status">Status</th>
                     <th data-sort="source">Source</th>
+                    <th data-sort="city">City</th>
                 </tr>
             </thead>
             <tbody>
@@ -617,7 +619,15 @@
                         <span class="idx-status-badge {{ idx_status_class }}">{{ idx_status }}</span>
                         {% endif %}
                     </td>
-                    <td>{{ prop.city or '-' }}</td>
+                    <td class="num-col price">{{ "${:,.0f}".format(prop.price) if prop.price else '-' }}</td>
+                    <td class="num-col">{{ prop.dom if prop.dom is not none else '-' }}</td>
+                    <td class="num-col">{{ prop.beds or '-' }}</td>
+                    <td class="num-col">{{ prop.baths or '-' }}</td>
+                    <td class="num-col">{{ "{:,.0f}".format(prop.sqft) if prop.sqft else '-' }}</td>
+                    <td class="num-col">{{ "{:.2f}".format(prop.lot_acres) if prop.lot_acres else '-' }}</td>
+                    <td class="num-col">{{ "${:,.0f}".format(prop.price_per_sqft) if prop.price_per_sqft else '-' }}</td>
+                    <td>{{ prop.property_type or '-' }}</td>
+                    <td class="num-col">{{ prop.year_built or '-' }}</td>
                     <td>{{ prop.county or '-' }}</td>
                     <td>{{ prop.added_for or '-' }}</td>
                     <td>
@@ -625,16 +635,8 @@
                             {{ prop.status or 'Unknown' }}
                         </span>
                     </td>
-                    <td class="num-col">{{ prop.dom if prop.dom is not none else '-' }}</td>
-                    <td class="num-col price">{{ "${:,.0f}".format(prop.price) if prop.price else '-' }}</td>
-                    <td class="num-col">{{ "${:,.0f}".format(prop.price_per_sqft) if prop.price_per_sqft else '-' }}</td>
-                    <td>{{ prop.property_type or '-' }}</td>
-                    <td class="num-col">{{ prop.year_built or '-' }}</td>
-                    <td class="num-col">{{ prop.beds or '-' }}</td>
-                    <td class="num-col">{{ prop.baths or '-' }}</td>
-                    <td class="num-col">{{ "{:,.0f}".format(prop.sqft) if prop.sqft else '-' }}</td>
-                    <td class="num-col">{{ "{:.2f}".format(prop.lot_acres) if prop.lot_acres else '-' }}</td>
                     <td>{{ prop.source or '-' }}</td>
+                    <td>{{ prop.city or '-' }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
