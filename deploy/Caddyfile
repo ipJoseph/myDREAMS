@@ -1,0 +1,114 @@
+# DREAMS Platform - Caddy Reverse Proxy Configuration
+# Domain: wncmountain.homes
+#
+# Cloudflare handles SSL termination (orange cloud proxied)
+# Caddy receives traffic on ports 80/443 from Cloudflare
+#
+# To use with Cloudflare Full (Strict) SSL:
+# 1. Enable "Full (Strict)" in Cloudflare SSL/TLS settings
+# 2. Caddy will auto-generate certificates via Let's Encrypt
+#
+# To use with Cloudflare Flexible SSL (simpler):
+# 1. Keep "Flexible" in Cloudflare SSL/TLS settings
+# 2. Uncomment the http:// blocks below and comment out https:// blocks
+
+# ============================================
+# API Endpoint
+# ============================================
+api.wncmountain.homes {
+    reverse_proxy localhost:5000
+
+    # Security headers
+    header {
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        -Server
+    }
+
+    # CORS headers for Chrome extension
+    @options method OPTIONS
+    handle @options {
+        header Access-Control-Allow-Origin "*"
+        header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+        header Access-Control-Allow-Headers "Content-Type, X-API-Key"
+        respond 204
+    }
+
+    # Logging
+    log {
+        output file /var/log/caddy/api.log {
+            roll_size 10mb
+            roll_keep 5
+        }
+    }
+}
+
+# ============================================
+# Main Dashboard (Admin)
+# ============================================
+app.wncmountain.homes {
+    reverse_proxy localhost:5001
+
+    # Security headers
+    header {
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "SAMEORIGIN"
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        -Server
+    }
+
+    # Logging
+    log {
+        output file /var/log/caddy/dashboard.log {
+            roll_size 10mb
+            roll_keep 5
+        }
+    }
+}
+
+# ============================================
+# Lead Dashboards (Client-facing)
+# ============================================
+leads.wncmountain.homes {
+    # Rewrite root to redirect or show landing
+    handle / {
+        respond "DREAMS Lead Portal" 200
+    }
+
+    # Proxy /lead/* paths to dashboard
+    handle /lead/* {
+        reverse_proxy localhost:5001
+    }
+
+    # Security headers (more permissive for clients)
+    header {
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "SAMEORIGIN"
+        -Server
+    }
+
+    # Logging
+    log {
+        output file /var/log/caddy/leads.log {
+            roll_size 10mb
+            roll_keep 5
+        }
+    }
+}
+
+# ============================================
+# Root Domain (Landing/Redirect)
+# ============================================
+wncmountain.homes {
+    # Redirect to main dashboard or show landing page
+    redir https://app.wncmountain.homes{uri} permanent
+}
+
+# ============================================
+# www redirect
+# ============================================
+www.wncmountain.homes {
+    redir https://wncmountain.homes{uri} permanent
+}

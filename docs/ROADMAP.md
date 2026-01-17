@@ -43,12 +43,17 @@
 | Production URLs in manifest | Done | `wncmountain.homes` host permissions |
 | Update .env.example | Done | Added auth variables |
 
-### Phase 2 - VPS Setup (Next)
-- [ ] Provision Hetzner CX22 (Ashburn, VA)
-- [ ] Install Python 3.11+, Playwright, Chromium, Caddy
-- [ ] Create `dreams` user
-- [ ] Clone repo to `/opt/mydreams`
-- [ ] Set up systemd services
+### Phase 2 - VPS Setup (Ready)
+| Task | Status | Notes |
+|------|--------|-------|
+| Create systemd services | Done | `deploy/systemd/mydreams-*.service` |
+| Create Caddyfile | Done | `deploy/Caddyfile` with subdomains |
+| Create setup script | Done | `deploy/scripts/setup-vps.sh` |
+| Create deploy script | Done | `deploy/scripts/deploy.sh` |
+| Create backup script | Done | `deploy/scripts/backup.sh` with B2 |
+| Deployment guide | Done | `docs/DEPLOYMENT.md` |
+
+**Next: Provision VPS and run setup script**
 
 ### Phase 3 - DNS & SSL
 - [ ] Transfer DNS to Cloudflare

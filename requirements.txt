@@ -7,10 +7,17 @@ pyyaml>=6.0
 # Database
 # SQLite is built into Python, no additional package needed
 
+# Web Framework
+flask>=3.0.0
+flask-cors>=4.0.0
+
 # HTTP & APIs
 requests>=2.31.0
 httpx>=0.25.0
 tenacity>=8.2.0  # Retry logic
+
+# Browser Automation (IDX validation, property monitoring)
+playwright>=1.40.0
 
 # CRM Adapters
 # Follow Up Boss uses standard REST API

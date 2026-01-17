@@ -18,6 +18,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Chrome extension API key support in settings
   - Production URL support (`wncmountain.homes`) in manifest
   - Updated `.env.example` with new auth variables
+- **Cloud Migration Phase 2** - Deployment infrastructure
+  - systemd service files for API and Dashboard
+  - Caddyfile for reverse proxy with subdomains
+  - VPS setup script (`setup-vps.sh`)
+  - Deployment script (`deploy.sh`)
+  - Backup script with B2 support (`backup.sh`)
+  - Comprehensive deployment guide (`docs/DEPLOYMENT.md`)
 
 ### Changed
 - Moved old extension versions (v1, v2) to `archive/`
