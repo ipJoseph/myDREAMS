@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "DREAMS Property Scraper",
-  "version": "3.9.15",
+  "version": "3.9.16",
   "description": "Capture property data from Zillow, Redfin, and Realtor.com for DREAMS platform",
   "permissions": [
     "activeTab",

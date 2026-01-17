@@ -931,7 +931,7 @@ function normalizeRedfinSearchResult(home) {
     year_built: home.yearBuilt || null,
     latitude: home.latitude || home.lat || null,
     longitude: home.longitude || home.long || null,
-    status: home.listingStatus || home.status || null,
+    status: home.listingStatus || home.status || 'active',  // Default to active for search results
     days_on_market: home.dom || home.daysOnMarket || null,
     url: home.url || (home.propertyId ? `https://www.redfin.com/home/${home.propertyId}` : null),
     source: 'redfin',
@@ -1060,7 +1060,32 @@ function parseRedfinCard(card) {
     }
   }
 
-  console.log('Redfin: Card parsed -', 'price:', data.price, 'beds:', data.beds, 'address:', data.address?.substring(0, 30));
+  // Extract status from card - look for status badges/labels within this card only
+  const statusSelectors = [
+    '.homecard-label',
+    '.HomeCardStatus',
+    '[class*="StatusBadge"]',
+    '[class*="status-badge"]',
+    '[class*="listingStatus"]',
+    '.listing-status',
+    '[data-rf-test-id*="status"]'
+  ];
+  for (const sel of statusSelectors) {
+    const statusEl = card.querySelector(sel);
+    if (statusEl) {
+      const statusText = statusEl.textContent.toLowerCase().trim();
+      if (statusText.includes('sold')) data.status = 'sold';
+      else if (statusText.includes('pending')) data.status = 'pending';
+      else if (statusText.includes('contingent')) data.status = 'contingent';
+      else if (statusText.includes('active')) data.status = 'active';
+      else if (statusText.includes('coming soon')) data.status = 'coming soon';
+      if (data.status) break;
+    }
+  }
+  // Default to active if no status badge found (most search results are active listings)
+  if (!data.status) data.status = 'active';
+
+  console.log('Redfin: Card parsed -', 'price:', data.price, 'beds:', data.beds, 'address:', data.address?.substring(0, 30), 'status:', data.status);
   return data;
 }
 
@@ -1152,6 +1177,31 @@ function parseRedfinCardFromContainer(container, link) {
       data.address = linkText;
     }
   }
+
+  // Extract status from container - look for status badges/labels within this container only
+  const statusSelectors = [
+    '.homecard-label',
+    '.HomeCardStatus',
+    '[class*="StatusBadge"]',
+    '[class*="status-badge"]',
+    '[class*="listingStatus"]',
+    '.listing-status',
+    '[data-rf-test-id*="status"]'
+  ];
+  for (const sel of statusSelectors) {
+    const statusEl = container.querySelector(sel);
+    if (statusEl) {
+      const statusText = statusEl.textContent.toLowerCase().trim();
+      if (statusText.includes('sold')) data.status = 'sold';
+      else if (statusText.includes('pending')) data.status = 'pending';
+      else if (statusText.includes('contingent')) data.status = 'contingent';
+      else if (statusText.includes('active')) data.status = 'active';
+      else if (statusText.includes('coming soon')) data.status = 'coming soon';
+      if (data.status) break;
+    }
+  }
+  // Default to active if no status badge found (most search results are active listings)
+  if (!data.status) data.status = 'active';
 
   return data;
 }
@@ -1643,18 +1693,40 @@ function scrapeRedfinDOM() {
     }
   }
 
-  // Status - look for listing status
-  const statusPatterns = [
-    /Status[:\s]*(Active|Pending|Sold|Under Contract|Contingent|Coming Soon|Off Market|Expired)/i,
-    /(Active|Pending|Sold|Under Contract|Contingent)\s*(?:listing|status)?/i
+  // Status - look for listing status in specific elements first
+  const statusSelectors = [
+    '[data-rf-test-id*="status"]',
+    '.listing-status',
+    '[class*="ListingStatus"]',
+    '[class*="StatusBadge"]',
+    '.KeyFacts [class*="status"]',
+    '.propertyStatus'
   ];
-  for (const pattern of statusPatterns) {
-    const statusMatch = bodyText.match(pattern);
+  for (const sel of statusSelectors) {
+    const statusEl = document.querySelector(sel);
+    if (statusEl) {
+      const statusText = statusEl.textContent.toLowerCase().trim();
+      if (statusText.includes('sold')) { data.status = 'sold'; break; }
+      else if (statusText.includes('pending')) { data.status = 'pending'; break; }
+      else if (statusText.includes('contingent')) { data.status = 'contingent'; break; }
+      else if (statusText.includes('active')) { data.status = 'active'; break; }
+      else if (statusText.includes('coming soon')) { data.status = 'coming soon'; break; }
+      else if (statusText.includes('off market')) { data.status = 'off market'; break; }
+    }
+  }
+  // Fallback: look for explicit "Status: X" pattern only (avoid matching "Sold" from price history)
+  if (!data.status) {
+    const statusPattern = /(?:Listing\s+)?Status[:\s]*(Active|Pending|Sold|Under Contract|Contingent|Coming Soon|Off Market|Expired)/i;
+    const statusMatch = bodyText.match(statusPattern);
     if (statusMatch) {
       data.status = statusMatch[1].toLowerCase();
-      console.log('Redfin DOM: Found status:', data.status);
-      break;
+      console.log('Redfin DOM: Found status via text pattern:', data.status);
     }
+  }
+  // Default to active if still no status (most listings viewed are active)
+  if (!data.status) {
+    data.status = 'active';
+    console.log('Redfin DOM: Defaulting status to active');
   }
 
   // Tax information - look for ANNUAL tax in property details (not monthly payment)

@@ -588,7 +588,7 @@
                 {% for prop in properties %}
                 {% set idx_mls = prop.idx_mls_number or prop.mls_number %}
                 {% set idx_status = prop.idx_validation_status or 'pending' %}
-                {% set idx_status_class = idx_status|lower|replace(' ', '-') %}
+                {% set idx_status_class = idx_status|lower|replace(' ', '-')|replace('_', '-') %}
                 <tr data-mls="{{ idx_mls or '' }}">
                     <td class="checkbox-col"><input type="checkbox" class="row-select" checked onchange="updateSelectAll()"></td>
                     <td class="row-num">{{ loop.index }}</td>
@@ -696,6 +696,36 @@
             return mlsNumbers;
         }
 
+        // Get full property info from checked rows (for validation)
+        function getSelectedProperties() {
+            const table = document.getElementById('propertiesTable');
+            const rows = table.querySelectorAll('tbody tr');
+            const properties = [];
+
+            rows.forEach(row => {
+                const checkbox = row.querySelector('.row-select');
+                if (checkbox && checkbox.checked) {
+                    const mls = row.dataset.mls;
+                    const addressLink = row.querySelector('.address-link');
+                    const address = addressLink ? addressLink.textContent.trim() : '';
+                    const idxLink = row.querySelector('.idx-link');
+                    const idxStatus = idxLink ?
+                        (idxLink.classList.contains('validated') ? 'validated' :
+                         idxLink.classList.contains('pending') ? 'pending' :
+                         idxLink.classList.contains('not-found') ? 'not_found' : 'pending')
+                        : 'pending';
+
+                    properties.push({
+                        mls_number: mls || '',
+                        address: address,
+                        idx_status: idxStatus
+                    });
+                }
+            });
+
+            return properties;
+        }
+
         // Toggle all checkboxes
         function toggleSelectAll(headerCheckbox) {
             const checkboxes = document.querySelectorAll('.row-select');
@@ -770,11 +800,11 @@
             window.open(baseUrl, '_blank');
         }
 
-        // Create IDX Portfolio - launches Playwright automation
+        // Create IDX Portfolio - validates pending properties first, then launches automation
         async function createIDXPortfolio() {
-            const mlsNumbers = getMLSNumbers();
+            const properties = getSelectedProperties();
 
-            if (mlsNumbers.length === 0) {
+            if (properties.length === 0) {
                 alert('No properties selected. Check the boxes for properties you want to include.');
                 return;
             }
@@ -797,6 +827,100 @@
 
             const btn = document.getElementById('portfolioBtnText');
             const originalText = btn.textContent;
+
+            // Check for pending properties that need validation
+            const pendingProps = properties.filter(p => p.idx_status === 'pending' && p.address);
+            let finalMlsNumbers = [];
+
+            if (pendingProps.length > 0) {
+                // Validate pending properties first
+                btn.textContent = `Validating ${pendingProps.length}...`;
+
+                try {
+                    const validateResponse = await fetch('/api/validate-idx', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ properties: pendingProps })
+                    });
+
+                    const validateData = await validateResponse.json();
+
+                    if (validateData.success) {
+                        // Build map of address -> validated MLS and track stats
+                        const validatedMap = {};
+                        let foundByMls = 0;
+                        let foundByAddress = 0;
+                        let notFound = 0;
+
+                        validateData.results.forEach(r => {
+                            if (r.idx_mls) {
+                                validatedMap[r.address.toLowerCase()] = r.idx_mls;
+                                // Check if found by original MLS or by address search
+                                if (r.idx_mls === r.original_mls) {
+                                    foundByMls++;
+                                } else {
+                                    foundByAddress++;
+                                }
+                            } else {
+                                notFound++;
+                            }
+                        });
+
+                        // Build final MLS list using validated numbers where available
+                        properties.forEach(p => {
+                            const validatedMls = validatedMap[p.address.toLowerCase()];
+                            if (validatedMls) {
+                                finalMlsNumbers.push(validatedMls);
+                            } else if (p.mls_number) {
+                                finalMlsNumbers.push(p.mls_number);
+                            }
+                        });
+
+                        // Log validation summary
+                        console.log(`IDX Validation Summary:`);
+                        console.log(`  Total validated: ${validateData.total_count}`);
+                        console.log(`  Found by MLS#: ${foundByMls}`);
+                        console.log(`  Found by Address: ${foundByAddress}`);
+                        console.log(`  Not on IDX: ${notFound}`);
+
+                        // Show notification to user
+                        const alreadyValidated = properties.length - pendingProps.length;
+                        let summaryMsg = `Validation Complete:\n`;
+                        summaryMsg += `━━━━━━━━━━━━━━━━━━━━━\n`;
+                        summaryMsg += `${properties.length} Properties Selected\n`;
+                        if (alreadyValidated > 0) {
+                            summaryMsg += `${alreadyValidated} Already Validated\n`;
+                        }
+                        summaryMsg += `${foundByMls} Found by MLS#\n`;
+                        summaryMsg += `${foundByAddress} Found by Address\n`;
+                        if (notFound > 0) {
+                            summaryMsg += `${notFound} Not on IDX\n`;
+                        }
+                        summaryMsg += `━━━━━━━━━━━━━━━━━━━━━\n`;
+                        summaryMsg += `${finalMlsNumbers.length} will be added to portfolio`;
+
+                        alert(summaryMsg);
+                    } else {
+                        // Validation failed, fall back to original MLS numbers
+                        console.warn('Validation failed, using original MLS numbers');
+                        finalMlsNumbers = properties.map(p => p.mls_number).filter(m => m);
+                    }
+                } catch (err) {
+                    console.warn('Validation error, using original MLS numbers:', err);
+                    finalMlsNumbers = properties.map(p => p.mls_number).filter(m => m);
+                }
+            } else {
+                // No pending properties, use existing MLS numbers
+                finalMlsNumbers = properties.map(p => p.mls_number).filter(m => m);
+            }
+
+            if (finalMlsNumbers.length === 0) {
+                alert('No valid MLS numbers found for selected properties.');
+                btn.textContent = originalText;
+                return;
+            }
+
+            // Now launch the portfolio
             btn.textContent = 'Launching...';
 
             try {
@@ -806,7 +930,7 @@
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        mls_numbers: mlsNumbers,
+                        mls_numbers: finalMlsNumbers,
                         search_name: searchName.trim() || defaultName
                     })
                 });

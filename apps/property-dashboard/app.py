@@ -387,6 +387,143 @@ def api_properties():
     })
 
 
+@app.route('/api/validate-idx', methods=['POST'])
+def validate_idx_properties():
+    """
+    Validate properties against IDX on-demand.
+    Accepts list of properties with address/mls_number, returns validated MLS numbers.
+    """
+    data = request.get_json()
+    properties = data.get('properties', [])
+
+    if not properties:
+        return jsonify({'success': False, 'error': 'No properties provided'}), 400
+
+    # Import validation logic
+    import asyncio
+    from playwright.async_api import async_playwright
+
+    IDX_BASE_URL = "https://www.smokymountainhomes4sale.com"
+    IDX_PROPERTY_URL = f"{IDX_BASE_URL}/property"
+
+    async def check_mls_on_idx(page, mls_number):
+        """Check if MLS# exists on IDX site."""
+        try:
+            url = f"{IDX_PROPERTY_URL}/{mls_number}"
+            response = await page.goto(url, wait_until='domcontentloaded', timeout=10000)
+
+            if response and response.status == 200:
+                await page.wait_for_timeout(500)
+                # Check if we're on a valid property page
+                is_valid = await page.evaluate('''() => {
+                    const hasPrice = document.querySelector('[class*="price"], .listing-price, .property-price');
+                    const hasAddress = document.querySelector('[class*="address"], .property-address');
+                    const isSearchPage = window.location.pathname.includes('search');
+                    const is404 = document.body.innerText.includes('not found') ||
+                                 document.body.innerText.includes('no longer available');
+                    return (hasPrice || hasAddress) && !isSearchPage && !is404;
+                }''')
+                return is_valid
+            return False
+        except Exception:
+            return False
+
+    async def search_by_address(page, address):
+        """Search for property by address, return MLS# if found."""
+        try:
+            search_query = address.replace(' ', '+')
+            search_url = f"{IDX_BASE_URL}/search?q={search_query}"
+            await page.goto(search_url, wait_until='domcontentloaded', timeout=10000)
+            await page.wait_for_timeout(1500)
+
+            # Find property link matching address
+            result = await page.evaluate(f'''() => {{
+                const searchAddress = "{address.lower().split(',')[0]}";
+                const propertyLinks = document.querySelectorAll('a[href*="/property/"]');
+
+                for (let link of propertyLinks) {{
+                    const card = link.closest('.property-card, .listing, [class*="property"], [class*="listing"]');
+                    const text = (card ? card.textContent : link.textContent).toLowerCase();
+
+                    if (text.includes(searchAddress)) {{
+                        const href = link.href || link.getAttribute('href');
+                        const match = href.match(/\\/property\\/([A-Za-z0-9]+)/);
+                        if (match) return match[1];
+                    }}
+                }}
+                return null;
+            }}''')
+            return result
+        except Exception:
+            return None
+
+    async def validate_all(props):
+        """Validate all properties."""
+        results = []
+        playwright = None
+        browser = None
+
+        try:
+            playwright = await async_playwright().start()
+            browser = await playwright.chromium.launch(headless=True)
+            context = await browser.new_context()
+            page = await context.new_page()
+
+            for prop in props:
+                mls = prop.get('mls_number')
+                address = prop.get('address')
+                original_mls = mls
+                idx_mls = None
+                status = 'not_found'
+
+                # First try the original MLS#
+                if mls:
+                    if await check_mls_on_idx(page, mls):
+                        idx_mls = mls
+                        status = 'validated'
+
+                # If not found, try address search
+                if not idx_mls and address:
+                    found_mls = await search_by_address(page, address)
+                    if found_mls:
+                        idx_mls = found_mls
+                        status = 'validated'
+
+                results.append({
+                    'address': address,
+                    'original_mls': original_mls,
+                    'idx_mls': idx_mls,
+                    'status': status
+                })
+
+        finally:
+            if browser:
+                await browser.close()
+            if playwright:
+                await playwright.stop()
+
+        return results
+
+    # Run validation
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        results = loop.run_until_complete(validate_all(properties))
+        loop.close()
+
+        validated_count = sum(1 for r in results if r['status'] == 'validated')
+
+        return jsonify({
+            'success': True,
+            'results': results,
+            'validated_count': validated_count,
+            'total_count': len(results)
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/api/idx-portfolio', methods=['POST'])
 def create_idx_portfolio():
     """Launch IDX portfolio automation with selected MLS numbers"""
