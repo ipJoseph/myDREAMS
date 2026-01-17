@@ -69,15 +69,20 @@ app.wncmountain.homes {
 }
 
 # ============================================
-# Lead Dashboards (Client-facing)
+# Client Dashboards (Client-facing portals)
 # ============================================
-leads.wncmountain.homes {
+clients.wncmountain.homes {
     # Rewrite root to redirect or show landing
     handle / {
-        respond "DREAMS Lead Portal" 200
+        respond "WNC Mountain Homes - Client Portal" 200
     }
 
-    # Proxy /lead/* paths to dashboard
+    # Proxy /client/* paths to dashboard
+    handle /client/* {
+        reverse_proxy localhost:5001
+    }
+
+    # Legacy /lead/* redirect to /client/*
     handle /lead/* {
         reverse_proxy localhost:5001
     }
@@ -91,11 +96,18 @@ leads.wncmountain.homes {
 
     # Logging
     log {
-        output file /var/log/caddy/leads.log {
+        output file /var/log/caddy/clients.log {
             roll_size 10mb
             roll_keep 5
         }
     }
+}
+
+# ============================================
+# Legacy leads subdomain redirect
+# ============================================
+leads.wncmountain.homes {
+    redir https://clients.wncmountain.homes{uri} permanent
 }
 
 # ============================================

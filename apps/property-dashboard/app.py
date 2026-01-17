@@ -356,8 +356,14 @@ def dashboard():
 
 
 @app.route('/lead/<client_name>')
-def lead_dashboard(client_name):
-    """Client-facing dashboard view - simplified for leads"""
+def lead_dashboard_redirect(client_name):
+    """Redirect old /lead/ URLs to new /client/ URLs"""
+    return redirect(url_for('client_dashboard', client_name=client_name), code=301)
+
+
+@app.route('/client/<client_name>')
+def client_dashboard(client_name):
+    """Client-facing dashboard view - personalized property portal"""
     # Get filter parameters
     status = request.args.get('status', '')
     city = request.args.get('city', '')

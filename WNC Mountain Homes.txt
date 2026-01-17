@@ -1,0 +1,22 @@
+WNC Mountain Homes
+
+ ---
+  Phase 3 DNS & SSL - COMPLETE
+
+  For the www subdomain issue: In Cloudflare, delete the CNAME record for www and create an A record instead pointing to
+  178.156.221.10. But this is minor - your main endpoints all work.
+
+  ---
+  Summary - Your Cloud Deployment is Live!
+  Service: API
+  URL: https://api.wncmountain.homes
+  ────────────────────────────────────────
+  Service: Dashboard
+  URL: https://app.wncmountain.homes
+  ────────────────────────────────────────
+  Service: Lead Portal
+  URL: https://leads.wncmountain.homes/lead/{ClientName}
+  Credentials to save:
+  - API Key: 3da6357c9e321807c747b9ca0aa0813ab61dff02a4e8c18f0aaeb617a68aefe0
+  - Dashboard Login: admin / dreams2026!secure
+  - VPS IP: 178.156.221.10
