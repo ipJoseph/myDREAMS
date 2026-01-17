@@ -710,9 +710,16 @@
                 return;
             }
 
-            // Prompt for search name
-            const defaultSuffix = ' - curated by Joseph Williams';
-            const searchName = prompt('Enter a name for this saved search:', defaultSuffix);
+            // Prompt for search name - default: YYMMDD.HHMM.ClientName
+            const now = new Date();
+            const yy = String(now.getFullYear()).slice(-2);
+            const mm = String(now.getMonth() + 1).padStart(2, '0');
+            const dd = String(now.getDate()).padStart(2, '0');
+            const hh = String(now.getHours()).padStart(2, '0');
+            const min = String(now.getMinutes()).padStart(2, '0');
+            const clientName = document.getElementById('clientFilter').value || 'Portfolio';
+            const defaultName = `${yy}${mm}${dd}.${hh}${min}.${clientName}`;
+            const searchName = prompt('Enter a name for this saved search:', defaultName);
 
             if (searchName === null) {
                 // User cancelled
@@ -731,7 +738,7 @@
                     },
                     body: JSON.stringify({
                         mls_numbers: mlsNumbers,
-                        search_name: searchName.trim() || defaultSuffix
+                        search_name: searchName.trim() || defaultName
                     })
                 });
 
