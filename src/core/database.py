@@ -193,6 +193,12 @@ class DREAMSDatabase:
             notion_synced_at TEXT,
             sync_status TEXT DEFAULT 'pending',
             sync_error TEXT,
+            -- IDX validation fields
+            idx_mls_number TEXT,
+            original_mls_number TEXT,
+            idx_validation_status TEXT DEFAULT 'pending',
+            idx_validated_at TEXT,
+            idx_mls_source TEXT,
             -- Timestamps
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -206,6 +212,7 @@ class DREAMSDatabase:
         CREATE INDEX IF NOT EXISTS idx_properties_redfin_id ON properties(redfin_id);
         CREATE INDEX IF NOT EXISTS idx_properties_mls ON properties(mls_number);
         CREATE INDEX IF NOT EXISTS idx_properties_sync_status ON properties(sync_status);
+        CREATE INDEX IF NOT EXISTS idx_properties_idx_validation ON properties(idx_validation_status);
         
         -- Matches table
         CREATE TABLE IF NOT EXISTS matches (
@@ -497,11 +504,65 @@ class DREAMSDatabase:
                 ''', (status, error, property_id))
             conn.commit()
             return True
-    
+
+    def get_properties_by_idx_validation_status(
+        self,
+        status: str,
+        limit: int = 10
+    ) -> List[Dict[str, Any]]:
+        """Get properties by IDX validation status (pending, validated, not_found, error)."""
+        with self._get_connection() as conn:
+            rows = conn.execute(
+                '''SELECT * FROM properties
+                   WHERE idx_validation_status = ?
+                   ORDER BY updated_at DESC
+                   LIMIT ?''',
+                (status, limit)
+            ).fetchall()
+            return [dict(row) for row in rows]
+
+    def update_idx_validation(
+        self,
+        property_id: str,
+        status: str,
+        idx_mls_number: Optional[str] = None,
+        idx_mls_source: Optional[str] = None,
+        original_mls_number: Optional[str] = None
+    ) -> bool:
+        """Update the IDX validation status and MLS information for a property."""
+        with self._get_connection() as conn:
+            now = datetime.now().isoformat()
+
+            if status == 'validated':
+                conn.execute('''
+                    UPDATE properties SET
+                        idx_validation_status = ?,
+                        idx_mls_number = ?,
+                        idx_mls_source = ?,
+                        original_mls_number = COALESCE(?, original_mls_number, mls_number),
+                        idx_validated_at = ?,
+                        sync_status = 'pending',
+                        updated_at = ?
+                    WHERE id = ?
+                ''', (status, idx_mls_number, idx_mls_source, original_mls_number, now, now, property_id))
+            else:
+                conn.execute('''
+                    UPDATE properties SET
+                        idx_validation_status = ?,
+                        original_mls_number = COALESCE(original_mls_number, mls_number),
+                        idx_validated_at = ?,
+                        sync_status = 'pending',
+                        updated_at = ?
+                    WHERE id = ?
+                ''', (status, now, now, property_id))
+
+            conn.commit()
+            return True
+
     # ==========================================
     # MATCH OPERATIONS
     # ==========================================
-    
+
     def upsert_match(self, match: Match) -> bool:
         """Insert or update a match."""
         with self._get_connection() as conn:

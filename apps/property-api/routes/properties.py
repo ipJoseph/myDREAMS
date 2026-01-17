@@ -163,6 +163,7 @@ def create_property():
             'captured_by': data.get('added_by'),
             'notes': data.get('notes'),
             'sync_status': 'pending',
+            'idx_validation_status': 'pending' if not existing_id else None,
             'created_at': now if not existing_id else None,
             'updated_at': now
         }
@@ -349,4 +350,69 @@ def trigger_notion_sync():
         return jsonify({
             'success': False,
             'error': {'code': 'SYNC_ERROR', 'message': str(e)}
+        }), 500
+
+
+@properties_bp.route('/properties/<property_id>/validate-idx', methods=['POST'])
+def validate_idx(property_id):
+    """Manually trigger IDX validation for a specific property."""
+    import asyncio
+    from app import idx_validation_service
+
+    if not idx_validation_service:
+        return jsonify({
+            'success': False,
+            'error': {'code': 'NOT_CONFIGURED', 'message': 'IDX validation service not configured'}
+        }), 503
+
+    try:
+        # Run the async validation in a new event loop
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            result = loop.run_until_complete(
+                idx_validation_service.validate_single_property(property_id)
+            )
+        finally:
+            loop.close()
+
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': {'code': 'VALIDATION_ERROR', 'message': str(e)}
+        }), 500
+
+
+@properties_bp.route('/sync/idx-validation', methods=['POST'])
+def trigger_idx_validation():
+    """Manually trigger IDX validation for all pending properties."""
+    import asyncio
+    from app import idx_validation_service
+
+    if not idx_validation_service:
+        return jsonify({
+            'success': False,
+            'error': {'code': 'NOT_CONFIGURED', 'message': 'IDX validation service not configured'}
+        }), 503
+
+    try:
+        # Run the async validation in a new event loop
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            count = loop.run_until_complete(
+                idx_validation_service.validate_pending_properties()
+            )
+        finally:
+            loop.close()
+
+        return jsonify({
+            'success': True,
+            'data': {'validated_count': count}
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': {'code': 'VALIDATION_ERROR', 'message': str(e)}
         }), 500

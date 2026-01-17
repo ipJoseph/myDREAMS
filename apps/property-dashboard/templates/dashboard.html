@@ -272,11 +272,70 @@
             font-size: 12px;
             font-weight: 500;
             transition: background 0.15s;
+            white-space: nowrap;
         }
 
         .idx-link:hover {
             background: var(--primary-light);
             color: white;
+        }
+
+        .idx-link.validated {
+            background: var(--success);
+        }
+
+        .idx-link.not-found {
+            background: #6b7280;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+        .idx-link.pending {
+            background: var(--warning);
+            color: #1a1a1a;
+        }
+
+        .idx-link.error {
+            background: var(--error);
+        }
+
+        /* IDX Status badge */
+        .idx-status-badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 9px;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-left: 4px;
+            vertical-align: middle;
+        }
+
+        .idx-status-badge.validated {
+            background: #dcfce7;
+            color: #137333;
+        }
+
+        .idx-status-badge.not-found {
+            background: #f3f4f6;
+            color: #6b7280;
+        }
+
+        .idx-status-badge.pending {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .idx-status-badge.error {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+
+        /* MLS number styling */
+        .mls-number {
+            font-family: monospace;
+            font-size: 12px;
+            color: var(--text-secondary);
         }
 
         /* Property image */
@@ -505,6 +564,8 @@
                     <th>#</th>
                     <th>Image</th>
                     <th data-sort="address">Address</th>
+                    <th data-sort="mls_number">MLS #</th>
+                    <th>IDX</th>
                     <th data-sort="city">City</th>
                     <th data-sort="county">County</th>
                     <th data-sort="added_for">Client</th>
@@ -519,13 +580,14 @@
                     <th class="num-col" data-sort="sqft" data-type="number">SqFt</th>
                     <th class="num-col" data-sort="lot_acres" data-type="number">Lot</th>
                     <th data-sort="source">Source</th>
-                    <th data-sort="mls_number">MLS #</th>
-                    <th>IDX</th>
                 </tr>
             </thead>
             <tbody>
                 {% for prop in properties %}
-                <tr data-mls="{{ prop.mls_number or '' }}">
+                {% set idx_mls = prop.idx_mls_number or prop.mls_number %}
+                {% set idx_status = prop.idx_validation_status or 'pending' %}
+                {% set idx_status_class = idx_status|lower|replace(' ', '-') %}
+                <tr data-mls="{{ idx_mls or '' }}">
                     <td class="checkbox-col"><input type="checkbox" class="row-select" checked onchange="updateSelectAll()"></td>
                     <td class="row-num">{{ loop.index }}</td>
                     <td>
@@ -540,6 +602,19 @@
                         <a href="{{ prop.url }}" target="_blank" class="address-link">{{ prop.address or 'Unknown' }}</a>
                         {% else %}
                         <a href="{{ prop.notion_url }}" target="_blank" class="address-link">{{ prop.address or 'Unknown' }}</a>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="mls-number">{{ idx_mls or '-' }}</span>
+                        {% if prop.original_mls_number and prop.original_mls_number != idx_mls %}
+                        <br><span class="mls-number" style="font-size: 10px; color: #9ca3af;" title="Original MLS#">{{ prop.original_mls_number }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if idx_mls %}
+                        <a href="https://www.smokymountainhomes4sale.com/property/{{ idx_mls }}" target="_blank" class="idx-link {{ idx_status_class }}" title="View on team site{% if idx_status == 'Validated' %} (Verified){% elif idx_status == 'Not Found' %} (May not be available){% endif %}">View IDX</a>
+                        {% else %}
+                        <span class="idx-status-badge {{ idx_status_class }}">{{ idx_status }}</span>
                         {% endif %}
                     </td>
                     <td>{{ prop.city or '-' }}</td>
@@ -560,14 +635,6 @@
                     <td class="num-col">{{ "{:,.0f}".format(prop.sqft) if prop.sqft else '-' }}</td>
                     <td class="num-col">{{ "{:.2f}".format(prop.lot_acres) if prop.lot_acres else '-' }}</td>
                     <td>{{ prop.source or '-' }}</td>
-                    <td>{{ prop.mls_number or '-' }}</td>
-                    <td>
-                        {% if prop.mls_number %}
-                        <a href="https://www.smokymountainhomes4sale.com/property/{{ prop.mls_number }}" target="_blank" class="idx-link" title="View on team site">View</a>
-                        {% else %}
-                        -
-                        {% endif %}
-                    </td>
                 </tr>
                 {% endfor %}
             </tbody>

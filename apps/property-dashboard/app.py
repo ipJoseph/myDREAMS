@@ -129,6 +129,11 @@ def extract_property(prop):
         'last_updated': get_date(props.get('Last Updated')),
         'photo_url': get_files(props.get('Photos')),
         'stories': get_number(props.get('Stories')),
+        # IDX validation fields
+        'idx_mls_number': get_rich_text(props.get('IDX MLS #')),
+        'original_mls_number': get_rich_text(props.get('Original MLS #')),
+        'idx_validation_status': get_select(props.get('IDX Status')),
+        'idx_mls_source': get_rich_text(props.get('IDX MLS Source')),
     }
 
 

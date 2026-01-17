@@ -20,6 +20,7 @@ from dotenv import load_dotenv
 from routes.properties import properties_bp
 from routes.health import health_bp
 from services.notion_sync_service import NotionSyncService
+from services.idx_validation_service import IDXValidationService
 
 # Load environment variables
 load_dotenv(PROJECT_ROOT / '.env')
@@ -36,18 +37,21 @@ app.register_blueprint(properties_bp, url_prefix='/api/v1')
 
 # Initialize services
 notion_sync_service = None
+idx_validation_service = None
 
 def init_services():
     """Initialize background services."""
     global notion_sync_service
+    global idx_validation_service
 
     notion_api_key = os.getenv('NOTION_API_KEY')
     notion_db_id = os.getenv('NOTION_PROPERTIES_DB_ID')
     db_path = os.getenv('DREAMS_DB_PATH', str(PROJECT_ROOT / 'data' / 'dreams.db'))
 
+    from src.core.database import DREAMSDatabase
+    db = DREAMSDatabase(db_path)
+
     if notion_api_key and notion_db_id:
-        from src.core.database import DREAMSDatabase
-        db = DREAMSDatabase(db_path)
         notion_sync_service = NotionSyncService(
             notion_api_key=notion_api_key,
             database_id=notion_db_id,
@@ -57,6 +61,11 @@ def init_services():
         print(f"Notion sync service started (every 60s)")
     else:
         print("Warning: Notion credentials not configured, sync disabled")
+
+    # Initialize IDX validation service
+    idx_validation_service = IDXValidationService(db=db)
+    idx_validation_service.start_background_validation(interval_seconds=300)  # Every 5 minutes
+    print(f"IDX validation service started (every 5 min)")
 
 
 @app.route('/')

@@ -250,6 +250,9 @@ class NotionSyncService:
             ('subdivision', 'Subdivision'),
             ('added_for', 'Added For'),
             ('notes', 'Notes'),
+            ('idx_mls_number', 'IDX MLS #'),
+            ('original_mls_number', 'Original MLS #'),
+            ('idx_mls_source', 'IDX MLS Source'),
         ]
 
         # City is a Select field in Notion
@@ -299,6 +302,17 @@ class NotionSyncService:
             }
             properties['Source'] = {
                 'select': {'name': source_map.get(prop['source'].lower(), prop['source'].title())}
+            }
+
+        if prop.get('idx_validation_status'):
+            idx_status_map = {
+                'pending': 'Pending',
+                'validated': 'Validated',
+                'not_found': 'Not Found',
+                'error': 'Error'
+            }
+            properties['IDX Status'] = {
+                'select': {'name': idx_status_map.get(prop['idx_validation_status'].lower(), prop['idx_validation_status'].title())}
             }
 
         # Main URL field - the URL where property was captured from
