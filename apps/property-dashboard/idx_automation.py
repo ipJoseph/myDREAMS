@@ -7,6 +7,7 @@ Uses Playwright to create property portfolios on the team IDX site
 import asyncio
 import logging
 import os
+from pathlib import Path
 from typing import List, Optional
 
 from playwright.async_api import async_playwright, Browser, Page
@@ -15,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 # Load environment variables
 def load_env_file():
-    env_path = '/home/bigeug/myDREAMS/.env'
+    env_path = Path(__file__).parent.parent.parent / '.env'
     if os.path.exists(env_path):
         with open(env_path) as f:
             for line in f:

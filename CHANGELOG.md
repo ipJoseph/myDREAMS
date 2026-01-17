@@ -12,10 +12,21 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Shared CSS design system (`shared/css/dreams.css`)
 - Archive folder for deprecated code
 - CHANGELOG.md for tracking releases
+- **Cloud Migration Phase 1** - Authentication & portable paths
+  - API key authentication for Property API (`X-API-Key` header)
+  - Basic auth for Property Dashboard admin routes
+  - Chrome extension API key support in settings
+  - Production URL support (`wncmountain.homes`) in manifest
+  - Updated `.env.example` with new auth variables
 
 ### Changed
 - Moved old extension versions (v1, v2) to `archive/`
 - Updated ARCHITECTURE.md with actual color values
+- **Path Portability** - Replaced hardcoded `/home/bigeug/` paths with `Path(__file__)` relative paths
+  - `apps/property-dashboard/app.py`
+  - `apps/property-dashboard/idx_automation.py`
+  - `apps/property-api/services/idx_validation_service.py`
+  - `apps/property-monitor/monitor_properties.py`
 
 ---
 

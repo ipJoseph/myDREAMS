@@ -71,6 +71,7 @@ const elements = {
 
   // Settings
   serverUrl: document.getElementById('serverUrl'),
+  apiKey: document.getElementById('apiKey'),
   defaultAddedBy: document.getElementById('defaultAddedBy'),
   saveSettingsBtn: document.getElementById('saveSettingsBtn'),
   testConnectionBtn: document.getElementById('testConnectionBtn'),
@@ -102,12 +103,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 async function loadSettings() {
   const settings = await chrome.storage.sync.get([
     'serverUrl',
+    'apiKey',
     'defaultAddedBy',
     'lastAddedFor'
   ]);
 
   if (settings.serverUrl) {
     elements.serverUrl.value = settings.serverUrl;
+  }
+  if (settings.apiKey) {
+    elements.apiKey.value = settings.apiKey;
   }
   if (settings.defaultAddedBy) {
     elements.addedBy.value = settings.defaultAddedBy;
@@ -743,10 +748,12 @@ function hideSettings() {
 
 async function saveSettings() {
   const serverUrl = elements.serverUrl.value.trim();
+  const apiKey = elements.apiKey.value.trim();
   const defaultAddedBy = elements.defaultAddedBy.value;
 
   await chrome.storage.sync.set({
     serverUrl,
+    apiKey,
     defaultAddedBy
   });
 

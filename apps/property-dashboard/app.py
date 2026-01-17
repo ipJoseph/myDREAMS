@@ -8,13 +8,15 @@ import os
 import sys
 import subprocess
 import statistics
+from functools import wraps
 from datetime import datetime
-from flask import Flask, render_template, request, jsonify
+from pathlib import Path
+from flask import Flask, render_template, request, jsonify, Response
 import httpx
 
 # Load environment variables
 def load_env_file():
-    env_path = '/home/bigeug/myDREAMS/.env'
+    env_path = Path(__file__).parent.parent.parent / '.env'
     if os.path.exists(env_path):
         with open(env_path) as f:
             for line in f:
@@ -27,6 +29,39 @@ def load_env_file():
 load_env_file()
 
 app = Flask(__name__)
+
+# Basic Auth Configuration
+DASHBOARD_USERNAME = os.getenv('DASHBOARD_USERNAME')
+DASHBOARD_PASSWORD = os.getenv('DASHBOARD_PASSWORD')
+
+
+def check_auth(username, password):
+    """Check if a username/password combination is valid."""
+    return username == DASHBOARD_USERNAME and password == DASHBOARD_PASSWORD
+
+
+def authenticate():
+    """Send a 401 response to prompt for credentials."""
+    return Response(
+        'Authentication required. Please log in.',
+        401,
+        {'WWW-Authenticate': 'Basic realm="DREAMS Dashboard"'}
+    )
+
+
+def requires_auth(f):
+    """Decorator to require HTTP Basic Auth for a route."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        # Skip auth if credentials not configured (local development)
+        if not DASHBOARD_USERNAME or not DASHBOARD_PASSWORD:
+            return f(*args, **kwargs)
+
+        auth = request.authorization
+        if not auth or not check_auth(auth.username, auth.password):
+            return authenticate()
+        return f(*args, **kwargs)
+    return decorated
 
 # Notion configuration
 NOTION_API_KEY = os.getenv('NOTION_API_KEY')
@@ -269,8 +304,9 @@ def get_unique_statuses(properties):
 
 
 @app.route('/')
+@requires_auth
 def dashboard():
-    """Main dashboard view"""
+    """Main dashboard view (requires authentication)"""
     # Get filter parameters
     added_for = request.args.get('client', '')
     status = request.args.get('status', '')
@@ -370,8 +406,9 @@ def lead_dashboard(client_name):
 
 
 @app.route('/api/properties')
+@requires_auth
 def api_properties():
-    """API endpoint for properties data"""
+    """API endpoint for properties data (requires authentication)"""
     added_for = request.args.get('client', '')
     status = request.args.get('status', '')
 
@@ -388,9 +425,10 @@ def api_properties():
 
 
 @app.route('/api/validate-idx', methods=['POST'])
+@requires_auth
 def validate_idx_properties():
     """
-    Validate properties against IDX on-demand.
+    Validate properties against IDX on-demand (requires authentication).
     Accepts list of properties with address/mls_number, returns validated MLS numbers.
     """
     data = request.get_json()
@@ -525,8 +563,9 @@ def validate_idx_properties():
 
 
 @app.route('/api/idx-portfolio', methods=['POST'])
+@requires_auth
 def create_idx_portfolio():
-    """Launch IDX portfolio automation with selected MLS numbers"""
+    """Launch IDX portfolio automation with selected MLS numbers (requires authentication)"""
     data = request.get_json()
     mls_numbers = data.get('mls_numbers', [])
     search_name = data.get('search_name', '')

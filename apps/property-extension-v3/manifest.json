@@ -15,7 +15,9 @@
     "https://www.zillow.com/*",
     "https://www.redfin.com/*",
     "https://www.realtor.com/*",
-    "http://localhost:5000/*"
+    "http://localhost:5000/*",
+    "https://api.wncmountain.homes/*",
+    "https://*.wncmountain.homes/*"
   ],
   "background": {
     "service_worker": "background.js",

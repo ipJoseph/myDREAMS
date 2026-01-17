@@ -7,13 +7,14 @@ and stores it in SQLite (canonical store), then syncs to Notion.
 
 import os
 import sys
+from functools import wraps
 from pathlib import Path
 
 # Add project root to path for imports
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 from dotenv import load_dotenv
 
@@ -30,6 +31,57 @@ app = Flask(__name__)
 # Enable CORS for Chrome extension
 # Allow all origins since we're running locally - Chrome extension IDs vary
 CORS(app, resources={r"/*": {"origins": "*"}})
+
+# API Key Authentication
+API_KEY = os.getenv('DREAMS_API_KEY')
+
+
+def require_api_key(f):
+    """Decorator to require API key authentication for routes."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # Skip auth if no API key is configured (local development)
+        if not API_KEY:
+            return f(*args, **kwargs)
+
+        # Check X-API-Key header
+        provided_key = request.headers.get('X-API-Key')
+        if not provided_key or provided_key != API_KEY:
+            return jsonify({
+                'success': False,
+                'error': {
+                    'code': 'UNAUTHORIZED',
+                    'message': 'Invalid or missing API key'
+                }
+            }), 401
+
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+@app.before_request
+def check_api_key():
+    """Check API key for all /api/* routes."""
+    # Skip auth for non-API routes (health, index)
+    if not request.path.startswith('/api/'):
+        return None
+
+    # Skip auth if no API key is configured (local development)
+    if not API_KEY:
+        return None
+
+    # Check X-API-Key header
+    provided_key = request.headers.get('X-API-Key')
+    if not provided_key or provided_key != API_KEY:
+        return jsonify({
+            'success': False,
+            'error': {
+                'code': 'UNAUTHORIZED',
+                'message': 'Invalid or missing API key'
+            }
+        }), 401
+
+    return None
 
 # Register blueprints
 app.register_blueprint(health_bp)

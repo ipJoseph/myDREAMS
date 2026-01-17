@@ -11,6 +11,7 @@ import time
 import logging
 import os
 import re
+from pathlib import Path
 from typing import Optional, Dict, Any, Tuple
 from datetime import datetime
 
@@ -20,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 # Load environment variables
 def load_env_file():
-    env_path = '/home/bigeug/myDREAMS/.env'
+    env_path = Path(__file__).parent.parent.parent.parent / '.env'
     if os.path.exists(env_path):
         with open(env_path) as f:
             for line in f:

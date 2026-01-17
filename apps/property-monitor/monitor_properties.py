@@ -12,6 +12,7 @@ import time
 import asyncio
 import logging
 from datetime import datetime
+from pathlib import Path
 from typing import Dict, List, Optional
 import httpx
 from notion_client import Client
@@ -27,7 +28,7 @@ from playwright_scraper import (
 # Load environment variables from .env file
 def load_env_file():
     """Load environment variables from .env file"""
-    env_path = '/home/bigeug/myDREAMS/.env'
+    env_path = Path(__file__).parent.parent.parent / '.env'
     if os.path.exists(env_path):
         with open(env_path) as f:
             for line in f:
@@ -42,11 +43,15 @@ def load_env_file():
 load_env_file()
 
 # Configure logging
+PROJECT_ROOT = Path(__file__).parent.parent.parent
+LOG_DIR = PROJECT_ROOT / 'logs'
+LOG_DIR.mkdir(exist_ok=True)
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('/home/bigeug/myDREAMS/logs/property_monitor.log'),
+        logging.FileHandler(LOG_DIR / 'property_monitor.log'),
         logging.StreamHandler(sys.stdout)
     ]
 )

@@ -31,6 +31,42 @@
 
 ---
 
+## Phase 1.5: Cloud Migration (In Progress)
+
+### Phase 1 - Local Prep (Completed)
+| Task | Status | Notes |
+|------|--------|-------|
+| Fix hardcoded paths | Done | Use `Path(__file__)` relative paths |
+| API key authentication | Done | `DREAMS_API_KEY` env var, `X-API-Key` header |
+| Dashboard basic auth | Done | `DASHBOARD_USERNAME/PASSWORD` env vars |
+| Chrome extension API key | Done | Settings panel, stored in sync storage |
+| Production URLs in manifest | Done | `wncmountain.homes` host permissions |
+| Update .env.example | Done | Added auth variables |
+
+### Phase 2 - VPS Setup (Next)
+- [ ] Provision Hetzner CX22 (Ashburn, VA)
+- [ ] Install Python 3.11+, Playwright, Chromium, Caddy
+- [ ] Create `dreams` user
+- [ ] Clone repo to `/opt/mydreams`
+- [ ] Set up systemd services
+
+### Phase 3 - DNS & SSL
+- [ ] Transfer DNS to Cloudflare
+- [ ] Create A records for api/app/leads subdomains
+- [ ] Configure Caddy reverse proxy
+
+### Phase 4 - Migration
+- [ ] Export and transfer SQLite database
+- [ ] Update Chrome extension to production URL
+- [ ] Test end-to-end property capture
+
+### Phase 5 - Cron & Backup
+- [ ] Set up cron jobs (FUB sync, property monitor)
+- [ ] Configure daily backup to Backblaze B2
+- [ ] Set up UptimeRobot monitoring
+
+---
+
 ## Phase 2: Lead Scoring & Matching (Planned)
 
 ### Lead Scoring System

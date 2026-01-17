@@ -38,6 +38,11 @@ myDREAMS (Desktop Real Estate Agent Management System) is a local-first platform
 - Tech debt: Track in ROADMAP.md "Known Issues" section
 - Versioning: Update CHANGELOG.md when shipping features
 
+## Workflow Guidelines
+
+- **After completing each feature/fix**: Update CHANGELOG.md and ROADMAP.md
+- **Commit and push**: You have standing permission after completing work sections
+
 ## Owner
 
 Joseph "Eugy" Williams

@@ -7,12 +7,49 @@
  * - Message passing between content scripts and popup
  */
 
-const CONFIG = {
+const DEFAULT_CONFIG = {
   SERVER_URL: 'http://localhost:5000',
   HEALTH_CHECK_INTERVAL: 30000,
   RETRY_DELAYS: [1000, 5000, 15000, 60000, 300000],
   MAX_RETRIES: 5
 };
+
+// Dynamic config that loads from storage
+let CONFIG = { ...DEFAULT_CONFIG };
+
+// Load settings from storage
+async function loadConfig() {
+  const settings = await chrome.storage.sync.get(['serverUrl', 'apiKey']);
+  CONFIG.SERVER_URL = settings.serverUrl || DEFAULT_CONFIG.SERVER_URL;
+  CONFIG.API_KEY = settings.apiKey || '';
+  return CONFIG;
+}
+
+// Get headers with API key if configured
+function getApiHeaders() {
+  const headers = {
+    'Content-Type': 'application/json'
+  };
+  if (CONFIG.API_KEY) {
+    headers['X-API-Key'] = CONFIG.API_KEY;
+  }
+  return headers;
+}
+
+// Listen for storage changes to update config
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName === 'sync') {
+    if (changes.serverUrl) {
+      CONFIG.SERVER_URL = changes.serverUrl.newValue || DEFAULT_CONFIG.SERVER_URL;
+    }
+    if (changes.apiKey) {
+      CONFIG.API_KEY = changes.apiKey.newValue || '';
+    }
+  }
+});
+
+// Initialize config on startup
+loadConfig();
 
 // ============================================
 // QUEUE MANAGER
@@ -100,11 +137,12 @@ class QueueManager {
   }
 
   async sendToServer(item) {
+    // Ensure config is loaded
+    await loadConfig();
+
     const response = await fetch(`${CONFIG.SERVER_URL}/api/v1/properties`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: getApiHeaders(),
       body: JSON.stringify(item.data)
     });
 
@@ -142,6 +180,9 @@ class QueueManager {
   }
 
   async checkServerHealth() {
+    // Ensure config is loaded
+    await loadConfig();
+
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
@@ -245,13 +286,16 @@ async function handleMessage(message, sender) {
 }
 
 async function saveProperty(data) {
+  // Ensure config is loaded
+  await loadConfig();
+
   const serverStatus = await queueManager.checkServerHealth();
 
   if (serverStatus === 'online') {
     try {
       const response = await fetch(`${CONFIG.SERVER_URL}/api/v1/properties`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getApiHeaders(),
         body: JSON.stringify(data)
       });
 
