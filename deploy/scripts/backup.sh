@@ -78,25 +78,26 @@ if [[ -f "$ENV_FILE" ]]; then
 fi
 
 # Upload to Backblaze B2 (if configured)
-if command -v b2 &> /dev/null; then
+B2_CMD="/opt/mydreams/venv/bin/b2"
+if [[ -x "$B2_CMD" ]]; then
     log "Uploading to Backblaze B2..."
 
     # Upload database backup
     if [[ -f "$BACKUP_DIR/${BACKUP_NAME}.db.gz" ]]; then
-        b2 upload-file "$B2_BUCKET" "$BACKUP_DIR/${BACKUP_NAME}.db.gz" "database/${BACKUP_NAME}.db.gz"
+        $B2_CMD file upload "$B2_BUCKET" "$BACKUP_DIR/${BACKUP_NAME}.db.gz" "database/${BACKUP_NAME}.db.gz"
         log "Database uploaded to B2"
     fi
 
     # Upload config backup
     if [[ -f "$BACKUP_DIR/${BACKUP_NAME}.env.enc" ]]; then
-        b2 upload-file "$B2_BUCKET" "$BACKUP_DIR/${BACKUP_NAME}.env.enc" "config/${BACKUP_NAME}.env.enc"
+        $B2_CMD file upload "$B2_BUCKET" "$BACKUP_DIR/${BACKUP_NAME}.env.enc" "config/${BACKUP_NAME}.env.enc"
         log "Config uploaded to B2"
     elif [[ -f "$BACKUP_DIR/${BACKUP_NAME}.env" ]]; then
-        b2 upload-file "$B2_BUCKET" "$BACKUP_DIR/${BACKUP_NAME}.env" "config/${BACKUP_NAME}.env"
+        $B2_CMD file upload "$B2_BUCKET" "$BACKUP_DIR/${BACKUP_NAME}.env" "config/${BACKUP_NAME}.env"
         log "Config uploaded to B2"
     fi
 else
-    log "b2 CLI not found, skipping B2 upload. Install with: pip install b2"
+    log "b2 CLI not found at $B2_CMD, skipping B2 upload"
 fi
 
 # Clean up old local backups
