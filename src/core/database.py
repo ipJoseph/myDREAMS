@@ -42,12 +42,62 @@ class DREAMSDatabase:
             conn.execute("PRAGMA journal_mode = WAL")
             conn.execute("PRAGMA foreign_keys = ON")
             conn.execute("PRAGMA busy_timeout = 5000")
-            
-            # Read and execute schema
-            schema = self._get_schema()
-            conn.executescript(schema)
+
+            # First create tables only (without indexes that depend on new columns)
+            tables_schema = self._get_tables_schema()
+            conn.executescript(tables_schema)
             conn.commit()
+
+            # Apply migrations to add missing columns to existing tables
+            self._apply_migrations(conn)
+            conn.commit()
+
+            # Now create indexes (columns will exist)
+            indexes_schema = self._get_indexes_schema()
+            conn.executescript(indexes_schema)
+            conn.commit()
+
             logger.info(f"Database initialized at {self.db_path}")
+
+    def _apply_migrations(self, conn) -> None:
+        """Add missing columns to existing tables (for schema updates)."""
+        # Get existing columns in leads table
+        cursor = conn.execute("PRAGMA table_info(leads)")
+        existing_cols = {row[1] for row in cursor.fetchall()}
+
+        # Define new columns that may be missing
+        new_lead_columns = [
+            ("fub_id", "TEXT"),
+            ("lead_type_tags", "TEXT"),
+            ("heat_score", "REAL DEFAULT 0"),
+            ("value_score", "REAL DEFAULT 0"),
+            ("relationship_score", "REAL DEFAULT 0"),
+            ("priority_score", "REAL DEFAULT 0"),
+            ("website_visits", "INTEGER DEFAULT 0"),
+            ("properties_viewed", "INTEGER DEFAULT 0"),
+            ("properties_favorited", "INTEGER DEFAULT 0"),
+            ("calls_inbound", "INTEGER DEFAULT 0"),
+            ("calls_outbound", "INTEGER DEFAULT 0"),
+            ("texts_total", "INTEGER DEFAULT 0"),
+            ("avg_price_viewed", "REAL"),
+            ("days_since_activity", "INTEGER"),
+            ("last_activity_at", "TEXT"),
+            ("intent_repeat_views", "INTEGER DEFAULT 0"),
+            ("intent_high_favorites", "INTEGER DEFAULT 0"),
+            ("intent_activity_burst", "INTEGER DEFAULT 0"),
+            ("intent_sharing", "INTEGER DEFAULT 0"),
+            ("intent_signal_count", "INTEGER DEFAULT 0"),
+            ("next_action", "TEXT"),
+            ("next_action_date", "TEXT"),
+        ]
+
+        for col_name, col_type in new_lead_columns:
+            if col_name not in existing_cols:
+                try:
+                    conn.execute(f"ALTER TABLE leads ADD COLUMN {col_name} {col_type}")
+                    logger.info(f"Added column {col_name} to leads table")
+                except sqlite3.OperationalError:
+                    pass  # Column already exists
     
     @contextmanager
     def _get_connection(self):
@@ -59,8 +109,8 @@ class DREAMSDatabase:
         finally:
             conn.close()
     
-    def _get_schema(self) -> str:
-        """Return the database schema SQL."""
+    def _get_tables_schema(self) -> str:
+        """Return the CREATE TABLE statements only."""
         return '''
         -- Leads/Contacts table (unified for FUB contacts and general leads)
         CREATE TABLE IF NOT EXISTS leads (
@@ -123,11 +173,6 @@ class DREAMSDatabase:
             UNIQUE(external_id, external_source)
         );
 
-        CREATE INDEX IF NOT EXISTS idx_leads_stage ON leads(stage);
-        CREATE INDEX IF NOT EXISTS idx_leads_priority ON leads(priority_score DESC);
-        CREATE INDEX IF NOT EXISTS idx_leads_fub_id ON leads(fub_id);
-        CREATE INDEX IF NOT EXISTS idx_leads_heat ON leads(heat_score DESC);
-        
         -- Activities table
         CREATE TABLE IF NOT EXISTS lead_activities (
             id TEXT PRIMARY KEY,
@@ -140,10 +185,7 @@ class DREAMSDatabase:
             imported_at TEXT DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (lead_id) REFERENCES leads(id)
         );
-        
-        CREATE INDEX IF NOT EXISTS idx_activities_lead ON lead_activities(lead_id);
-        CREATE INDEX IF NOT EXISTS idx_activities_type ON lead_activities(activity_type);
-        
+
         -- Properties table
         CREATE TABLE IF NOT EXISTS properties (
             id TEXT PRIMARY KEY,
@@ -232,15 +274,6 @@ class DREAMSDatabase:
             last_monitored_at TEXT
         );
 
-        CREATE INDEX IF NOT EXISTS idx_properties_status ON properties(status);
-        CREATE INDEX IF NOT EXISTS idx_properties_city ON properties(city);
-        CREATE INDEX IF NOT EXISTS idx_properties_price ON properties(price);
-        CREATE INDEX IF NOT EXISTS idx_properties_zillow_id ON properties(zillow_id);
-        CREATE INDEX IF NOT EXISTS idx_properties_redfin_id ON properties(redfin_id);
-        CREATE INDEX IF NOT EXISTS idx_properties_mls ON properties(mls_number);
-        CREATE INDEX IF NOT EXISTS idx_properties_sync_status ON properties(sync_status);
-        CREATE INDEX IF NOT EXISTS idx_properties_idx_validation ON properties(idx_validation_status);
-        
         -- Matches table
         CREATE TABLE IF NOT EXISTS matches (
             id TEXT PRIMARY KEY,
@@ -261,9 +294,6 @@ class DREAMSDatabase:
             FOREIGN KEY (property_id) REFERENCES properties(id),
             UNIQUE(lead_id, property_id)
         );
-        
-        CREATE INDEX IF NOT EXISTS idx_matches_lead ON matches(lead_id);
-        CREATE INDEX IF NOT EXISTS idx_matches_score ON matches(total_score DESC);
 
         -- Contact-Property relationships (saved/viewed/shared)
         CREATE TABLE IF NOT EXISTS contact_properties (
@@ -286,10 +316,6 @@ class DREAMSDatabase:
             UNIQUE(contact_id, property_id)
         );
 
-        CREATE INDEX IF NOT EXISTS idx_contact_props_contact ON contact_properties(contact_id);
-        CREATE INDEX IF NOT EXISTS idx_contact_props_property ON contact_properties(property_id);
-        CREATE INDEX IF NOT EXISTS idx_contact_props_relationship ON contact_properties(relationship);
-
         -- Packages table
         CREATE TABLE IF NOT EXISTS packages (
             id TEXT PRIMARY KEY,
@@ -305,7 +331,7 @@ class DREAMSDatabase:
             opened_at TEXT,
             FOREIGN KEY (lead_id) REFERENCES leads(id)
         );
-        
+
         -- Sync log table
         CREATE TABLE IF NOT EXISTS sync_log (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -321,6 +347,30 @@ class DREAMSDatabase:
             error_message TEXT,
             details TEXT
         );
+        '''
+
+    def _get_indexes_schema(self) -> str:
+        """Return the CREATE INDEX statements (run after migrations)."""
+        return '''
+        CREATE INDEX IF NOT EXISTS idx_leads_stage ON leads(stage);
+        CREATE INDEX IF NOT EXISTS idx_leads_priority ON leads(priority_score DESC);
+        CREATE INDEX IF NOT EXISTS idx_leads_fub_id ON leads(fub_id);
+        CREATE INDEX IF NOT EXISTS idx_leads_heat ON leads(heat_score DESC);
+        CREATE INDEX IF NOT EXISTS idx_activities_lead ON lead_activities(lead_id);
+        CREATE INDEX IF NOT EXISTS idx_activities_type ON lead_activities(activity_type);
+        CREATE INDEX IF NOT EXISTS idx_properties_status ON properties(status);
+        CREATE INDEX IF NOT EXISTS idx_properties_city ON properties(city);
+        CREATE INDEX IF NOT EXISTS idx_properties_price ON properties(price);
+        CREATE INDEX IF NOT EXISTS idx_properties_zillow_id ON properties(zillow_id);
+        CREATE INDEX IF NOT EXISTS idx_properties_redfin_id ON properties(redfin_id);
+        CREATE INDEX IF NOT EXISTS idx_properties_mls ON properties(mls_number);
+        CREATE INDEX IF NOT EXISTS idx_properties_sync_status ON properties(sync_status);
+        CREATE INDEX IF NOT EXISTS idx_properties_idx_validation ON properties(idx_validation_status);
+        CREATE INDEX IF NOT EXISTS idx_matches_lead ON matches(lead_id);
+        CREATE INDEX IF NOT EXISTS idx_matches_score ON matches(total_score DESC);
+        CREATE INDEX IF NOT EXISTS idx_contact_props_contact ON contact_properties(contact_id);
+        CREATE INDEX IF NOT EXISTS idx_contact_props_property ON contact_properties(property_id);
+        CREATE INDEX IF NOT EXISTS idx_contact_props_relationship ON contact_properties(relationship);
         '''
     
     # ==========================================
