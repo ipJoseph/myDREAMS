@@ -18,8 +18,12 @@ from typing import Dict, List, Optional, Tuple, Any
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = SCRIPT_DIR.parent.parent  # myDREAMS root
 CACHE_DIR = SCRIPT_DIR / "cache"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
+# Add project root to path for imports
+sys.path.insert(0, str(PROJECT_ROOT))
 
 from typing import Optional, Any
 import logging
@@ -67,6 +71,10 @@ class Config:
     SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
     EMAIL_TO = os.getenv("EMAIL_TO", os.getenv("SMTP_USERNAME"))
     EMAIL_SUBJECT_PREFIX = os.getenv("EMAIL_SUBJECT_PREFIX", "[FUB Daily]")
+
+    # SQLite Database Sync
+    SQLITE_SYNC_ENABLED = os.getenv("SQLITE_SYNC_ENABLED", "true").lower() == "true"
+    DREAMS_DB_PATH = os.getenv("DREAMS_DB_PATH", str(PROJECT_ROOT / "data" / "dreams.db"))
 
     # Performance Settings
     REQUEST_SLEEP_SECONDS = float(os.getenv("REQUEST_SLEEP_SECONDS", "0.2"))
@@ -1266,6 +1274,110 @@ def send_top_priority_email(
 
 
 # =========================================================================
+# SQLITE DATABASE SYNC
+# =========================================================================
+
+def sync_to_sqlite(contact_rows: List[List], person_stats: Dict[str, Dict]):
+    """
+    Sync contacts to SQLite database for unified DREAMS dashboard.
+
+    Args:
+        contact_rows: List of contact rows (same format as Google Sheets)
+        person_stats: Dictionary of person stats keyed by person ID
+    """
+    if not Config.SQLITE_SYNC_ENABLED:
+        logger.info("SQLite sync disabled, skipping")
+        return
+
+    logger.info("Syncing contacts to SQLite database...")
+
+    try:
+        from src.core.database import DREAMSDatabase
+        db = DREAMSDatabase(Config.DREAMS_DB_PATH)
+    except Exception as e:
+        logger.error(f"Failed to initialize SQLite database: {e}")
+        return
+
+    # Map sheet columns to database columns
+    idx = {name: i for i, name in enumerate(CONTACTS_HEADER)}
+
+    success_count = 0
+    error_count = 0
+
+    for row in contact_rows:
+        try:
+            fub_id = str(row[idx["id"]]) if row[idx["id"]] else None
+            if not fub_id:
+                continue
+
+            # Get person stats for this contact
+            stats = person_stats.get(fub_id, {})
+
+            # Build contact dict for database
+            contact_data = {
+                "id": fub_id,  # Use FUB ID as primary key
+                "fub_id": fub_id,
+                "external_id": fub_id,
+                "external_source": "followupboss",
+                "first_name": row[idx["firstName"]] or None,
+                "last_name": row[idx["lastName"]] or None,
+                "email": row[idx["primaryEmail"]] or None,
+                "phone": row[idx["primaryPhone"]] or None,
+                "stage": row[idx["stage"]] or None,
+                "source": row[idx["source"]] or None,
+                "lead_type_tags": row[idx["leadTypeTags"]] or None,
+                # Scoring fields
+                "heat_score": float(row[idx["heat_score"]] or 0),
+                "value_score": float(row[idx["value_score"]] or 0),
+                "relationship_score": float(row[idx["relationship_score"]] or 0),
+                "priority_score": float(row[idx["priority_score"]] or 0),
+                # Activity stats
+                "website_visits": int(row[idx["website_visits"]] or 0),
+                "properties_viewed": int(row[idx["properties_viewed"]] or 0),
+                "properties_favorited": int(row[idx["properties_favorited"]] or 0),
+                "calls_inbound": int(row[idx["calls_inbound"]] or 0),
+                "calls_outbound": int(row[idx["calls_outbound"]] or 0),
+                "texts_total": int(row[idx["texts_total"]] or 0),
+                "avg_price_viewed": float(row[idx["avg_price_viewed"]]) if row[idx["avg_price_viewed"]] else None,
+                "last_activity_at": row[idx["lastActivity"]] or None,
+                # Intent signals
+                "intent_repeat_views": 1 if row[idx["intent_repeat_views"]] == "✓" else 0,
+                "intent_high_favorites": 1 if row[idx["intent_high_favorites"]] == "✓" else 0,
+                "intent_activity_burst": 1 if row[idx["intent_activity_burst"]] == "✓" else 0,
+                "intent_sharing": 1 if row[idx["intent_sharing"]] == "✓" else 0,
+                "intent_signal_count": sum([
+                    1 if row[idx["intent_repeat_views"]] == "✓" else 0,
+                    1 if row[idx["intent_high_favorites"]] == "✓" else 0,
+                    1 if row[idx["intent_activity_burst"]] == "✓" else 0,
+                    1 if row[idx["intent_sharing"]] == "✓" else 0,
+                ]),
+                # Action tracking
+                "next_action": row[idx["next_action"]] or None,
+                "next_action_date": row[idx["next_action_date"]] or None,
+            }
+
+            # Calculate days since activity
+            last_activity = row[idx["lastActivity"]]
+            if last_activity:
+                try:
+                    last_act_dt = parse_datetime_safe(last_activity)
+                    if last_act_dt:
+                        days = (datetime.now(timezone.utc) - last_act_dt).days
+                        contact_data["days_since_activity"] = days
+                except Exception:
+                    pass
+
+            db.upsert_contact_dict(contact_data)
+            success_count += 1
+
+        except Exception as e:
+            error_count += 1
+            logger.debug(f"Error syncing contact: {e}")
+
+    logger.info(f"✓ SQLite sync complete: {success_count} synced, {error_count} errors")
+
+
+# =========================================================================
 # MAIN EXECUTION
 # =========================================================================
 
@@ -1407,6 +1519,9 @@ def main():
 
         # Send email report
         send_top_priority_email(contact_rows, top_priority, daily_stats)
+
+        # Sync to SQLite database (for unified DREAMS dashboard)
+        sync_to_sqlite(contact_rows, person_stats)
 
         # Summary
         elapsed = time.time() - start_time

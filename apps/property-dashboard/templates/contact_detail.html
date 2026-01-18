@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ contact.first_name }} {{ contact.last_name }} | DREAMS</title>
+    <!-- Shared Design System -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='shared/css/dreams.css') }}">
+    <!-- Page-specific overrides (minimal) -->
+    <style>
+        /* Contact header card */
+        .contact-header-card {
+            background: white;
+            border-radius: 8px;
+            padding: 24px;
+            margin: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 24px;
+        }
+
+        .contact-name-large {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--primary);
+            margin: 0 0 8px 0;
+        }
+
+        .contact-meta {
+            display: flex;
+            gap: 24px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+
+        .contact-meta-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-secondary);
+        }
+
+        .contact-meta-item strong {
+            color: var(--text-primary);
+        }
+
+        /* Score cards grid */
+        .score-cards {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin: 0 20px 20px 20px;
+        }
+
+        .score-card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .score-card-label {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .score-card-value {
+            font-size: 36px;
+            font-weight: 700;
+        }
+
+        .score-card-value.priority { color: var(--primary); }
+        .score-card-value.heat { color: #ef4444; }
+        .score-card-value.value { color: #10b981; }
+        .score-card-value.relationship { color: #3b82f6; }
+
+        /* Activity stats */
+        .activity-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 0 20px 20px 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .activity-stat {
+            text-align: center;
+            padding: 12px;
+            background: var(--bg-secondary);
+            border-radius: 6px;
+        }
+
+        .activity-stat-value {
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        .activity-stat-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        /* Intent signals section */
+        .intent-section {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 0 20px 20px 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .intent-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        .intent-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px;
+            border-radius: 6px;
+            background: var(--bg-secondary);
+        }
+
+        .intent-item.active {
+            background: #dcfce7;
+        }
+
+        .intent-indicator {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            background: #e5e7eb;
+            color: #9ca3af;
+        }
+
+        .intent-item.active .intent-indicator {
+            background: #10b981;
+            color: white;
+        }
+
+        /* Properties section */
+        .properties-section {
+            margin: 0 20px 20px 20px;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: var(--text-primary);
+        }
+
+        /* Back link */
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--primary);
+            text-decoration: none;
+            margin: 20px;
+            font-weight: 500;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="dreams-header">
+        <div>
+            <h1>Contact Details</h1>
+            <div class="dreams-header-subtitle">
+                {{ contact.first_name }} {{ contact.last_name }}
+            </div>
+        </div>
+        <nav style="display: flex; gap: 16px; align-items: center;">
+            <a href="/" class="dreams-btn dreams-btn-secondary">Properties</a>
+            <a href="/contacts" class="dreams-btn dreams-btn-secondary">Contacts</a>
+        </nav>
+    </header>
+
+    <a href="/contacts" class="back-link">&larr; Back to Contacts</a>
+
+    <!-- Contact Header Card -->
+    <div class="contact-header-card">
+        <div>
+            <h1 class="contact-name-large">{{ contact.first_name or '' }} {{ contact.last_name or '' }}</h1>
+            <span class="dreams-badge dreams-badge-{{ (contact.stage or 'unknown')|lower|replace(' ', '-') }}">
+                {{ contact.stage or 'Unknown' }}
+            </span>
+
+            <div class="contact-meta">
+                {% if contact.email %}
+                <div class="contact-meta-item">
+                    <span>Email:</span>
+                    <strong><a href="mailto:{{ contact.email }}">{{ contact.email }}</a></strong>
+                </div>
+                {% endif %}
+                {% if contact.phone %}
+                <div class="contact-meta-item">
+                    <span>Phone:</span>
+                    <strong><a href="tel:{{ contact.phone }}">{{ contact.phone }}</a></strong>
+                </div>
+                {% endif %}
+                {% if contact.source %}
+                <div class="contact-meta-item">
+                    <span>Source:</span>
+                    <strong>{{ contact.source }}</strong>
+                </div>
+                {% endif %}
+                {% if contact.lead_type_tags %}
+                <div class="contact-meta-item">
+                    <span>Tags:</span>
+                    <strong>{{ contact.lead_type_tags }}</strong>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div style="text-align: right;">
+            {% if contact.next_action %}
+            <div style="background: #fef3c7; padding: 12px 16px; border-radius: 6px; text-align: left;">
+                <div style="font-size: 11px; text-transform: uppercase; color: #92400e; margin-bottom: 4px;">Next Action</div>
+                <div style="font-weight: 600; color: #78350f;">{{ contact.next_action }}</div>
+                {% if contact.next_action_date %}
+                <div style="font-size: 12px; color: #92400e; margin-top: 4px;">{{ contact.next_action_date }}</div>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Score Cards -->
+    <div class="score-cards">
+        <div class="score-card">
+            <div class="score-card-label">Priority Score</div>
+            <div class="score-card-value priority">{{ "%.0f"|format(contact.priority_score or 0) }}</div>
+        </div>
+        <div class="score-card">
+            <div class="score-card-label">Heat Score</div>
+            <div class="score-card-value heat">{{ "%.0f"|format(contact.heat_score or 0) }}</div>
+        </div>
+        <div class="score-card">
+            <div class="score-card-label">Value Score</div>
+            <div class="score-card-value value">{{ "%.0f"|format(contact.value_score or 0) }}</div>
+        </div>
+        <div class="score-card">
+            <div class="score-card-label">Relationship</div>
+            <div class="score-card-value relationship">{{ "%.0f"|format(contact.relationship_score or 0) }}</div>
+        </div>
+    </div>
+
+    <!-- Activity Stats -->
+    <div class="activity-stats">
+        <div class="activity-stat">
+            <div class="activity-stat-value">{{ contact.website_visits or 0 }}</div>
+            <div class="activity-stat-label">Website Visits</div>
+        </div>
+        <div class="activity-stat">
+            <div class="activity-stat-value">{{ contact.properties_viewed or 0 }}</div>
+            <div class="activity-stat-label">Properties Viewed</div>
+        </div>
+        <div class="activity-stat">
+            <div class="activity-stat-value">{{ contact.properties_favorited or 0 }}</div>
+            <div class="activity-stat-label">Favorited</div>
+        </div>
+        <div class="activity-stat">
+            <div class="activity-stat-value">{{ contact.calls_inbound or 0 }}</div>
+            <div class="activity-stat-label">Calls In</div>
+        </div>
+        <div class="activity-stat">
+            <div class="activity-stat-value">{{ contact.calls_outbound or 0 }}</div>
+            <div class="activity-stat-label">Calls Out</div>
+        </div>
+        <div class="activity-stat">
+            <div class="activity-stat-value">{{ contact.texts_total or 0 }}</div>
+            <div class="activity-stat-label">Texts</div>
+        </div>
+        <div class="activity-stat">
+            <div class="activity-stat-value">{% if contact.avg_price_viewed %}${{ "{:,.0f}".format(contact.avg_price_viewed) }}{% else %}--{% endif %}</div>
+            <div class="activity-stat-label">Avg Price Viewed</div>
+        </div>
+        <div class="activity-stat">
+            <div class="activity-stat-value">{% if contact.days_since_activity is not none and contact.days_since_activity < 999 %}{{ contact.days_since_activity }}d{% else %}--{% endif %}</div>
+            <div class="activity-stat-label">Since Last Activity</div>
+        </div>
+    </div>
+
+    <!-- Intent Signals -->
+    <div class="intent-section">
+        <h3 class="section-title">Intent Signals ({{ contact.intent_signal_count or 0 }} of 4 active)</h3>
+        <div class="intent-grid">
+            <div class="intent-item {% if contact.intent_repeat_views %}active{% endif %}">
+                <span class="intent-indicator">R</span>
+                <span>Repeat Property Views</span>
+            </div>
+            <div class="intent-item {% if contact.intent_high_favorites %}active{% endif %}">
+                <span class="intent-indicator">F</span>
+                <span>High Favorites</span>
+            </div>
+            <div class="intent-item {% if contact.intent_activity_burst %}active{% endif %}">
+                <span class="intent-indicator">B</span>
+                <span>Activity Burst</span>
+            </div>
+            <div class="intent-item {% if contact.intent_sharing %}active{% endif %}">
+                <span class="intent-indicator">S</span>
+                <span>Property Sharing</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Linked Properties -->
+    {% if properties %}
+    <div class="properties-section">
+        <h3 class="section-title">Linked Properties ({{ properties|length }})</h3>
+        <div class="dreams-table-container">
+            <table class="dreams-table">
+                <thead>
+                    <tr>
+                        <th>Address</th>
+                        <th>City</th>
+                        <th>Price</th>
+                        <th>Beds</th>
+                        <th>Baths</th>
+                        <th>Status</th>
+                        <th>Relationship</th>
+                        <th>Match Score</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for prop in properties %}
+                    <tr>
+                        <td><a href="/property/{{ prop.property_id }}" class="dreams-link">{{ prop.address or 'Unknown' }}</a></td>
+                        <td>{{ prop.city or '-' }}</td>
+                        <td class="dreams-price">{{ "${:,.0f}".format(prop.price) if prop.price else '-' }}</td>
+                        <td>{{ prop.beds or '-' }}</td>
+                        <td>{{ prop.baths or '-' }}</td>
+                        <td>
+                            <span class="dreams-badge dreams-badge-{{ (prop.status or 'unknown')|lower|replace(' ', '-') }}">
+                                {{ prop.status or 'Unknown' }}
+                            </span>
+                        </td>
+                        <td>{{ prop.relationship or '-' }}</td>
+                        <td>{{ "%.0f"|format(prop.match_score) if prop.match_score else '-' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Footer -->
+    <footer class="dreams-footer">
+        DREAMS - Desktop Real Estate Agent Management System
+    </footer>
+</body>
+</html>

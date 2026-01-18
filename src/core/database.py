@@ -62,11 +62,12 @@ class DREAMSDatabase:
     def _get_schema(self) -> str:
         """Return the database schema SQL."""
         return '''
-        -- Leads table
+        -- Leads/Contacts table (unified for FUB contacts and general leads)
         CREATE TABLE IF NOT EXISTS leads (
             id TEXT PRIMARY KEY,
             external_id TEXT,
             external_source TEXT,
+            fub_id TEXT,              -- Follow Up Boss contact ID
             first_name TEXT,
             last_name TEXT,
             email TEXT,
@@ -74,10 +75,13 @@ class DREAMSDatabase:
             stage TEXT DEFAULT 'lead',
             type TEXT DEFAULT 'buyer',
             source TEXT,
-            heat_score INTEGER DEFAULT 0,
-            value_score INTEGER DEFAULT 0,
-            relationship_score INTEGER DEFAULT 0,
-            priority_score INTEGER DEFAULT 0,
+            lead_type_tags TEXT,      -- JSON array of tags
+            -- Scoring fields (REAL for decimal precision)
+            heat_score REAL DEFAULT 0,
+            value_score REAL DEFAULT 0,
+            relationship_score REAL DEFAULT 0,
+            priority_score REAL DEFAULT 0,
+            -- Buyer preferences
             min_price INTEGER,
             max_price INTEGER,
             min_beds INTEGER,
@@ -89,17 +93,40 @@ class DREAMSDatabase:
             deal_breakers TEXT,
             requirements_confidence REAL,
             requirements_updated_at TEXT,
+            -- Activity stats (from FUB)
+            website_visits INTEGER DEFAULT 0,
+            properties_viewed INTEGER DEFAULT 0,
+            properties_favorited INTEGER DEFAULT 0,
+            calls_inbound INTEGER DEFAULT 0,
+            calls_outbound INTEGER DEFAULT 0,
+            texts_total INTEGER DEFAULT 0,
+            avg_price_viewed REAL,
+            days_since_activity INTEGER,
+            last_activity_at TEXT,
+            -- Intent signals (computed)
+            intent_repeat_views INTEGER DEFAULT 0,
+            intent_high_favorites INTEGER DEFAULT 0,
+            intent_activity_burst INTEGER DEFAULT 0,
+            intent_sharing INTEGER DEFAULT 0,
+            intent_signal_count INTEGER DEFAULT 0,
+            -- Action tracking
+            next_action TEXT,
+            next_action_date TEXT,
+            -- Admin fields
             assigned_agent TEXT,
             tags TEXT,
             notes TEXT,
+            -- Timestamps
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
             last_synced_at TEXT,
             UNIQUE(external_id, external_source)
         );
-        
+
         CREATE INDEX IF NOT EXISTS idx_leads_stage ON leads(stage);
         CREATE INDEX IF NOT EXISTS idx_leads_priority ON leads(priority_score DESC);
+        CREATE INDEX IF NOT EXISTS idx_leads_fub_id ON leads(fub_id);
+        CREATE INDEX IF NOT EXISTS idx_leads_heat ON leads(heat_score DESC);
         
         -- Activities table
         CREATE TABLE IF NOT EXISTS lead_activities (
@@ -237,7 +264,32 @@ class DREAMSDatabase:
         
         CREATE INDEX IF NOT EXISTS idx_matches_lead ON matches(lead_id);
         CREATE INDEX IF NOT EXISTS idx_matches_score ON matches(total_score DESC);
-        
+
+        -- Contact-Property relationships (saved/viewed/shared)
+        CREATE TABLE IF NOT EXISTS contact_properties (
+            id TEXT PRIMARY KEY,
+            contact_id TEXT NOT NULL,
+            property_id TEXT NOT NULL,
+            relationship TEXT DEFAULT 'saved',  -- 'saved', 'viewed', 'shared', 'matched', 'favorited'
+            match_score REAL,
+            view_count INTEGER DEFAULT 0,
+            first_viewed_at TEXT,
+            last_viewed_at TEXT,
+            saved_at TEXT,
+            shared_at TEXT,
+            shared_with TEXT,                   -- JSON array of recipients
+            notes TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (contact_id) REFERENCES leads(id),
+            FOREIGN KEY (property_id) REFERENCES properties(id),
+            UNIQUE(contact_id, property_id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_contact_props_contact ON contact_properties(contact_id);
+        CREATE INDEX IF NOT EXISTS idx_contact_props_property ON contact_properties(property_id);
+        CREATE INDEX IF NOT EXISTS idx_contact_props_relationship ON contact_properties(relationship);
+
         -- Packages table
         CREATE TABLE IF NOT EXISTS packages (
             id TEXT PRIMARY KEY,
@@ -327,7 +379,206 @@ class DREAMSDatabase:
         with self._get_connection() as conn:
             rows = conn.execute(query, params).fetchall()
             return [dict(row) for row in rows]
-    
+
+    def upsert_contact_dict(self, data: Dict[str, Any]) -> bool:
+        """Insert or update a contact/lead from a dictionary (FUB sync)."""
+        with self._get_connection() as conn:
+            # Ensure we have an ID
+            if 'id' not in data:
+                import uuid
+                data['id'] = str(uuid.uuid4())
+
+            data['updated_at'] = datetime.now().isoformat()
+            data['last_synced_at'] = datetime.now().isoformat()
+
+            # Filter out None values for cleaner storage
+            data = {k: v for k, v in data.items() if v is not None}
+
+            columns = list(data.keys())
+            placeholders = ', '.join(['?' for _ in columns])
+            update_clause = ', '.join([f'{col} = ?' for col in columns if col != 'id'])
+
+            query = f'''
+                INSERT INTO leads ({', '.join(columns)})
+                VALUES ({placeholders})
+                ON CONFLICT(id) DO UPDATE SET {update_clause}
+            '''
+
+            values = list(data.values())
+            update_values = [v for k, v in data.items() if k != 'id']
+
+            conn.execute(query, values + update_values)
+            conn.commit()
+            return True
+
+    def get_contact_by_fub_id(self, fub_id: str) -> Optional[Dict[str, Any]]:
+        """Get contact by Follow Up Boss ID."""
+        with self._get_connection() as conn:
+            row = conn.execute(
+                'SELECT * FROM leads WHERE fub_id = ?',
+                (fub_id,)
+            ).fetchone()
+            return dict(row) if row else None
+
+    def get_hot_contacts(
+        self,
+        min_heat: float = 50.0,
+        limit: int = 50
+    ) -> List[Dict[str, Any]]:
+        """Get contacts sorted by heat score."""
+        with self._get_connection() as conn:
+            rows = conn.execute('''
+                SELECT * FROM leads
+                WHERE heat_score >= ?
+                ORDER BY heat_score DESC, priority_score DESC
+                LIMIT ?
+            ''', (min_heat, limit)).fetchall()
+            return [dict(row) for row in rows]
+
+    def get_contacts_by_priority(
+        self,
+        min_priority: float = 0,
+        limit: int = 100
+    ) -> List[Dict[str, Any]]:
+        """Get contacts sorted by priority score."""
+        with self._get_connection() as conn:
+            rows = conn.execute('''
+                SELECT * FROM leads
+                WHERE priority_score >= ?
+                ORDER BY priority_score DESC
+                LIMIT ?
+            ''', (min_priority, limit)).fetchall()
+            return [dict(row) for row in rows]
+
+    def get_contact_stats(self) -> Dict[str, Any]:
+        """Get aggregate statistics for contacts."""
+        with self._get_connection() as conn:
+            total = conn.execute('SELECT COUNT(*) FROM leads').fetchone()[0]
+            hot = conn.execute(
+                'SELECT COUNT(*) FROM leads WHERE heat_score >= 75'
+            ).fetchone()[0]
+            high_value = conn.execute(
+                'SELECT COUNT(*) FROM leads WHERE value_score >= 60'
+            ).fetchone()[0]
+            active_week = conn.execute(
+                'SELECT COUNT(*) FROM leads WHERE days_since_activity <= 7'
+            ).fetchone()[0]
+            avg_priority = conn.execute(
+                'SELECT AVG(priority_score) FROM leads WHERE priority_score > 0'
+            ).fetchone()[0] or 0
+            high_intent = conn.execute(
+                'SELECT COUNT(*) FROM leads WHERE intent_signal_count >= 4'
+            ).fetchone()[0]
+
+            return {
+                'total': total,
+                'hot': hot,
+                'high_value': high_value,
+                'active_week': active_week,
+                'avg_priority': round(avg_priority, 1),
+                'high_intent': high_intent
+            }
+
+    # ==========================================
+    # CONTACT-PROPERTY RELATIONSHIP OPERATIONS
+    # ==========================================
+
+    def upsert_contact_property(
+        self,
+        contact_id: str,
+        property_id: str,
+        relationship: str = 'saved',
+        match_score: Optional[float] = None,
+        notes: Optional[str] = None
+    ) -> bool:
+        """Link a contact to a property."""
+        import uuid
+        with self._get_connection() as conn:
+            now = datetime.now().isoformat()
+
+            # Check if relationship exists
+            existing = conn.execute('''
+                SELECT id FROM contact_properties
+                WHERE contact_id = ? AND property_id = ?
+            ''', (contact_id, property_id)).fetchone()
+
+            if existing:
+                # Update existing relationship
+                conn.execute('''
+                    UPDATE contact_properties SET
+                        relationship = ?,
+                        match_score = COALESCE(?, match_score),
+                        view_count = view_count + 1,
+                        last_viewed_at = ?,
+                        notes = COALESCE(?, notes),
+                        updated_at = ?
+                    WHERE contact_id = ? AND property_id = ?
+                ''', (relationship, match_score, now, notes, now, contact_id, property_id))
+            else:
+                # Create new relationship
+                conn.execute('''
+                    INSERT INTO contact_properties
+                    (id, contact_id, property_id, relationship, match_score,
+                     view_count, first_viewed_at, last_viewed_at, notes, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?)
+                ''', (str(uuid.uuid4()), contact_id, property_id, relationship,
+                      match_score, now, now, notes, now, now))
+
+            conn.commit()
+            return True
+
+    def get_contact_properties(
+        self,
+        contact_id: str,
+        relationship: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """Get properties linked to a contact."""
+        with self._get_connection() as conn:
+            if relationship:
+                rows = conn.execute('''
+                    SELECT cp.*, p.address, p.city, p.price, p.beds, p.baths, p.status
+                    FROM contact_properties cp
+                    JOIN properties p ON cp.property_id = p.id
+                    WHERE cp.contact_id = ? AND cp.relationship = ?
+                    ORDER BY cp.updated_at DESC
+                ''', (contact_id, relationship)).fetchall()
+            else:
+                rows = conn.execute('''
+                    SELECT cp.*, p.address, p.city, p.price, p.beds, p.baths, p.status
+                    FROM contact_properties cp
+                    JOIN properties p ON cp.property_id = p.id
+                    WHERE cp.contact_id = ?
+                    ORDER BY cp.updated_at DESC
+                ''', (contact_id,)).fetchall()
+            return [dict(row) for row in rows]
+
+    def get_property_contacts(
+        self,
+        property_id: str,
+        relationship: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """Get contacts linked to a property."""
+        with self._get_connection() as conn:
+            if relationship:
+                rows = conn.execute('''
+                    SELECT cp.*, l.first_name, l.last_name, l.email, l.phone,
+                           l.heat_score, l.priority_score
+                    FROM contact_properties cp
+                    JOIN leads l ON cp.contact_id = l.id
+                    WHERE cp.property_id = ? AND cp.relationship = ?
+                    ORDER BY l.priority_score DESC
+                ''', (property_id, relationship)).fetchall()
+            else:
+                rows = conn.execute('''
+                    SELECT cp.*, l.first_name, l.last_name, l.email, l.phone,
+                           l.heat_score, l.priority_score
+                    FROM contact_properties cp
+                    JOIN leads l ON cp.contact_id = l.id
+                    WHERE cp.property_id = ?
+                    ORDER BY l.priority_score DESC
+                ''', (property_id,)).fetchall()
+            return [dict(row) for row in rows]
+
     # ==========================================
     # PROPERTY OPERATIONS
     # ==========================================

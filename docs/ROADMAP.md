@@ -72,22 +72,30 @@
 
 ---
 
-## Phase 2: Lead Scoring & Matching (Planned)
+## Phase 2: Lead Scoring & Matching (In Progress)
 
 ### Lead Scoring System
-- [ ] Multi-dimensional scoring: Heat, Value, Relationship, Priority
-- [ ] Behavioral signal processing from CRM activities
-- [ ] Daily priority contact list generation
+- [x] Multi-dimensional scoring: Heat, Value, Relationship, Priority
+- [x] Behavioral signal processing from CRM activities (intent signals)
+- [x] Daily priority contact list generation
 - [ ] Score decay for inactive leads
 
+### Unified Dashboard
+- [x] Contacts list view with filtering by stage/heat
+- [x] Contact detail view with scores and activity stats
+- [x] Unified dashboard home with property + contact overview
+- [x] SQLite as single source of truth for contacts
+
 ### Buyer-Property Matching
+- [x] Contact-property relationship table (contact_properties)
+- [x] Linked properties in contact detail view
 - [ ] Weighted matching algorithm implementation
 - [ ] Stated requirements vs. behavioral preferences
 - [ ] Match score breakdown visualization
-- [ ] Suggested properties dashboard
 
 ### CRM Integration Enhancements
-- [ ] Follow Up Boss activity sync
+- [x] Follow Up Boss activity sync to SQLite (fub-to-sheets)
+- [x] Intent signals: repeat views, high favorites, activity burst, sharing
 - [ ] Activity timeline in dashboard
 - [ ] Lead requirements extraction from CRM notes
 - [ ] Automatic note push on property matches
@@ -169,4 +177,4 @@
 ---
 
 *Roadmap maintained by Joseph & Claude*
-*Last updated: January 17, 2026*
+*Last updated: January 18, 2026*

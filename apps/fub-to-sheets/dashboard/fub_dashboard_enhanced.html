@@ -14,14 +14,15 @@
     }
 
     :root {
-      --primary: #667eea;
-      --primary-dark: #5568d3;
-      --secondary: #764ba2;
-      --success: #34A853;
-      --warning: #FFD966;
-      --danger: #E06666;
-      --info: #4285F4;
-      --bg-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      /* DREAMS Design System Colors */
+      --primary: #1a365d;
+      --primary-light: #2b6cb0;
+      --primary-dark: #14294a;
+      --success: #137333;
+      --warning: #f59e0b;
+      --danger: #dc2626;
+      --info: #2b6cb0;
+      --bg-gradient: linear-gradient(135deg, #1a365d 0%, #2b6cb0 100%);
       --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
       --card-shadow-hover: 0 8px 12px rgba(0, 0, 0, 0.15);
     }
@@ -405,7 +406,7 @@
 
     .score-bar-fill {
       height: 100%;
-      background: linear-gradient(90deg, var(--primary), var(--secondary));
+      background: linear-gradient(90deg, var(--primary), var(--primary-light));
       transition: width 0.5s ease;
       display: flex;
       align-items: center;
@@ -619,7 +620,7 @@
       justify-content: space-between;
       align-items: center;
       padding: 15px 20px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
       color: white;
       border-radius: 8px 8px 0 0;
       margin-bottom: 0;
@@ -1229,13 +1230,13 @@
       }
 
       return insights.map(insight => `
-        <div class="lead-card" style="border-left-color: #667eea;">
+        <div class="lead-card" style="border-left-color: var(--primary);">
           <div style="display: flex; justify-content: space-between; align-items: center;">
             <div>
               <strong>${insight.category}</strong>
               <p style="color: #666; margin-top: 5px;">${insight.description}</p>
             </div>
-            <div style="font-size: 2em; font-weight: bold; color: #667eea;">
+            <div style="font-size: 2em; font-weight: bold; color: var(--primary-light);">
               ${insight.count}
             </div>
           </div>

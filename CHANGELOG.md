@@ -25,6 +25,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Deployment script (`deploy.sh`)
   - Backup script with B2 support (`backup.sh`)
   - Comprehensive deployment guide (`docs/DEPLOYMENT.md`)
+- **Platform Unification** - Contacts integration and unified dashboard
+  - Contacts API endpoints (`/api/v1/contacts/*`)
+  - SQLite contacts schema with FUB activity stats and scoring fields
+  - Contact-property relationship table for linking saved/matched properties
+  - Unified dashboard home with property + contact overview
+  - Contacts list view with filtering by stage/heat
+  - Contact detail view with scores, activity stats, intent signals
+  - FUB-to-Sheets SQLite sync (parallel output alongside Sheets)
 
 ### Changed
 - Moved old extension versions (v1, v2) to `archive/`
@@ -34,6 +42,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - `apps/property-dashboard/idx_automation.py`
   - `apps/property-api/services/idx_validation_service.py`
   - `apps/property-monitor/monitor_properties.py`
+- **CSS Consolidation** - Removed ~700 lines of duplicate inline CSS
+  - `dashboard.html` - Now uses dreams.css classes
+  - `lead_dashboard.html` - Now uses dreams.css classes
+  - `fub_dashboard_enhanced.html` - Updated colors to DREAMS palette
+  - Added contact/lead stage badge styles to dreams.css
+- **Dashboard Routing** - Reorganized URLs
+  - `/` now shows unified dashboard home
+  - `/properties` shows property list (formerly `/`)
+  - `/contacts` shows contacts list (new)
 
 ---
 

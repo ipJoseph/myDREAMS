@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DREAMS Contacts Dashboard</title>
+    <!-- Shared Design System -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='shared/css/dreams.css') }}">
+    <!-- Page-specific overrides (minimal) -->
+    <style>
+        /* Score bar visualization */
+        .score-bar {
+            width: 80px;
+            height: 8px;
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+            overflow: hidden;
+            display: inline-block;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+
+        .score-bar-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+
+        .score-bar-fill.heat { background: linear-gradient(90deg, #f59e0b, #ef4444); }
+        .score-bar-fill.value { background: linear-gradient(90deg, #10b981, #059669); }
+        .score-bar-fill.relationship { background: linear-gradient(90deg, #3b82f6, #1d4ed8); }
+        .score-bar-fill.priority { background: linear-gradient(90deg, var(--primary), var(--primary-light)); }
+
+        /* Intent signals */
+        .intent-signals {
+            display: flex;
+            gap: 4px;
+        }
+
+        .intent-signal {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            font-size: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-tertiary);
+            color: var(--text-tertiary);
+        }
+
+        .intent-signal.active {
+            background: var(--success);
+            color: white;
+        }
+
+        /* Contact name styling */
+        .contact-name {
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        .contact-email {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        /* Table minimum width */
+        .dreams-table {
+            min-width: 1200px;
+        }
+
+        /* Activity indicator */
+        .activity-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+
+        .activity-indicator.recent { background: #10b981; }
+        .activity-indicator.moderate { background: #f59e0b; }
+        .activity-indicator.cold { background: #9ca3af; }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="dreams-header">
+        <div>
+            <h1>DREAMS Contacts</h1>
+            <div class="dreams-header-subtitle">
+                Lead Scoring & Prioritization
+            </div>
+        </div>
+        <nav style="display: flex; gap: 16px; align-items: center;">
+            <a href="/" class="dreams-btn dreams-btn-secondary">Properties</a>
+            <span style="font-size: 13px; opacity: 0.8;">Last refreshed: {{ refresh_time }}</span>
+        </nav>
+    </header>
+
+    <!-- Filters -->
+    <div class="dreams-filters">
+        <div class="dreams-filter-group">
+            <label>Stage:</label>
+            <select id="stageFilter" onchange="applyFilters()">
+                <option value="">All Stages</option>
+                {% for stage in stages %}
+                <option value="{{ stage }}" {% if selected_stage == stage %}selected{% endif %}>{{ stage }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="dreams-filter-group">
+            <label>Min Heat:</label>
+            <select id="heatFilter" onchange="applyFilters()">
+                <option value="0" {% if selected_min_heat == 0 %}selected{% endif %}>All</option>
+                <option value="25" {% if selected_min_heat == 25 %}selected{% endif %}>25+</option>
+                <option value="50" {% if selected_min_heat == 50 %}selected{% endif %}>50+ (Warm)</option>
+                <option value="75" {% if selected_min_heat == 75 %}selected{% endif %}>75+ (Hot)</option>
+            </select>
+        </div>
+
+        <div class="dreams-filter-group">
+            <label>Sort By:</label>
+            <select id="sortFilter" onchange="applyFilters()">
+                <option value="priority" {% if selected_sort == 'priority' %}selected{% endif %}>Priority Score</option>
+                <option value="heat" {% if selected_sort == 'heat' %}selected{% endif %}>Heat Score</option>
+                <option value="value" {% if selected_sort == 'value' %}selected{% endif %}>Value Score</option>
+                <option value="name" {% if selected_sort == 'name' %}selected{% endif %}>Name (A-Z)</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Metrics Cards -->
+    <div class="dreams-metrics">
+        <div class="dreams-metric-card highlight">
+            <div class="dreams-metric-label">Total Contacts</div>
+            <div class="dreams-metric-value">{{ stats.total }}</div>
+        </div>
+        <div class="dreams-metric-card">
+            <div class="dreams-metric-label">Hot Leads (75+)</div>
+            <div class="dreams-metric-value" style="color: #ef4444;">{{ stats.hot }}</div>
+        </div>
+        <div class="dreams-metric-card">
+            <div class="dreams-metric-label">High Value (60+)</div>
+            <div class="dreams-metric-value" style="color: #10b981;">{{ stats.high_value }}</div>
+        </div>
+        <div class="dreams-metric-card">
+            <div class="dreams-metric-label">Active This Week</div>
+            <div class="dreams-metric-value">{{ stats.active_week }}</div>
+        </div>
+        <div class="dreams-metric-card">
+            <div class="dreams-metric-label">Avg Priority</div>
+            <div class="dreams-metric-value">{{ stats.avg_priority }}</div>
+        </div>
+        <div class="dreams-metric-card">
+            <div class="dreams-metric-label">High Intent (4+)</div>
+            <div class="dreams-metric-value" style="color: #8b5cf6;">{{ stats.high_intent }}</div>
+        </div>
+    </div>
+
+    <!-- Results Bar -->
+    <div class="dreams-results-bar">
+        <div class="dreams-results-count">
+            <strong>{{ contacts|length }}</strong> contacts shown
+        </div>
+    </div>
+
+    <!-- Contacts Table -->
+    <div class="dreams-table-container">
+        <table class="dreams-table" id="contactsTable">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Name</th>
+                    <th>Stage</th>
+                    <th>Priority</th>
+                    <th>Heat</th>
+                    <th>Value</th>
+                    <th>Relationship</th>
+                    <th>Activity</th>
+                    <th>Intent Signals</th>
+                    <th>Phone</th>
+                    <th>Next Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for contact in contacts %}
+                {% set days_inactive = contact.days_since_activity or 999 %}
+                <tr>
+                    <td class="row-num">{{ loop.index }}</td>
+                    <td>
+                        <a href="/contacts/{{ contact.id }}" class="contact-name">
+                            {{ contact.first_name or '' }} {{ contact.last_name or '' }}
+                        </a>
+                        {% if contact.email %}
+                        <div class="contact-email">{{ contact.email }}</div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="dreams-badge dreams-badge-{{ (contact.stage or 'unknown')|lower|replace(' ', '-') }}">
+                            {{ contact.stage or 'Unknown' }}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="score-bar"><div class="score-bar-fill priority" style="width: {{ contact.priority_score or 0 }}%;"></div></div>
+                        <span>{{ "%.0f"|format(contact.priority_score or 0) }}</span>
+                    </td>
+                    <td>
+                        <div class="score-bar"><div class="score-bar-fill heat" style="width: {{ contact.heat_score or 0 }}%;"></div></div>
+                        <span>{{ "%.0f"|format(contact.heat_score or 0) }}</span>
+                    </td>
+                    <td>
+                        <div class="score-bar"><div class="score-bar-fill value" style="width: {{ contact.value_score or 0 }}%;"></div></div>
+                        <span>{{ "%.0f"|format(contact.value_score or 0) }}</span>
+                    </td>
+                    <td>
+                        <div class="score-bar"><div class="score-bar-fill relationship" style="width: {{ contact.relationship_score or 0 }}%;"></div></div>
+                        <span>{{ "%.0f"|format(contact.relationship_score or 0) }}</span>
+                    </td>
+                    <td>
+                        <span class="activity-indicator {% if days_inactive <= 7 %}recent{% elif days_inactive <= 30 %}moderate{% else %}cold{% endif %}"></span>
+                        {% if days_inactive <= 7 %}
+                        {{ days_inactive }}d ago
+                        {% elif days_inactive <= 30 %}
+                        {{ days_inactive }}d ago
+                        {% elif days_inactive < 999 %}
+                        {{ days_inactive }}d ago
+                        {% else %}
+                        --
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="intent-signals">
+                            <span class="intent-signal {% if contact.intent_repeat_views %}active{% endif %}" title="Repeat Property Views">R</span>
+                            <span class="intent-signal {% if contact.intent_high_favorites %}active{% endif %}" title="High Favorites">F</span>
+                            <span class="intent-signal {% if contact.intent_activity_burst %}active{% endif %}" title="Activity Burst">B</span>
+                            <span class="intent-signal {% if contact.intent_sharing %}active{% endif %}" title="Property Sharing">S</span>
+                        </div>
+                    </td>
+                    <td>{{ contact.phone or '-' }}</td>
+                    <td>
+                        {% if contact.next_action %}
+                        <strong>{{ contact.next_action }}</strong>
+                        {% if contact.next_action_date %}
+                        <br><span style="font-size: 11px; color: var(--text-secondary);">{{ contact.next_action_date }}</span>
+                        {% endif %}
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Footer -->
+    <footer class="dreams-footer">
+        DREAMS - Desktop Real Estate Agent Management System
+    </footer>
+
+    <script>
+        function applyFilters() {
+            const stage = document.getElementById('stageFilter').value;
+            const heat = document.getElementById('heatFilter').value;
+            const sort = document.getElementById('sortFilter').value;
+            const params = new URLSearchParams();
+
+            if (stage) params.set('stage', stage);
+            if (heat && heat !== '0') params.set('min_heat', heat);
+            if (sort && sort !== 'priority') params.set('sort', sort);
+
+            window.location.search = params.toString();
+        }
+    </script>
+</body>
+</html>

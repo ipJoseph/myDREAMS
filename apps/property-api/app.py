@@ -20,6 +20,7 @@ from dotenv import load_dotenv
 
 from routes.properties import properties_bp
 from routes.health import health_bp
+from routes.contacts import contacts_bp
 from services.notion_sync_service import NotionSyncService
 from services.idx_validation_service import IDXValidationService
 
@@ -86,6 +87,7 @@ def check_api_key():
 # Register blueprints
 app.register_blueprint(health_bp)
 app.register_blueprint(properties_bp, url_prefix='/api/v1')
+app.register_blueprint(contacts_bp, url_prefix='/api/v1')
 
 # Initialize services
 notion_sync_service = None

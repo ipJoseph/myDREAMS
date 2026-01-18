@@ -390,6 +390,52 @@ body {
     color: var(--idx-error-text);
 }
 
+/* Contact/Lead stages */
+.dreams-badge-hot-lead {
+    background: #fef2f2;
+    color: #dc2626;
+}
+
+.dreams-badge-active-buyer {
+    background: #ecfdf5;
+    color: #059669;
+}
+
+.dreams-badge-active-seller {
+    background: #f0fdf4;
+    color: #16a34a;
+}
+
+.dreams-badge-nurture {
+    background: #eff6ff;
+    color: #2563eb;
+}
+
+.dreams-badge-new-lead {
+    background: #fefce8;
+    color: #ca8a04;
+}
+
+.dreams-badge-cold {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+
+.dreams-badge-closed {
+    background: #f3f4f6;
+    color: #374151;
+}
+
+.dreams-badge-trash {
+    background: #fef2f2;
+    color: #9ca3af;
+}
+
+.dreams-badge-unknown {
+    background: #f9fafb;
+    color: #9ca3af;
+}
+
 /* ============================================
    IDX LINK BUTTONS
    ============================================ */

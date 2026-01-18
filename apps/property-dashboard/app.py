@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 DREAMS Property Dashboard
-A web-based summary view of properties from Notion
+A web-based summary view of properties from Notion and contacts from SQLite
 """
 
 import os
@@ -11,8 +11,12 @@ import statistics
 from functools import wraps
 from datetime import datetime
 from pathlib import Path
-from flask import Flask, render_template, request, jsonify, Response
+from flask import Flask, render_template, request, jsonify, Response, redirect, url_for
 import httpx
+
+# Add project root to path for imports
+PROJECT_ROOT = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
 
 # Load environment variables
 def load_env_file():
@@ -77,6 +81,14 @@ NOTION_HEADERS = {
     'Notion-Version': '2022-06-28',
     'Content-Type': 'application/json'
 }
+
+
+# Database helper
+def get_db():
+    """Get database instance."""
+    from src.core.database import DREAMSDatabase
+    db_path = os.getenv('DREAMS_DB_PATH', str(PROJECT_ROOT / 'data' / 'dreams.db'))
+    return DREAMSDatabase(db_path)
 
 
 def extract_property(prop):
@@ -305,8 +317,47 @@ def get_unique_statuses(properties):
 
 @app.route('/')
 @requires_auth
-def dashboard():
-    """Main dashboard view (requires authentication)"""
+def home():
+    """Unified dashboard home (requires authentication)"""
+    db = get_db()
+
+    # Get property stats
+    all_properties = fetch_properties()
+    property_metrics = calculate_metrics(all_properties)
+
+    # Count by status
+    status_counts = {}
+    for p in all_properties:
+        s = p.get('status') or 'Unknown'
+        status_counts[s] = status_counts.get(s, 0) + 1
+
+    property_stats = {
+        'total': len(all_properties),
+        'status_counts': status_counts,
+        'avg_price': "${:,.0f}".format(property_metrics.get('avg_price', 0)) if property_metrics.get('avg_price') else '--'
+    }
+
+    # Get contact stats
+    contact_stats = db.get_contact_stats()
+
+    # Get top priority contacts
+    top_contacts = db.get_contacts_by_priority(min_priority=0, limit=10)
+
+    # Count actions due (simplified - contacts with next_action set)
+    actions_due = sum(1 for c in top_contacts if c.get('next_action'))
+
+    return render_template('home.html',
+                         property_stats=property_stats,
+                         contact_stats=contact_stats,
+                         top_contacts=top_contacts,
+                         actions_due=actions_due,
+                         refresh_time=datetime.now().strftime('%B %d, %Y %I:%M %p'))
+
+
+@app.route('/properties')
+@requires_auth
+def properties_list():
+    """Property list view (requires authentication)"""
     # Get filter parameters
     added_for = request.args.get('client', '')
     status = request.args.get('status', '')
@@ -429,6 +480,81 @@ def api_properties():
         'metrics': metrics
     })
 
+
+# =========================================================================
+# CONTACTS ROUTES
+# =========================================================================
+
+@app.route('/contacts')
+@requires_auth
+def contacts_list():
+    """Contacts list view (requires authentication)"""
+    db = get_db()
+
+    # Get filter parameters
+    min_heat = request.args.get('min_heat', 0, type=float)
+    stage = request.args.get('stage', '')
+    sort_by = request.args.get('sort', 'priority')  # priority, heat, value, name
+
+    # Get contacts
+    if min_heat > 0:
+        contacts = db.get_hot_contacts(min_heat=min_heat, limit=200)
+    else:
+        contacts = db.get_contacts_by_priority(min_priority=0, limit=200)
+
+    # Apply stage filter
+    if stage:
+        contacts = [c for c in contacts if c.get('stage') == stage]
+
+    # Apply sorting
+    if sort_by == 'heat':
+        contacts.sort(key=lambda c: c.get('heat_score') or 0, reverse=True)
+    elif sort_by == 'value':
+        contacts.sort(key=lambda c: c.get('value_score') or 0, reverse=True)
+    elif sort_by == 'name':
+        contacts.sort(key=lambda c: f"{c.get('first_name', '')} {c.get('last_name', '')}".lower())
+    # Default: priority (already sorted)
+
+    # Get unique stages for filter dropdown
+    all_contacts = db.get_contacts_by_priority(min_priority=0, limit=500)
+    stages = sorted(set(c.get('stage') for c in all_contacts if c.get('stage')))
+
+    # Get aggregate stats
+    stats = db.get_contact_stats()
+
+    return render_template('contacts.html',
+                         contacts=contacts,
+                         stats=stats,
+                         stages=stages,
+                         selected_stage=stage,
+                         selected_min_heat=min_heat,
+                         selected_sort=sort_by,
+                         refresh_time=datetime.now().strftime('%B %d, %Y %I:%M %p'))
+
+
+@app.route('/contacts/<contact_id>')
+@requires_auth
+def contact_detail(contact_id):
+    """Contact detail view (requires authentication)"""
+    db = get_db()
+
+    # Get contact
+    contact = db.get_lead(contact_id)
+    if not contact:
+        return "Contact not found", 404
+
+    # Get linked properties
+    properties = db.get_contact_properties(contact_id)
+
+    return render_template('contact_detail.html',
+                         contact=contact,
+                         properties=properties,
+                         refresh_time=datetime.now().strftime('%B %d, %Y %I:%M %p'))
+
+
+# =========================================================================
+# IDX VALIDATION ROUTES
+# =========================================================================
 
 @app.route('/api/validate-idx', methods=['POST'])
 @requires_auth
