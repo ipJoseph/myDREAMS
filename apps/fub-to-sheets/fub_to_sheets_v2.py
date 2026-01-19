@@ -569,18 +569,24 @@ def build_person_stats(
             stats[pid]["texts_inbound"] += 1
 
     # Process emails
+    # FUB emails use relatedPeople[].personId and status field
     for email in emails:
-        pid = email.get("personId")
+        # Extract personId from relatedPeople array
+        related_people = email.get("relatedPeople", [])
+        if not related_people:
+            continue
+
+        pid = related_people[0].get("personId")
         if not pid:
             continue
 
         pid = str(pid)
 
-        # FUB email direction: 'inbound' or 'outbound'
-        direction = email.get("direction", "").lower()
-        if direction == "inbound":
+        # FUB uses status: 'Sent' for outbound, 'Received' for inbound
+        status = email.get("status", "").lower()
+        if status == "received":
             stats[pid]["emails_received"] += 1
-        elif direction == "outbound":
+        elif status == "sent":
             stats[pid]["emails_sent"] += 1
 
     # Process events
@@ -1699,6 +1705,8 @@ def sync_to_sqlite(contact_rows: List[List], person_stats: Dict[str, Dict]):
                 "calls_inbound": int(row[idx["calls_inbound"]] or 0),
                 "calls_outbound": int(row[idx["calls_outbound"]] or 0),
                 "texts_total": int(row[idx["texts_total"]] or 0),
+                "emails_received": int(row[idx["emails_received"]] or 0),
+                "emails_sent": int(row[idx["emails_sent"]] or 0),
                 "avg_price_viewed": float(row[idx["avg_price_viewed"]]) if row[idx["avg_price_viewed"]] else None,
                 "last_activity_at": row[idx["lastActivity"]] or None,
                 # Intent signals

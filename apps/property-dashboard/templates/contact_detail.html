@@ -577,6 +577,14 @@
             <div class="activity-stat-label">Calls Out</div>
         </div>
         <div class="activity-stat">
+            <div class="activity-stat-value">{{ contact.emails_received or 0 }}</div>
+            <div class="activity-stat-label">Emails In</div>
+        </div>
+        <div class="activity-stat">
+            <div class="activity-stat-value">{{ contact.emails_sent or 0 }}</div>
+            <div class="activity-stat-label">Emails Out</div>
+        </div>
+        <div class="activity-stat">
             <div class="activity-stat-value">{{ contact.texts_total or 0 }}</div>
             <div class="activity-stat-label">Texts</div>
         </div>
