@@ -11,7 +11,7 @@ import statistics
 from functools import wraps
 from datetime import datetime
 from pathlib import Path
-from flask import Flask, render_template, request, jsonify, Response, redirect, url_for
+from flask import Flask, render_template, render_template_string, request, jsonify, Response, redirect, url_for
 import httpx
 
 # Add project root to path for imports
@@ -37,6 +37,108 @@ app = Flask(__name__)
 # Basic Auth Configuration
 DASHBOARD_USERNAME = os.getenv('DASHBOARD_USERNAME')
 DASHBOARD_PASSWORD = os.getenv('DASHBOARD_PASSWORD')
+
+# Client Portfolio Password (simple key-based access)
+CLIENT_PORTFOLIO_KEY = os.getenv('CLIENT_PORTFOLIO_KEY', 'dreams2026')
+
+# Simple password form for client portfolio
+CLIENT_PASSWORD_FORM = '''
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Access Property Portfolio | Jon Tharp Homes</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .login-card {
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            max-width: 400px;
+            width: 100%;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.25);
+            text-align: center;
+        }
+        .login-card h1 {
+            color: #1e3a5f;
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+        .login-card .subtitle {
+            color: #64748b;
+            font-size: 14px;
+            margin-bottom: 32px;
+        }
+        .login-card .client-name {
+            color: #0ea5e9;
+            font-weight: 600;
+        }
+        .login-card input[type="password"] {
+            width: 100%;
+            padding: 14px 16px;
+            font-size: 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .login-card input[type="password"]:focus {
+            border-color: #0ea5e9;
+        }
+        .login-card button {
+            width: 100%;
+            padding: 14px 16px;
+            font-size: 16px;
+            font-weight: 600;
+            color: white;
+            background: #1e3a5f;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .login-card button:hover {
+            background: #0f172a;
+        }
+        .error {
+            color: #dc2626;
+            font-size: 14px;
+            margin-bottom: 16px;
+        }
+        .branding {
+            margin-top: 24px;
+            font-size: 12px;
+            color: #94a3b8;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <h1>Property Portfolio</h1>
+        <p class="subtitle">Curated properties for <span class="client-name">{{ client_name }}</span></p>
+        {% if error %}
+        <p class="error">{{ error }}</p>
+        {% endif %}
+        <form method="POST">
+            <input type="password" name="password" placeholder="Enter access code" autofocus required>
+            <button type="submit">View Properties</button>
+        </form>
+        <p class="branding">Jon Tharp Homes | Keller Williams</p>
+    </div>
+</body>
+</html>
+'''
 
 
 def check_auth(username, password):
@@ -453,9 +555,25 @@ def lead_dashboard_redirect(client_name):
     return redirect(url_for('client_dashboard', client_name=client_name), code=301)
 
 
-@app.route('/client/<client_name>')
+@app.route('/client/<client_name>', methods=['GET', 'POST'])
 def client_dashboard(client_name):
-    """Client-facing dashboard view - personalized property portal"""
+    """Client-facing dashboard view - personalized property portal with simple password protection"""
+    # Check for key-based access
+    key = request.args.get('key', '')
+
+    # Handle POST form submission for password
+    if request.method == 'POST':
+        submitted_key = request.form.get('password', '')
+        if submitted_key == CLIENT_PORTFOLIO_KEY:
+            # Redirect with key in URL so they can bookmark it
+            return redirect(url_for('client_dashboard', client_name=client_name, key=submitted_key))
+        else:
+            return render_template_string(CLIENT_PASSWORD_FORM, client_name=client_name, error="Invalid password. Please try again.")
+
+    # Check if key is valid
+    if key != CLIENT_PORTFOLIO_KEY:
+        return render_template_string(CLIENT_PASSWORD_FORM, client_name=client_name, error=None)
+
     # Get filter parameters
     status = request.args.get('status', '')
     city = request.args.get('city', '')
@@ -869,11 +987,22 @@ def create_idx_portfolio():
 
         pid = result.stdout.strip()
 
+        # Build client portfolio URL if search_name looks like a client name
+        client_url = None
+        if search_name:
+            # Extract client name from search_name (format: YYMMDD.HHMM.ClientName)
+            parts = search_name.split('.')
+            client_name = parts[-1] if len(parts) >= 3 else search_name
+            # Build the shareable URL with the access key
+            base_url = request.host_url.rstrip('/')
+            client_url = f"{base_url}/client/{client_name}?key={CLIENT_PORTFOLIO_KEY}"
+
         return jsonify({
             'success': True,
             'message': f'Opening IDX portfolio with {len(mls_numbers)} properties',
             'mls_count': len(mls_numbers),
-            'pid': pid
+            'pid': pid,
+            'client_url': client_url
         })
 
     except Exception as e:

@@ -553,6 +553,20 @@
 
                 if (data.success) {
                     btn.textContent = 'Launched!';
+
+                    // Show client portfolio URL if available
+                    if (data.client_url) {
+                        const prdUrl = data.client_url.replace(window.location.origin, 'https://app.wncmountain.homes');
+
+                        // Copy to clipboard
+                        navigator.clipboard.writeText(prdUrl).catch(() => {});
+
+                        // Show the URL with copy confirmation
+                        setTimeout(() => {
+                            alert(`Portfolio created!\n\nClient Portfolio URL (copied to clipboard):\n${prdUrl}\n\nPassword: dreams2026`);
+                        }, 500);
+                    }
+
                     setTimeout(() => {
                         btn.textContent = originalText;
                     }, 3000);
