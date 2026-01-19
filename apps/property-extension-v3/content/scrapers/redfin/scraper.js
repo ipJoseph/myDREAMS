@@ -468,10 +468,6 @@ function scrapeRedfinSearchResults() {
   if (results.length === 0) {
     console.log('Redfin: Using price-based card detection');
 
-    // Find all elements containing a price
-    const allElements = document.body.querySelectorAll('*');
-    const priceContainers = [];
-
     // First, find all links to property pages
     const propertyLinks = document.querySelectorAll('a[href*="/home/"]');
     console.log('Redfin: Found', propertyLinks.length, 'property links');
@@ -482,31 +478,58 @@ function scrapeRedfinSearchResults() {
       const url = link.href;
       if (seenUrls.has(url) || !url.includes('/home/')) return;
 
-      // Walk up to find a container with price AND beds/baths info
+      // Walk up to find a container with price OR beds/baths info
       let container = link;
       let foundGoodContainer = false;
+      let bestContainer = null;
+      let bestScore = 0;
 
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < 12; i++) {
         if (!container.parentElement) break;
         container = container.parentElement;
 
         const text = container.textContent || '';
-        const hasPrice = /\$[\d,]+/.test(text);
-        const hasBeds = /\d+\s*bed/i.test(text);
+        // Skip if too large (probably the whole page)
+        if (text.length > 8000) continue;
 
-        if (hasPrice && hasBeds && text.length < 5000) {
+        const hasPrice = /\$[\d,]+/.test(text);
+        const hasBeds = /\d+\s*(?:bed|bd)/i.test(text);
+        const hasBaths = /[\d.]+\s*(?:bath|ba)/i.test(text);
+        const hasSqft = /[\d,]+\s*(?:sq|sqft|sf)/i.test(text);
+
+        // Score the container
+        let score = 0;
+        if (hasPrice) score += 2;
+        if (hasBeds) score += 2;
+        if (hasBaths) score += 1;
+        if (hasSqft) score += 1;
+
+        // Prefer smaller containers with good data
+        if (score > bestScore && text.length < 3000) {
+          bestScore = score;
+          bestContainer = container;
+        }
+
+        // Found good container
+        if (score >= 3 && text.length < 5000) {
           foundGoodContainer = true;
           break;
         }
+      }
+
+      // Use best container found if we didn't find a "good" one
+      if (!foundGoodContainer && bestContainer && bestScore >= 2) {
+        container = bestContainer;
+        foundGoodContainer = true;
       }
 
       if (foundGoodContainer) {
         seenUrls.add(url);
         try {
           const result = parseRedfinCardFromContainer(container, link);
-          if (result.price || result.beds) {
+          if (result.price || result.beds || result.address) {
             results.push(result);
-            console.log('Redfin: Extracted property:', result.price, result.beds, 'beds');
+            console.log('Redfin: Extracted property:', result.address, result.price, result.beds, 'beds');
           }
         } catch (e) {
           console.warn('Failed to parse container:', e);

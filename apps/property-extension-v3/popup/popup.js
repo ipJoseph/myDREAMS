@@ -327,8 +327,15 @@ async function loadPageData() {
 
     // Check if it's a search page first (even if property scrape returned an error)
     if (pageInfo.pageType === 'search') {
-      // Try to get search results
-      const searchResponse = await chrome.runtime.sendMessage({ type: 'GET_SEARCH_RESULTS' });
+      // Try to get search results - pass sourceTabId for popout mode
+      let searchMessage = { type: 'GET_SEARCH_RESULTS' };
+      if (isPopout) {
+        const { popoutSourceTabId } = await chrome.storage.local.get('popoutSourceTabId');
+        if (popoutSourceTabId) {
+          searchMessage.sourceTabId = popoutSourceTabId;
+        }
+      }
+      const searchResponse = await chrome.runtime.sendMessage(searchMessage);
       if (searchResponse.data && searchResponse.data.length > 0) {
         searchResults = searchResponse.data;
         displaySearchResults(searchResults);
@@ -484,27 +491,47 @@ function getQualityIndicator(result) {
   return '⏳';
 }
 
-// Check which properties exist in database and update indicators
+// Check which properties exist in database and update indicators (non-blocking)
 async function checkExistingProperties(results) {
-  try {
-    // Check each property against the API
-    for (let i = 0; i < results.length; i++) {
-      const result = results[i];
-      const indicator = await checkPropertyExists(result);
+  // Get server URL from storage
+  const settings = await chrome.storage.sync.get(['serverUrl']);
+  const serverUrl = settings.serverUrl || 'http://localhost:5000';
 
-      // Update the indicator in the DOM
-      const statusEl = document.querySelector(`.result-status[data-index="${i}"] .status-indicator`);
-      if (statusEl) {
-        statusEl.textContent = indicator;
-        statusEl.title = indicator === '✓' ? 'New record' : 'Update existing';
+  // Process in small batches to avoid blocking UI
+  const BATCH_SIZE = 5;
+
+  for (let i = 0; i < results.length; i += BATCH_SIZE) {
+    const batch = results.slice(i, i + BATCH_SIZE);
+
+    // Process batch concurrently
+    const promises = batch.map(async (result, batchIdx) => {
+      const idx = i + batchIdx;
+      try {
+        const indicator = await checkPropertyExists(result, serverUrl);
+        // Update the indicator in the DOM
+        const statusEl = document.querySelector(`.result-status[data-index="${idx}"] .status-indicator`);
+        if (statusEl) {
+          statusEl.textContent = indicator;
+          statusEl.title = indicator === '✓' ? 'New record' : indicator === '↻' ? 'Update existing' : 'Unknown';
+        }
+      } catch (error) {
+        // Silently fail for individual checks
+        const statusEl = document.querySelector(`.result-status[data-index="${idx}"] .status-indicator`);
+        if (statusEl) {
+          statusEl.textContent = '?';
+          statusEl.title = 'Could not check';
+        }
       }
-    }
-  } catch (error) {
-    console.error('Error checking existing properties:', error);
+    });
+
+    await Promise.all(promises);
+
+    // Yield to UI between batches
+    await new Promise(r => setTimeout(r, 50));
   }
 }
 
-async function checkPropertyExists(property) {
+async function checkPropertyExists(property, serverUrl) {
   try {
     // Check by redfin_id, address, or mls_number
     const params = new URLSearchParams();
@@ -512,14 +539,21 @@ async function checkPropertyExists(property) {
     if (property.address) params.set('address', property.address);
     if (property.mls_number) params.set('mls', property.mls_number);
 
-    const response = await fetch(`${CONFIG.SERVER_URL}/api/v1/properties/check?${params}`);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+
+    const response = await fetch(`${serverUrl}/api/v1/properties/check?${params}`, {
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+
     if (response.ok) {
       const data = await response.json();
       return data.exists ? '↻' : '✓';  // ↻ for update, ✓ for new
     }
     return '?';  // Unknown - API error
   } catch (error) {
-    return '?';  // Unknown - network error
+    return '?';  // Unknown - network error or timeout
   }
 }
 

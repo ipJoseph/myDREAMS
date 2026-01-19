@@ -249,10 +249,25 @@ async function handleMessage(message, sender) {
       return { error: 'No active tab' };
 
     case 'GET_SEARCH_RESULTS':
-      const [searchTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (searchTab) {
+      // Check if we have a stored source tab (for popout mode)
+      const { popoutSourceTabId } = await chrome.storage.local.get('popoutSourceTabId');
+      let searchTabId = null;
+
+      if (message.sourceTabId) {
+        // Explicitly passed tab ID
+        searchTabId = message.sourceTabId;
+      } else if (popoutSourceTabId) {
+        // Popout mode - use stored source tab
+        searchTabId = popoutSourceTabId;
+      } else {
+        // Normal mode - use active tab
+        const [activeSearchTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (activeSearchTab) searchTabId = activeSearchTab.id;
+      }
+
+      if (searchTabId) {
         try {
-          const response = await chrome.tabs.sendMessage(searchTab.id, { type: 'SCRAPE_SEARCH' });
+          const response = await chrome.tabs.sendMessage(searchTabId, { type: 'SCRAPE_SEARCH' });
           return response;
         } catch (error) {
           return { error: 'Content script not loaded. Please refresh the page.' };
