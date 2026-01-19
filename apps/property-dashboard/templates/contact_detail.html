@@ -334,33 +334,16 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
-        .properties-viewed-table {
-            width: 100%;
-            border-collapse: collapse;
+        /* Use dreams-table from design system - override for this context */
+        .properties-viewed-section .dreams-table {
+            border-radius: 0;
+            box-shadow: none;
         }
 
-        .properties-viewed-table th {
-            text-align: left;
-            padding: 12px 8px;
-            border-bottom: 2px solid var(--bg-tertiary);
+        .properties-viewed-section .dreams-table th {
             font-size: 12px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            color: var(--text-secondary);
-        }
-
-        .properties-viewed-table td {
-            padding: 12px 8px;
-            border-bottom: 1px solid var(--bg-tertiary);
-            vertical-align: middle;
-        }
-
-        .properties-viewed-table tr:last-child td {
-            border-bottom: none;
-        }
-
-        .properties-viewed-table tr:hover {
-            background: var(--bg-secondary);
         }
 
         .property-address-cell {
@@ -634,16 +617,16 @@
     <div class="properties-viewed-section">
         <h3 class="section-title">Properties Viewed ({{ property_summary|length if property_summary else 0 }})</h3>
         {% if property_summary and property_summary|length > 0 %}
-        <table class="properties-viewed-table">
+        <table class="dreams-table" id="properties-viewed-table">
             <thead>
                 <tr>
-                    <th>Address</th>
-                    <th>Price</th>
-                    <th>Views</th>
+                    <th data-sort="address" onclick="sortPropertiesTable(0, 'string')">Address</th>
+                    <th data-sort="price" onclick="sortPropertiesTable(1, 'number')">Price</th>
+                    <th data-sort="views" onclick="sortPropertiesTable(2, 'number')">Views</th>
                     <th style="text-align: center;">Fav</th>
                     <th style="text-align: center;">Shared</th>
-                    <th>Others Interested</th>
-                    <th>Last Viewed</th>
+                    <th>Others</th>
+                    <th data-sort="date" onclick="sortPropertiesTable(6, 'date')">Last Viewed</th>
                 </tr>
             </thead>
             <tbody>
@@ -882,5 +865,78 @@
     <footer class="dreams-footer">
         DREAMS - Desktop Real Estate Agent Management System
     </footer>
+
+    <!-- Sorting JavaScript for Properties Viewed table -->
+    <script>
+        let sortDirection = {};
+
+        function sortPropertiesTable(columnIndex, dataType) {
+            const table = document.getElementById('properties-viewed-table');
+            if (!table) return;
+
+            const tbody = table.querySelector('tbody');
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            const header = table.querySelectorAll('th')[columnIndex];
+
+            // Toggle sort direction
+            const currentDir = sortDirection[columnIndex] || 'none';
+            let newDir;
+            if (currentDir === 'none') newDir = 'asc';
+            else if (currentDir === 'asc') newDir = 'desc';
+            else newDir = 'none';
+
+            sortDirection[columnIndex] = newDir;
+
+            // Clear all header sort indicators
+            table.querySelectorAll('th').forEach(th => {
+                th.classList.remove('sorted-asc', 'sorted-desc');
+            });
+
+            // If returning to unsorted, restore original order
+            if (newDir === 'none') {
+                rows.sort((a, b) => {
+                    return parseInt(a.dataset.originalIndex || 0) - parseInt(b.dataset.originalIndex || 0);
+                });
+            } else {
+                // Add sort indicator to current header
+                header.classList.add(newDir === 'asc' ? 'sorted-asc' : 'sorted-desc');
+
+                rows.sort((a, b) => {
+                    let aVal = a.cells[columnIndex].textContent.trim();
+                    let bVal = b.cells[columnIndex].textContent.trim();
+
+                    // Handle different data types
+                    if (dataType === 'number') {
+                        aVal = parseFloat(aVal.replace(/[^0-9.-]/g, '')) || 0;
+                        bVal = parseFloat(bVal.replace(/[^0-9.-]/g, '')) || 0;
+                    } else if (dataType === 'date') {
+                        aVal = new Date(aVal) || new Date(0);
+                        bVal = new Date(bVal) || new Date(0);
+                    } else {
+                        aVal = aVal.toLowerCase();
+                        bVal = bVal.toLowerCase();
+                    }
+
+                    if (aVal < bVal) return newDir === 'asc' ? -1 : 1;
+                    if (aVal > bVal) return newDir === 'asc' ? 1 : -1;
+                    return 0;
+                });
+            }
+
+            // Reattach sorted rows
+            rows.forEach(row => tbody.appendChild(row));
+        }
+
+        // Store original order on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const table = document.getElementById('properties-viewed-table');
+            if (table) {
+                const rows = table.querySelectorAll('tbody tr');
+                rows.forEach((row, index) => {
+                    row.dataset.originalIndex = index;
+                });
+            }
+        });
+    </script>
 </body>
 </html>

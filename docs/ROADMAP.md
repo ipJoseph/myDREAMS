@@ -109,6 +109,7 @@
 - [x] Intent signals: repeat views, high favorites, activity burst, sharing
 - [x] Activity timeline in dashboard (communications + events)
 - [x] Score trend tracking and visualization
+- [ ] **Email tracking from FUB API** - Currently hardcoded to 0, impacts relationship scoring
 - [ ] Lead requirements extraction from CRM notes
 - [ ] Automatic note push on property matches
 
@@ -147,6 +148,13 @@
 | View count tracking | Done | Count of views per property |
 | Favorited/Shared status | Done | Icons for favorites and shares |
 
+### Configuration Page (Planned)
+- [ ] Admin settings page for dashboard
+- [ ] Configurable sync intervals
+- [ ] API key management
+- [ ] User preferences storage
+- [ ] Feature toggles
+
 ### Package Generation
 - [ ] PDF showing packages
 - [ ] Branded property flyers
@@ -183,6 +191,7 @@
 |-------|----------|--------|
 | ~~Multiple extension versions in repo~~ | Low | Done - moved to archive/ |
 | ~~Backup files scattered~~ | Low | Done - archive/ created |
+| Email tracking not implemented | High | FUB sync hardcodes emails to 0, impacts relationship score |
 | Zillow scraper blocked | Medium | Code exists but site blocks scraping |
 | Realtor.com scraper not implemented | Low | Falls back to Redfin pattern |
 | Inconsistent error handling | Medium | Standardize patterns |
