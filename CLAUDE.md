@@ -48,9 +48,16 @@ myDREAMS (Desktop Real Estate Agent Management System) is a local-first platform
 **SSH Access:** `ssh root@178.156.221.10`
 
 **Server Details:**
+- IP: 178.156.221.10
 - Host: Hetzner VPS (dreams)
 - Domain: wncmountain.homes
 - Deploy path: `/opt/mydreams`
+
+**URLs:**
+- Dashboard: https://app.wncmountain.homes
+- Properties: https://app.wncmountain.homes/properties
+- Contacts: https://app.wncmountain.homes/contacts
+- API: https://api.wncmountain.homes
 
 **Common Commands:**
 ```bash
