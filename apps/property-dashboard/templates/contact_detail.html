@@ -562,7 +562,7 @@
         </div>
         <div class="activity-stat">
             <div class="activity-stat-value">{{ contact.properties_viewed or 0 }}</div>
-            <div class="activity-stat-label">Properties Viewed</div>
+            <div class="activity-stat-label">Property Views</div>
         </div>
         <div class="activity-stat">
             <div class="activity-stat-value">{{ contact.properties_favorited or 0 }}</div>
@@ -623,7 +623,7 @@
 
     <!-- Properties Viewed Section -->
     <div class="properties-viewed-section">
-        <h3 class="section-title">Properties Viewed ({{ property_summary|length if property_summary else 0 }})</h3>
+        <h3 class="section-title">Unique Properties ({{ property_summary|length if property_summary else 0 }})</h3>
         {% if property_summary and property_summary|length > 0 %}
         <table class="dreams-table" id="properties-viewed-table">
             <thead>

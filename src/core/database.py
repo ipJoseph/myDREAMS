@@ -1379,6 +1379,13 @@ class DREAMSDatabase:
         cutoff = (datetime.now() - timedelta(days=days)).isoformat()
 
         with self._get_connection() as conn:
+            # Get fub_id for this contact (events/communications use fub_id)
+            fub_id_row = conn.execute(
+                'SELECT fub_id FROM leads WHERE id = ?',
+                (contact_id,)
+            ).fetchone()
+            event_contact_id = fub_id_row[0] if fub_id_row and fub_id_row[0] else contact_id
+
             rows = conn.execute('''
                 SELECT
                     'communication' as activity_category,
@@ -1416,7 +1423,7 @@ class DREAMSDatabase:
 
                 ORDER BY occurred_at DESC
                 LIMIT ?
-            ''', (contact_id, cutoff, contact_id, cutoff, limit)).fetchall()
+            ''', (event_contact_id, cutoff, event_contact_id, cutoff, limit)).fetchall()
 
             return [dict(row) for row in rows]
 
@@ -1502,6 +1509,16 @@ class DREAMSDatabase:
         Joins with properties table AND idx_property_cache to get addresses.
         """
         with self._get_connection() as conn:
+            # First, get the fub_id for this contact (events use fub_id, not lead id)
+            # This handles cases where lead.id is a UUID but fub_id is the numeric FUB ID
+            fub_id_row = conn.execute(
+                'SELECT fub_id FROM leads WHERE id = ?',
+                (contact_id,)
+            ).fetchone()
+
+            # Use fub_id if available, otherwise fall back to contact_id
+            event_contact_id = fub_id_row[0] if fub_id_row and fub_id_row[0] else contact_id
+
             # Get all property events for this contact, aggregated by property
             # LEFT JOIN with both properties table and idx_property_cache
             rows = conn.execute('''
@@ -1521,7 +1538,7 @@ class DREAMSDatabase:
                     AND (e.property_mls IS NOT NULL OR e.property_address IS NOT NULL)
                 GROUP BY COALESCE(e.property_mls, e.property_address)
                 ORDER BY MAX(e.occurred_at) DESC
-            ''', (contact_id,)).fetchall()
+            ''', (event_contact_id,)).fetchall()
 
             results = []
             for row in rows:
@@ -1590,14 +1607,22 @@ class DREAMSDatabase:
         """
         Get a summary of contact's trend data for dashboard display.
         """
-        # Get latest scoring
-        latest = self.get_latest_scoring(contact_id)
+        # Get fub_id for event/communications lookups
+        with self._get_connection() as conn:
+            fub_id_row = conn.execute(
+                'SELECT fub_id FROM leads WHERE id = ?',
+                (contact_id,)
+            ).fetchone()
+        event_contact_id = fub_id_row[0] if fub_id_row and fub_id_row[0] else contact_id
+
+        # Get latest scoring (uses fub_id internally)
+        latest = self.get_latest_scoring(event_contact_id)
 
         # Get 7-day average
-        avg_7d = self.calculate_heat_score_7d_avg(contact_id)
+        avg_7d = self.calculate_heat_score_7d_avg(event_contact_id)
 
         # Get scoring history for trend
-        history = self.get_scoring_history(contact_id, days=7)
+        history = self.get_scoring_history(event_contact_id, days=7)
 
         # Calculate trend direction from history
         trend = 'stable'
@@ -1617,12 +1642,12 @@ class DREAMSDatabase:
             comms_week = conn.execute('''
                 SELECT COUNT(*) FROM contact_communications
                 WHERE contact_id = ? AND occurred_at >= ?
-            ''', (contact_id, week_ago)).fetchone()[0]
+            ''', (event_contact_id, week_ago)).fetchone()[0]
 
             events_week = conn.execute('''
                 SELECT COUNT(*) FROM contact_events
                 WHERE contact_id = ? AND occurred_at >= ?
-            ''', (contact_id, week_ago)).fetchone()[0]
+            ''', (event_contact_id, week_ago)).fetchone()[0]
 
         return {
             'trend_direction': trend,
