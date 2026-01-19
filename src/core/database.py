@@ -1458,17 +1458,33 @@ class DREAMSDatabase:
             ''', (mls_number, address, city, price, status))
             conn.commit()
 
-    def get_uncached_mls_numbers(self, limit: int = 100) -> List[str]:
-        """Get MLS numbers from contact_events that aren't in the cache."""
+    def get_uncached_mls_numbers(self, limit: int = 100, contact_id: Optional[str] = None) -> List[str]:
+        """Get MLS numbers from contact_events that aren't in the cache.
+
+        Args:
+            limit: Max number of MLS numbers to return
+            contact_id: Optional - only get uncached MLS for this contact
+        """
         with self._get_connection() as conn:
-            rows = conn.execute('''
-                SELECT DISTINCT e.property_mls
-                FROM contact_events e
-                LEFT JOIN idx_property_cache c ON e.property_mls = c.mls_number
-                WHERE e.property_mls IS NOT NULL
-                    AND c.mls_number IS NULL
-                LIMIT ?
-            ''', (limit,)).fetchall()
+            if contact_id:
+                rows = conn.execute('''
+                    SELECT DISTINCT e.property_mls
+                    FROM contact_events e
+                    LEFT JOIN idx_property_cache c ON e.property_mls = c.mls_number
+                    WHERE e.property_mls IS NOT NULL
+                        AND e.contact_id = ?
+                        AND c.mls_number IS NULL
+                    LIMIT ?
+                ''', (contact_id, limit)).fetchall()
+            else:
+                rows = conn.execute('''
+                    SELECT DISTINCT e.property_mls
+                    FROM contact_events e
+                    LEFT JOIN idx_property_cache c ON e.property_mls = c.mls_number
+                    WHERE e.property_mls IS NOT NULL
+                        AND c.mls_number IS NULL
+                    LIMIT ?
+                ''', (limit,)).fetchall()
             return [row[0] for row in rows]
 
     # ==========================================

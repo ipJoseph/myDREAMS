@@ -538,6 +538,79 @@ def contacts_list():
                          refresh_time=datetime.now().strftime('%B %d, %Y %I:%M %p'))
 
 
+def populate_idx_cache_for_contact(db, contact_id: str, limit: int = 20):
+    """
+    Auto-populate IDX cache for a contact's uncached MLS numbers.
+    Called when viewing contact detail to ensure addresses are available.
+    """
+    import asyncio
+    from playwright.async_api import async_playwright
+
+    uncached = db.get_uncached_mls_numbers(limit=limit, contact_id=contact_id)
+    if not uncached:
+        return 0
+
+    IDX_PROPERTY_URL = "https://www.smokymountainhomes4sale.com/property"
+
+    async def scrape_batch():
+        cached_count = 0
+        try:
+            async with async_playwright() as p:
+                browser = await p.chromium.launch(headless=True)
+                page = await browser.new_page()
+
+                for mls in uncached:
+                    try:
+                        url = f"{IDX_PROPERTY_URL}/{mls}"
+                        response = await page.goto(url, wait_until='domcontentloaded', timeout=10000)
+
+                        if response and response.status == 200:
+                            await page.wait_for_timeout(1000)
+
+                            # Extract address from page
+                            data = await page.evaluate('''() => {
+                                const selectors = ['.property-address', '.listing-address', '[class*="address"]', 'h1'];
+                                for (let sel of selectors) {
+                                    const el = document.querySelector(sel);
+                                    if (el) {
+                                        const text = el.textContent.trim();
+                                        if (text.match(/\\d+.*(?:St|Ave|Rd|Dr|Ln|Way|Ct|Blvd|Hwy|Trail|Loop|Knob|Estates)/i)) {
+                                            return { address: text.split('\\n')[0].trim() };
+                                        }
+                                    }
+                                }
+                                return null;
+                            }''')
+
+                            if data and data.get('address'):
+                                db.upsert_idx_cache(mls, data['address'])
+                                cached_count += 1
+                            else:
+                                db.upsert_idx_cache(mls, '[Not found on IDX]')
+                        else:
+                            db.upsert_idx_cache(mls, '[Not found on IDX]')
+
+                    except Exception:
+                        db.upsert_idx_cache(mls, '[Not found on IDX]')
+
+                await browser.close()
+        except Exception as e:
+            app.logger.error(f"IDX cache population error: {e}")
+
+        return cached_count
+
+    # Run async scraping
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        result = loop.run_until_complete(scrape_batch())
+        loop.close()
+        return result
+    except Exception as e:
+        app.logger.error(f"Error running IDX cache: {e}")
+        return 0
+
+
 @app.route('/contacts/<contact_id>')
 @requires_auth
 def contact_detail(contact_id):
@@ -548,6 +621,9 @@ def contact_detail(contact_id):
     contact = db.get_lead(contact_id)
     if not contact:
         return "Contact not found", 404
+
+    # Auto-populate IDX cache for this contact's uncached MLS numbers
+    populate_idx_cache_for_contact(db, contact_id, limit=20)
 
     # Get linked properties (from contact_properties table)
     properties = db.get_contact_properties(contact_id)
