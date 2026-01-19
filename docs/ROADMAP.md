@@ -220,6 +220,20 @@ Deep-link phone numbers in dashboard to FUB contact pages for dialing.
 
 ---
 
+---
+
+## Strategic Discussion Queued
+
+**Platform Architecture Discussion** - See [PLATFORM_ARCHITECTURE_DISCUSSION.md](PLATFORM_ARCHITECTURE_DISCUSSION.md)
+
+The tension between personal workflow optimization vs. building a configurable platform for others. Topics include:
+- Data architecture abstraction
+- CRM-agnostic design
+- Plugin/adapter patterns
+- Configuration vs. code trade-offs
+
+---
+
 ## Contributing
 
 1. Check this roadmap before starting new features
