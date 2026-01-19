@@ -91,6 +91,38 @@ def get_db():
     return DREAMSDatabase(db_path)
 
 
+def enrich_properties_with_idx_photos(properties):
+    """Add IDX photo URLs to properties that don't have photos from Notion."""
+    # Collect MLS numbers for properties without photos
+    mls_without_photos = {}
+    for prop in properties:
+        if not prop.get('photo_url') and prop.get('mls_number'):
+            mls_without_photos[prop['mls_number']] = prop
+
+    if not mls_without_photos:
+        return properties
+
+    # Query IDX cache for photo URLs
+    try:
+        db = get_db()
+        with db._get_connection() as conn:
+            placeholders = ','.join('?' * len(mls_without_photos))
+            rows = conn.execute(f'''
+                SELECT mls_number, photo_url FROM idx_property_cache
+                WHERE mls_number IN ({placeholders}) AND photo_url IS NOT NULL
+            ''', list(mls_without_photos.keys())).fetchall()
+
+            for row in rows:
+                mls_number, photo_url = row
+                if mls_number in mls_without_photos and photo_url:
+                    mls_without_photos[mls_number]['photo_url'] = photo_url
+    except Exception as e:
+        # Log but don't fail if IDX lookup fails
+        print(f"Warning: IDX photo lookup failed: {e}")
+
+    return properties
+
+
 def extract_property(prop):
     """Extract property data from Notion page properties"""
     def get_title(p):
@@ -385,6 +417,9 @@ def properties_list():
         county=county if county else None
     )
 
+    # Enrich with IDX photos for properties without Notion photos
+    properties = enrich_properties_with_idx_photos(properties)
+
     # Calculate metrics
     metrics = calculate_metrics(properties)
 
@@ -441,6 +476,9 @@ def client_dashboard(client_name):
         city=city if city else None,
         county=county if county else None
     )
+
+    # Enrich with IDX photos for properties without Notion photos
+    properties = enrich_properties_with_idx_photos(properties)
 
     # Calculate metrics
     metrics = calculate_metrics(properties)

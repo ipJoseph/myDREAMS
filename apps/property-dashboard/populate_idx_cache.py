@@ -51,7 +51,7 @@ async def scrape_idx_property(page, mls_number: str) -> dict:
 
         # Extract property info from page
         data = await page.evaluate('''() => {
-            const result = { address: null, city: null, price: null, status: null };
+            const result = { address: null, city: null, price: null, status: null, photo_url: null };
 
             // Try various selectors for address
             const addressSelectors = [
@@ -109,6 +109,41 @@ async def scrape_idx_property(page, mls_number: str) -> dict:
                 }
             }
 
+            // Try to get property photo
+            const photoSelectors = [
+                '.property-photo img', '.listing-photo img', '.property-image img',
+                '.gallery img', '.carousel img', '.slider img',
+                '[class*="photo"] img', '[class*="image"] img',
+                'img[src*="property"]', 'img[src*="listing"]', 'img[src*="photo"]',
+                '.main-image img', '#main-photo img'
+            ];
+            for (let sel of photoSelectors) {
+                const el = document.querySelector(sel);
+                if (el && el.src && !el.src.includes('placeholder') && !el.src.includes('no-image')) {
+                    // Prefer larger images
+                    const src = el.src;
+                    if (src.startsWith('http') && (src.includes('.jpg') || src.includes('.jpeg') || src.includes('.png') || src.includes('.webp') || src.includes('resize'))) {
+                        result.photo_url = src;
+                        break;
+                    }
+                }
+            }
+
+            // Fallback: find any reasonable property image
+            if (!result.photo_url) {
+                const allImages = document.querySelectorAll('img');
+                for (let img of allImages) {
+                    const src = img.src || '';
+                    const width = img.naturalWidth || img.width || 0;
+                    if (src.startsWith('http') && width > 200 &&
+                        !src.includes('logo') && !src.includes('icon') && !src.includes('avatar') &&
+                        !src.includes('placeholder') && !src.includes('no-image')) {
+                        result.photo_url = src;
+                        break;
+                    }
+                }
+            }
+
             return result;
         }''')
 
@@ -160,9 +195,11 @@ async def populate_cache(limit: int = 50, batch_size: int = 10):
                         address=data['address'],
                         city=data.get('city'),
                         price=data.get('price'),
-                        status=data.get('status')
+                        status=data.get('status'),
+                        photo_url=data.get('photo_url')
                     )
-                    logger.info(f"  ✓ Cached: {data['address']}")
+                    photo_msg = " (with photo)" if data.get('photo_url') else ""
+                    logger.info(f"  ✓ Cached: {data['address']}{photo_msg}")
                     cached_count += 1
                 else:
                     # Cache as "not found" to avoid re-checking

@@ -1452,20 +1452,22 @@ class DREAMSDatabase:
         address: str,
         city: Optional[str] = None,
         price: Optional[int] = None,
-        status: Optional[str] = None
+        status: Optional[str] = None,
+        photo_url: Optional[str] = None
     ):
         """Insert or update IDX property cache entry."""
         with self._get_connection() as conn:
             conn.execute('''
-                INSERT INTO idx_property_cache (mls_number, address, city, price, status, last_updated)
-                VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                INSERT INTO idx_property_cache (mls_number, address, city, price, status, photo_url, last_updated)
+                VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                 ON CONFLICT(mls_number) DO UPDATE SET
                     address = excluded.address,
                     city = excluded.city,
                     price = COALESCE(excluded.price, price),
                     status = COALESCE(excluded.status, status),
+                    photo_url = COALESCE(excluded.photo_url, photo_url),
                     last_updated = CURRENT_TIMESTAMP
-            ''', (mls_number, address, city, price, status))
+            ''', (mls_number, address, city, price, status, photo_url))
             conn.commit()
 
     def get_uncached_mls_numbers(self, limit: int = 100, contact_id: Optional[str] = None) -> List[str]:
