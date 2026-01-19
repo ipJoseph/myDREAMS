@@ -9,6 +9,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Contacts Page Enhancements** - Improved lead management UI
+  - Threshold sliders for Hot Leads and High Value metric cards
+  - Views, Favorites, Shares columns in contacts table
+  - Search box with real-time filtering (name, email, phone)
+  - Clickable metric cards for quick filtering
+- **Range Slider Component** - Added to shared design system
+  - `.dreams-slider` base class with grey track
+  - Color variants: `dreams-slider-red`, `dreams-slider-green`, `dreams-slider-blue`
+  - CSS variable `--slider-percent` for fill position
+  - Cross-browser support (Webkit + Firefox)
 - Shared CSS design system (`shared/css/dreams.css`)
 - Archive folder for deprecated code
 - CHANGELOG.md for tracking releases
@@ -57,6 +67,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - FUB-to-Sheets SQLite sync (parallel output alongside Sheets)
 
 ### Changed
+- **Contacts Table Sorting** - Column headers now sortable, matching dashboard pattern
+  - Uses shared CSS classes (`sorted-asc`, `sorted-desc`)
+  - 3-state cycle: ascending → descending → original order
 - Moved old extension versions (v1, v2) to `archive/`
 - Updated ARCHITECTURE.md with actual color values
 - **Path Portability** - Replaced hardcoded `/home/bigeug/` paths with `Path(__file__)` relative paths
