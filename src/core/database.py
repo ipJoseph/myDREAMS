@@ -500,8 +500,23 @@ class DREAMSDatabase:
     def upsert_contact_dict(self, data: Dict[str, Any]) -> bool:
         """Insert or update a contact/lead from a dictionary (FUB sync)."""
         with self._get_connection() as conn:
-            # Ensure we have an ID
-            if 'id' not in data:
+            # Check if record exists by external_id + external_source
+            external_id = data.get('external_id')
+            external_source = data.get('external_source')
+
+            existing_id = None
+            if external_id and external_source:
+                row = conn.execute(
+                    'SELECT id FROM leads WHERE external_id = ? AND external_source = ?',
+                    (external_id, external_source)
+                ).fetchone()
+                if row:
+                    existing_id = row[0]
+
+            # Use existing ID if found, otherwise ensure we have an ID
+            if existing_id:
+                data['id'] = existing_id
+            elif 'id' not in data:
                 import uuid
                 data['id'] = str(uuid.uuid4())
 
