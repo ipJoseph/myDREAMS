@@ -406,6 +406,21 @@ class DREAMSDatabase:
             imported_at TEXT DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (contact_id) REFERENCES leads(id)
         );
+
+        -- Property changes (price/status changes detected by monitor)
+        CREATE TABLE IF NOT EXISTS property_changes (
+            id TEXT PRIMARY KEY,
+            property_id TEXT,             -- Notion page ID or internal property ID
+            property_address TEXT NOT NULL,
+            change_type TEXT NOT NULL,    -- 'price', 'status', 'dom', 'views', 'saves'
+            old_value TEXT,
+            new_value TEXT,
+            change_amount INTEGER,        -- For price: delta (positive or negative)
+            detected_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            notified INTEGER DEFAULT 0,   -- 0 = not notified, 1 = included in report
+            source TEXT,                  -- 'redfin', 'zillow', 'realtor'
+            notion_url TEXT               -- Link to Notion page for quick access
+        );
         '''
 
     def _get_indexes_schema(self) -> str:
@@ -438,6 +453,10 @@ class DREAMSDatabase:
         -- Contact events indexes
         CREATE INDEX IF NOT EXISTS idx_events_contact ON contact_events(contact_id, occurred_at DESC);
         CREATE INDEX IF NOT EXISTS idx_events_type ON contact_events(event_type);
+        -- Property changes indexes
+        CREATE INDEX IF NOT EXISTS idx_property_changes_detected ON property_changes(detected_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_property_changes_type ON property_changes(change_type);
+        CREATE INDEX IF NOT EXISTS idx_property_changes_notified ON property_changes(notified);
         '''
     
     # ==========================================
@@ -1388,6 +1407,98 @@ class DREAMSDatabase:
 
             return [dict(row) for row in rows]
 
+    # ==========================================
+    # PROPERTIES VIEWED OPERATIONS
+    # ==========================================
+
+    def get_contact_property_summary(self, contact_id: str) -> List[Dict[str, Any]]:
+        """
+        Get aggregated property view history for a contact.
+        Returns properties this contact has viewed with view counts,
+        favorite/share status, and who else is viewing each property.
+        """
+        with self._get_connection() as conn:
+            # Get all property events for this contact, aggregated by property
+            rows = conn.execute('''
+                SELECT
+                    property_address,
+                    property_price,
+                    property_mls,
+                    COUNT(CASE WHEN event_type = 'property_view' THEN 1 END) as view_count,
+                    MAX(CASE WHEN event_type = 'property_favorite' THEN 1 ELSE 0 END) as is_favorited,
+                    MAX(CASE WHEN event_type = 'property_share' THEN 1 ELSE 0 END) as is_shared,
+                    MIN(occurred_at) as first_viewed,
+                    MAX(occurred_at) as last_viewed
+                FROM contact_events
+                WHERE contact_id = ?
+                    AND property_address IS NOT NULL
+                    AND property_address != ''
+                GROUP BY property_address
+                ORDER BY MAX(occurred_at) DESC
+            ''', (contact_id,)).fetchall()
+
+            results = []
+            for row in rows:
+                prop_data = dict(row)
+
+                # Find other contacts viewing this property
+                other_contacts = self.get_property_interested_contacts(
+                    prop_data['property_address'],
+                    exclude_contact_id=contact_id
+                )
+                prop_data['other_contacts'] = other_contacts
+                prop_data['other_count'] = len(other_contacts)
+
+                results.append(prop_data)
+
+            return results
+
+    def get_property_interested_contacts(
+        self,
+        property_identifier: str,
+        exclude_contact_id: Optional[str] = None,
+        limit: int = 10
+    ) -> List[Dict[str, Any]]:
+        """
+        Get all contacts who have viewed/favorited/shared a property.
+        Used for "who else is viewing" feature.
+
+        Args:
+            property_identifier: Property address or MLS number
+            exclude_contact_id: Contact ID to exclude (the current contact)
+            limit: Max number of contacts to return
+        """
+        with self._get_connection() as conn:
+            query = '''
+                SELECT DISTINCT
+                    l.id as contact_id,
+                    l.first_name,
+                    l.last_name,
+                    l.heat_score,
+                    l.priority_score,
+                    COUNT(e.id) as interaction_count,
+                    MAX(CASE WHEN e.event_type = 'property_favorite' THEN 1 ELSE 0 END) as has_favorited,
+                    MAX(e.occurred_at) as last_interaction
+                FROM contact_events e
+                JOIN leads l ON e.contact_id = l.id
+                WHERE (e.property_address = ? OR e.property_mls = ?)
+            '''
+            params = [property_identifier, property_identifier]
+
+            if exclude_contact_id:
+                query += ' AND e.contact_id != ?'
+                params.append(exclude_contact_id)
+
+            query += '''
+                GROUP BY l.id, l.first_name, l.last_name, l.heat_score, l.priority_score
+                ORDER BY MAX(e.occurred_at) DESC
+                LIMIT ?
+            '''
+            params.append(limit)
+
+            rows = conn.execute(query, params).fetchall()
+            return [dict(row) for row in rows]
+
     def get_contact_trend_summary(self, contact_id: str) -> Dict[str, Any]:
         """
         Get a summary of contact's trend data for dashboard display.
@@ -1433,4 +1544,185 @@ class DREAMSDatabase:
             'communications_this_week': comms_week,
             'events_this_week': events_week,
             'scoring_history': history[:7]  # Last 7 records for mini-chart
+        }
+
+    # ==========================================
+    # PROPERTY CHANGES OPERATIONS
+    # ==========================================
+
+    def insert_property_change(
+        self,
+        property_address: str,
+        change_type: str,
+        old_value: str,
+        new_value: str,
+        property_id: Optional[str] = None,
+        change_amount: Optional[int] = None,
+        source: Optional[str] = None,
+        notion_url: Optional[str] = None
+    ) -> str:
+        """
+        Insert a property change record.
+
+        Args:
+            property_address: Address of the property
+            change_type: Type of change ('price', 'status', 'dom', 'views', 'saves')
+            old_value: Previous value as string
+            new_value: New value as string
+            property_id: Optional Notion page ID or internal property ID
+            change_amount: Optional numeric change amount (for prices)
+            source: Source of the data (redfin, zillow, etc.)
+            notion_url: Optional link to Notion page
+
+        Returns:
+            The ID of the inserted record
+        """
+        import uuid
+        change_id = str(uuid.uuid4())
+
+        with self._get_connection() as conn:
+            conn.execute('''
+                INSERT INTO property_changes
+                (id, property_id, property_address, change_type, old_value, new_value,
+                 change_amount, detected_at, notified, source, notion_url)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
+            ''', (
+                change_id, property_id, property_address, change_type,
+                old_value, new_value, change_amount,
+                datetime.now().isoformat(), source, notion_url
+            ))
+            conn.commit()
+
+        return change_id
+
+    def get_property_changes(
+        self,
+        hours: int = 24,
+        change_type: Optional[str] = None,
+        notified_only: bool = False,
+        unnotified_only: bool = False,
+        limit: int = 100
+    ) -> List[Dict[str, Any]]:
+        """
+        Get property changes within the specified time window.
+
+        Args:
+            hours: Number of hours to look back (default 24)
+            change_type: Optional filter by change type
+            notified_only: Only return changes that have been notified
+            unnotified_only: Only return changes that haven't been notified
+            limit: Maximum number of records to return
+        """
+        cutoff = (datetime.now() - timedelta(hours=hours)).isoformat()
+
+        query = 'SELECT * FROM property_changes WHERE detected_at >= ?'
+        params = [cutoff]
+
+        if change_type:
+            query += ' AND change_type = ?'
+            params.append(change_type)
+
+        if notified_only:
+            query += ' AND notified = 1'
+        elif unnotified_only:
+            query += ' AND notified = 0'
+
+        query += ' ORDER BY detected_at DESC LIMIT ?'
+        params.append(limit)
+
+        with self._get_connection() as conn:
+            rows = conn.execute(query, params).fetchall()
+            return [dict(row) for row in rows]
+
+    def get_todays_changes(self) -> Dict[str, List[Dict[str, Any]]]:
+        """
+        Get today's property changes organized by type.
+
+        Returns:
+            Dict with keys 'price', 'status', 'other' containing lists of changes
+        """
+        # Get start of today (midnight)
+        today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        cutoff = today_start.isoformat()
+
+        with self._get_connection() as conn:
+            rows = conn.execute('''
+                SELECT * FROM property_changes
+                WHERE detected_at >= ?
+                ORDER BY detected_at DESC
+            ''', (cutoff,)).fetchall()
+
+            changes = {
+                'price': [],
+                'status': [],
+                'other': []
+            }
+
+            for row in rows:
+                change = dict(row)
+                change_type = change.get('change_type', '')
+
+                if change_type == 'price':
+                    changes['price'].append(change)
+                elif change_type == 'status':
+                    changes['status'].append(change)
+                else:
+                    changes['other'].append(change)
+
+            return changes
+
+    def mark_changes_notified(self, change_ids: List[str]) -> int:
+        """
+        Mark changes as notified (included in a report).
+
+        Args:
+            change_ids: List of change IDs to mark
+
+        Returns:
+            Number of records updated
+        """
+        if not change_ids:
+            return 0
+
+        with self._get_connection() as conn:
+            placeholders = ', '.join(['?' for _ in change_ids])
+            cursor = conn.execute(f'''
+                UPDATE property_changes
+                SET notified = 1
+                WHERE id IN ({placeholders})
+            ''', change_ids)
+            conn.commit()
+            return cursor.rowcount
+
+    def get_change_summary(self, hours: int = 24) -> Dict[str, Any]:
+        """
+        Get a summary of property changes for reporting.
+
+        Returns:
+            Summary dict with counts and notable changes
+        """
+        changes = self.get_property_changes(hours=hours)
+
+        price_increases = []
+        price_decreases = []
+        status_changes = []
+
+        for change in changes:
+            if change['change_type'] == 'price':
+                amount = change.get('change_amount') or 0
+                if amount > 0:
+                    price_increases.append(change)
+                else:
+                    price_decreases.append(change)
+            elif change['change_type'] == 'status':
+                status_changes.append(change)
+
+        return {
+            'total_changes': len(changes),
+            'price_increases': price_increases,
+            'price_decreases': price_decreases,
+            'status_changes': status_changes,
+            'price_increase_count': len(price_increases),
+            'price_decrease_count': len(price_decreases),
+            'status_change_count': len(status_changes)
         }

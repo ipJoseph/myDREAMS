@@ -114,19 +114,38 @@
 
 ---
 
-## Phase 3: Automation & Monitoring (Planned)
+## Phase 3: Automation & Monitoring (In Progress)
 
 ### Property Monitoring
-- [ ] Price change detection
-- [ ] Status change alerts (Active → Pending → Sold)
+- [x] Price change detection (logged to SQLite)
+- [x] Status change alerts (logged to SQLite)
+- [x] VPS deployment scripts (`vps_setup.sh`, `run_monitor.sh`)
 - [ ] New listing alerts for saved searches
 - [ ] Historical price chart generation
 
+**Scraper Status:**
+| Source | Status | Notes |
+|--------|--------|-------|
+| Redfin | Working | Primary scraper via Playwright |
+| Zillow | Broken | Code exists, blocked in practice |
+| Realtor.com | Not Implemented | Falls back to Redfin scraper |
+
 ### Automated Reports
-- [ ] Daily priority call list email
+- [x] Daily priority call list email
+- [x] Property changes in daily email report
+- [x] Today's Changes section on dashboard
 - [ ] Weekly market summary
 - [ ] Monthly lead activity report
 - [ ] Customizable alert thresholds
+
+### Properties Viewed Feature (New - January 2026)
+| Task | Status | Notes |
+|------|--------|-------|
+| Contact property summary | Done | Aggregated view history per contact |
+| Who else is viewing | Done | Shows other contacts viewing same property |
+| Properties Viewed UI | Done | Table on contact detail page |
+| View count tracking | Done | Count of views per property |
+| Favorited/Shared status | Done | Icons for favorites and shares |
 
 ### Package Generation
 - [ ] PDF showing packages
@@ -164,6 +183,8 @@
 |-------|----------|--------|
 | ~~Multiple extension versions in repo~~ | Low | Done - moved to archive/ |
 | ~~Backup files scattered~~ | Low | Done - archive/ created |
+| Zillow scraper blocked | Medium | Code exists but site blocks scraping |
+| Realtor.com scraper not implemented | Low | Falls back to Redfin pattern |
 | Inconsistent error handling | Medium | Standardize patterns |
 | Missing unit tests | Medium | Add test coverage |
 
@@ -189,4 +210,4 @@
 ---
 
 *Roadmap maintained by Joseph & Claude*
-*Last updated: January 18, 2026 - Enhanced FUB Data Architecture implemented*
+*Last updated: January 19, 2026 - Properties Viewed, Property Changes tracking, VPS monitor setup*

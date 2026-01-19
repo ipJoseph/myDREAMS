@@ -1163,6 +1163,22 @@ def reorder_worksheets(spreadsheet):
 # EMAIL REPORTING
 # =========================================================================
 
+def get_property_changes_for_email() -> Dict[str, Any]:
+    """Get property changes from the last 24 hours for email report."""
+    try:
+        from src.core.database import DREAMSDatabase
+        db = DREAMSDatabase(Config.DREAMS_DB_PATH)
+        return db.get_change_summary(hours=24)
+    except Exception as e:
+        logger.warning(f"Could not get property changes: {e}")
+        return {
+            'total_changes': 0,
+            'price_increases': [],
+            'price_decreases': [],
+            'status_changes': []
+        }
+
+
 def send_top_priority_email(
     contact_rows: List[List],
     top_priority_rows: List[List],
@@ -1178,6 +1194,9 @@ def send_top_priority_email(
     import smtplib
     from email.mime.text import MIMEText
     from email.mime.multipart import MIMEMultipart
+
+    # Get property changes for the report
+    property_changes = get_property_changes_for_email()
 
     # Build email content
     subject = f"{Config.EMAIL_SUBJECT_PREFIX} Top Priority List - {datetime.now().strftime('%Y-%m-%d')}"
@@ -1195,6 +1214,58 @@ def send_top_priority_email(
         "</ul>",
         "",
     ]
+
+    # Add property changes section if there are any
+    if property_changes.get('total_changes', 0) > 0:
+        body_lines.extend([
+            "<h3>🏠 Property Changes (Last 24h)</h3>",
+            "<div style='margin-bottom: 20px;'>",
+        ])
+
+        # Price decreases (reductions - most important)
+        if property_changes.get('price_decreases'):
+            body_lines.append("<p><strong>💰 Price Reductions:</strong></p>")
+            body_lines.append("<ul>")
+            for change in property_changes['price_decreases'][:5]:
+                address = change.get('property_address', 'Unknown')
+                old_val = change.get('old_value', '?')
+                new_val = change.get('new_value', '?')
+                amount = change.get('change_amount', 0)
+                amount_str = f"-${abs(amount):,.0f}" if amount else ""
+                body_lines.append(
+                    f"<li><strong>{address}</strong>: {old_val} → {new_val} ({amount_str})</li>"
+                )
+            body_lines.append("</ul>")
+
+        # Price increases
+        if property_changes.get('price_increases'):
+            body_lines.append("<p><strong>📈 Price Increases:</strong></p>")
+            body_lines.append("<ul>")
+            for change in property_changes['price_increases'][:5]:
+                address = change.get('property_address', 'Unknown')
+                old_val = change.get('old_value', '?')
+                new_val = change.get('new_value', '?')
+                amount = change.get('change_amount', 0)
+                amount_str = f"+${abs(amount):,.0f}" if amount else ""
+                body_lines.append(
+                    f"<li><strong>{address}</strong>: {old_val} → {new_val} ({amount_str})</li>"
+                )
+            body_lines.append("</ul>")
+
+        # Status changes
+        if property_changes.get('status_changes'):
+            body_lines.append("<p><strong>🏷️ Status Changes:</strong></p>")
+            body_lines.append("<ul>")
+            for change in property_changes['status_changes'][:5]:
+                address = change.get('property_address', 'Unknown')
+                old_val = change.get('old_value', '?')
+                new_val = change.get('new_value', '?')
+                body_lines.append(
+                    f"<li><strong>{address}</strong>: {old_val} → {new_val}</li>"
+                )
+            body_lines.append("</ul>")
+
+        body_lines.append("</div>")
 
     # Top active leads today
     if daily_stats.get('top_active_leads'):

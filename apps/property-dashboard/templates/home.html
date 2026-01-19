@@ -226,6 +226,121 @@
         .status-dot.pending { background: #f59e0b; }
         .status-dot.sold { background: #6b7280; }
 
+        /* Changes section */
+        .changes-section {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin: 0 20px 20px 20px;
+        }
+
+        .changes-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .changes-tab {
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: none;
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .changes-tab:hover {
+            background: #e5e7eb;
+        }
+
+        .changes-tab.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        .changes-tab .badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 18px;
+            height: 18px;
+            border-radius: 9px;
+            background: rgba(255,255,255,0.2);
+            font-size: 11px;
+            margin-left: 6px;
+            padding: 0 5px;
+        }
+
+        .changes-tab:not(.active) .badge {
+            background: var(--bg-tertiary);
+        }
+
+        .change-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .change-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--bg-secondary);
+        }
+
+        .change-item:last-child {
+            border-bottom: none;
+        }
+
+        .change-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+
+        .change-icon.price-down { background: #dcfce7; }
+        .change-icon.price-up { background: #fef2f2; }
+        .change-icon.status { background: #dbeafe; }
+
+        .change-info {
+            flex: 1;
+        }
+
+        .change-address {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .change-details {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        .change-amount {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .change-amount.positive { color: #dc2626; }
+        .change-amount.negative { color: #16a34a; }
+
+        .changes-empty {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-secondary);
+        }
+
         /* Responsive */
         @media (max-width: 1024px) {
             .hero-metrics {
@@ -374,6 +489,103 @@
                 </div>
             </div>
         </div>
+    </div>
+
+    <!-- Today's Property Changes -->
+    <div class="changes-section">
+        <div class="section-header">
+            <h3 class="section-title">Today's Property Changes</h3>
+            <span style="font-size: 13px; color: var(--text-secondary);">
+                {{ change_summary.total_changes if change_summary else 0 }} changes detected
+            </span>
+        </div>
+
+        {% if change_summary and change_summary.total_changes > 0 %}
+        <div class="changes-tabs">
+            <button class="changes-tab active" onclick="showChanges('all')">
+                All <span class="badge">{{ change_summary.total_changes }}</span>
+            </button>
+            <button class="changes-tab" onclick="showChanges('price')">
+                Price <span class="badge">{{ change_summary.price_decrease_count + change_summary.price_increase_count }}</span>
+            </button>
+            <button class="changes-tab" onclick="showChanges('status')">
+                Status <span class="badge">{{ change_summary.status_change_count }}</span>
+            </button>
+        </div>
+
+        <ul class="change-list" id="changes-list">
+            <!-- Price decreases (reductions) -->
+            {% for change in change_summary.price_decreases %}
+            <li class="change-item" data-type="price">
+                <div class="change-icon price-down">📉</div>
+                <div class="change-info">
+                    <div class="change-address">{{ change.property_address }}</div>
+                    <div class="change-details">{{ change.old_value }} → {{ change.new_value }}</div>
+                </div>
+                <div class="change-amount negative">
+                    {% if change.change_amount %}
+                    -${{ "{:,.0f}".format(change.change_amount|abs) }}
+                    {% endif %}
+                </div>
+            </li>
+            {% endfor %}
+
+            <!-- Price increases -->
+            {% for change in change_summary.price_increases %}
+            <li class="change-item" data-type="price">
+                <div class="change-icon price-up">📈</div>
+                <div class="change-info">
+                    <div class="change-address">{{ change.property_address }}</div>
+                    <div class="change-details">{{ change.old_value }} → {{ change.new_value }}</div>
+                </div>
+                <div class="change-amount positive">
+                    {% if change.change_amount %}
+                    +${{ "{:,.0f}".format(change.change_amount|abs) }}
+                    {% endif %}
+                </div>
+            </li>
+            {% endfor %}
+
+            <!-- Status changes -->
+            {% for change in change_summary.status_changes %}
+            <li class="change-item" data-type="status">
+                <div class="change-icon status">🏷️</div>
+                <div class="change-info">
+                    <div class="change-address">{{ change.property_address }}</div>
+                    <div class="change-details">{{ change.old_value }} → {{ change.new_value }}</div>
+                </div>
+                <div class="change-amount" style="color: var(--text-secondary);">
+                    {{ change.new_value }}
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+
+        <script>
+            function showChanges(type) {
+                // Update active tab
+                document.querySelectorAll('.changes-tab').forEach(tab => {
+                    tab.classList.remove('active');
+                });
+                event.target.classList.add('active');
+
+                // Filter items
+                document.querySelectorAll('.change-item').forEach(item => {
+                    if (type === 'all' || item.dataset.type === type) {
+                        item.style.display = 'flex';
+                    } else {
+                        item.style.display = 'none';
+                    }
+                });
+            }
+        </script>
+
+        {% else %}
+        <div class="changes-empty">
+            <p style="font-size: 16px; margin-bottom: 8px;">No property changes today</p>
+            <p style="font-size: 13px;">Changes will appear here when the property monitor detects price or status updates.</p>
+        </div>
+        {% endif %}
     </div>
 
     <!-- Footer -->

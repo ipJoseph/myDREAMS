@@ -346,11 +346,17 @@ def home():
     # Count actions due (simplified - contacts with next_action set)
     actions_due = sum(1 for c in top_contacts if c.get('next_action'))
 
+    # Get today's property changes
+    todays_changes = db.get_todays_changes()
+    change_summary = db.get_change_summary(hours=24)
+
     return render_template('home.html',
                          property_stats=property_stats,
                          contact_stats=contact_stats,
                          top_contacts=top_contacts,
                          actions_due=actions_due,
+                         todays_changes=todays_changes,
+                         change_summary=change_summary,
                          refresh_time=datetime.now().strftime('%B %d, %Y %I:%M %p'))
 
 
@@ -543,8 +549,11 @@ def contact_detail(contact_id):
     if not contact:
         return "Contact not found", 404
 
-    # Get linked properties
+    # Get linked properties (from contact_properties table)
     properties = db.get_contact_properties(contact_id)
+
+    # Get property view summary (aggregated from contact_events)
+    property_summary = db.get_contact_property_summary(contact_id)
 
     # Get activity timeline (communications + events from last 30 days)
     timeline = db.get_activity_timeline(contact_id, days=30, limit=50)
@@ -555,6 +564,7 @@ def contact_detail(contact_id):
     return render_template('contact_detail.html',
                          contact=contact,
                          properties=properties,
+                         property_summary=property_summary,
                          timeline=timeline,
                          trend_summary=trend_summary,
                          refresh_time=datetime.now().strftime('%B %d, %Y %I:%M %p'))

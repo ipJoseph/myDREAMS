@@ -12,6 +12,20 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Shared CSS design system (`shared/css/dreams.css`)
 - Archive folder for deprecated code
 - CHANGELOG.md for tracking releases
+- **Properties Viewed Section** - Contact detail page enhancement
+  - `get_contact_property_summary()` - Aggregated property view history per contact
+  - `get_property_interested_contacts()` - "Who else is viewing" feature
+  - Properties Viewed table with view counts, favorite/share status
+  - Links to other contacts viewing same properties
+- **Property Changes Tracking** - Monitor and report property changes
+  - `property_changes` table for tracking price/status changes
+  - Property monitor logs changes to SQLite database
+  - Today's Changes section on dashboard home
+  - Property changes included in daily email report
+  - Filter tabs for price vs status changes
+- **VPS Property Monitor Setup** - Deployment scripts for production
+  - `run_monitor.sh` - Cron-ready monitor execution script
+  - `vps_setup.sh` - One-command VPS setup for Playwright
 - **Enhanced FUB Data Architecture** - Activity history, scoring trends, proper relational tables
   - `contact_scoring_history` table for tracking score snapshots over time
   - `contact_communications` table for individual call/text records

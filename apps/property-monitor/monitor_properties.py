@@ -25,6 +25,10 @@ from playwright_scraper import (
     get_scraper
 )
 
+# Add project root to path for database imports
+PROJECT_ROOT = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+
 # Load environment variables from .env file
 def load_env_file():
     """Load environment variables from .env file"""
@@ -90,6 +94,76 @@ class PropertyMonitor:
             # Realtor.com uses Redfin scraper as fallback (similar structure)
             'realtor': RedfinPlaywrightScraper,
         }
+
+        # Initialize database connection for logging changes
+        self.db = None
+        try:
+            from src.core.database import DREAMSDatabase
+            db_path = os.getenv('DREAMS_DB_PATH', str(PROJECT_ROOT / 'data' / 'dreams.db'))
+            self.db = DREAMSDatabase(db_path)
+            logger.info("SQLite database initialized for change logging")
+        except Exception as e:
+            logger.warning(f"Could not initialize database for change logging: {e}")
+
+    def log_change_to_database(self, property_data: Dict, changes: Dict):
+        """Log detected changes to SQLite database for reporting."""
+        if not self.db:
+            return
+
+        address = property_data.get('address', 'Unknown')
+        property_id = property_data.get('id')
+        notion_url = property_data.get('notion_url')
+        source = property_data.get('monitoring_source')
+
+        try:
+            # Log price changes
+            if 'price' in changes:
+                pc = changes['price']
+                old_price = pc.get('old')
+                new_price = pc.get('new')
+                change_amount = pc.get('change', 0)
+
+                self.db.insert_property_change(
+                    property_address=address,
+                    change_type='price',
+                    old_value=f"${old_price:,.0f}" if old_price else "Unknown",
+                    new_value=f"${new_price:,.0f}" if new_price else "Unknown",
+                    property_id=property_id,
+                    change_amount=change_amount,
+                    source=source,
+                    notion_url=notion_url
+                )
+                logger.info(f"Logged price change for {address}")
+
+            # Log status changes
+            if 'status' in changes:
+                sc = changes['status']
+                self.db.insert_property_change(
+                    property_address=address,
+                    change_type='status',
+                    old_value=sc.get('old') or "Unknown",
+                    new_value=sc.get('new') or "Unknown",
+                    property_id=property_id,
+                    source=source,
+                    notion_url=notion_url
+                )
+                logger.info(f"Logged status change for {address}")
+
+            # Log DOM changes (optional, can be noisy)
+            if 'dom' in changes:
+                dc = changes['dom']
+                self.db.insert_property_change(
+                    property_address=address,
+                    change_type='dom',
+                    old_value=str(dc.get('old', 0)),
+                    new_value=str(dc.get('new', 0)),
+                    property_id=property_id,
+                    source=source,
+                    notion_url=notion_url
+                )
+
+        except Exception as e:
+            logger.error(f"Error logging change to database: {e}")
 
     def fetch_monitored_properties(self) -> List[Dict]:
         """Fetch all properties with monitoring enabled from Notion"""
@@ -410,6 +484,8 @@ class PropertyMonitor:
                             # Track significant changes for the report
                             if result.get('changes'):
                                 self.changes_detected.append(result)
+                                # Log changes to SQLite database
+                                self.log_change_to_database(prop, result['changes'])
 
                             # Always update Notion with fresh data (including views/saves)
                             self.update_notion_property(
