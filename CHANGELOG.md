@@ -9,6 +9,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **IDX Photo Support** - Property photos from IDX site
+  - `photo_url` column in `idx_property_cache` table
+  - Photo scraping in `populate_idx_cache.py`
+  - Fallback mechanism: properties without Notion photos display IDX photos
+  - `enrich_properties_with_idx_photos()` function in dashboard
+- **IDX Cache Cron Jobs** - Automated MLS# → Address lookup
+  - `run_idx_cache.sh` wrapper script for local cron
+  - `run_idx_cache_prd.sh` wrapper script for PRD cron
+  - Runs twice daily (6:30 AM and 6:30 PM) on both local and PRD
+  - Processes up to 100 uncached MLS numbers per run
 - **Contacts Page Enhancements** - Improved lead management UI
   - Threshold sliders for Hot Leads and High Value metric cards
   - Views, Favorites, Shares columns in contacts table
@@ -86,6 +96,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - `/` now shows unified dashboard home
   - `/properties` shows property list (formerly `/`)
   - `/contacts` shows contacts list (new)
+
+### Fixed
+- **Contact-Event Data Mismatch** - Events now correctly linked to contacts
+  - Fixed fub_id lookup in `get_contact_property_summary()`
+  - Fixed fub_id lookup in `get_activity_timeline()`
+  - Fixed fub_id lookup in `get_contact_trend_summary()`
+  - Contacts with UUID IDs now correctly display their events (events stored with FUB numeric ID)
+- **Contact Detail Labels** - Clarified "Property Views" (total) vs "Unique Properties" (deduplicated)
 
 ---
 
