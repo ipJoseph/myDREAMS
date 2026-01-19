@@ -67,7 +67,7 @@
 
         /* Table minimum width */
         .dreams-table {
-            min-width: 1200px;
+            min-width: 1400px;
         }
 
         /* Activity indicator */
@@ -276,6 +276,9 @@
                     <th>#</th>
                     <th>Name</th>
                     <th>Stage</th>
+                    <th>Views</th>
+                    <th>Fav</th>
+                    <th>Share</th>
                     <th>Trend</th>
                     <th>Priority</th>
                     <th>Heat</th>
@@ -305,6 +308,9 @@
                             {{ contact.stage or 'Unknown' }}
                         </span>
                     </td>
+                    <td style="text-align: center;">{{ contact.properties_viewed or 0 }}</td>
+                    <td style="text-align: center;">{{ contact.properties_favorited or 0 }}</td>
+                    <td style="text-align: center;">{{ contact.properties_shared or 0 }}</td>
                     <td>
                         {% set trend = contact.score_trend or 'none' %}
                         <span class="trend-indicator {{ trend }}" title="{{ trend|capitalize }}">
@@ -416,7 +422,7 @@
             rows.forEach((row, index) => {
                 const name = row.querySelector('.contact-name')?.textContent.toLowerCase() || '';
                 const email = row.querySelector('.contact-email')?.textContent.toLowerCase() || '';
-                const phone = row.cells[10]?.textContent.toLowerCase() || '';
+                const phone = row.cells[13]?.textContent.toLowerCase() || '';  // Phone is now column 13 (0-indexed)
 
                 const matches = name.includes(query) || email.includes(query) || phone.includes(query);
                 row.style.display = matches ? '' : 'none';

@@ -1702,6 +1702,7 @@ def sync_to_sqlite(contact_rows: List[List], person_stats: Dict[str, Dict]):
                 "website_visits": int(row[idx["website_visits"]] or 0),
                 "properties_viewed": int(row[idx["properties_viewed"]] or 0),
                 "properties_favorited": int(row[idx["properties_favorited"]] or 0),
+                "properties_shared": int(row[idx["properties_shared"]] or 0),
                 "calls_inbound": int(row[idx["calls_inbound"]] or 0),
                 "calls_outbound": int(row[idx["calls_outbound"]] or 0),
                 "texts_total": int(row[idx["texts_total"]] or 0),

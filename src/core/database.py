@@ -95,6 +95,9 @@ class DREAMSDatabase:
             ("last_score_recorded_at", "TEXT"),         # Last scoring history timestamp
             ("total_communications", "INTEGER DEFAULT 0"),  # Total comms count
             ("total_events", "INTEGER DEFAULT 0"),      # Total events count
+            ("properties_shared", "INTEGER DEFAULT 0"),  # Properties shared count
+            ("emails_received", "INTEGER DEFAULT 0"),   # Emails received
+            ("emails_sent", "INTEGER DEFAULT 0"),       # Emails sent
         ]
 
         for col_name, col_type in new_lead_columns:
