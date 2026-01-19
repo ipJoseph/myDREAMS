@@ -172,6 +172,59 @@
             margin-left: 8px;
             text-decoration: none;
         }
+
+        /* Threshold sliders */
+        .threshold-slider {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid var(--border);
+        }
+        .threshold-slider input[type="range"] {
+            width: 100%;
+            height: 6px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: var(--bg-tertiary);
+            border-radius: 3px;
+            outline: none;
+            cursor: pointer;
+        }
+        .threshold-slider input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        .threshold-slider.heat input[type="range"]::-webkit-slider-thumb {
+            background: #ef4444;
+        }
+        .threshold-slider.value input[type="range"]::-webkit-slider-thumb {
+            background: #10b981;
+        }
+        .threshold-slider input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+        }
+        .threshold-slider.heat input[type="range"]::-moz-range-thumb {
+            background: #ef4444;
+        }
+        .threshold-slider.value input[type="range"]::-moz-range-thumb {
+            background: #10b981;
+        }
+        .threshold-value {
+            font-size: 11px;
+            color: var(--text-secondary);
+            text-align: center;
+            margin-top: 4px;
+        }
+        .dreams-metric-card.with-slider {
+            min-width: 140px;
+        }
     </style>
 </head>
 <body>
@@ -233,13 +286,21 @@
             <div class="dreams-metric-label">Total Contacts</div>
             <div class="dreams-metric-value">{{ stats.total }}</div>
         </div>
-        <div class="dreams-metric-card clickable {% if selected_filter == 'hot_leads' %}active{% endif %}" onclick="applyQuickFilter('hot_leads')">
-            <div class="dreams-metric-label">Hot Leads (75+)</div>
-            <div class="dreams-metric-value" style="color: #ef4444;">{{ stats.hot }}</div>
+        <div class="dreams-metric-card with-slider {% if selected_filter == 'hot_leads' %}active{% endif %}" id="hotLeadsCard">
+            <div class="dreams-metric-label">Hot Leads (<span id="heatThresholdLabel">75</span>+)</div>
+            <div class="dreams-metric-value" style="color: #ef4444;" id="hotLeadsCount">{{ stats.hot }}</div>
+            <div class="threshold-slider heat">
+                <input type="range" id="heatSlider" min="0" max="100" value="75" oninput="updateHeatThreshold(this.value)">
+                <div class="threshold-value">Threshold: <span id="heatSliderValue">75</span></div>
+            </div>
         </div>
-        <div class="dreams-metric-card clickable {% if selected_filter == 'high_value' %}active{% endif %}" onclick="applyQuickFilter('high_value')">
-            <div class="dreams-metric-label">High Value (60+)</div>
-            <div class="dreams-metric-value" style="color: #10b981;">{{ stats.high_value }}</div>
+        <div class="dreams-metric-card with-slider {% if selected_filter == 'high_value' %}active{% endif %}" id="highValueCard">
+            <div class="dreams-metric-label">High Value (<span id="valueThresholdLabel">60</span>+)</div>
+            <div class="dreams-metric-value" style="color: #10b981;" id="highValueCount">{{ stats.high_value }}</div>
+            <div class="threshold-slider value">
+                <input type="range" id="valueSlider" min="0" max="100" value="60" oninput="updateValueThreshold(this.value)">
+                <div class="threshold-value">Threshold: <span id="valueSliderValue">60</span></div>
+            </div>
         </div>
         <div class="dreams-metric-card clickable {% if selected_filter == 'active_week' %}active{% endif %}" onclick="applyQuickFilter('active_week')">
             <div class="dreams-metric-label">Active This Week</div>
@@ -293,7 +354,7 @@
             <tbody>
                 {% for contact in contacts %}
                 {% set days_inactive = contact.days_since_activity or 999 %}
-                <tr>
+                <tr data-heat="{{ contact.heat_score or 0 }}" data-value="{{ contact.value_score or 0 }}" data-days="{{ days_inactive }}">
                     <td class="row-num">{{ loop.index }}</td>
                     <td>
                         <a href="/contacts/{{ contact.id }}" class="contact-name">
@@ -466,6 +527,100 @@
                 searchInput.select();
             }
         });
+
+        // Threshold slider functionality
+        let heatThreshold = 75;
+        let valueThreshold = 60;
+
+        function updateHeatThreshold(value) {
+            heatThreshold = parseInt(value);
+            document.getElementById('heatThresholdLabel').textContent = value;
+            document.getElementById('heatSliderValue').textContent = value;
+            updateCounts();
+            applyThresholdFilter();
+        }
+
+        function updateValueThreshold(value) {
+            valueThreshold = parseInt(value);
+            document.getElementById('valueThresholdLabel').textContent = value;
+            document.getElementById('valueSliderValue').textContent = value;
+            updateCounts();
+            applyThresholdFilter();
+        }
+
+        function updateCounts() {
+            let hotCount = 0;
+            let highValueCount = 0;
+
+            rows.forEach(row => {
+                const heat = parseFloat(row.dataset.heat) || 0;
+                const value = parseFloat(row.dataset.value) || 0;
+
+                if (heat >= heatThreshold) hotCount++;
+                if (value >= valueThreshold) highValueCount++;
+            });
+
+            document.getElementById('hotLeadsCount').textContent = hotCount;
+            document.getElementById('highValueCount').textContent = highValueCount;
+        }
+
+        function applyThresholdFilter() {
+            // Check if either card is active
+            const hotCard = document.getElementById('hotLeadsCard');
+            const valueCard = document.getElementById('highValueCard');
+            const hotActive = hotCard.classList.contains('active');
+            const valueActive = valueCard.classList.contains('active');
+
+            if (!hotActive && !valueActive) return;  // No filter active
+
+            let visibleCount = 0;
+            rows.forEach((row, index) => {
+                const heat = parseFloat(row.dataset.heat) || 0;
+                const value = parseFloat(row.dataset.value) || 0;
+
+                let show = true;
+                if (hotActive && heat < heatThreshold) show = false;
+                if (valueActive && value < valueThreshold) show = false;
+
+                row.style.display = show ? '' : 'none';
+                if (show) {
+                    visibleCount++;
+                    row.querySelector('.row-num').textContent = visibleCount;
+                }
+            });
+
+            visibleCountEl.textContent = visibleCount;
+        }
+
+        // Click handlers for threshold cards
+        document.getElementById('hotLeadsCard').addEventListener('click', function(e) {
+            if (e.target.type === 'range') return;  // Don't toggle when clicking slider
+            this.classList.toggle('active');
+            document.getElementById('highValueCard').classList.remove('active');
+            applyThresholdFilter();
+            if (!this.classList.contains('active')) resetFilter();
+        });
+
+        document.getElementById('highValueCard').addEventListener('click', function(e) {
+            if (e.target.type === 'range') return;  // Don't toggle when clicking slider
+            this.classList.toggle('active');
+            document.getElementById('hotLeadsCard').classList.remove('active');
+            applyThresholdFilter();
+            if (!this.classList.contains('active')) resetFilter();
+        });
+
+        function resetFilter() {
+            let visibleCount = 0;
+            rows.forEach((row, index) => {
+                row.style.display = '';
+                visibleCount++;
+                row.querySelector('.row-num').textContent = visibleCount;
+            });
+            visibleCountEl.textContent = visibleCount;
+        }
+
+        // Initialize counts on page load
+        updateCounts();
     </script>
 </body>
 </html>
