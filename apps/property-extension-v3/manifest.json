@@ -1,13 +1,12 @@
 {
   "manifest_version": 3,
   "name": "DREAMS Property Capture",
-  "version": "3.9.17",
+  "version": "3.9.18",
   "description": "Capture property listings from Zillow, Redfin, and Realtor.com to your DREAMS dashboard.",
   "permissions": [
     "activeTab",
     "storage",
     "downloads",
-    "scripting",
     "tabs",
     "clipboardWrite"
   ],
