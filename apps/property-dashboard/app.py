@@ -499,14 +499,29 @@ def contacts_list():
 
     # Get filter parameters
     min_heat = request.args.get('min_heat', 0, type=float)
+    min_value = request.args.get('min_value', 0, type=float)
     stage = request.args.get('stage', '')
     sort_by = request.args.get('sort', 'priority')  # priority, heat, value, name
+    filter_type = request.args.get('filter', '')  # hot_leads, high_value, active_week
 
-    # Get contacts
+    # Get all contacts (no artificial limit - let the database handle it)
+    contacts = db.get_contacts_by_priority(min_priority=0, limit=2000)
+
+    # Apply quick filter from metric card clicks
+    if filter_type == 'hot_leads':
+        contacts = [c for c in contacts if (c.get('heat_score') or 0) >= 75]
+    elif filter_type == 'high_value':
+        contacts = [c for c in contacts if (c.get('value_score') or 0) >= 60]
+    elif filter_type == 'active_week':
+        contacts = [c for c in contacts if (c.get('days_since_activity') or 999) <= 7]
+
+    # Apply min_heat filter
     if min_heat > 0:
-        contacts = db.get_hot_contacts(min_heat=min_heat, limit=200)
-    else:
-        contacts = db.get_contacts_by_priority(min_priority=0, limit=200)
+        contacts = [c for c in contacts if (c.get('heat_score') or 0) >= min_heat]
+
+    # Apply min_value filter
+    if min_value > 0:
+        contacts = [c for c in contacts if (c.get('value_score') or 0) >= min_value]
 
     # Apply stage filter
     if stage:
@@ -521,8 +536,8 @@ def contacts_list():
         contacts.sort(key=lambda c: f"{c.get('first_name', '')} {c.get('last_name', '')}".lower())
     # Default: priority (already sorted)
 
-    # Get unique stages for filter dropdown
-    all_contacts = db.get_contacts_by_priority(min_priority=0, limit=500)
+    # Get unique stages for filter dropdown (from full list)
+    all_contacts = db.get_contacts_by_priority(min_priority=0, limit=2000)
     stages = sorted(set(c.get('stage') for c in all_contacts if c.get('stage')))
 
     # Get aggregate stats
@@ -535,6 +550,7 @@ def contacts_list():
                          selected_stage=stage,
                          selected_min_heat=min_heat,
                          selected_sort=sort_by,
+                         selected_filter=filter_type,
                          refresh_time=datetime.now().strftime('%B %d, %Y %I:%M %p'))
 
 

@@ -97,6 +97,81 @@
         .trend-indicator.cooling { background: #fee2e2; color: #991b1b; }
         .trend-indicator.stable { background: #f3f4f6; color: #6b7280; }
         .trend-indicator.none { background: transparent; color: #d1d5db; }
+
+        /* Clickable metric cards */
+        .dreams-metric-card.clickable {
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        .dreams-metric-card.clickable:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        .dreams-metric-card.active {
+            border: 2px solid var(--primary);
+            background: var(--bg-secondary);
+        }
+
+        /* Search box */
+        .search-box {
+            position: relative;
+            flex: 1;
+            max-width: 300px;
+        }
+        .search-box input {
+            width: 100%;
+            padding: 8px 12px 8px 36px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 14px;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+        }
+        .search-box input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+        }
+        .search-box::before {
+            content: '🔍';
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 14px;
+            opacity: 0.5;
+        }
+        .search-box .clear-btn {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            color: var(--text-secondary);
+            display: none;
+        }
+        .search-box .clear-btn.visible {
+            display: block;
+        }
+
+        /* Filter active badge */
+        .filter-badge {
+            display: inline-block;
+            background: var(--primary);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 16px;
+            font-size: 12px;
+            margin-left: 12px;
+        }
+        .filter-badge a {
+            color: white;
+            margin-left: 8px;
+            text-decoration: none;
+        }
     </style>
 </head>
 <body>
@@ -116,6 +191,11 @@
 
     <!-- Filters -->
     <div class="dreams-filters">
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="Search by name, email, phone..." autocomplete="off">
+            <button class="clear-btn" id="clearSearch" onclick="clearSearch()">&times;</button>
+        </div>
+
         <div class="dreams-filter-group">
             <label>Stage:</label>
             <select id="stageFilter" onchange="applyFilters()">
@@ -149,19 +229,19 @@
 
     <!-- Metrics Cards -->
     <div class="dreams-metrics">
-        <div class="dreams-metric-card highlight">
+        <div class="dreams-metric-card highlight" onclick="window.location.href='/contacts'" style="cursor: pointer;">
             <div class="dreams-metric-label">Total Contacts</div>
             <div class="dreams-metric-value">{{ stats.total }}</div>
         </div>
-        <div class="dreams-metric-card">
+        <div class="dreams-metric-card clickable {% if selected_filter == 'hot_leads' %}active{% endif %}" onclick="applyQuickFilter('hot_leads')">
             <div class="dreams-metric-label">Hot Leads (75+)</div>
             <div class="dreams-metric-value" style="color: #ef4444;">{{ stats.hot }}</div>
         </div>
-        <div class="dreams-metric-card">
+        <div class="dreams-metric-card clickable {% if selected_filter == 'high_value' %}active{% endif %}" onclick="applyQuickFilter('high_value')">
             <div class="dreams-metric-label">High Value (60+)</div>
             <div class="dreams-metric-value" style="color: #10b981;">{{ stats.high_value }}</div>
         </div>
-        <div class="dreams-metric-card">
+        <div class="dreams-metric-card clickable {% if selected_filter == 'active_week' %}active{% endif %}" onclick="applyQuickFilter('active_week')">
             <div class="dreams-metric-label">Active This Week</div>
             <div class="dreams-metric-value">{{ stats.active_week }}</div>
         </div>
@@ -178,7 +258,13 @@
     <!-- Results Bar -->
     <div class="dreams-results-bar">
         <div class="dreams-results-count">
-            <strong>{{ contacts|length }}</strong> contacts shown
+            <strong id="visibleCount">{{ contacts|length }}</strong> contacts shown
+            {% if selected_filter %}
+            <span class="filter-badge">
+                {% if selected_filter == 'hot_leads' %}Hot Leads{% elif selected_filter == 'high_value' %}High Value{% elif selected_filter == 'active_week' %}Active This Week{% endif %}
+                <a href="/contacts" title="Clear filter">&times;</a>
+            </span>
+            {% endif %}
         </div>
     </div>
 
@@ -304,6 +390,76 @@
 
             window.location.search = params.toString();
         }
+
+        function applyQuickFilter(filterType) {
+            // Toggle filter off if already active
+            const currentFilter = '{{ selected_filter }}';
+            if (currentFilter === filterType) {
+                window.location.href = '/contacts';
+            } else {
+                window.location.href = '/contacts?filter=' + filterType;
+            }
+        }
+
+        // Search functionality
+        const searchInput = document.getElementById('searchInput');
+        const clearBtn = document.getElementById('clearSearch');
+        const table = document.getElementById('contactsTable');
+        const rows = table.querySelectorAll('tbody tr');
+        const visibleCountEl = document.getElementById('visibleCount');
+
+        function doSearch() {
+            const query = searchInput.value.toLowerCase().trim();
+            clearBtn.classList.toggle('visible', query.length > 0);
+
+            let visibleCount = 0;
+            rows.forEach((row, index) => {
+                const name = row.querySelector('.contact-name')?.textContent.toLowerCase() || '';
+                const email = row.querySelector('.contact-email')?.textContent.toLowerCase() || '';
+                const phone = row.cells[10]?.textContent.toLowerCase() || '';
+
+                const matches = name.includes(query) || email.includes(query) || phone.includes(query);
+                row.style.display = matches ? '' : 'none';
+
+                if (matches) {
+                    visibleCount++;
+                    // Update row number
+                    row.querySelector('.row-num').textContent = visibleCount;
+                }
+            });
+
+            visibleCountEl.textContent = visibleCount;
+        }
+
+        function clearSearch() {
+            searchInput.value = '';
+            clearBtn.classList.remove('visible');
+            rows.forEach((row, index) => {
+                row.style.display = '';
+                row.querySelector('.row-num').textContent = index + 1;
+            });
+            visibleCountEl.textContent = rows.length;
+            searchInput.focus();
+        }
+
+        // Real-time search as user types
+        searchInput.addEventListener('input', doSearch);
+
+        // Allow Escape to clear search
+        searchInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                clearSearch();
+            }
+        });
+
+        // Focus search on Ctrl+F or Cmd+F
+        document.addEventListener('keydown', function(e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+                e.preventDefault();
+                searchInput.focus();
+                searchInput.select();
+            }
+        });
     </script>
 </body>
 </html>
