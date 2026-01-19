@@ -43,6 +43,31 @@ myDREAMS (Desktop Real Estate Agent Management System) is a local-first platform
 - **After completing each feature/fix**: Update CHANGELOG.md and ROADMAP.md
 - **Commit and push**: You have standing permission after completing work sections
 
+## Production Server (PRD)
+
+**SSH Access:** `ssh root@178.156.221.10`
+
+**Server Details:**
+- Host: Hetzner VPS (dreams)
+- Domain: wncmountain.homes
+- Deploy path: `/opt/mydreams`
+
+**Common Commands:**
+```bash
+# Pull latest and restart services
+ssh root@178.156.221.10 "cd /opt/mydreams && git pull && systemctl restart mydreams-api mydreams-dashboard"
+
+# Sync database to PRD
+scp /home/bigeug/myDREAMS/data/dreams.db root@178.156.221.10:/opt/mydreams/data/dreams.db
+
+# Check service status
+ssh root@178.156.221.10 "systemctl status mydreams-api mydreams-dashboard"
+
+# View logs
+ssh root@178.156.221.10 "journalctl -u mydreams-api -n 50"
+ssh root@178.156.221.10 "journalctl -u mydreams-dashboard -n 50"
+```
+
 ## Owner
 
 Joseph "Eugy" Williams
