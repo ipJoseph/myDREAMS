@@ -184,36 +184,39 @@
             height: 6px;
             -webkit-appearance: none;
             appearance: none;
-            background: var(--bg-tertiary);
+            background: #d1d5db;
             border-radius: 3px;
             outline: none;
             cursor: pointer;
+            position: relative;
         }
-        /* Heat slider track fill */
+        /* Webkit (Chrome/Safari) - use gradient for filled portion */
         .threshold-slider.heat input[type="range"] {
-            background: linear-gradient(to right, #ef4444 0%, #ef4444 var(--slider-percent, 75%), var(--bg-tertiary) var(--slider-percent, 75%), var(--bg-tertiary) 100%);
+            background: linear-gradient(to right,
+                #ef4444 0%,
+                #ef4444 var(--slider-percent, 60%),
+                #d1d5db var(--slider-percent, 60%),
+                #d1d5db 100%);
         }
-        /* Value slider track fill */
         .threshold-slider.value input[type="range"] {
-            background: linear-gradient(to right, #10b981 0%, #10b981 var(--slider-percent, 60%), var(--bg-tertiary) var(--slider-percent, 60%), var(--bg-tertiary) 100%);
+            background: linear-gradient(to right,
+                #10b981 0%,
+                #10b981 var(--slider-percent, 50%),
+                #d1d5db var(--slider-percent, 50%),
+                #d1d5db 100%);
         }
         .threshold-slider input[type="range"]::-webkit-slider-thumb {
             -webkit-appearance: none;
             appearance: none;
-            width: 18px;
-            height: 18px;
+            width: 16px;
+            height: 16px;
             border-radius: 50%;
             cursor: grab;
             border: 2px solid white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-            transition: transform 0.1s ease;
-        }
-        .threshold-slider input[type="range"]::-webkit-slider-thumb:hover {
-            transform: scale(1.15);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
         }
         .threshold-slider input[type="range"]::-webkit-slider-thumb:active {
             cursor: grabbing;
-            transform: scale(1.1);
         }
         .threshold-slider.heat input[type="range"]::-webkit-slider-thumb {
             background: #ef4444;
@@ -221,16 +224,19 @@
         .threshold-slider.value input[type="range"]::-webkit-slider-thumb {
             background: #10b981;
         }
+        /* Firefox */
+        .threshold-slider input[type="range"]::-moz-range-track {
+            height: 6px;
+            background: #d1d5db;
+            border-radius: 3px;
+        }
         .threshold-slider input[type="range"]::-moz-range-thumb {
-            width: 18px;
-            height: 18px;
+            width: 16px;
+            height: 16px;
             border-radius: 50%;
             border: 2px solid white;
             cursor: grab;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        }
-        .threshold-slider input[type="range"]::-moz-range-thumb:active {
-            cursor: grabbing;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
         }
         .threshold-slider.heat input[type="range"]::-moz-range-thumb {
             background: #ef4444;
@@ -238,7 +244,6 @@
         .threshold-slider.value input[type="range"]::-moz-range-thumb {
             background: #10b981;
         }
-        /* Firefox track fill */
         .threshold-slider.heat input[type="range"]::-moz-range-progress {
             background: #ef4444;
             border-radius: 3px;
@@ -257,34 +262,6 @@
         }
         .dreams-metric-card.with-slider {
             min-width: 140px;
-        }
-
-        /* Sortable column headers */
-        .dreams-table th.sortable {
-            cursor: pointer;
-            user-select: none;
-            position: relative;
-            padding-right: 20px;
-        }
-        .dreams-table th.sortable:hover {
-            background: var(--bg-secondary);
-        }
-        .dreams-table th.sortable::after {
-            content: '\2195';
-            position: absolute;
-            right: 6px;
-            top: 50%;
-            transform: translateY(-50%);
-            opacity: 0.3;
-            font-size: 12px;
-        }
-        .dreams-table th.sortable.asc::after {
-            content: '\2191';
-            opacity: 0.8;
-        }
-        .dreams-table th.sortable.desc::after {
-            content: '\2193';
-            opacity: 0.8;
         }
     </style>
 </head>
@@ -396,17 +373,17 @@
             <thead>
                 <tr>
                     <th>#</th>
-                    <th class="sortable" data-sort="name">Name</th>
-                    <th class="sortable" data-sort="stage">Stage</th>
-                    <th class="sortable" data-sort="views">Views</th>
-                    <th class="sortable" data-sort="fav">Fav</th>
-                    <th class="sortable" data-sort="share">Share</th>
-                    <th class="sortable" data-sort="trend">Trend</th>
-                    <th class="sortable" data-sort="priority">Priority</th>
-                    <th class="sortable" data-sort="heat">Heat</th>
-                    <th class="sortable" data-sort="value">Value</th>
-                    <th class="sortable" data-sort="relationship">Relationship</th>
-                    <th class="sortable" data-sort="activity">Activity</th>
+                    <th data-sort="name">Name</th>
+                    <th data-sort="stage">Stage</th>
+                    <th data-sort="views" data-type="number">Views</th>
+                    <th data-sort="fav" data-type="number">Fav</th>
+                    <th data-sort="share" data-type="number">Share</th>
+                    <th data-sort="trend">Trend</th>
+                    <th data-sort="priority" data-type="number">Priority</th>
+                    <th data-sort="heat" data-type="number">Heat</th>
+                    <th data-sort="value" data-type="number">Value</th>
+                    <th data-sort="relationship" data-type="number">Relationship</th>
+                    <th data-sort="activity" data-type="number">Activity</th>
                     <th>Intent Signals</th>
                     <th>Phone</th>
                     <th>Next Action</th>
@@ -695,103 +672,98 @@
         // Initialize counts on page load
         updateCounts();
 
-        // Column sorting functionality
-        let currentSort = { column: null, direction: 'asc' };
+        // Column sorting functionality (matches dashboard.html pattern)
+        let currentSort = { column: null, direction: null };
+        let originalOrder = Array.from(rows);
 
-        document.querySelectorAll('th.sortable').forEach(th => {
-            th.addEventListener('click', function() {
-                const sortKey = this.dataset.sort;
-
-                // Toggle direction if same column, otherwise default to desc for numbers, asc for text
-                if (currentSort.column === sortKey) {
-                    currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
-                } else {
-                    currentSort.column = sortKey;
-                    // Default to descending for numeric columns
-                    currentSort.direction = ['views', 'fav', 'share', 'priority', 'heat', 'value', 'relationship'].includes(sortKey) ? 'desc' : 'asc';
-                }
-
-                // Update header classes
-                document.querySelectorAll('th.sortable').forEach(h => h.classList.remove('asc', 'desc'));
-                this.classList.add(currentSort.direction);
-
-                // Sort the rows
-                sortTable(sortKey, currentSort.direction);
-            });
+        document.querySelectorAll('th[data-sort]').forEach(th => {
+            th.addEventListener('click', () => sortTable(th));
         });
 
-        function sortTable(sortKey, direction) {
+        function sortTable(th) {
+            const column = th.dataset.sort;
+            const isNumeric = th.dataset.type === 'number';
             const tbody = table.querySelector('tbody');
-            const rowsArray = Array.from(rows);
+            let rowsArray = Array.from(rows);
 
-            rowsArray.sort((a, b) => {
-                let valA, valB;
-
-                switch(sortKey) {
-                    case 'name':
-                        valA = a.querySelector('.contact-name')?.textContent.trim().toLowerCase() || '';
-                        valB = b.querySelector('.contact-name')?.textContent.trim().toLowerCase() || '';
-                        break;
-                    case 'stage':
-                        valA = a.querySelector('.dreams-badge')?.textContent.trim().toLowerCase() || '';
-                        valB = b.querySelector('.dreams-badge')?.textContent.trim().toLowerCase() || '';
-                        break;
-                    case 'views':
-                        valA = parseInt(a.cells[3]?.textContent) || 0;
-                        valB = parseInt(b.cells[3]?.textContent) || 0;
-                        break;
-                    case 'fav':
-                        valA = parseInt(a.cells[4]?.textContent) || 0;
-                        valB = parseInt(b.cells[4]?.textContent) || 0;
-                        break;
-                    case 'share':
-                        valA = parseInt(a.cells[5]?.textContent) || 0;
-                        valB = parseInt(b.cells[5]?.textContent) || 0;
-                        break;
-                    case 'trend':
-                        const trendOrder = { 'warming': 3, 'stable': 2, 'cooling': 1, 'none': 0 };
-                        valA = trendOrder[a.querySelector('.trend-indicator')?.classList[1]] || 0;
-                        valB = trendOrder[b.querySelector('.trend-indicator')?.classList[1]] || 0;
-                        break;
-                    case 'priority':
-                        valA = parseFloat(a.cells[7]?.querySelector('span:last-child')?.textContent) || 0;
-                        valB = parseFloat(b.cells[7]?.querySelector('span:last-child')?.textContent) || 0;
-                        break;
-                    case 'heat':
-                        valA = parseFloat(a.dataset.heat) || 0;
-                        valB = parseFloat(b.dataset.heat) || 0;
-                        break;
-                    case 'value':
-                        valA = parseFloat(a.dataset.value) || 0;
-                        valB = parseFloat(b.dataset.value) || 0;
-                        break;
-                    case 'relationship':
-                        valA = parseFloat(a.cells[10]?.querySelector('span:last-child')?.textContent) || 0;
-                        valB = parseFloat(b.cells[10]?.querySelector('span:last-child')?.textContent) || 0;
-                        break;
-                    case 'activity':
-                        valA = parseInt(a.dataset.days) || 999;
-                        valB = parseInt(b.dataset.days) || 999;
-                        // For activity, lower days = more active, so reverse the logic
-                        if (direction === 'desc') {
-                            return valA - valB;  // Most recent first
-                        } else {
-                            return valB - valA;  // Oldest first
-                        }
-                    default:
-                        valA = '';
-                        valB = '';
-                }
-
-                // Compare values
-                if (typeof valA === 'string') {
-                    return direction === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+            // Cycle through: null -> asc -> desc -> null
+            if (currentSort.column === column) {
+                if (currentSort.direction === 'asc') {
+                    currentSort.direction = 'desc';
+                } else if (currentSort.direction === 'desc') {
+                    currentSort.direction = null;
+                    currentSort.column = null;
                 } else {
-                    return direction === 'asc' ? valA - valB : valB - valA;
+                    currentSort.direction = 'asc';
                 }
-            });
+            } else {
+                currentSort.column = column;
+                currentSort.direction = 'asc';
+            }
 
-            // Re-append rows in sorted order and update row numbers
+            // Update header styling
+            document.querySelectorAll('th').forEach(h => h.classList.remove('sorted-asc', 'sorted-desc'));
+            if (currentSort.direction) {
+                th.classList.add(currentSort.direction === 'asc' ? 'sorted-asc' : 'sorted-desc');
+            }
+
+            // If unsorted, restore original order
+            if (!currentSort.direction) {
+                rowsArray = [...originalOrder];
+            } else {
+                // Get column index
+                const colIndex = Array.from(th.parentElement.children).indexOf(th);
+
+                rowsArray.sort((a, b) => {
+                    let valA, valB;
+
+                    // Special handling for specific columns
+                    switch(column) {
+                        case 'name':
+                            valA = a.querySelector('.contact-name')?.textContent.trim().toLowerCase() || '';
+                            valB = b.querySelector('.contact-name')?.textContent.trim().toLowerCase() || '';
+                            break;
+                        case 'stage':
+                            valA = a.querySelector('.dreams-badge')?.textContent.trim().toLowerCase() || '';
+                            valB = b.querySelector('.dreams-badge')?.textContent.trim().toLowerCase() || '';
+                            break;
+                        case 'heat':
+                            valA = parseFloat(a.dataset.heat) || 0;
+                            valB = parseFloat(b.dataset.heat) || 0;
+                            break;
+                        case 'value':
+                            valA = parseFloat(a.dataset.value) || 0;
+                            valB = parseFloat(b.dataset.value) || 0;
+                            break;
+                        case 'activity':
+                            valA = parseInt(a.dataset.days) || 999;
+                            valB = parseInt(b.dataset.days) || 999;
+                            break;
+                        case 'trend':
+                            const trendOrder = { 'warming': 3, 'stable': 2, 'cooling': 1, 'none': 0 };
+                            valA = trendOrder[a.querySelector('.trend-indicator')?.classList[1]] || 0;
+                            valB = trendOrder[b.querySelector('.trend-indicator')?.classList[1]] || 0;
+                            break;
+                        default:
+                            // Generic: get cell text by column index
+                            valA = a.children[colIndex]?.textContent?.trim() || '';
+                            valB = b.children[colIndex]?.textContent?.trim() || '';
+                            if (isNumeric) {
+                                valA = parseFloat(valA.replace(/[$,]/g, '')) || 0;
+                                valB = parseFloat(valB.replace(/[$,]/g, '')) || 0;
+                            }
+                    }
+
+                    // Compare
+                    if (typeof valA === 'string') {
+                        return currentSort.direction === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+                    } else {
+                        return currentSort.direction === 'asc' ? valA - valB : valB - valA;
+                    }
+                });
+            }
+
+            // Rebuild table
             rowsArray.forEach((row, index) => {
                 row.querySelector('.row-num').textContent = index + 1;
                 tbody.appendChild(row);
