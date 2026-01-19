@@ -650,9 +650,22 @@
                 {% for prop in property_summary %}
                 <tr>
                     <td class="property-address-cell">
-                        <div class="property-address-main">{{ prop.property_address or 'Unknown' }}</div>
-                        {% if prop.property_mls %}
+                        {% if prop.property_address and prop.property_address != '[Not found on IDX]' %}
+                        <div class="property-address-main">
+                            <a href="https://www.smokymountainhomes4sale.com/property/{{ prop.property_mls }}"
+                               target="_blank" class="dreams-link" title="View on IDX">
+                                {{ prop.property_address }}
+                            </a>
+                        </div>
                         <div class="property-address-mls">MLS# {{ prop.property_mls }}</div>
+                        {% else %}
+                        <div class="property-address-main">
+                            <a href="https://www.smokymountainhomes4sale.com/property/{{ prop.property_mls }}"
+                               target="_blank" class="dreams-link" style="font-family: monospace;" title="View on IDX">
+                                MLS# {{ prop.property_mls }} ↗
+                            </a>
+                        </div>
+                        <div class="property-address-mls" style="color: var(--text-tertiary); font-style: italic;">Click to view on IDX</div>
                         {% endif %}
                     </td>
                     <td class="dreams-price">

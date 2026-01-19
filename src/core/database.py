@@ -407,6 +407,16 @@ class DREAMSDatabase:
             FOREIGN KEY (contact_id) REFERENCES leads(id)
         );
 
+        -- IDX Property Cache (MLS to address lookup from IDX site)
+        CREATE TABLE IF NOT EXISTS idx_property_cache (
+            mls_number TEXT PRIMARY KEY,
+            address TEXT,
+            city TEXT,
+            price INTEGER,
+            status TEXT,
+            last_updated TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+
         -- Property changes (price/status changes detected by monitor)
         CREATE TABLE IF NOT EXISTS property_changes (
             id TEXT PRIMARY KEY,
@@ -1408,6 +1418,60 @@ class DREAMSDatabase:
             return [dict(row) for row in rows]
 
     # ==========================================
+    # IDX PROPERTY CACHE OPERATIONS
+    # ==========================================
+
+    IDX_BASE_URL = "https://www.smokymountainhomes4sale.com/property"
+
+    def get_idx_property_url(self, mls_number: str) -> str:
+        """Generate IDX property URL from MLS number."""
+        return f"{self.IDX_BASE_URL}/{mls_number}"
+
+    def get_idx_cache(self, mls_number: str) -> Optional[Dict[str, Any]]:
+        """Get cached IDX property data by MLS number."""
+        with self._get_connection() as conn:
+            row = conn.execute(
+                'SELECT * FROM idx_property_cache WHERE mls_number = ?',
+                (mls_number,)
+            ).fetchone()
+            return dict(row) if row else None
+
+    def upsert_idx_cache(
+        self,
+        mls_number: str,
+        address: str,
+        city: Optional[str] = None,
+        price: Optional[int] = None,
+        status: Optional[str] = None
+    ):
+        """Insert or update IDX property cache entry."""
+        with self._get_connection() as conn:
+            conn.execute('''
+                INSERT INTO idx_property_cache (mls_number, address, city, price, status, last_updated)
+                VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(mls_number) DO UPDATE SET
+                    address = excluded.address,
+                    city = excluded.city,
+                    price = COALESCE(excluded.price, price),
+                    status = COALESCE(excluded.status, status),
+                    last_updated = CURRENT_TIMESTAMP
+            ''', (mls_number, address, city, price, status))
+            conn.commit()
+
+    def get_uncached_mls_numbers(self, limit: int = 100) -> List[str]:
+        """Get MLS numbers from contact_events that aren't in the cache."""
+        with self._get_connection() as conn:
+            rows = conn.execute('''
+                SELECT DISTINCT e.property_mls
+                FROM contact_events e
+                LEFT JOIN idx_property_cache c ON e.property_mls = c.mls_number
+                WHERE e.property_mls IS NOT NULL
+                    AND c.mls_number IS NULL
+                LIMIT ?
+            ''', (limit,)).fetchall()
+            return [row[0] for row in rows]
+
+    # ==========================================
     # PROPERTIES VIEWED OPERATIONS
     # ==========================================
 
@@ -1416,36 +1480,40 @@ class DREAMSDatabase:
         Get aggregated property view history for a contact.
         Returns properties this contact has viewed with view counts,
         favorite/share status, and who else is viewing each property.
+        Joins with properties table AND idx_property_cache to get addresses.
         """
         with self._get_connection() as conn:
             # Get all property events for this contact, aggregated by property
+            # LEFT JOIN with both properties table and idx_property_cache
             rows = conn.execute('''
                 SELECT
-                    property_address,
-                    property_price,
-                    property_mls,
-                    COUNT(CASE WHEN event_type = 'property_view' THEN 1 END) as view_count,
-                    MAX(CASE WHEN event_type = 'property_favorite' THEN 1 ELSE 0 END) as is_favorited,
-                    MAX(CASE WHEN event_type = 'property_share' THEN 1 ELSE 0 END) as is_shared,
-                    MIN(occurred_at) as first_viewed,
-                    MAX(occurred_at) as last_viewed
-                FROM contact_events
-                WHERE contact_id = ?
-                    AND property_address IS NOT NULL
-                    AND property_address != ''
-                GROUP BY property_address
-                ORDER BY MAX(occurred_at) DESC
+                    COALESCE(e.property_address, p.address, c.address) as property_address,
+                    COALESCE(MAX(e.property_price), p.price, c.price) as property_price,
+                    e.property_mls,
+                    COUNT(CASE WHEN e.event_type = 'property_view' THEN 1 END) as view_count,
+                    MAX(CASE WHEN e.event_type = 'property_favorite' THEN 1 ELSE 0 END) as is_favorited,
+                    MAX(CASE WHEN e.event_type = 'property_share' THEN 1 ELSE 0 END) as is_shared,
+                    MIN(e.occurred_at) as first_viewed,
+                    MAX(e.occurred_at) as last_viewed
+                FROM contact_events e
+                LEFT JOIN properties p ON e.property_mls = p.mls_number
+                LEFT JOIN idx_property_cache c ON e.property_mls = c.mls_number
+                WHERE e.contact_id = ?
+                    AND (e.property_mls IS NOT NULL OR e.property_address IS NOT NULL)
+                GROUP BY COALESCE(e.property_mls, e.property_address)
+                ORDER BY MAX(e.occurred_at) DESC
             ''', (contact_id,)).fetchall()
 
             results = []
             for row in rows:
                 prop_data = dict(row)
 
-                # Find other contacts viewing this property
+                # Find other contacts viewing this property (use MLS if no address)
+                property_identifier = prop_data['property_address'] or prop_data['property_mls']
                 other_contacts = self.get_property_interested_contacts(
-                    prop_data['property_address'],
+                    property_identifier,
                     exclude_contact_id=contact_id
-                )
+                ) if property_identifier else []
                 prop_data['other_contacts'] = other_contacts
                 prop_data['other_count'] = len(other_contacts)
 
