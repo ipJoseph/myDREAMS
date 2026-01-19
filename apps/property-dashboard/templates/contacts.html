@@ -82,6 +82,21 @@
         .activity-indicator.recent { background: #10b981; }
         .activity-indicator.moderate { background: #f59e0b; }
         .activity-indicator.cold { background: #9ca3af; }
+
+        /* Trend indicator */
+        .trend-indicator {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            font-size: 12px;
+        }
+        .trend-indicator.warming { background: #dcfce7; color: #166534; }
+        .trend-indicator.cooling { background: #fee2e2; color: #991b1b; }
+        .trend-indicator.stable { background: #f3f4f6; color: #6b7280; }
+        .trend-indicator.none { background: transparent; color: #d1d5db; }
     </style>
 </head>
 <body>
@@ -175,6 +190,7 @@
                     <th>#</th>
                     <th>Name</th>
                     <th>Stage</th>
+                    <th>Trend</th>
                     <th>Priority</th>
                     <th>Heat</th>
                     <th>Value</th>
@@ -201,6 +217,20 @@
                     <td>
                         <span class="dreams-badge dreams-badge-{{ (contact.stage or 'unknown')|lower|replace(' ', '-') }}">
                             {{ contact.stage or 'Unknown' }}
+                        </span>
+                    </td>
+                    <td>
+                        {% set trend = contact.score_trend or 'none' %}
+                        <span class="trend-indicator {{ trend }}" title="{{ trend|capitalize }}">
+                            {% if trend == 'warming' %}
+                            &#8593;
+                            {% elif trend == 'cooling' %}
+                            &#8595;
+                            {% elif trend == 'stable' %}
+                            &#8596;
+                            {% else %}
+                            &mdash;
+                            {% endif %}
                         </span>
                     </td>
                     <td>

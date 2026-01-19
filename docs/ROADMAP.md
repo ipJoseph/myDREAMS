@@ -93,10 +93,22 @@
 - [ ] Stated requirements vs. behavioral preferences
 - [ ] Match score breakdown visualization
 
+### Enhanced FUB Data Architecture (New - January 2026)
+| Task | Status | Notes |
+|------|--------|-------|
+| Score history table | Done | `contact_scoring_history` - daily snapshots |
+| Communications table | Done | `contact_communications` - individual calls/texts |
+| Events table | Done | `contact_events` - website visits, property views |
+| Trend calculation | Done | Warming/cooling/stable based on score delta |
+| Activity timeline | Done | Combined communications + events on contact detail |
+| Trend mini-chart | Done | 7-day heat score visualization |
+| Trend indicators | Done | Column on contacts list |
+
 ### CRM Integration Enhancements
 - [x] Follow Up Boss activity sync to SQLite (fub-to-sheets)
 - [x] Intent signals: repeat views, high favorites, activity burst, sharing
-- [ ] Activity timeline in dashboard
+- [x] Activity timeline in dashboard (communications + events)
+- [x] Score trend tracking and visualization
 - [ ] Lead requirements extraction from CRM notes
 - [ ] Automatic note push on property matches
 
@@ -177,4 +189,4 @@
 ---
 
 *Roadmap maintained by Joseph & Claude*
-*Last updated: January 18, 2026*
+*Last updated: January 18, 2026 - Enhanced FUB Data Architecture implemented*

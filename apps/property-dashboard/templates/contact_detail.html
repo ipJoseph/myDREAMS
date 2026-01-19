@@ -183,6 +183,147 @@
         .back-link:hover {
             text-decoration: underline;
         }
+
+        /* Trend indicator */
+        .trend-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 12px;
+        }
+        .trend-badge.warming { background: #dcfce7; color: #166534; }
+        .trend-badge.cooling { background: #fee2e2; color: #991b1b; }
+        .trend-badge.stable { background: #f3f4f6; color: #374151; }
+
+        .trend-arrow { font-size: 14px; }
+
+        /* Activity timeline */
+        .activity-timeline {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 0 20px 20px 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .timeline-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .timeline-item {
+            display: flex;
+            gap: 12px;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--bg-tertiary);
+        }
+
+        .timeline-item:last-child {
+            border-bottom: none;
+        }
+
+        .timeline-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+
+        .timeline-icon.call { background: #dbeafe; color: #1d4ed8; }
+        .timeline-icon.text { background: #dcfce7; color: #166534; }
+        .timeline-icon.website_visit { background: #fef3c7; color: #92400e; }
+        .timeline-icon.property_view { background: #ede9fe; color: #6d28d9; }
+        .timeline-icon.property_favorite { background: #fce7f3; color: #be185d; }
+        .timeline-icon.property_share { background: #e0e7ff; color: #4338ca; }
+
+        .timeline-content {
+            flex: 1;
+        }
+
+        .timeline-title {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .timeline-subtitle {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        .timeline-time {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            white-space: nowrap;
+        }
+
+        .timeline-empty {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-secondary);
+        }
+
+        /* Mini trend chart */
+        .trend-chart-container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 0 20px 20px 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .trend-chart {
+            display: flex;
+            align-items: flex-end;
+            gap: 4px;
+            height: 60px;
+            padding: 10px 0;
+        }
+
+        .trend-bar {
+            flex: 1;
+            min-width: 20px;
+            border-radius: 4px 4px 0 0;
+            background: linear-gradient(180deg, var(--primary) 0%, var(--primary-light) 100%);
+            transition: height 0.3s ease;
+        }
+
+        .trend-bar:hover {
+            opacity: 0.8;
+        }
+
+        .trend-summary {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--bg-tertiary);
+        }
+
+        .trend-summary-item {
+            text-align: center;
+        }
+
+        .trend-summary-value {
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        .trend-summary-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+        }
     </style>
 </head>
 <body>
@@ -205,7 +346,20 @@
     <!-- Contact Header Card -->
     <div class="contact-header-card">
         <div>
-            <h1 class="contact-name-large">{{ contact.first_name or '' }} {{ contact.last_name or '' }}</h1>
+            <h1 class="contact-name-large">
+                {{ contact.first_name or '' }} {{ contact.last_name or '' }}
+                {% if trend_summary and trend_summary.trend_direction %}
+                <span class="trend-badge {{ trend_summary.trend_direction }}">
+                    {% if trend_summary.trend_direction == 'warming' %}
+                    <span class="trend-arrow">&#8593;</span> Warming
+                    {% elif trend_summary.trend_direction == 'cooling' %}
+                    <span class="trend-arrow">&#8595;</span> Cooling
+                    {% else %}
+                    <span class="trend-arrow">&#8596;</span> Stable
+                    {% endif %}
+                </span>
+                {% endif %}
+            </h1>
             <span class="dreams-badge dreams-badge-{{ (contact.stage or 'unknown')|lower|replace(' ', '-') }}">
                 {{ contact.stage or 'Unknown' }}
             </span>
@@ -328,6 +482,109 @@
                 <span>Property Sharing</span>
             </div>
         </div>
+    </div>
+
+    <!-- Score Trend Chart -->
+    {% if trend_summary and trend_summary.scoring_history %}
+    <div class="trend-chart-container">
+        <h3 class="section-title">Heat Score Trend (7 Days)</h3>
+        <div class="trend-chart">
+            {% for record in trend_summary.scoring_history|reverse %}
+            <div class="trend-bar"
+                 style="height: {{ record.heat_score }}%;"
+                 title="{{ record.recorded_at[:10] }}: {{ record.heat_score }}">
+            </div>
+            {% endfor %}
+        </div>
+        <div class="trend-summary">
+            <div class="trend-summary-item">
+                <div class="trend-summary-value">{{ trend_summary.heat_score_7d_avg or '--' }}</div>
+                <div class="trend-summary-label">7-Day Avg</div>
+            </div>
+            <div class="trend-summary-item">
+                <div class="trend-summary-value">
+                    {% if trend_summary.heat_delta %}
+                    {{ '%+.1f'|format(trend_summary.heat_delta) }}
+                    {% else %}--{% endif %}
+                </div>
+                <div class="trend-summary-label">Change</div>
+            </div>
+            <div class="trend-summary-item">
+                <div class="trend-summary-value">{{ trend_summary.communications_this_week or 0 }}</div>
+                <div class="trend-summary-label">Comms This Week</div>
+            </div>
+            <div class="trend-summary-item">
+                <div class="trend-summary-value">{{ trend_summary.events_this_week or 0 }}</div>
+                <div class="trend-summary-label">Events This Week</div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Activity Timeline -->
+    <div class="activity-timeline">
+        <h3 class="section-title">Activity Timeline (Last 30 Days)</h3>
+        {% if timeline and timeline|length > 0 %}
+        <ul class="timeline-list">
+            {% for item in timeline %}
+            <li class="timeline-item">
+                <div class="timeline-icon {{ item.activity_type }}">
+                    {% if item.activity_type == 'call' %}
+                    &#128222;
+                    {% elif item.activity_type == 'text' %}
+                    &#128172;
+                    {% elif item.activity_type == 'website_visit' %}
+                    &#127760;
+                    {% elif item.activity_type == 'property_view' %}
+                    &#128065;
+                    {% elif item.activity_type == 'property_favorite' %}
+                    &#10084;
+                    {% elif item.activity_type == 'property_share' %}
+                    &#128228;
+                    {% else %}
+                    &#128196;
+                    {% endif %}
+                </div>
+                <div class="timeline-content">
+                    <div class="timeline-title">
+                        {% if item.activity_type == 'call' %}
+                        {{ item.direction|capitalize }} Call
+                        {% if item.duration_seconds %}({{ (item.duration_seconds / 60)|int }} min){% endif %}
+                        {% elif item.activity_type == 'text' %}
+                        {{ item.direction|capitalize }} Text
+                        {% elif item.activity_type == 'website_visit' %}
+                        Website Visit
+                        {% elif item.activity_type == 'property_view' %}
+                        Viewed Property
+                        {% elif item.activity_type == 'property_favorite' %}
+                        Favorited Property
+                        {% elif item.activity_type == 'property_share' %}
+                        Shared Property
+                        {% else %}
+                        {{ item.activity_type|replace('_', ' ')|title }}
+                        {% endif %}
+                    </div>
+                    <div class="timeline-subtitle">
+                        {% if item.property_address %}
+                        {{ item.property_address }}
+                        {% if item.property_price %}(${{ "{:,.0f}".format(item.property_price) }}){% endif %}
+                        {% elif item.fub_user_name %}
+                        Agent: {{ item.fub_user_name }}
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="timeline-time">
+                    {{ item.occurred_at[:10] if item.occurred_at else '' }}
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <div class="timeline-empty">
+            <p>No activity recorded in the last 30 days.</p>
+            <p style="font-size: 13px; margin-top: 8px;">Activity data will appear after the next FUB sync.</p>
+        </div>
+        {% endif %}
     </div>
 
     <!-- Linked Properties -->

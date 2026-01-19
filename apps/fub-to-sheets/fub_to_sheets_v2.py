@@ -1277,6 +1277,270 @@ def send_top_priority_email(
 # SQLITE DATABASE SYNC
 # =========================================================================
 
+def sync_communications_to_sqlite(
+    calls: List[Dict],
+    texts: List[Dict],
+    db
+) -> Tuple[int, int]:
+    """
+    Sync individual communication records to SQLite.
+
+    Args:
+        calls: List of call records from FUB
+        texts: List of text records from FUB
+        db: DREAMSDatabase instance
+
+    Returns:
+        Tuple of (calls_synced, texts_synced)
+    """
+    import uuid
+
+    calls_synced = 0
+    texts_synced = 0
+
+    # Process calls
+    for call in calls:
+        try:
+            fub_id = call.get("id")
+            person_id = call.get("personId")
+            if not person_id:
+                continue
+
+            person_id = str(person_id)
+
+            # Determine direction
+            is_incoming = call.get("isIncoming")
+            direction = "inbound" if is_incoming else "outbound"
+
+            # Create unique ID for this call
+            comm_id = f"call_{fub_id}" if fub_id else f"call_{uuid.uuid4()}"
+
+            # Get timestamp
+            occurred_at = call.get("created") or call.get("timestamp")
+
+            # Get duration
+            duration = call.get("duration") or call.get("durationSeconds")
+
+            # Get agent name
+            agent_name = None
+            user = call.get("user")
+            if isinstance(user, dict):
+                agent_name = user.get("name")
+
+            # Get status
+            status = call.get("outcome") or call.get("status") or "completed"
+
+            if db.insert_communication(
+                comm_id=comm_id,
+                contact_id=person_id,
+                comm_type="call",
+                direction=direction,
+                occurred_at=occurred_at,
+                duration_seconds=duration,
+                fub_id=str(fub_id) if fub_id else None,
+                fub_user_name=agent_name,
+                status=status
+            ):
+                calls_synced += 1
+
+        except Exception as e:
+            logger.debug(f"Error syncing call: {e}")
+
+    # Process texts
+    for text in texts:
+        try:
+            fub_id = text.get("id")
+            person_id = text.get("personId")
+            if not person_id:
+                continue
+
+            person_id = str(person_id)
+
+            # Determine direction
+            direction = text.get("direction", "").lower()
+            if direction not in ("inbound", "outbound"):
+                direction = "outbound"  # Default
+
+            # Create unique ID for this text
+            comm_id = f"text_{fub_id}" if fub_id else f"text_{uuid.uuid4()}"
+
+            # Get timestamp
+            occurred_at = text.get("created") or text.get("timestamp")
+
+            # Get agent name
+            agent_name = None
+            user = text.get("user")
+            if isinstance(user, dict):
+                agent_name = user.get("name")
+
+            if db.insert_communication(
+                comm_id=comm_id,
+                contact_id=person_id,
+                comm_type="text",
+                direction=direction,
+                occurred_at=occurred_at,
+                fub_id=str(fub_id) if fub_id else None,
+                fub_user_name=agent_name,
+                status="delivered"
+            ):
+                texts_synced += 1
+
+        except Exception as e:
+            logger.debug(f"Error syncing text: {e}")
+
+    logger.info(f"✓ Communications synced: {calls_synced} calls, {texts_synced} texts")
+    return calls_synced, texts_synced
+
+
+def sync_events_to_sqlite(
+    events: List[Dict],
+    db
+) -> int:
+    """
+    Sync individual event records to SQLite.
+
+    Args:
+        events: List of event records from FUB
+        db: DREAMSDatabase instance
+
+    Returns:
+        Number of events synced
+    """
+    import uuid
+
+    events_synced = 0
+
+    # Map FUB event types to our normalized types
+    event_type_map = {
+        "visited_website": "website_visit",
+        "viewed_property": "property_view",
+        "saved_property": "property_favorite",
+        "saved_property_search": "property_share",
+    }
+
+    for event in events:
+        try:
+            fub_event_id = event.get("id")
+            person_id = event.get("personId")
+            if not person_id:
+                continue
+
+            person_id = str(person_id)
+
+            # Normalize event type
+            event_type_raw = event.get("type", "")
+            event_type_normalized = event_type_raw.lower().replace(" ", "_")
+            event_type = event_type_map.get(event_type_normalized)
+
+            # Skip unknown event types
+            if not event_type:
+                continue
+
+            # Create unique ID for this event
+            event_id = f"evt_{fub_event_id}" if fub_event_id else f"evt_{uuid.uuid4()}"
+
+            # Get timestamp
+            occurred_at = event.get("created")
+
+            # Get property details if available
+            property_address = None
+            property_price = None
+            property_mls = None
+
+            property_obj = event.get("property", {})
+            if isinstance(property_obj, dict):
+                property_address = property_obj.get("address") or property_obj.get("streetAddress")
+                property_price = property_obj.get("price")
+                property_mls = property_obj.get("mlsNumber") or property_obj.get("id")
+
+                # Try to get price as int
+                if property_price:
+                    try:
+                        property_price = int(float(property_price))
+                    except (ValueError, TypeError):
+                        property_price = None
+
+            if db.insert_event(
+                event_id=event_id,
+                contact_id=person_id,
+                event_type=event_type,
+                occurred_at=occurred_at,
+                property_address=property_address,
+                property_price=property_price,
+                property_mls=str(property_mls) if property_mls else None,
+                fub_event_id=str(fub_event_id) if fub_event_id else None
+            ):
+                events_synced += 1
+
+        except Exception as e:
+            logger.debug(f"Error syncing event: {e}")
+
+    logger.info(f"✓ Events synced: {events_synced} events")
+    return events_synced
+
+
+def sync_scoring_history_to_sqlite(
+    contact_rows: List[List],
+    person_stats: Dict[str, Dict],
+    db,
+    sync_id: Optional[int] = None
+) -> int:
+    """
+    Sync scoring history snapshots to SQLite (once per day per contact).
+
+    Args:
+        contact_rows: List of contact rows with scores
+        person_stats: Dictionary of person stats keyed by person ID
+        db: DREAMSDatabase instance
+        sync_id: Optional sync log ID
+
+    Returns:
+        Number of scoring history records created
+    """
+    idx = {name: i for i, name in enumerate(CONTACTS_HEADER)}
+    scores_recorded = 0
+
+    for row in contact_rows:
+        try:
+            fub_id = str(row[idx["id"]]) if row[idx["id"]] else None
+            if not fub_id:
+                continue
+
+            stats = person_stats.get(fub_id, {})
+
+            # Calculate intent signal count
+            intent_count = sum([
+                1 if row[idx["intent_repeat_views"]] == "✓" else 0,
+                1 if row[idx["intent_high_favorites"]] == "✓" else 0,
+                1 if row[idx["intent_activity_burst"]] == "✓" else 0,
+                1 if row[idx["intent_sharing"]] == "✓" else 0,
+            ])
+
+            result = db.insert_scoring_history(
+                contact_id=fub_id,
+                heat_score=float(row[idx["heat_score"]] or 0),
+                value_score=float(row[idx["value_score"]] or 0),
+                relationship_score=float(row[idx["relationship_score"]] or 0),
+                priority_score=float(row[idx["priority_score"]] or 0),
+                website_visits=int(row[idx["website_visits"]] or 0),
+                properties_viewed=int(row[idx["properties_viewed"]] or 0),
+                calls_inbound=int(row[idx["calls_inbound"]] or 0),
+                calls_outbound=int(row[idx["calls_outbound"]] or 0),
+                texts_total=int(row[idx["texts_total"]] or 0),
+                intent_signal_count=intent_count,
+                sync_id=sync_id
+            )
+
+            if result is not None:  # None means skipped (already recorded today)
+                scores_recorded += 1
+
+        except Exception as e:
+            logger.debug(f"Error recording scoring history: {e}")
+
+    logger.info(f"✓ Scoring history: {scores_recorded} records created")
+    return scores_recorded
+
+
 def sync_to_sqlite(contact_rows: List[List], person_stats: Dict[str, Dict]):
     """
     Sync contacts to SQLite database for unified DREAMS dashboard.
@@ -1522,6 +1786,24 @@ def main():
 
         # Sync to SQLite database (for unified DREAMS dashboard)
         sync_to_sqlite(contact_rows, person_stats)
+
+        # Enhanced FUB data sync: individual records and scoring history
+        if Config.SQLITE_SYNC_ENABLED:
+            try:
+                from src.core.database import DREAMSDatabase
+                db = DREAMSDatabase(Config.DREAMS_DB_PATH)
+
+                # Sync individual communications (calls/texts)
+                sync_communications_to_sqlite(calls, texts, db)
+
+                # Sync individual events
+                sync_events_to_sqlite(events, db)
+
+                # Sync scoring history (once per day per contact)
+                sync_scoring_history_to_sqlite(contact_rows, person_stats, db)
+
+            except Exception as e:
+                logger.error(f"Enhanced FUB data sync failed: {e}")
 
         # Summary
         elapsed = time.time() - start_time

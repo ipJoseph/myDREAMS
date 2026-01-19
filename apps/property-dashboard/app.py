@@ -546,9 +546,17 @@ def contact_detail(contact_id):
     # Get linked properties
     properties = db.get_contact_properties(contact_id)
 
+    # Get activity timeline (communications + events from last 30 days)
+    timeline = db.get_activity_timeline(contact_id, days=30, limit=50)
+
+    # Get trend summary (scoring history, 7d avg, trend direction)
+    trend_summary = db.get_contact_trend_summary(contact_id)
+
     return render_template('contact_detail.html',
                          contact=contact,
                          properties=properties,
+                         timeline=timeline,
+                         trend_summary=trend_summary,
                          refresh_time=datetime.now().strftime('%B %d, %Y %I:%M %p'))
 
 

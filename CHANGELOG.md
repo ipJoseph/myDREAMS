@@ -12,6 +12,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Shared CSS design system (`shared/css/dreams.css`)
 - Archive folder for deprecated code
 - CHANGELOG.md for tracking releases
+- **Enhanced FUB Data Architecture** - Activity history, scoring trends, proper relational tables
+  - `contact_scoring_history` table for tracking score snapshots over time
+  - `contact_communications` table for individual call/text records
+  - `contact_events` table for website visits, property views, favorites
+  - Daily scoring history with trend calculation (warming/cooling/stable)
+  - Activity timeline on contact detail view (communications + events)
+  - Score trend mini-chart with 7-day average and delta
+  - Trend indicator column on contacts list
 - **Cloud Migration Phase 1** - Authentication & portable paths
   - API key authentication for Property API (`X-API-Key` header)
   - Basic auth for Property Dashboard admin routes

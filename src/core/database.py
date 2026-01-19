@@ -8,7 +8,7 @@ import sqlite3
 import json
 from pathlib import Path
 from typing import List, Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, timedelta
 from contextlib import contextmanager
 import logging
 
@@ -89,6 +89,12 @@ class DREAMSDatabase:
             ("intent_signal_count", "INTEGER DEFAULT 0"),
             ("next_action", "TEXT"),
             ("next_action_date", "TEXT"),
+            # Enhanced FUB data architecture columns
+            ("score_trend", "TEXT"),                    # 'warming', 'cooling', 'stable'
+            ("heat_score_7d_avg", "REAL"),              # Rolling 7-day average
+            ("last_score_recorded_at", "TEXT"),         # Last scoring history timestamp
+            ("total_communications", "INTEGER DEFAULT 0"),  # Total comms count
+            ("total_events", "INTEGER DEFAULT 0"),      # Total events count
         ]
 
         for col_name, col_type in new_lead_columns:
@@ -347,6 +353,59 @@ class DREAMSDatabase:
             error_message TEXT,
             details TEXT
         );
+
+        -- Contact scoring history (track score snapshots for trend analysis)
+        CREATE TABLE IF NOT EXISTS contact_scoring_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            contact_id TEXT NOT NULL,
+            recorded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            sync_id INTEGER,
+            -- Score snapshots
+            heat_score REAL NOT NULL DEFAULT 0,
+            value_score REAL NOT NULL DEFAULT 0,
+            relationship_score REAL NOT NULL DEFAULT 0,
+            priority_score REAL NOT NULL DEFAULT 0,
+            -- Activity counts at snapshot time
+            website_visits INTEGER DEFAULT 0,
+            properties_viewed INTEGER DEFAULT 0,
+            calls_inbound INTEGER DEFAULT 0,
+            calls_outbound INTEGER DEFAULT 0,
+            texts_total INTEGER DEFAULT 0,
+            intent_signal_count INTEGER DEFAULT 0,
+            -- Computed trends
+            heat_delta REAL,
+            trend_direction TEXT,  -- 'warming', 'cooling', 'stable'
+            FOREIGN KEY (contact_id) REFERENCES leads(id)
+        );
+
+        -- Contact communications (individual call/text records - NO content stored for privacy)
+        CREATE TABLE IF NOT EXISTS contact_communications (
+            id TEXT PRIMARY KEY,
+            contact_id TEXT NOT NULL,
+            comm_type TEXT NOT NULL,      -- 'call', 'text', 'email'
+            direction TEXT NOT NULL,      -- 'inbound', 'outbound'
+            occurred_at TEXT NOT NULL,
+            duration_seconds INTEGER,     -- Calls only
+            fub_id TEXT,
+            fub_user_name TEXT,           -- Agent who handled it
+            status TEXT,                  -- 'completed', 'missed', 'voicemail'
+            imported_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (contact_id) REFERENCES leads(id)
+        );
+
+        -- Contact events (website visits, property views, favorites from FUB)
+        CREATE TABLE IF NOT EXISTS contact_events (
+            id TEXT PRIMARY KEY,
+            contact_id TEXT NOT NULL,
+            event_type TEXT NOT NULL,     -- 'website_visit', 'property_view', 'property_favorite', 'property_share'
+            occurred_at TEXT NOT NULL,
+            property_address TEXT,        -- Denormalized for display
+            property_price INTEGER,
+            property_mls TEXT,
+            fub_event_id TEXT,            -- For deduplication
+            imported_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (contact_id) REFERENCES leads(id)
+        );
         '''
 
     def _get_indexes_schema(self) -> str:
@@ -371,6 +430,14 @@ class DREAMSDatabase:
         CREATE INDEX IF NOT EXISTS idx_contact_props_contact ON contact_properties(contact_id);
         CREATE INDEX IF NOT EXISTS idx_contact_props_property ON contact_properties(property_id);
         CREATE INDEX IF NOT EXISTS idx_contact_props_relationship ON contact_properties(relationship);
+        -- Contact scoring history indexes
+        CREATE INDEX IF NOT EXISTS idx_scoring_history_contact ON contact_scoring_history(contact_id, recorded_at DESC);
+        -- Contact communications indexes
+        CREATE INDEX IF NOT EXISTS idx_comms_contact ON contact_communications(contact_id, occurred_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_comms_type ON contact_communications(comm_type);
+        -- Contact events indexes
+        CREATE INDEX IF NOT EXISTS idx_events_contact ON contact_events(contact_id, occurred_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_events_type ON contact_events(event_type);
         '''
     
     # ==========================================
@@ -983,3 +1050,372 @@ class DREAMSDatabase:
                 records_failed, datetime.now().isoformat(), error_message, log_id
             ))
             conn.commit()
+
+    # ==========================================
+    # CONTACT SCORING HISTORY OPERATIONS
+    # ==========================================
+
+    def should_record_daily_score(self, contact_id: str) -> bool:
+        """Check if we should record a score today (only once per day)."""
+        with self._get_connection() as conn:
+            today = datetime.now().date().isoformat()
+            row = conn.execute('''
+                SELECT COUNT(*) FROM contact_scoring_history
+                WHERE contact_id = ? AND DATE(recorded_at) = ?
+            ''', (contact_id, today)).fetchone()
+            return row[0] == 0
+
+    def insert_scoring_history(
+        self,
+        contact_id: str,
+        heat_score: float,
+        value_score: float,
+        relationship_score: float,
+        priority_score: float,
+        website_visits: int = 0,
+        properties_viewed: int = 0,
+        calls_inbound: int = 0,
+        calls_outbound: int = 0,
+        texts_total: int = 0,
+        intent_signal_count: int = 0,
+        sync_id: Optional[int] = None
+    ) -> Optional[int]:
+        """
+        Insert a scoring history record with trend calculation.
+        Returns the record ID or None if skipped (already recorded today).
+        """
+        # Only record once per day
+        if not self.should_record_daily_score(contact_id):
+            return None
+
+        # Get previous score to calculate delta
+        prev = self.get_latest_scoring(contact_id)
+        heat_delta = None
+        trend_direction = 'stable'
+
+        if prev:
+            heat_delta = heat_score - (prev.get('heat_score') or 0)
+            if heat_delta > 5:
+                trend_direction = 'warming'
+            elif heat_delta < -5:
+                trend_direction = 'cooling'
+            else:
+                trend_direction = 'stable'
+
+        with self._get_connection() as conn:
+            cursor = conn.execute('''
+                INSERT INTO contact_scoring_history
+                (contact_id, heat_score, value_score, relationship_score, priority_score,
+                 website_visits, properties_viewed, calls_inbound, calls_outbound,
+                 texts_total, intent_signal_count, heat_delta, trend_direction, sync_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                contact_id, heat_score, value_score, relationship_score, priority_score,
+                website_visits, properties_viewed, calls_inbound, calls_outbound,
+                texts_total, intent_signal_count, heat_delta, trend_direction, sync_id
+            ))
+            conn.commit()
+
+            # Update lead with trend and last recorded timestamp
+            conn.execute('''
+                UPDATE leads SET
+                    score_trend = ?,
+                    last_score_recorded_at = ?
+                WHERE id = ?
+            ''', (trend_direction, datetime.now().isoformat(), contact_id))
+            conn.commit()
+
+            return cursor.lastrowid
+
+    def get_latest_scoring(self, contact_id: str) -> Optional[Dict[str, Any]]:
+        """Get the most recent scoring snapshot for a contact."""
+        with self._get_connection() as conn:
+            row = conn.execute('''
+                SELECT * FROM contact_scoring_history
+                WHERE contact_id = ?
+                ORDER BY recorded_at DESC LIMIT 1
+            ''', (contact_id,)).fetchone()
+            return dict(row) if row else None
+
+    def get_scoring_history(
+        self,
+        contact_id: str,
+        days: int = 30,
+        limit: int = 100
+    ) -> List[Dict[str, Any]]:
+        """Get scoring history for a contact over the specified days."""
+        with self._get_connection() as conn:
+            cutoff = (datetime.now() - timedelta(days=days)).isoformat()
+            rows = conn.execute('''
+                SELECT * FROM contact_scoring_history
+                WHERE contact_id = ? AND recorded_at >= ?
+                ORDER BY recorded_at DESC
+                LIMIT ?
+            ''', (contact_id, cutoff, limit)).fetchall()
+            return [dict(row) for row in rows]
+
+    def calculate_heat_score_7d_avg(self, contact_id: str) -> Optional[float]:
+        """Calculate the 7-day average heat score for a contact."""
+        history = self.get_scoring_history(contact_id, days=7)
+        if not history:
+            return None
+        scores = [h.get('heat_score', 0) for h in history]
+        return round(sum(scores) / len(scores), 1) if scores else None
+
+    # ==========================================
+    # CONTACT COMMUNICATIONS OPERATIONS
+    # ==========================================
+
+    def communication_exists(self, comm_id: str) -> bool:
+        """Check if a communication record already exists."""
+        with self._get_connection() as conn:
+            row = conn.execute(
+                'SELECT COUNT(*) FROM contact_communications WHERE id = ?',
+                (comm_id,)
+            ).fetchone()
+            return row[0] > 0
+
+    def insert_communication(
+        self,
+        comm_id: str,
+        contact_id: str,
+        comm_type: str,
+        direction: str,
+        occurred_at: str,
+        duration_seconds: Optional[int] = None,
+        fub_id: Optional[str] = None,
+        fub_user_name: Optional[str] = None,
+        status: Optional[str] = None
+    ) -> bool:
+        """Insert a communication record if it doesn't already exist."""
+        if self.communication_exists(comm_id):
+            return False
+
+        with self._get_connection() as conn:
+            conn.execute('''
+                INSERT INTO contact_communications
+                (id, contact_id, comm_type, direction, occurred_at,
+                 duration_seconds, fub_id, fub_user_name, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                comm_id, contact_id, comm_type, direction, occurred_at,
+                duration_seconds, fub_id, fub_user_name, status
+            ))
+
+            # Update total_communications count on lead
+            conn.execute('''
+                UPDATE leads SET total_communications = (
+                    SELECT COUNT(*) FROM contact_communications WHERE contact_id = ?
+                ) WHERE id = ?
+            ''', (contact_id, contact_id))
+
+            conn.commit()
+            return True
+
+    def get_communications(
+        self,
+        contact_id: str,
+        comm_type: Optional[str] = None,
+        days: Optional[int] = None,
+        limit: int = 100
+    ) -> List[Dict[str, Any]]:
+        """Get communications for a contact."""
+        query = 'SELECT * FROM contact_communications WHERE contact_id = ?'
+        params = [contact_id]
+
+        if comm_type:
+            query += ' AND comm_type = ?'
+            params.append(comm_type)
+
+        if days:
+            cutoff = (datetime.now() - timedelta(days=days)).isoformat()
+            query += ' AND occurred_at >= ?'
+            params.append(cutoff)
+
+        query += ' ORDER BY occurred_at DESC LIMIT ?'
+        params.append(limit)
+
+        with self._get_connection() as conn:
+            rows = conn.execute(query, params).fetchall()
+            return [dict(row) for row in rows]
+
+    # ==========================================
+    # CONTACT EVENTS OPERATIONS
+    # ==========================================
+
+    def event_exists(self, event_id: str) -> bool:
+        """Check if an event record already exists."""
+        with self._get_connection() as conn:
+            row = conn.execute(
+                'SELECT COUNT(*) FROM contact_events WHERE id = ?',
+                (event_id,)
+            ).fetchone()
+            return row[0] > 0
+
+    def insert_event(
+        self,
+        event_id: str,
+        contact_id: str,
+        event_type: str,
+        occurred_at: str,
+        property_address: Optional[str] = None,
+        property_price: Optional[int] = None,
+        property_mls: Optional[str] = None,
+        fub_event_id: Optional[str] = None
+    ) -> bool:
+        """Insert an event record if it doesn't already exist."""
+        if self.event_exists(event_id):
+            return False
+
+        with self._get_connection() as conn:
+            conn.execute('''
+                INSERT INTO contact_events
+                (id, contact_id, event_type, occurred_at,
+                 property_address, property_price, property_mls, fub_event_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                event_id, contact_id, event_type, occurred_at,
+                property_address, property_price, property_mls, fub_event_id
+            ))
+
+            # Update total_events count on lead
+            conn.execute('''
+                UPDATE leads SET total_events = (
+                    SELECT COUNT(*) FROM contact_events WHERE contact_id = ?
+                ) WHERE id = ?
+            ''', (contact_id, contact_id))
+
+            conn.commit()
+            return True
+
+    def get_events(
+        self,
+        contact_id: str,
+        event_type: Optional[str] = None,
+        days: Optional[int] = None,
+        limit: int = 100
+    ) -> List[Dict[str, Any]]:
+        """Get events for a contact."""
+        query = 'SELECT * FROM contact_events WHERE contact_id = ?'
+        params = [contact_id]
+
+        if event_type:
+            query += ' AND event_type = ?'
+            params.append(event_type)
+
+        if days:
+            cutoff = (datetime.now() - timedelta(days=days)).isoformat()
+            query += ' AND occurred_at >= ?'
+            params.append(cutoff)
+
+        query += ' ORDER BY occurred_at DESC LIMIT ?'
+        params.append(limit)
+
+        with self._get_connection() as conn:
+            rows = conn.execute(query, params).fetchall()
+            return [dict(row) for row in rows]
+
+    # ==========================================
+    # ACTIVITY TIMELINE OPERATIONS
+    # ==========================================
+
+    def get_activity_timeline(
+        self,
+        contact_id: str,
+        days: int = 30,
+        limit: int = 50
+    ) -> List[Dict[str, Any]]:
+        """
+        Get combined activity timeline (communications + events) for a contact.
+        Returns items sorted by date descending.
+        """
+        cutoff = (datetime.now() - timedelta(days=days)).isoformat()
+
+        with self._get_connection() as conn:
+            rows = conn.execute('''
+                SELECT
+                    'communication' as activity_category,
+                    id,
+                    contact_id,
+                    comm_type as activity_type,
+                    direction,
+                    occurred_at,
+                    duration_seconds,
+                    fub_user_name,
+                    status,
+                    NULL as property_address,
+                    NULL as property_price,
+                    NULL as property_mls
+                FROM contact_communications
+                WHERE contact_id = ? AND occurred_at >= ?
+
+                UNION ALL
+
+                SELECT
+                    'event' as activity_category,
+                    id,
+                    contact_id,
+                    event_type as activity_type,
+                    NULL as direction,
+                    occurred_at,
+                    NULL as duration_seconds,
+                    NULL as fub_user_name,
+                    NULL as status,
+                    property_address,
+                    property_price,
+                    property_mls
+                FROM contact_events
+                WHERE contact_id = ? AND occurred_at >= ?
+
+                ORDER BY occurred_at DESC
+                LIMIT ?
+            ''', (contact_id, cutoff, contact_id, cutoff, limit)).fetchall()
+
+            return [dict(row) for row in rows]
+
+    def get_contact_trend_summary(self, contact_id: str) -> Dict[str, Any]:
+        """
+        Get a summary of contact's trend data for dashboard display.
+        """
+        # Get latest scoring
+        latest = self.get_latest_scoring(contact_id)
+
+        # Get 7-day average
+        avg_7d = self.calculate_heat_score_7d_avg(contact_id)
+
+        # Get scoring history for trend
+        history = self.get_scoring_history(contact_id, days=7)
+
+        # Calculate trend direction from history
+        trend = 'stable'
+        if len(history) >= 2:
+            recent = history[0].get('heat_score', 0)
+            older = history[-1].get('heat_score', 0)
+            delta = recent - older
+            if delta > 5:
+                trend = 'warming'
+            elif delta < -5:
+                trend = 'cooling'
+
+        # Get recent activity counts
+        with self._get_connection() as conn:
+            week_ago = (datetime.now() - timedelta(days=7)).isoformat()
+
+            comms_week = conn.execute('''
+                SELECT COUNT(*) FROM contact_communications
+                WHERE contact_id = ? AND occurred_at >= ?
+            ''', (contact_id, week_ago)).fetchone()[0]
+
+            events_week = conn.execute('''
+                SELECT COUNT(*) FROM contact_events
+                WHERE contact_id = ? AND occurred_at >= ?
+            ''', (contact_id, week_ago)).fetchone()[0]
+
+        return {
+            'trend_direction': trend,
+            'heat_score_7d_avg': avg_7d,
+            'heat_delta': latest.get('heat_delta') if latest else None,
+            'communications_this_week': comms_week,
+            'events_this_week': events_week,
+            'scoring_history': history[:7]  # Last 7 records for mini-chart
+        }
