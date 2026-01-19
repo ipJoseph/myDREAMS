@@ -9,6 +9,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Client Portfolio Password Protection** - Shareable portfolio links for clients
+  - Simple password protection on `/client/<name>` route
+  - Clean login form with Jon Tharp Homes branding
+  - Portfolio URL with embedded key copied to clipboard when creating IDX portfolio
+  - Password: `dreams2026`
+- **FUB Phone Integration** - Quick access to Follow Up Boss contacts
+  - Phone numbers on contacts list link directly to FUB contact page
+  - Contact detail page has FUB icon next to phone for quick dial
+  - "Open in Follow Up Boss" link on contact detail view
 - **IDX Photo Support** - Property photos from IDX site
   - `photo_url` column in `idx_property_cache` table
   - Photo scraping in `populate_idx_cache.py`
