@@ -16,8 +16,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Password: `dreams2026`
 - **FUB Phone Integration** - Quick access to Follow Up Boss contacts
   - Phone numbers on contacts list link directly to FUB contact page
-  - Contact detail page has FUB icon next to phone for quick dial
-  - "Open in Follow Up Boss" link on contact detail view
+  - Contact detail page has FUB icon next to phone number
+  - URL format: `JonTharpTeam.followupboss.com/2/people/view/{fub_id}`
+- **Chrome Extension v3.9.18** - Fixed Chrome Web Store submission
+  - Removed unused `scripting` permission that caused rejection
 - **IDX Photo Support** - Property photos from IDX site
   - `photo_url` column in `idx_property_cache` table
   - Photo scraping in `populate_idx_cache.py`
