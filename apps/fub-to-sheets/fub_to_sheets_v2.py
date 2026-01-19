@@ -373,11 +373,14 @@ class LeadScorer:
         calls_inbound: int,
         calls_outbound: int,
         texts_inbound: int,
-        texts_total: int
+        texts_total: int,
+        emails_received: int = 0,
+        emails_sent: int = 0
     ) -> Tuple[float, Dict]:
-        """Calculate relationship strength score"""
-        inbound_contacts = calls_inbound + texts_inbound
-        total_contacts = calls_inbound + calls_outbound + texts_total
+        """Calculate relationship strength score including email communication"""
+        # Include emails in inbound/total calculation
+        inbound_contacts = calls_inbound + texts_inbound + emails_received
+        total_contacts = calls_inbound + calls_outbound + texts_total + emails_received + emails_sent
 
         if total_contacts > 0:
             inbound_ratio = inbound_contacts / total_contacts
@@ -398,6 +401,8 @@ class LeadScorer:
             "inbound_ratio": round(inbound_ratio, 2),
             "ratio_component": round(ratio_component, 1),
             "volume_component": round(volume_component, 1),
+            "emails_received": emails_received,
+            "emails_sent": emails_sent,
             "final_score": final_score
         }
 
@@ -508,16 +513,20 @@ def flatten_person_base(person: Dict) -> Dict:
 def build_person_stats(
     calls: List[Dict],
     texts: List[Dict],
-    events: List[Dict]
+    events: List[Dict],
+    emails: List[Dict] = None
 ) -> Dict[str, Dict]:
     """Build per-person statistics from activities"""
     logger.info("Building person statistics...")
+    emails = emails or []
 
     stats = defaultdict(lambda: {
         "calls_outbound": 0,
         "calls_inbound": 0,
         "texts_total": 0,
         "texts_inbound": 0,
+        "emails_received": 0,
+        "emails_sent": 0,
         "website_visits": 0,
         "website_visits_last_7": 0,
         "properties_viewed": 0,
@@ -558,6 +567,21 @@ def build_person_stats(
         direction = text.get("direction", "").lower()
         if direction == "inbound":
             stats[pid]["texts_inbound"] += 1
+
+    # Process emails
+    for email in emails:
+        pid = email.get("personId")
+        if not pid:
+            continue
+
+        pid = str(pid)
+
+        # FUB email direction: 'inbound' or 'outbound'
+        direction = email.get("direction", "").lower()
+        if direction == "inbound":
+            stats[pid]["emails_received"] += 1
+        elif direction == "outbound":
+            stats[pid]["emails_sent"] += 1
 
     # Process events
     for event in events:
@@ -938,7 +962,9 @@ def build_contact_rows(
             calls_inbound=int(stats.get("calls_inbound", 0)),
             calls_outbound=int(stats.get("calls_outbound", 0)),
             texts_inbound=int(stats.get("texts_inbound", 0)),
-            texts_total=int(stats.get("texts_total", 0))
+            texts_total=int(stats.get("texts_total", 0)),
+            emails_received=int(stats.get("emails_received", 0)),
+            emails_sent=int(stats.get("emails_sent", 0))
         )
 
         priority_score, _ = scorer.calculate_priority_score(
@@ -974,8 +1000,8 @@ def build_contact_rows(
             stats.get("calls_inbound", 0),
             stats.get("texts_total", 0),
             stats.get("texts_inbound", 0),
-            0,  # emails_received (not implemented)
-            0,  # emails_sent (not implemented)
+            stats.get("emails_received", 0),
+            stats.get("emails_sent", 0),
             heat_score,
             value_score,
             relationship_score,
@@ -1768,6 +1794,7 @@ def main():
         
         calls = fub.fetch_calls()
         texts = fub.fetch_text_messages_parallel(people)
+        emails = fub.fetch_emails_parallel(people)
         events = fub.fetch_events()
 
         # Build lookups
@@ -1775,7 +1802,7 @@ def main():
 
         # Compute statistics
         daily_stats = compute_daily_activity_stats(events, people_by_id)
-        person_stats = build_person_stats(calls, texts, events)
+        person_stats = build_person_stats(calls, texts, events, emails)
 
         # Initialize Google Sheets
         logger.info("Connecting to Google Sheets...")

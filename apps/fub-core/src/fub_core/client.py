@@ -179,6 +179,44 @@ class FUBClient:
             self.logger.info(f"✓ Fetched {len(all_texts)} total text messages")
         return all_texts
 
+    def fetch_emails_for_person(self, person_id: str) -> List[Dict]:
+        """Fetch all emails for a specific person."""
+        params = {"personId": person_id, "limit": 100}
+        try:
+            return self.fetch_collection("/emails", "emails", params, use_cache=False)
+        except Exception as e:
+            if self.logger:
+                self.logger.warning(f"Failed to fetch emails for person {person_id}: {e}")
+            return []
+
+    def fetch_emails_parallel(self, people: List[Dict]) -> List[Dict]:
+        """Fetch emails for all people in parallel."""
+        if self.logger:
+            self.logger.info(f"Fetching emails for {len(people)} people (parallel)...")
+
+        all_emails: List[Dict] = []
+
+        def fetch_for_person(person: Dict) -> List[Dict]:
+            pid = person.get("id")
+            if not pid:
+                return []
+            return self.fetch_emails_for_person(str(pid))
+
+        with ThreadPoolExecutor(max_workers=self.max_parallel_workers) as executor:
+            futures = {executor.submit(fetch_for_person, p): p for p in people}
+            completed = 0
+            for future in as_completed(futures):
+                emails = future.result()
+                if emails:
+                    all_emails.extend(emails)
+                completed += 1
+                if self.logger and completed % 50 == 0:
+                    self.logger.info(f"  Emails: {completed}/{len(people)} people processed")
+
+        if self.logger:
+            self.logger.info(f"✓ Fetched {len(all_emails)} total emails")
+        return all_emails
+
     def update_person_stage(self, person_id: str, new_stage: str):
         if not new_stage or not self.enable_stage_sync:
             return

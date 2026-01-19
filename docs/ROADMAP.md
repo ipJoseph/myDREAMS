@@ -109,7 +109,7 @@
 - [x] Intent signals: repeat views, high favorites, activity burst, sharing
 - [x] Activity timeline in dashboard (communications + events)
 - [x] Score trend tracking and visualization
-- [ ] **Email tracking from FUB API** - Currently hardcoded to 0, impacts relationship scoring
+- [x] **Email tracking from FUB API** - Now fetches emails and includes in relationship scoring
 - [ ] Lead requirements extraction from CRM notes
 - [ ] Automatic note push on property matches
 
@@ -177,6 +177,17 @@
 - [ ] Bulk actions interface
 - [ ] Mobile-responsive dashboard
 
+### Click-to-Call / FUB Dialer Integration (Planned)
+Deep-link phone numbers in dashboard to FUB contact pages for dialing.
+- [ ] Add FUB person ID to contact records (already have from sync)
+- [ ] Make phone numbers clickable links: `https://app.followupboss.com/2/people/{id}`
+- [ ] Implement in contact list and contact detail views
+- [ ] Calls logged automatically in FUB timeline
+
+**Rationale**: Team prefers FUB dialer over custom VoIP. Deep linking keeps workflow unified.
+- Cost: $0 (uses existing FUB subscription)
+- Alternative considered: KDE Connect passthrough, Twilio VoIP (not needed)
+
 ### Infrastructure
 - [ ] Backup automation
 - [ ] Log rotation
@@ -191,7 +202,7 @@
 |-------|----------|--------|
 | ~~Multiple extension versions in repo~~ | Low | Done - moved to archive/ |
 | ~~Backup files scattered~~ | Low | Done - archive/ created |
-| Email tracking not implemented | High | FUB sync hardcodes emails to 0, impacts relationship score |
+| ~~Email tracking not implemented~~ | High | Done - Added email fetching from FUB API |
 | Zillow scraper blocked | Medium | Code exists but site blocks scraping |
 | Realtor.com scraper not implemented | Low | Falls back to Redfin pattern |
 | Inconsistent error handling | Medium | Standardize patterns |

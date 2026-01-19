@@ -1506,7 +1506,7 @@ class DREAMSDatabase:
                     COALESCE(e.property_address, p.address, c.address) as property_address,
                     COALESCE(MAX(e.property_price), p.price, c.price) as property_price,
                     e.property_mls,
-                    COUNT(CASE WHEN e.event_type = 'property_view' THEN 1 END) as view_count,
+                    COUNT(CASE WHEN e.event_type IN ('property_view', 'property_favorite', 'property_share') THEN 1 END) as view_count,
                     MAX(CASE WHEN e.event_type = 'property_favorite' THEN 1 ELSE 0 END) as is_favorited,
                     MAX(CASE WHEN e.event_type = 'property_share' THEN 1 ELSE 0 END) as is_shared,
                     MIN(e.occurred_at) as first_viewed,
