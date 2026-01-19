@@ -568,6 +568,123 @@ body {
 }
 
 /* ============================================
+   RANGE SLIDERS
+   ============================================ */
+.dreams-slider {
+    width: 100%;
+    height: 6px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: #d1d5db;
+    border-radius: 3px;
+    outline: none;
+    cursor: pointer;
+}
+
+/* Use CSS variable --slider-percent for fill. Set via JS: el.style.setProperty('--slider-percent', value + '%') */
+.dreams-slider.dreams-slider-red {
+    background: linear-gradient(to right,
+        #ef4444 0%,
+        #ef4444 var(--slider-percent, 50%),
+        #d1d5db var(--slider-percent, 50%),
+        #d1d5db 100%);
+}
+
+.dreams-slider.dreams-slider-green {
+    background: linear-gradient(to right,
+        #10b981 0%,
+        #10b981 var(--slider-percent, 50%),
+        #d1d5db var(--slider-percent, 50%),
+        #d1d5db 100%);
+}
+
+.dreams-slider.dreams-slider-blue {
+    background: linear-gradient(to right,
+        var(--color-primary-light) 0%,
+        var(--color-primary-light) var(--slider-percent, 50%),
+        #d1d5db var(--slider-percent, 50%),
+        #d1d5db 100%);
+}
+
+/* Webkit thumb */
+.dreams-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #6b7280;
+    cursor: grab;
+    border: 2px solid white;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
+.dreams-slider::-webkit-slider-thumb:active {
+    cursor: grabbing;
+}
+
+.dreams-slider.dreams-slider-red::-webkit-slider-thumb {
+    background: #ef4444;
+}
+
+.dreams-slider.dreams-slider-green::-webkit-slider-thumb {
+    background: #10b981;
+}
+
+.dreams-slider.dreams-slider-blue::-webkit-slider-thumb {
+    background: var(--color-primary-light);
+}
+
+/* Firefox track */
+.dreams-slider::-moz-range-track {
+    height: 6px;
+    background: #d1d5db;
+    border-radius: 3px;
+}
+
+/* Firefox thumb */
+.dreams-slider::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #6b7280;
+    border: 2px solid white;
+    cursor: grab;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
+.dreams-slider.dreams-slider-red::-moz-range-thumb {
+    background: #ef4444;
+}
+
+.dreams-slider.dreams-slider-green::-moz-range-thumb {
+    background: #10b981;
+}
+
+.dreams-slider.dreams-slider-blue::-moz-range-thumb {
+    background: var(--color-primary-light);
+}
+
+/* Firefox progress fill */
+.dreams-slider.dreams-slider-red::-moz-range-progress {
+    background: #ef4444;
+    border-radius: 3px;
+    height: 6px;
+}
+
+.dreams-slider.dreams-slider-green::-moz-range-progress {
+    background: #10b981;
+    border-radius: 3px;
+    height: 6px;
+}
+
+.dreams-slider.dreams-slider-blue::-moz-range-progress {
+    background: var(--color-primary-light);
+    border-radius: 3px;
+    height: 6px;
+}
+
+/* ============================================
    RESPONSIVE
    ============================================ */
 @media (max-width: 768px) {
