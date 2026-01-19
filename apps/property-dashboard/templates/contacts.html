@@ -189,13 +189,31 @@
             outline: none;
             cursor: pointer;
         }
+        /* Heat slider track fill */
+        .threshold-slider.heat input[type="range"] {
+            background: linear-gradient(to right, #ef4444 0%, #ef4444 var(--slider-percent, 75%), var(--bg-tertiary) var(--slider-percent, 75%), var(--bg-tertiary) 100%);
+        }
+        /* Value slider track fill */
+        .threshold-slider.value input[type="range"] {
+            background: linear-gradient(to right, #10b981 0%, #10b981 var(--slider-percent, 60%), var(--bg-tertiary) var(--slider-percent, 60%), var(--bg-tertiary) 100%);
+        }
         .threshold-slider input[type="range"]::-webkit-slider-thumb {
             -webkit-appearance: none;
             appearance: none;
-            width: 16px;
-            height: 16px;
+            width: 18px;
+            height: 18px;
             border-radius: 50%;
-            cursor: pointer;
+            cursor: grab;
+            border: 2px solid white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            transition: transform 0.1s ease;
+        }
+        .threshold-slider input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.15);
+        }
+        .threshold-slider input[type="range"]::-webkit-slider-thumb:active {
+            cursor: grabbing;
+            transform: scale(1.1);
         }
         .threshold-slider.heat input[type="range"]::-webkit-slider-thumb {
             background: #ef4444;
@@ -204,17 +222,32 @@
             background: #10b981;
         }
         .threshold-slider input[type="range"]::-moz-range-thumb {
-            width: 16px;
-            height: 16px;
+            width: 18px;
+            height: 18px;
             border-radius: 50%;
-            border: none;
-            cursor: pointer;
+            border: 2px solid white;
+            cursor: grab;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .threshold-slider input[type="range"]::-moz-range-thumb:active {
+            cursor: grabbing;
         }
         .threshold-slider.heat input[type="range"]::-moz-range-thumb {
             background: #ef4444;
         }
         .threshold-slider.value input[type="range"]::-moz-range-thumb {
             background: #10b981;
+        }
+        /* Firefox track fill */
+        .threshold-slider.heat input[type="range"]::-moz-range-progress {
+            background: #ef4444;
+            border-radius: 3px;
+            height: 6px;
+        }
+        .threshold-slider.value input[type="range"]::-moz-range-progress {
+            background: #10b981;
+            border-radius: 3px;
+            height: 6px;
         }
         .threshold-value {
             font-size: 11px;
@@ -224,6 +257,34 @@
         }
         .dreams-metric-card.with-slider {
             min-width: 140px;
+        }
+
+        /* Sortable column headers */
+        .dreams-table th.sortable {
+            cursor: pointer;
+            user-select: none;
+            position: relative;
+            padding-right: 20px;
+        }
+        .dreams-table th.sortable:hover {
+            background: var(--bg-secondary);
+        }
+        .dreams-table th.sortable::after {
+            content: '\2195';
+            position: absolute;
+            right: 6px;
+            top: 50%;
+            transform: translateY(-50%);
+            opacity: 0.3;
+            font-size: 12px;
+        }
+        .dreams-table th.sortable.asc::after {
+            content: '\2191';
+            opacity: 0.8;
+        }
+        .dreams-table th.sortable.desc::after {
+            content: '\2193';
+            opacity: 0.8;
         }
     </style>
 </head>
@@ -287,19 +348,19 @@
             <div class="dreams-metric-value">{{ stats.total }}</div>
         </div>
         <div class="dreams-metric-card with-slider {% if selected_filter == 'hot_leads' %}active{% endif %}" id="hotLeadsCard">
-            <div class="dreams-metric-label">Hot Leads (<span id="heatThresholdLabel">75</span>+)</div>
+            <div class="dreams-metric-label">Hot Leads (<span id="heatThresholdLabel">60</span>+)</div>
             <div class="dreams-metric-value" style="color: #ef4444;" id="hotLeadsCount">{{ stats.hot }}</div>
             <div class="threshold-slider heat">
-                <input type="range" id="heatSlider" min="0" max="100" value="75" oninput="updateHeatThreshold(this.value)">
-                <div class="threshold-value">Threshold: <span id="heatSliderValue">75</span></div>
+                <input type="range" id="heatSlider" min="0" max="100" value="60" oninput="updateHeatThreshold(this.value)">
+                <div class="threshold-value">Threshold: <span id="heatSliderValue">60</span></div>
             </div>
         </div>
         <div class="dreams-metric-card with-slider {% if selected_filter == 'high_value' %}active{% endif %}" id="highValueCard">
-            <div class="dreams-metric-label">High Value (<span id="valueThresholdLabel">60</span>+)</div>
+            <div class="dreams-metric-label">High Value (<span id="valueThresholdLabel">50</span>+)</div>
             <div class="dreams-metric-value" style="color: #10b981;" id="highValueCount">{{ stats.high_value }}</div>
             <div class="threshold-slider value">
-                <input type="range" id="valueSlider" min="0" max="100" value="60" oninput="updateValueThreshold(this.value)">
-                <div class="threshold-value">Threshold: <span id="valueSliderValue">60</span></div>
+                <input type="range" id="valueSlider" min="0" max="100" value="50" oninput="updateValueThreshold(this.value)">
+                <div class="threshold-value">Threshold: <span id="valueSliderValue">50</span></div>
             </div>
         </div>
         <div class="dreams-metric-card clickable {% if selected_filter == 'active_week' %}active{% endif %}" onclick="applyQuickFilter('active_week')">
@@ -335,17 +396,17 @@
             <thead>
                 <tr>
                     <th>#</th>
-                    <th>Name</th>
-                    <th>Stage</th>
-                    <th>Views</th>
-                    <th>Fav</th>
-                    <th>Share</th>
-                    <th>Trend</th>
-                    <th>Priority</th>
-                    <th>Heat</th>
-                    <th>Value</th>
-                    <th>Relationship</th>
-                    <th>Activity</th>
+                    <th class="sortable" data-sort="name">Name</th>
+                    <th class="sortable" data-sort="stage">Stage</th>
+                    <th class="sortable" data-sort="views">Views</th>
+                    <th class="sortable" data-sort="fav">Fav</th>
+                    <th class="sortable" data-sort="share">Share</th>
+                    <th class="sortable" data-sort="trend">Trend</th>
+                    <th class="sortable" data-sort="priority">Priority</th>
+                    <th class="sortable" data-sort="heat">Heat</th>
+                    <th class="sortable" data-sort="value">Value</th>
+                    <th class="sortable" data-sort="relationship">Relationship</th>
+                    <th class="sortable" data-sort="activity">Activity</th>
                     <th>Intent Signals</th>
                     <th>Phone</th>
                     <th>Next Action</th>
@@ -529,13 +590,20 @@
         });
 
         // Threshold slider functionality
-        let heatThreshold = 75;
-        let valueThreshold = 60;
+        let heatThreshold = 60;
+        let valueThreshold = 50;
+        const heatSlider = document.getElementById('heatSlider');
+        const valueSlider = document.getElementById('valueSlider');
+
+        function updateSliderTrack(slider, value) {
+            slider.style.setProperty('--slider-percent', value + '%');
+        }
 
         function updateHeatThreshold(value) {
             heatThreshold = parseInt(value);
             document.getElementById('heatThresholdLabel').textContent = value;
             document.getElementById('heatSliderValue').textContent = value;
+            updateSliderTrack(heatSlider, value);
             updateCounts();
             applyThresholdFilter();
         }
@@ -544,9 +612,14 @@
             valueThreshold = parseInt(value);
             document.getElementById('valueThresholdLabel').textContent = value;
             document.getElementById('valueSliderValue').textContent = value;
+            updateSliderTrack(valueSlider, value);
             updateCounts();
             applyThresholdFilter();
         }
+
+        // Initialize slider tracks
+        updateSliderTrack(heatSlider, heatSlider.value);
+        updateSliderTrack(valueSlider, valueSlider.value);
 
         function updateCounts() {
             let hotCount = 0;
@@ -621,6 +694,109 @@
 
         // Initialize counts on page load
         updateCounts();
+
+        // Column sorting functionality
+        let currentSort = { column: null, direction: 'asc' };
+
+        document.querySelectorAll('th.sortable').forEach(th => {
+            th.addEventListener('click', function() {
+                const sortKey = this.dataset.sort;
+
+                // Toggle direction if same column, otherwise default to desc for numbers, asc for text
+                if (currentSort.column === sortKey) {
+                    currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+                } else {
+                    currentSort.column = sortKey;
+                    // Default to descending for numeric columns
+                    currentSort.direction = ['views', 'fav', 'share', 'priority', 'heat', 'value', 'relationship'].includes(sortKey) ? 'desc' : 'asc';
+                }
+
+                // Update header classes
+                document.querySelectorAll('th.sortable').forEach(h => h.classList.remove('asc', 'desc'));
+                this.classList.add(currentSort.direction);
+
+                // Sort the rows
+                sortTable(sortKey, currentSort.direction);
+            });
+        });
+
+        function sortTable(sortKey, direction) {
+            const tbody = table.querySelector('tbody');
+            const rowsArray = Array.from(rows);
+
+            rowsArray.sort((a, b) => {
+                let valA, valB;
+
+                switch(sortKey) {
+                    case 'name':
+                        valA = a.querySelector('.contact-name')?.textContent.trim().toLowerCase() || '';
+                        valB = b.querySelector('.contact-name')?.textContent.trim().toLowerCase() || '';
+                        break;
+                    case 'stage':
+                        valA = a.querySelector('.dreams-badge')?.textContent.trim().toLowerCase() || '';
+                        valB = b.querySelector('.dreams-badge')?.textContent.trim().toLowerCase() || '';
+                        break;
+                    case 'views':
+                        valA = parseInt(a.cells[3]?.textContent) || 0;
+                        valB = parseInt(b.cells[3]?.textContent) || 0;
+                        break;
+                    case 'fav':
+                        valA = parseInt(a.cells[4]?.textContent) || 0;
+                        valB = parseInt(b.cells[4]?.textContent) || 0;
+                        break;
+                    case 'share':
+                        valA = parseInt(a.cells[5]?.textContent) || 0;
+                        valB = parseInt(b.cells[5]?.textContent) || 0;
+                        break;
+                    case 'trend':
+                        const trendOrder = { 'warming': 3, 'stable': 2, 'cooling': 1, 'none': 0 };
+                        valA = trendOrder[a.querySelector('.trend-indicator')?.classList[1]] || 0;
+                        valB = trendOrder[b.querySelector('.trend-indicator')?.classList[1]] || 0;
+                        break;
+                    case 'priority':
+                        valA = parseFloat(a.cells[7]?.querySelector('span:last-child')?.textContent) || 0;
+                        valB = parseFloat(b.cells[7]?.querySelector('span:last-child')?.textContent) || 0;
+                        break;
+                    case 'heat':
+                        valA = parseFloat(a.dataset.heat) || 0;
+                        valB = parseFloat(b.dataset.heat) || 0;
+                        break;
+                    case 'value':
+                        valA = parseFloat(a.dataset.value) || 0;
+                        valB = parseFloat(b.dataset.value) || 0;
+                        break;
+                    case 'relationship':
+                        valA = parseFloat(a.cells[10]?.querySelector('span:last-child')?.textContent) || 0;
+                        valB = parseFloat(b.cells[10]?.querySelector('span:last-child')?.textContent) || 0;
+                        break;
+                    case 'activity':
+                        valA = parseInt(a.dataset.days) || 999;
+                        valB = parseInt(b.dataset.days) || 999;
+                        // For activity, lower days = more active, so reverse the logic
+                        if (direction === 'desc') {
+                            return valA - valB;  // Most recent first
+                        } else {
+                            return valB - valA;  // Oldest first
+                        }
+                    default:
+                        valA = '';
+                        valB = '';
+                }
+
+                // Compare values
+                if (typeof valA === 'string') {
+                    return direction === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+                } else {
+                    return direction === 'asc' ? valA - valB : valB - valA;
+                }
+            });
+
+            // Re-append rows in sorted order and update row numbers
+            rowsArray.forEach((row, index) => {
+                row.querySelector('.row-num').textContent = index + 1;
+                tbody.appendChild(row);
+            });
+        }
     </script>
 </body>
 </html>
