@@ -462,13 +462,17 @@
                     </td>
                     <td>
                         {% if contact.phone %}
-                        {{ contact.phone }}
                         {% if contact.fub_id %}
-                        <span style="margin-left: 6px; white-space: nowrap;">
-                            <a href="https://JonTharpTeam.followupboss.com/2/people/view/{{ contact.fub_id }}" target="_blank" title="View in FUB" style="color: #6366f1; text-decoration: none; font-size: 11px;">View</a>
-                            <span style="color: #d1d5db; margin: 0 3px;">|</span>
-                            <a href="https://JonTharpTeam.followupboss.com/2/people/view/{{ contact.fub_id }}/call" target="_blank" title="Call via FUB" style="color: #10b981; text-decoration: none; font-size: 11px;">Call</a>
-                        </span>
+                        <a href="https://JonTharpTeam.followupboss.com/2/people/view/{{ contact.fub_id }}" target="_blank" title="Open in FUB" style="color: #6366f1; text-decoration: none;">
+                            {{ contact.phone }}
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-left: 4px;">
+                                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                                <polyline points="15 3 21 3 21 9"></polyline>
+                                <line x1="10" y1="14" x2="21" y2="3"></line>
+                            </svg>
+                        </a>
+                        {% else %}
+                        <a href="tel:{{ contact.phone }}" style="color: inherit;">{{ contact.phone }}</a>
                         {% endif %}
                         {% else %}
                         -
