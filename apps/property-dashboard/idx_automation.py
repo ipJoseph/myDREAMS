@@ -306,11 +306,22 @@ class IDXPortfolioAutomation:
                     element = page.locator(selector).first
                     if await element.count() > 0 and await element.is_visible():
                         logger.info(f"Clicking save button with selector: {selector}")
-                        await element.click()
+                        # Use JavaScript click to avoid navigation issues
+                        await element.evaluate("el => el.click()")
                         save_clicked = True
+                        await page.wait_for_timeout(500)
                         break
-                except Exception:
+                except Exception as e:
+                    logger.debug(f"Selector {selector} failed: {e}")
                     continue
+
+            # Take screenshot after first click attempt
+            if save_clicked:
+                try:
+                    await page.screenshot(path=str(screenshot_dir / 'debug_03_after_save_click.png'))
+                    logger.info("Screenshot saved: debug_03_after_save_click.png")
+                except Exception as e:
+                    logger.warning(f"Could not take screenshot after save click: {e}")
 
             # Fallback: JavaScript to find + button
             if not save_clicked:
