@@ -21,6 +21,12 @@ logger = logging.getLogger(__name__)
 PROGRESS_FILE = None
 
 
+def set_progress_file(path: str):
+    """Set the progress file path (avoids global statement issues in Python 3.12+)"""
+    global PROGRESS_FILE
+    PROGRESS_FILE = path
+
+
 def write_progress(status: str, current: int = 0, total: int = 0, message: str = "", error: str = ""):
     """Write progress to JSON file for dashboard to poll"""
     if not PROGRESS_FILE:
@@ -642,8 +648,6 @@ if __name__ == '__main__':
     # Arg 1: comma-separated MLS numbers
     # Arg 2: search name (optional)
     # Arg 3: progress file path (optional)
-    global PROGRESS_FILE  # Must declare global before any assignment
-
     if len(sys.argv) > 1:
         mls_list = sys.argv[1].split(',')
         mls_list = [m.strip() for m in mls_list]
@@ -655,8 +659,8 @@ if __name__ == '__main__':
 
     # Set progress file if provided
     if len(sys.argv) > 3:
-        PROGRESS_FILE = sys.argv[3]
-        logger.info(f"Progress file: {PROGRESS_FILE}")
+        set_progress_file(sys.argv[3])
+        logger.info(f"Progress file: {sys.argv[3]}")
 
     logger.info(f"Creating portfolio for: {mls_list}")
     if search_name:
