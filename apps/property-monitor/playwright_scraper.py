@@ -369,9 +369,10 @@ class ZillowPlaywrightScraper(PlaywrightScraper):
             'dom': self._extract_dom(json_data, text_content),
             'views': self._extract_views(json_data, text_content),
             'saves': self._extract_saves(json_data, text_content),
+            'primary_photo': self._extract_photo(json_data, html_content),
         }
 
-        logger.info(f"Zillow extracted: price={data['price']}, status={data['status']}, dom={data['dom']}")
+        logger.info(f"Zillow extracted: price={data['price']}, status={data['status']}, dom={data['dom']}, photo={'yes' if data['primary_photo'] else 'no'}")
         return data
 
     def _extract_json_data(self, html: str) -> Dict:
@@ -446,6 +447,98 @@ class ZillowPlaywrightScraper(PlaywrightScraper):
             saves = int(match.group(1))
             if saves > 0:
                 return saves
+        return None
+
+    def _extract_photo(self, json_data: Dict, html: str) -> Optional[str]:
+        """Extract primary photo URL from Zillow property page"""
+        # Method 1: Try NEXT_DATA JSON structure (most reliable)
+        try:
+            props = json_data.get('props', {}).get('pageProps', {})
+            # Path 1: property.media or property.photos
+            property_data = props.get('property', {}) or props.get('initialData', {}).get('property', {})
+
+            # Check media array
+            media = property_data.get('media', {})
+            if isinstance(media, dict):
+                photos = media.get('propertyPhotoLinks', []) or media.get('photos', [])
+                if photos and isinstance(photos, list) and len(photos) > 0:
+                    first_photo = photos[0]
+                    if isinstance(first_photo, str):
+                        return first_photo
+                    elif isinstance(first_photo, dict):
+                        url = first_photo.get('url') or first_photo.get('mixedSources', {}).get('jpeg', [{}])[0].get('url')
+                        if url:
+                            return url
+
+            # Path 2: Check hdpData structure
+            hdp_data = props.get('initialReduxState', {}).get('gdp', {}).get('building', {})
+            if not hdp_data:
+                hdp_data = props.get('componentProps', {}).get('gdpClientCache', {})
+                # gdpClientCache is often JSON string keyed by property ID
+                if hdp_data:
+                    for key, value in hdp_data.items():
+                        if isinstance(value, str):
+                            try:
+                                parsed = json.loads(value)
+                                if isinstance(parsed, dict) and 'property' in parsed:
+                                    hdp_data = parsed.get('property', {})
+                                    break
+                            except json.JSONDecodeError:
+                                continue
+
+            # Check for responsivePhotos or photos in hdpData
+            responsive_photos = hdp_data.get('responsivePhotos', [])
+            if responsive_photos and isinstance(responsive_photos, list):
+                first = responsive_photos[0]
+                if isinstance(first, dict):
+                    # Get highest resolution
+                    mixed = first.get('mixedSources', {})
+                    jpegs = mixed.get('jpeg', [])
+                    if jpegs:
+                        # Sort by width to get largest
+                        jpegs_sorted = sorted(jpegs, key=lambda x: x.get('width', 0), reverse=True)
+                        if jpegs_sorted:
+                            return jpegs_sorted[0].get('url')
+        except (KeyError, TypeError, IndexError, AttributeError):
+            pass
+
+        # Method 2: Look for og:image meta tag
+        og_match = re.search(r'<meta\s+property="og:image"\s+content="([^"]+)"', html, re.IGNORECASE)
+        if og_match:
+            url = og_match.group(1)
+            if url.startswith('http'):
+                return url
+
+        # Method 3: Look for Zillow CDN image URLs
+        zillow_cdn_patterns = [
+            r'<img[^>]+src="(https://[^"]*zillowstatic\.com/[^"]+)"',
+            r'<img[^>]+data-src="(https://[^"]*zillowstatic\.com/[^"]+)"',
+            r'"(https://photos\.zillowstatic\.com/[^"]+)"',
+            r'"(https://[^"]*\.zillowstatic\.com/fp/[^"]+\.jpg)"',
+        ]
+        for pattern in zillow_cdn_patterns:
+            match = re.search(pattern, html, re.IGNORECASE)
+            if match:
+                url = match.group(1)
+                # Skip thumbnails, icons, logos
+                if not any(skip in url.lower() for skip in ['thumb', 'icon', 'logo', 'avatar', '50x50', '100x100']):
+                    return url
+
+        # Method 4: Look for JSON-LD structured data
+        json_ld_match = re.search(r'<script type="application/ld\+json">([^<]+)</script>', html)
+        if json_ld_match:
+            try:
+                ld_data = json.loads(json_ld_match.group(1))
+                if isinstance(ld_data, dict):
+                    photo = ld_data.get('image') or ld_data.get('photo')
+                    if isinstance(photo, str) and photo.startswith('http'):
+                        return photo
+                    elif isinstance(photo, list) and photo:
+                        first = photo[0]
+                        return first if isinstance(first, str) else first.get('url')
+            except (json.JSONDecodeError, TypeError, KeyError):
+                pass
+
         return None
 
 
