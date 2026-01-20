@@ -9,6 +9,9 @@
 let currentProperty = null;
 let searchResults = [];
 let selectedResults = new Set();
+let isUserInteracting = false;
+let interactionTimeout = null;
+let checksPaused = false;
 
 // ============================================
 // DOM ELEMENTS
@@ -468,9 +471,12 @@ function displaySearchResults(results) {
     </div>
   `).join('');
 
-  // Add checkbox listeners
+  // Add checkbox listeners with interaction tracking
   elements.searchResults.querySelectorAll('.result-checkbox').forEach(checkbox => {
     checkbox.addEventListener('change', (e) => {
+      // Mark user as interacting - pause background checks
+      markUserInteracting();
+
       const index = parseInt(e.target.dataset.index);
       if (e.target.checked) {
         selectedResults.add(index);
@@ -481,8 +487,16 @@ function displaySearchResults(results) {
     });
   });
 
-  // Check which properties already exist in database (async)
-  checkExistingProperties(results);
+  // Track scrolling as interaction
+  elements.searchResults.addEventListener('scroll', () => {
+    markUserInteracting();
+  }, { passive: true });
+
+  // Check which properties already exist in database (async, low priority)
+  // Small delay before starting to let UI settle
+  setTimeout(() => {
+    checkExistingProperties(results);
+  }, 200);
 }
 
 function getQualityIndicator(result) {
@@ -491,43 +505,81 @@ function getQualityIndicator(result) {
   return '⏳';
 }
 
+// Mark that user is actively interacting - pauses background checks
+function markUserInteracting() {
+  isUserInteracting = true;
+  checksPaused = true;
+
+  // Clear existing timeout
+  if (interactionTimeout) {
+    clearTimeout(interactionTimeout);
+  }
+
+  // Resume background checks after 500ms of no interaction
+  interactionTimeout = setTimeout(() => {
+    isUserInteracting = false;
+    checksPaused = false;
+  }, 500);
+}
+
+// Schedule a low-priority DOM update
+function scheduleUpdate(fn) {
+  if (typeof requestIdleCallback !== 'undefined') {
+    requestIdleCallback(fn, { timeout: 100 });
+  } else {
+    setTimeout(fn, 10);
+  }
+}
+
 // Check which properties exist in database and update indicators (non-blocking)
 async function checkExistingProperties(results) {
   // Get server URL from storage
   const settings = await chrome.storage.sync.get(['serverUrl']);
   const serverUrl = settings.serverUrl || 'http://localhost:5000';
 
-  // Process in small batches to avoid blocking UI
-  const BATCH_SIZE = 5;
+  // Process in smaller batches with more yielding
+  const BATCH_SIZE = 3; // Reduced from 5
 
   for (let i = 0; i < results.length; i += BATCH_SIZE) {
+    // Wait if user is interacting
+    while (checksPaused) {
+      await new Promise(r => setTimeout(r, 100));
+    }
+
     const batch = results.slice(i, i + BATCH_SIZE);
 
-    // Process batch concurrently
+    // Process batch concurrently but with staggered starts
     const promises = batch.map(async (result, batchIdx) => {
+      // Small stagger to avoid simultaneous DOM updates
+      await new Promise(r => setTimeout(r, batchIdx * 20));
+
       const idx = i + batchIdx;
       try {
         const indicator = await checkPropertyExists(result, serverUrl);
-        // Update the indicator in the DOM
-        const statusEl = document.querySelector(`.result-status[data-index="${idx}"] .status-indicator`);
-        if (statusEl) {
-          statusEl.textContent = indicator;
-          statusEl.title = indicator === '✓' ? 'New record' : indicator === '↻' ? 'Update existing' : 'Unknown';
-        }
+        // Schedule DOM update at low priority
+        scheduleUpdate(() => {
+          const statusEl = document.querySelector(`.result-status[data-index="${idx}"] .status-indicator`);
+          if (statusEl) {
+            statusEl.textContent = indicator;
+            statusEl.title = indicator === '✓' ? 'New record' : indicator === '↻' ? 'Update existing' : 'Unknown';
+          }
+        });
       } catch (error) {
-        // Silently fail for individual checks
-        const statusEl = document.querySelector(`.result-status[data-index="${idx}"] .status-indicator`);
-        if (statusEl) {
-          statusEl.textContent = '?';
-          statusEl.title = 'Could not check';
-        }
+        // Schedule DOM update at low priority
+        scheduleUpdate(() => {
+          const statusEl = document.querySelector(`.result-status[data-index="${idx}"] .status-indicator`);
+          if (statusEl) {
+            statusEl.textContent = '?';
+            statusEl.title = 'Could not check';
+          }
+        });
       }
     });
 
     await Promise.all(promises);
 
-    // Yield to UI between batches
-    await new Promise(r => setTimeout(r, 50));
+    // Longer yield between batches
+    await new Promise(r => setTimeout(r, 100));
   }
 }
 

@@ -4,7 +4,7 @@
  * Designed for bulk operations and data export
  */
 
-const VERSION = '3.9.15';
+const VERSION = '3.9.20';
 console.log(`DREAMS Property Scraper v${VERSION}: Content script loaded`);
 
 // Detect which site we're on

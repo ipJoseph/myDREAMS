@@ -18,6 +18,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Phone numbers on contacts list link directly to FUB contact page
   - Contact detail page has FUB icon next to phone number
   - URL format: `JonTharpTeam.followupboss.com/2/people/view/{fub_id}`
+- **Chrome Extension v3.9.20** - Fixed UI freezing and performance improvements
+  - Interaction-aware background checks (pauses when user is selecting)
+  - Smaller batch sizes and longer yield times for property checks
+  - Low-priority DOM updates using requestIdleCallback
+  - Fixed popout window losing connection to source tab
 - **Chrome Extension v3.9.18** - Fixed Chrome Web Store submission
   - Removed unused `scripting` permission that caused rejection
 - **IDX Photo Support** - Property photos from IDX site
@@ -88,6 +93,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - FUB-to-Sheets SQLite sync (parallel output alongside Sheets)
 
 ### Changed
+- **SQLite as Source of Truth** - Dashboard now reads from SQLite instead of Notion
+  - `fetch_properties()` queries SQLite database directly
+  - Notion becomes secondary sync destination for external sharing
+  - Eliminates data inconsistency issues between sources
 - **Contacts Table Sorting** - Column headers now sortable, matching dashboard pattern
   - Uses shared CSS classes (`sorted-asc`, `sorted-desc`)
   - 3-state cycle: ascending → descending → original order
