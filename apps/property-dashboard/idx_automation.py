@@ -82,6 +82,9 @@ PROXY_PASS = os.getenv('PROXY_PASS', '')
 # Force local browser (bypass browserless.io for debugging)
 FORCE_LOCAL_BROWSER = os.getenv('FORCE_LOCAL_BROWSER', '').lower() in ('true', '1', 'yes')
 
+# Skip proxy entirely (for localhost where home IP isn't blocked)
+SKIP_PROXY = os.getenv('SKIP_PROXY', '').lower() in ('true', '1', 'yes')
+
 
 class IDXPortfolioAutomation:
     """Automates creating property portfolios on the IDX site"""
@@ -110,9 +113,11 @@ class IDXPortfolioAutomation:
         """Start the browser - uses browserless.io + residential proxy if configured"""
         self.playwright = await async_playwright().start()
 
-        # Build proxy config if credentials are set
+        # Build proxy config if credentials are set (and not skipped)
         proxy_config = None
-        if PROXY_HOST and PROXY_PORT and PROXY_USER and PROXY_PASS:
+        if SKIP_PROXY:
+            logger.info("SKIP_PROXY=true - bypassing residential proxy")
+        elif PROXY_HOST and PROXY_PORT and PROXY_USER and PROXY_PASS:
             proxy_config = {
                 "server": f"http://{PROXY_HOST}:{PROXY_PORT}",
                 "username": PROXY_USER,
@@ -163,7 +168,7 @@ class IDXPortfolioAutomation:
 
     async def login(self, page: Page) -> bool:
         """
-        Log into the IDX site quickly.
+        Log into the IDX site with verification.
 
         Returns:
             True if login successful, False otherwise
@@ -171,6 +176,8 @@ class IDXPortfolioAutomation:
         if not IDX_EMAIL or not IDX_PHONE:
             logger.warning("IDX credentials not configured in .env file")
             return False
+
+        screenshot_dir = Path(__file__).parent / 'logs'
 
         try:
             # Go to homepage
@@ -186,26 +193,28 @@ class IDXPortfolioAutomation:
                 return False
 
             # Debug: Save screenshot
-            screenshot_dir = Path(__file__).parent / 'logs'
             await page.screenshot(path=str(screenshot_dir / 'debug_01_homepage.png'))
             logger.info("Screenshot saved: debug_01_homepage.png")
 
-            # Click person icon using JavaScript (fastest)
-            logger.info("Clicking person icon")
+            # Click person icon to open login panel
+            logger.info("Clicking person icon to open login panel")
             clicked = await page.evaluate('''() => {
-                const links = document.querySelectorAll('header a, nav a');
+                // Look for user/person icon link
+                const links = document.querySelectorAll('header a, nav a, a');
                 for (let link of links) {
                     if (link.innerHTML.includes('fa-user') ||
-                        link.querySelector('[class*="user"]')) {
+                        link.querySelector('[class*="user"]') ||
+                        link.querySelector('i.fa-user') ||
+                        link.querySelector('svg[class*="user"]')) {
                         link.click();
-                        return true;
+                        return 'found-user-icon';
                     }
                 }
                 // Fallback: last link in header is usually the user icon
                 const headerLinks = document.querySelectorAll('header a');
                 if (headerLinks.length > 0) {
                     headerLinks[headerLinks.length - 1].click();
-                    return true;
+                    return 'fallback-header-link';
                 }
                 return false;
             }''')
@@ -213,47 +222,145 @@ class IDXPortfolioAutomation:
             if not clicked:
                 logger.error("Could not find login icon")
                 return False
+            logger.info(f"Clicked login icon via: {clicked}")
 
-            # Wait for login panel
-            await page.wait_for_timeout(800)
+            # Wait for login panel to appear
+            await page.wait_for_timeout(1500)
 
-            # Fill credentials using JavaScript (fastest)
-            logger.info("Filling login credentials")
-            await page.evaluate(f'''() => {{
+            # Debug: Screenshot after clicking user icon
+            await page.screenshot(path=str(screenshot_dir / 'debug_01b_login_panel.png'))
+            logger.info("Screenshot saved: debug_01b_login_panel.png")
+
+            # Check if we see a login form
+            has_login_form = await page.evaluate('''() => {
                 const emailInput = document.querySelector('input[type="email"], input[name="email"]');
                 const phoneInput = document.querySelector('input[type="tel"], input[name="phone"]');
+                return {
+                    hasEmail: !!emailInput,
+                    hasPhone: !!phoneInput,
+                    emailVisible: emailInput ? emailInput.offsetParent !== null : false,
+                    phoneVisible: phoneInput ? phoneInput.offsetParent !== null : false
+                };
+            }''')
+            logger.info(f"Login form check: {has_login_form}")
+
+            if not has_login_form.get('hasEmail') or not has_login_form.get('hasPhone'):
+                logger.error("Login form not found - email or phone input missing")
+                return False
+
+            # Fill credentials using JavaScript with verification
+            logger.info(f"Filling login credentials: {IDX_EMAIL}")
+            fill_result = await page.evaluate(f'''() => {{
+                const emailInput = document.querySelector('input[type="email"], input[name="email"]');
+                const phoneInput = document.querySelector('input[type="tel"], input[name="phone"]');
+                let filled = {{ email: false, phone: false }};
+
                 if (emailInput) {{
+                    emailInput.focus();
                     emailInput.value = "{IDX_EMAIL}";
                     emailInput.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                    emailInput.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                    filled.email = emailInput.value === "{IDX_EMAIL}";
                 }}
                 if (phoneInput) {{
+                    phoneInput.focus();
                     phoneInput.value = "{IDX_PHONE}";
                     phoneInput.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                    phoneInput.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                    filled.phone = phoneInput.value === "{IDX_PHONE}";
                 }}
+                return filled;
             }}''')
+            logger.info(f"Fill result: {fill_result}")
 
-            await page.wait_for_timeout(300)
+            if not fill_result.get('email') or not fill_result.get('phone'):
+                logger.error("Failed to fill login credentials")
+                return False
+
+            await page.wait_for_timeout(500)
+
+            # Debug: Screenshot after filling credentials
+            await page.screenshot(path=str(screenshot_dir / 'debug_01c_credentials_filled.png'))
+            logger.info("Screenshot saved: debug_01c_credentials_filled.png")
 
             # Click Log In button
             logger.info("Clicking Log In button")
-            await page.evaluate('''() => {
-                const buttons = document.querySelectorAll('button');
+            login_clicked = await page.evaluate('''() => {
+                // Look for Log In button (not Sign Up)
+                const buttons = document.querySelectorAll('button, input[type="submit"]');
                 for (let btn of buttons) {
-                    if (btn.textContent.includes('Log In') || btn.textContent.includes('Sign In')) {
+                    const text = (btn.textContent || btn.value || '').trim();
+                    if (text === 'Log In' || text === 'Sign In' || text === 'Login') {
                         btn.click();
-                        return true;
+                        return text;
                     }
+                }
+                // Try form submit
+                const form = document.querySelector('form:has(input[type="email"])');
+                if (form) {
+                    form.submit();
+                    return 'form-submit';
                 }
                 return false;
             }''')
 
-            # Wait for login to complete
-            await page.wait_for_timeout(1500)
-            logger.info("Login completed")
+            if not login_clicked:
+                logger.error("Could not find or click Log In button")
+                return False
+            logger.info(f"Clicked login button: {login_clicked}")
+
+            # Wait for login to process
+            await page.wait_for_timeout(3000)
+
+            # Debug: Screenshot after login attempt
+            await page.screenshot(path=str(screenshot_dir / 'debug_01d_after_login.png'))
+            logger.info("Screenshot saved: debug_01d_after_login.png")
+
+            # Verify login succeeded by checking for logged-in indicators
+            login_verified = await page.evaluate('''() => {
+                const body = document.body.innerHTML.toLowerCase();
+
+                // Signs of being logged in
+                const loggedInSigns = [
+                    document.querySelector('a[href*="logout"]'),
+                    document.querySelector('a:has-text("Log Out")'),
+                    document.querySelector('a:has-text("Sign Out")'),
+                    document.querySelector('.user-name'),
+                    document.querySelector('.logged-in'),
+                    body.includes('my saved searches'),
+                    body.includes('my account'),
+                    body.includes('sign out'),
+                    body.includes('log out'),
+                ];
+
+                // Signs of NOT being logged in (login form still visible)
+                const loginFormVisible = document.querySelector('input[type="email"]:not([style*="display: none"])');
+                const signUpVisible = body.includes('sign up for an account');
+
+                return {
+                    anyLoggedInSign: loggedInSigns.some(s => !!s),
+                    loginFormStillVisible: !!loginFormVisible,
+                    signUpPromptVisible: signUpVisible
+                };
+            }''')
+            logger.info(f"Login verification: {login_verified}")
+
+            if login_verified.get('signUpPromptVisible') or login_verified.get('loginFormStillVisible'):
+                logger.error("Login appears to have failed - sign up prompt or login form still visible")
+                return False
+
+            if login_verified.get('anyLoggedInSign'):
+                logger.info("Login verified successful")
+                return True
+
+            # If we can't verify, assume it worked (some sites don't show clear indicators)
+            logger.warning("Could not verify login status, proceeding anyway")
             return True
 
         except Exception as e:
             logger.error(f"Login failed: {e}")
+            import traceback
+            traceback.print_exc()
             return False
 
     async def stop(self):
@@ -316,6 +423,7 @@ class IDXPortfolioAutomation:
                     continue
 
             # Take screenshot after first click attempt
+            screenshot_dir = Path(__file__).parent / 'logs'
             if save_clicked:
                 try:
                     await page.screenshot(path=str(screenshot_dir / 'debug_03_after_save_click.png'))
