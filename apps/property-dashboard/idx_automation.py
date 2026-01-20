@@ -790,8 +790,11 @@ class IDXPortfolioAutomation:
                     return None
 
             if search_clicked:
-                # Wait for results to load
-                await page.wait_for_load_state('networkidle')
+                # Wait for results to load (use 'load' instead of 'networkidle' - more reliable)
+                try:
+                    await page.wait_for_load_state('load', timeout=15000)
+                except Exception:
+                    pass  # Page may already be loaded or timeout - continue anyway
                 await page.wait_for_timeout(3000)
 
                 # Count results and compare to submitted MLS numbers
