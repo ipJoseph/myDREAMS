@@ -126,7 +126,12 @@ class IDXPortfolioAutomation:
             # Go to homepage
             logger.info(f"Navigating to {IDX_BASE_URL} for login")
             await page.goto(IDX_BASE_URL, wait_until='domcontentloaded', timeout=15000)
-            await page.wait_for_timeout(1000)
+            await page.wait_for_timeout(2000)  # Wait longer for JS to render
+
+            # Debug: Save screenshot
+            screenshot_dir = Path(__file__).parent / 'logs'
+            await page.screenshot(path=str(screenshot_dir / 'debug_01_homepage.png'))
+            logger.info("Screenshot saved: debug_01_homepage.png")
 
             # Click person icon using JavaScript (fastest)
             logger.info("Clicking person icon")
@@ -417,7 +422,12 @@ class IDXPortfolioAutomation:
             await page.goto(IDX_MLS_SEARCH_URL, wait_until='domcontentloaded', timeout=30000)
 
             # Wait for the page to fully load
-            await page.wait_for_timeout(2000)
+            await page.wait_for_timeout(3000)  # Longer wait for JS
+
+            # Debug: Save screenshot of MLS search page
+            screenshot_dir = Path(__file__).parent / 'logs'
+            await page.screenshot(path=str(screenshot_dir / 'debug_02_mls_search.png'))
+            logger.info("Screenshot saved: debug_02_mls_search.png")
 
             # Find and click the MLS Number Search tab if needed
             mls_tab = page.locator('a:has-text("MLS Number Search")')
