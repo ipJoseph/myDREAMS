@@ -529,30 +529,37 @@ class IDXPortfolioAutomation:
             # Click the save/submit button using JavaScript (most reliable)
             logger.info("Clicking Save button via JavaScript")
             submit_clicked = await page.evaluate('''() => {
-                // Look for Save button/input in the visible dialog
-                const saveButtons = document.querySelectorAll('input[value="Save"], button');
-                for (let btn of saveButtons) {
-                    if (btn.offsetParent !== null) {  // visible
-                        const text = btn.value || btn.textContent || '';
-                        if (text.toLowerCase().trim() === 'save') {
-                            console.log('Found save button:', btn);
-                            btn.click();
-                            return true;
-                        }
+                // Look for Save button in the form
+                const buttons = document.querySelectorAll('button, input[type="submit"], input[value="Save"]');
+                console.log('Found ' + buttons.length + ' potential buttons');
+
+                for (let btn of buttons) {
+                    const text = (btn.value || btn.textContent || '').toLowerCase().trim();
+                    console.log('Button: ' + btn.tagName + ', text: "' + text + '"');
+
+                    if (text === 'save') {
+                        console.log('Clicking save button');
+                        btn.click();
+                        return 'clicked';
                     }
                 }
                 return false;
             }''')
+            logger.info(f"JavaScript save button result: {submit_clicked}")
 
-            if not submit_clicked:
-                # Fallback: try Playwright click with force
-                logger.info("Fallback: trying Playwright force click")
-                try:
-                    save_btn = page.locator('input[value="Save"]').first
-                    await save_btn.click(force=True, timeout=3000)
-                    submit_clicked = True
-                except Exception as e:
-                    logger.error(f"Force click failed: {e}")
+            if not submit_clicked or submit_clicked == 'false':
+                # Fallback: try Playwright click with various selectors
+                logger.info("Fallback: trying Playwright click")
+                for selector in ['button:has-text("Save")', 'button:text("Save")', 'button.btn-primary', 'form button']:
+                    try:
+                        save_btn = page.locator(selector).first
+                        if await save_btn.count() > 0:
+                            logger.info(f"Found button with selector: {selector}")
+                            await save_btn.click(force=True, timeout=3000)
+                            submit_clicked = True
+                            break
+                    except Exception as e:
+                        logger.warning(f"Selector {selector} failed: {e}")
 
             if not submit_clicked:
                 logger.error("Could not click save submit button")
