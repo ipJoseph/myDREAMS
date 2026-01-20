@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """
 DREAMS Property Dashboard
-A web-based summary view of properties from Notion and contacts from SQLite
+A web-based summary view of properties and contacts from SQLite (source of truth)
 """
 
 import os
 import sys
 import subprocess
 import statistics
+import re
 from functools import wraps
 from datetime import datetime
 from pathlib import Path
@@ -17,6 +18,12 @@ import httpx
 # Add project root to path for imports
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
+
+from src.core.database import DREAMSDatabase
+
+# Initialize database connection
+DB_PATH = os.getenv('DREAMS_DB_PATH', str(PROJECT_ROOT / 'data' / 'dreams.db'))
+db = DREAMSDatabase(DB_PATH)
 
 # Load environment variables
 def load_env_file():
@@ -319,66 +326,60 @@ def extract_property(prop):
 
 
 def fetch_properties(added_for=None, status=None, city=None, county=None):
-    """Fetch properties from Notion with optional filters"""
-    filters = []
+    """Fetch properties from SQLite with optional filters"""
+    with db._get_connection() as conn:
+        query = 'SELECT * FROM properties WHERE 1=1'
+        params = []
 
-    if added_for:
-        filters.append({
-            'property': 'Added For',
-            'rich_text': {'contains': added_for}
-        })
+        if added_for:
+            query += ' AND added_for LIKE ?'
+            params.append(f'%{added_for}%')
 
-    if status:
-        filters.append({
-            'property': 'Status',
-            'select': {'equals': status}
-        })
+        if status:
+            query += ' AND LOWER(status) = LOWER(?)'
+            params.append(status)
 
-    if city:
-        filters.append({
-            'property': 'City',
-            'select': {'equals': city}
-        })
+        if city:
+            query += ' AND LOWER(city) = LOWER(?)'
+            params.append(city)
 
-    if county:
-        filters.append({
-            'property': 'County',
-            'rich_text': {'contains': county}
-        })
+        if county:
+            query += ' AND county LIKE ?'
+            params.append(f'%{county}%')
 
-    query_params = {}
-    if filters:
-        if len(filters) == 1:
-            query_params['filter'] = filters[0]
-        else:
-            query_params['filter'] = {'and': filters}
+        query += ' ORDER BY created_at DESC'
 
-    # Fetch all pages (handle pagination)
-    all_results = []
-    has_more = True
-    next_cursor = None
+        rows = conn.execute(query, params).fetchall()
 
-    while has_more:
-        if next_cursor:
-            query_params['start_cursor'] = next_cursor
+        # Convert to list of dicts and normalize field names for templates
+        properties = []
+        for row in rows:
+            prop = dict(row)
+            # Calculate price per sqft
+            price = prop.get('price')
+            sqft = prop.get('sqft')
+            prop['price_per_sqft'] = round(price / sqft, 2) if price and sqft and sqft > 0 else None
 
-        url = f'https://api.notion.com/v1/databases/{DATABASE_ID}/query'
-        resp = httpx.post(url, headers=NOTION_HEADERS, json=query_params, timeout=30)
-        resp.raise_for_status()
-        response = resp.json()
+            # Normalize field names for template compatibility
+            prop['beds'] = prop.get('beds')
+            prop['baths'] = prop.get('baths')
+            prop['lot_acres'] = prop.get('acreage')
+            prop['dom'] = prop.get('days_on_market')
+            prop['tax_annual'] = prop.get('tax_annual_amount')
+            prop['hoa'] = prop.get('hoa_fee')
+            prop['date_saved'] = prop.get('created_at')
+            prop['last_updated'] = prop.get('updated_at')
+            prop['photo_url'] = prop.get('primary_photo')
+            prop['favorites'] = prop.get('favorites_count')
+            prop['notion_url'] = f"https://notion.so/{prop.get('notion_page_id', '').replace('-', '')}" if prop.get('notion_page_id') else None
 
-        all_results.extend(response['results'])
-        has_more = response.get('has_more', False)
-        next_cursor = response.get('next_cursor')
+            # Clean county name (remove 'County' suffix)
+            if prop.get('county'):
+                prop['county'] = re.sub(r'\s+County$', '', prop['county'], flags=re.IGNORECASE).strip()
 
-    # Extract property data
-    properties = []
-    for page in all_results:
-        if page.get('archived', False) or page.get('in_trash', False):
-            continue
-        properties.append(extract_property(page))
+            properties.append(prop)
 
-    return properties
+        return properties
 
 
 def calculate_metrics(properties):
