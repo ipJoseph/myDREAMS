@@ -9,6 +9,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Zillow Photo Extraction** - Property monitor now captures photos from Zillow listings
+  - Implemented `_extract_photo()` for `ZillowPlaywrightScraper`
+  - Extracts from NEXT_DATA JSON, og:image meta tag, Zillow CDN URLs
+  - Handles multiple Zillow JSON structures (media, hdpData, responsivePhotos)
+  - Properties from both Redfin AND Zillow now get photos during daily monitor
 - **IDX Automation Improvements** - Reliable login and save search functionality
   - Added browserless.io cloud browser support for headless VPS environments
   - Added IPRoyal residential proxy support to bypass datacenter IP blocking
@@ -90,6 +95,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **VPS Property Monitor Setup** - Deployment scripts for production
   - `run_monitor.sh` - Cron-ready monitor execution script
   - `vps_setup.sh` - One-command VPS setup for Playwright
+  - PRD cron configured: daily 5am EST (10:00 UTC)
 - **Enhanced FUB Data Architecture** - Activity history, scoring trends, proper relational tables
   - `contact_scoring_history` table for tracking score snapshots over time
   - `contact_communications` table for individual call/text records
