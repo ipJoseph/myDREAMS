@@ -153,6 +153,13 @@ class IDXPortfolioAutomation:
             await page.goto(IDX_BASE_URL, wait_until='domcontentloaded', timeout=15000)
             await page.wait_for_timeout(2000)  # Wait longer for JS to render
 
+            # Check for 403 Forbidden (IP blocking)
+            page_title = await page.title()
+            if '403' in page_title or 'Forbidden' in page_title:
+                logger.error("IDX site returned 403 Forbidden - IP may be blocked")
+                write_progress("error", 0, 0, "", "IDX site blocked this IP address (403 Forbidden). Try running from local machine.")
+                return False
+
             # Debug: Save screenshot
             screenshot_dir = Path(__file__).parent / 'logs'
             await page.screenshot(path=str(screenshot_dir / 'debug_01_homepage.png'))
