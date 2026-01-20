@@ -72,6 +72,13 @@ IDX_PHONE = os.getenv('IDX_PHONE', '')
 # Browserless.io configuration (for cloud browser - avoids IP blocking)
 BROWSERLESS_TOKEN = os.getenv('BROWSERLESS_TOKEN', '')
 
+# Residential proxy configuration (IPRoyal or similar)
+# Required to bypass IDX site's datacenter IP blocking
+PROXY_HOST = os.getenv('PROXY_HOST', '')  # e.g., geo.iproyal.com
+PROXY_PORT = os.getenv('PROXY_PORT', '')  # e.g., 12321
+PROXY_USER = os.getenv('PROXY_USER', '')
+PROXY_PASS = os.getenv('PROXY_PASS', '')
+
 
 class IDXPortfolioAutomation:
     """Automates creating property portfolios on the IDX site"""
@@ -97,25 +104,35 @@ class IDXPortfolioAutomation:
         pass
 
     async def start(self):
-        """Start the browser - uses browserless.io if token available, otherwise local"""
+        """Start the browser - uses browserless.io + residential proxy if configured"""
         self.playwright = await async_playwright().start()
 
+        # Build proxy config if credentials are set
+        proxy_config = None
+        if PROXY_HOST and PROXY_PORT and PROXY_USER and PROXY_PASS:
+            proxy_config = {
+                "server": f"http://{PROXY_HOST}:{PROXY_PORT}",
+                "username": PROXY_USER,
+                "password": PROXY_PASS
+            }
+            logger.info(f"Residential proxy configured: {PROXY_HOST}:{PROXY_PORT}")
+
         if BROWSERLESS_TOKEN:
-            # Use browserless.io cloud browser (avoids IP blocking on VPS)
+            # Use browserless.io cloud browser
             browserless_url = f"wss://chrome.browserless.io?token={BROWSERLESS_TOKEN}&stealth=true"
             logger.info("Connecting to browserless.io cloud browser...")
             try:
                 self.browser = await self.playwright.chromium.connect_over_cdp(browserless_url)
-                # Get existing context or create new one
-                contexts = self.browser.contexts
-                if contexts:
-                    self.context = contexts[0]
+                # Create context with proxy (if configured) and stealth settings
+                self.context = await self.browser.new_context(
+                    viewport={'width': 1280, 'height': 850},
+                    user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    proxy=proxy_config
+                )
+                if proxy_config:
+                    logger.info("Connected to browserless.io with residential proxy")
                 else:
-                    self.context = await self.browser.new_context(
-                        viewport={'width': 1280, 'height': 850},
-                        user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-                    )
-                logger.info("Connected to browserless.io successfully")
+                    logger.info("Connected to browserless.io (no proxy)")
                 return
             except Exception as e:
                 logger.error(f"Failed to connect to browserless.io: {e}")
@@ -124,6 +141,7 @@ class IDXPortfolioAutomation:
         # Local browser (for development or as fallback)
         self.browser = await self.playwright.chromium.launch(
             headless=self.headless,
+            proxy=proxy_config,
             args=[
                 '--window-position=0,0',
                 '--window-size=1280,900',
@@ -132,9 +150,13 @@ class IDXPortfolioAutomation:
         )
         # Create context with viewport
         self.context = await self.browser.new_context(
-            viewport={'width': 1280, 'height': 850}
+            viewport={'width': 1280, 'height': 850},
+            proxy=proxy_config
         )
-        logger.info("Local browser started")
+        if proxy_config:
+            logger.info("Local browser started with residential proxy")
+        else:
+            logger.info("Local browser started")
 
     async def login(self, page: Page) -> bool:
         """
