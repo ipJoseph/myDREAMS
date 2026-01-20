@@ -729,13 +729,13 @@ class IDXPortfolioAutomation:
 
                     if result_count >= 0 and result_count < submitted_count:
                         missing_count = submitted_count - result_count
-                        # Show alert dialog
-                        await page.evaluate(f'''() => {{
-                            alert("Note: {result_count} of {submitted_count} properties selected are available on this website.\\n\\n{missing_count} property(ies) may be from an MLS not covered by this IDX.");
-                        }}''')
+                        # Log mismatch (don't show alert - it blocks browserless.io)
                         logger.info(f"MLS mismatch: {result_count} found of {submitted_count} submitted ({missing_count} missing)")
                     elif result_count >= 0:
                         logger.info(f"All {result_count} properties found")
+
+                    # Wait for page to fully stabilize before save
+                    await page.wait_for_timeout(1000)
 
                 except Exception as e:
                     logger.warning(f"Could not count results: {e}")
