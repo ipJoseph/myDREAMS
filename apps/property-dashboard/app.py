@@ -5,6 +5,7 @@ A web-based summary view of properties and contacts from SQLite (source of truth
 """
 
 import json
+import logging
 import os
 import sys
 import subprocess
@@ -15,6 +16,9 @@ from datetime import datetime
 from pathlib import Path
 from flask import Flask, render_template, render_template_string, request, jsonify, Response, redirect, url_for
 import httpx
+
+# Module logger
+logger = logging.getLogger(__name__)
 
 # Add project root to path for imports
 PROJECT_ROOT = Path(__file__).parent.parent.parent
@@ -228,7 +232,7 @@ def enrich_properties_with_idx_photos(properties):
                     mls_without_photos[mls_number]['photo_url'] = photo_url
     except Exception as e:
         # Log but don't fail if IDX lookup fails
-        print(f"Warning: IDX photo lookup failed: {e}")
+        logger.warning(f"IDX photo lookup failed: {e}")
 
     return properties
 
@@ -418,6 +422,15 @@ def get_unique_values(properties, key):
     return sorted({p[key] for p in properties if p.get(key)})
 
 
+def calculate_status_counts(properties):
+    """Calculate count of properties by status."""
+    counts = {}
+    for p in properties:
+        status = p.get('status') or 'Unknown'
+        counts[status] = counts.get(status, 0) + 1
+    return counts
+
+
 @app.route('/')
 @requires_auth
 def home():
@@ -428,15 +441,9 @@ def home():
     all_properties = fetch_properties()
     property_metrics = calculate_metrics(all_properties)
 
-    # Count by status
-    status_counts = {}
-    for p in all_properties:
-        s = p.get('status') or 'Unknown'
-        status_counts[s] = status_counts.get(s, 0) + 1
-
     property_stats = {
         'total': len(all_properties),
-        'status_counts': status_counts,
+        'status_counts': calculate_status_counts(all_properties),
         'avg_price': "${:,.0f}".format(property_metrics.get('avg_price', 0)) if property_metrics.get('avg_price') else '--'
     }
 
@@ -493,13 +500,7 @@ def properties_list():
 
     # Calculate metrics
     metrics = calculate_metrics(properties)
-
-    # Count by status
-    status_counts = {}
-    for p in properties:
-        s = p.get('status') or 'Unknown'
-        status_counts[s] = status_counts.get(s, 0) + 1
-    metrics['status_counts'] = status_counts
+    metrics['status_counts'] = calculate_status_counts(properties)
 
     # Sort by price descending
     properties.sort(key=lambda x: x['price'] or 0, reverse=True)
@@ -569,13 +570,7 @@ def client_dashboard(client_name):
 
     # Calculate metrics
     metrics = calculate_metrics(properties)
-
-    # Count by status
-    status_counts = {}
-    for p in properties:
-        s = p.get('status') or 'Unknown'
-        status_counts[s] = status_counts.get(s, 0) + 1
-    metrics['status_counts'] = status_counts
+    metrics['status_counts'] = calculate_status_counts(properties)
 
     # Sort by price descending
     properties.sort(key=lambda x: x['price'] or 0, reverse=True)
@@ -949,11 +944,9 @@ def create_idx_portfolio():
                 "message": "Starting automation...",
                 "error": ""
             }, f)
-        print(f"DEBUG: Progress file initialized with {len(mls_numbers)} properties")
+        logger.debug(f"Progress file initialized with {len(mls_numbers)} properties")
     except Exception as e:
-        print(f"ERROR: Could not write progress file: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.error(f"Could not write progress file: {e}", exc_info=True)
 
     try:
         # Use shell script to properly detach the process

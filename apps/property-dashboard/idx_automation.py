@@ -85,6 +85,9 @@ FORCE_LOCAL_BROWSER = os.getenv('FORCE_LOCAL_BROWSER', '').lower() in ('true', '
 # Skip proxy entirely (for localhost where home IP isn't blocked)
 SKIP_PROXY = os.getenv('SKIP_PROXY', '').lower() in ('true', '1', 'yes')
 
+# Enable debug screenshots (disabled by default to avoid credential exposure)
+DEBUG_SCREENSHOTS = os.getenv('DEBUG_SCREENSHOTS', '').lower() in ('true', '1', 'yes')
+
 
 class IDXPortfolioAutomation:
     """Automates creating property portfolios on the IDX site"""
@@ -111,6 +114,13 @@ class IDXPortfolioAutomation:
         if self.headless or PROGRESS_FILE:
             await self.stop()
         return False  # Don't suppress exceptions
+
+    async def _debug_screenshot(self, page, filename: str):
+        """Take screenshot only if DEBUG_SCREENSHOTS is enabled"""
+        if DEBUG_SCREENSHOTS:
+            screenshot_dir = Path(__file__).parent / 'logs'
+            await page.screenshot(path=str(screenshot_dir / filename))
+            logger.info(f"Screenshot saved: {filename}")
 
     async def start(self):
         """Start the browser - uses browserless.io + residential proxy if configured"""
@@ -180,8 +190,6 @@ class IDXPortfolioAutomation:
             logger.warning("IDX credentials not configured in .env file")
             return False
 
-        screenshot_dir = Path(__file__).parent / 'logs'
-
         try:
             # Go to homepage
             logger.info(f"Navigating to {IDX_BASE_URL} for login")
@@ -195,9 +203,8 @@ class IDXPortfolioAutomation:
                 write_progress("error", 0, 0, "", "IDX site blocked this IP address (403 Forbidden). Try running from local machine.")
                 return False
 
-            # Debug: Save screenshot
-            await page.screenshot(path=str(screenshot_dir / 'debug_01_homepage.png'))
-            logger.info("Screenshot saved: debug_01_homepage.png")
+            # Debug: Save screenshot (conditional)
+            await self._debug_screenshot(page, 'debug_01_homepage.png')
 
             # Click person icon to open login panel
             logger.info("Clicking person icon to open login panel")
@@ -231,8 +238,7 @@ class IDXPortfolioAutomation:
             await page.wait_for_timeout(1500)
 
             # Debug: Screenshot after clicking user icon
-            await page.screenshot(path=str(screenshot_dir / 'debug_01b_login_panel.png'))
-            logger.info("Screenshot saved: debug_01b_login_panel.png")
+            await self._debug_screenshot(page, 'debug_01b_login_panel.png')
 
             # Check if we see a login form
             has_login_form = await page.evaluate('''() => {
@@ -283,8 +289,7 @@ class IDXPortfolioAutomation:
             await page.wait_for_timeout(500)
 
             # Debug: Screenshot after filling credentials
-            await page.screenshot(path=str(screenshot_dir / 'debug_01c_credentials_filled.png'))
-            logger.info("Screenshot saved: debug_01c_credentials_filled.png")
+            await self._debug_screenshot(page, 'debug_01c_credentials_filled.png')
 
             # Click Log In button
             logger.info("Clicking Log In button")
@@ -316,8 +321,7 @@ class IDXPortfolioAutomation:
             await page.wait_for_timeout(3000)
 
             # Debug: Screenshot after login attempt
-            await page.screenshot(path=str(screenshot_dir / 'debug_01d_after_login.png'))
-            logger.info("Screenshot saved: debug_01d_after_login.png")
+            await self._debug_screenshot(page, 'debug_01d_after_login.png')
 
             # Verify login succeeded by checking for logged-in indicators
             login_verified = await page.evaluate('''() => {
@@ -629,9 +633,7 @@ class IDXPortfolioAutomation:
             await page.wait_for_timeout(3000)  # Longer wait for JS
 
             # Debug: Save screenshot of MLS search page
-            screenshot_dir = Path(__file__).parent / 'logs'
-            await page.screenshot(path=str(screenshot_dir / 'debug_02_mls_search.png'))
-            logger.info("Screenshot saved: debug_02_mls_search.png")
+            await self._debug_screenshot(page, 'debug_02_mls_search.png')
 
             # Find and click the MLS Number Search tab if needed
             mls_tab = page.locator('a:has-text("MLS Number Search")')
