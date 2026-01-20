@@ -18,10 +18,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Phone numbers on contacts list link directly to FUB contact page
   - Contact detail page has FUB icon next to phone number
   - URL format: `JonTharpTeam.followupboss.com/2/people/view/{fub_id}`
+- **Chrome Extension v3.9.24** - UI improvements and bug fixes
+  - Renamed "Scraping" to "Collecting Data" (less litigious terminology)
+  - "Deep Scrape" → "Deep Capture"
+  - Completion message: "✓ Complete! X properties selected. Y saved for [user]"
+  - Smaller popout window (520x780) to fit content
+  - Faster initialization - event listeners setup first
+  - Fixed tab detection for reliable popout communication
 - **Chrome Extension v3.9.20** - Fixed UI freezing and performance improvements
-  - Interaction-aware background checks (pauses when user is selecting)
-  - Smaller batch sizes and longer yield times for property checks
-  - Low-priority DOM updates using requestIdleCallback
+  - Disabled background property existence checks (caused freezes)
+  - Interaction-aware pausing for any remaining async operations
   - Fixed popout window losing connection to source tab
 - **Chrome Extension v3.9.18** - Fixed Chrome Web Store submission
   - Removed unused `scripting` permission that caused rejection
@@ -93,6 +99,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - FUB-to-Sheets SQLite sync (parallel output alongside Sheets)
 
 ### Changed
+- **Address Links Prioritize IDX** - Property addresses now link to team IDX site
+  - If MLS number exists → link to `smokymountainhomes4sale.com/property/{mls}`
+  - If no MLS but have source URL → link to Redfin/Zillow
+  - Removed Notion links entirely (not user-facing)
 - **SQLite as Source of Truth** - Dashboard now reads from SQLite instead of Notion
   - `fetch_properties()` queries SQLite database directly
   - Notion becomes secondary sync destination for external sharing
