@@ -16,7 +16,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Added `FORCE_LOCAL_BROWSER` env var to bypass browserless.io
   - Debug screenshots at each login step for troubleshooting
   - Login verification with credential fill confirmation
+  - Save search verification navigates to saved searches page
+  - Graceful handling of browser disconnect during save (form submission)
   - DEV uses local browser (fast), PRD uses browserless.io + proxy
+  - **Fully working on both DEV and PRD**
 - **Git Workflow Documentation** - Added to CLAUDE.md
   - DEV vs PRD environment paths documented
   - SSH git commands for PRD using `git -C /opt/mydreams`
