@@ -337,6 +337,11 @@ class IDXPortfolioAutomation:
             # Wait for save dialog/form to fully appear
             await page.wait_for_timeout(2000)
 
+            # Debug: Screenshot of save dialog
+            screenshot_dir = Path(__file__).parent / 'logs'
+            await page.screenshot(path=str(screenshot_dir / 'debug_03_save_dialog.png'))
+            logger.info("Screenshot saved: debug_03_save_dialog.png")
+
             # Fill in the search name
             name_filled = False
 
@@ -383,6 +388,10 @@ class IDXPortfolioAutomation:
 
             await page.wait_for_timeout(800)
 
+            # Debug: Screenshot after filling name
+            await page.screenshot(path=str(screenshot_dir / 'debug_04_name_filled.png'))
+            logger.info("Screenshot saved: debug_04_name_filled.png")
+
             # Click the save/submit button using JavaScript (most reliable)
             logger.info("Clicking Save button via JavaScript")
             submit_clicked = await page.evaluate('''() => {
@@ -420,14 +429,23 @@ class IDXPortfolioAutomation:
                 logger.error("Could not click save submit button")
                 return False
 
-            # Wait longer for save to complete
-            await page.wait_for_timeout(3000)
+            # Wait longer for save to complete (page may navigate)
+            logger.info("Waiting for save to complete...")
+            await page.wait_for_timeout(5000)
             logger.info("Search save attempted")
 
-            # Refresh the page to ensure saved searches list is updated
-            await page.reload(wait_until='domcontentloaded')
-            await page.wait_for_timeout(1500)
-            logger.info("Page refreshed after save")
+            # Debug: Screenshot after save
+            try:
+                await page.screenshot(path=str(screenshot_dir / 'debug_05_after_save.png'))
+                logger.info("Screenshot saved: debug_05_after_save.png")
+            except Exception as e:
+                logger.warning(f"Could not take post-save screenshot: {e}")
+
+            # Try to wait for navigation if it happens
+            try:
+                await page.wait_for_load_state('networkidle', timeout=5000)
+            except Exception:
+                pass  # May timeout if no navigation
 
             return True
 
