@@ -43,6 +43,55 @@ myDREAMS (Desktop Real Estate Agent Management System) is a local-first platform
 - **After completing each feature/fix**: Update CHANGELOG.md and ROADMAP.md
 - **Commit and push**: You have standing permission after completing work sections
 
+## Git Workflow
+
+### Environment Paths
+| Environment | Path | User |
+|-------------|------|------|
+| DEV (localhost) | `/home/bigeug/myDREAMS` | bigeug |
+| PRD (VPS) | `/opt/mydreams` | dreams (run as root) |
+
+### DEV (localhost) - Standard Git Commands
+```bash
+# From working directory /home/bigeug/myDREAMS
+git status
+git add -A
+git commit -m "Your commit message"
+git push
+git pull
+```
+
+### PRD - Git Commands via SSH
+**IMPORTANT:** PRD path is `/opt/mydreams`, NOT `/home/bigeug/myDREAMS`
+
+```bash
+# Pull latest code on PRD
+ssh root@178.156.221.10 'git -C /opt/mydreams pull'
+
+# Check status on PRD
+ssh root@178.156.221.10 'git -C /opt/mydreams status'
+
+# View recent commits on PRD
+ssh root@178.156.221.10 'git -C /opt/mydreams log --oneline -5'
+```
+
+### Full Deploy Workflow (DEV to PRD)
+```bash
+# 1. On DEV: Commit and push changes
+git add -A && git commit -m "Description of changes" && git push
+
+# 2. Pull to PRD and restart services
+ssh root@178.156.221.10 'git -C /opt/mydreams pull && systemctl restart mydreams-dashboard'
+
+# 3. Verify PRD is running
+ssh root@178.156.221.10 'systemctl status mydreams-dashboard'
+```
+
+### Sync Database (DEV to PRD)
+```bash
+scp /home/bigeug/myDREAMS/data/dreams.db root@178.156.221.10:/opt/mydreams/data/dreams.db
+```
+
 ## Production Server (PRD)
 
 **SSH Access:** `ssh root@178.156.221.10`
