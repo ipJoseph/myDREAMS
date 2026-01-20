@@ -9,6 +9,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Dashboard Favicon** - Stylish house/moon icon for browser tab
+  - Red gradient favicon for DEV environment (`DREAMS_ENV=dev`)
+  - Blue gradient favicon for PRD environment (`DREAMS_ENV=prd`)
+  - SVG format for crisp display at any size
+  - Embodies "dream of home ownership" with house, moon, and stars motif
 - **Zillow Photo Extraction** - Property monitor now captures photos from Zillow listings
   - Implemented `_extract_photo()` for `ZillowPlaywrightScraper`
   - Extracts from NEXT_DATA JSON, og:image meta tag, Zillow CDN URLs
