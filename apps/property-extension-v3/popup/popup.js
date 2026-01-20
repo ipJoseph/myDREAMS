@@ -9,9 +9,6 @@
 let currentProperty = null;
 let searchResults = [];
 let selectedResults = new Set();
-let isUserInteracting = false;
-let interactionTimeout = null;
-let checksPaused = false;
 
 // ============================================
 // DOM ELEMENTS
@@ -107,8 +104,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateQueueBadge()
   ]).catch(e => console.error('Status update error:', e));
 
-  // Load page data last
-  await loadPageData();
+  // Load page data - don't await so popup stays interactive during scraping
+  loadPageData().catch(e => console.error('Load page data error:', e));
 });
 
 async function loadSettings() {
@@ -493,12 +490,10 @@ function displaySearchResults(results) {
     </div>
   `).join('');
 
-  // Add checkbox listeners with interaction tracking
-  elements.searchResults.querySelectorAll('.result-checkbox').forEach(checkbox => {
-    checkbox.addEventListener('change', (e) => {
-      // Mark user as interacting - pause background checks
-      markUserInteracting();
-
+  // Use event delegation for checkboxes - single listener handles all
+  // (Previous listeners are automatically removed when innerHTML is set)
+  elements.searchResults.onclick = (e) => {
+    if (e.target.classList.contains('result-checkbox')) {
       const index = parseInt(e.target.dataset.index);
       if (e.target.checked) {
         selectedResults.add(index);
@@ -506,26 +501,8 @@ function displaySearchResults(results) {
         selectedResults.delete(index);
       }
       updateBulkButtons();
-    });
-  });
-
-  // Track scrolling as interaction
-  elements.searchResults.addEventListener('scroll', () => {
-    markUserInteracting();
-  }, { passive: true });
-
-  // Track input field interactions
-  [elements.searchAddedBy, elements.searchAddedFor].forEach(input => {
-    if (input) {
-      input.addEventListener('focus', () => markUserInteracting());
-      input.addEventListener('input', () => markUserInteracting());
-      input.addEventListener('keydown', () => markUserInteracting());
     }
-  });
-
-  // Background property checks disabled - they cause UI freezes
-  // The API handles duplicates appropriately, so this is optional
-  // TODO: Re-enable with Web Worker if needed in future
+  };
 }
 
 function getQualityIndicator(result) {
@@ -533,97 +510,6 @@ function getQualityIndicator(result) {
   return '○';
 }
 
-// Mark that user is actively interacting - pauses background checks
-function markUserInteracting() {
-  isUserInteracting = true;
-  checksPaused = true;
-
-  // Clear existing timeout
-  if (interactionTimeout) {
-    clearTimeout(interactionTimeout);
-  }
-
-  // Resume background checks after 500ms of no interaction
-  interactionTimeout = setTimeout(() => {
-    isUserInteracting = false;
-    checksPaused = false;
-  }, 500);
-}
-
-// Schedule a low-priority DOM update
-function scheduleUpdate(fn) {
-  if (typeof requestIdleCallback !== 'undefined') {
-    requestIdleCallback(fn, { timeout: 100 });
-  } else {
-    setTimeout(fn, 10);
-  }
-}
-
-// Check which properties exist in database and update indicators (non-blocking)
-async function checkExistingProperties(results) {
-  // Get server URL from storage
-  const settings = await chrome.storage.sync.get(['serverUrl']);
-  const serverUrl = settings.serverUrl || 'http://localhost:5000';
-
-  // Process one at a time with generous pauses to never block UI
-  for (let i = 0; i < results.length; i++) {
-    // Wait if user is interacting - check frequently
-    while (checksPaused) {
-      await new Promise(r => setTimeout(r, 50));
-    }
-
-    const result = results[i];
-
-    try {
-      const indicator = await checkPropertyExists(result, serverUrl);
-      // Schedule DOM update at low priority
-      scheduleUpdate(() => {
-        const statusEl = document.querySelector(`.result-status[data-index="${i}"] .status-indicator`);
-        if (statusEl) {
-          statusEl.textContent = indicator;
-          statusEl.title = indicator === '✓' ? 'New record' : indicator === '↻' ? 'Update existing' : 'Unknown';
-        }
-      });
-    } catch (error) {
-      scheduleUpdate(() => {
-        const statusEl = document.querySelector(`.result-status[data-index="${i}"] .status-indicator`);
-        if (statusEl) {
-          statusEl.textContent = '?';
-          statusEl.title = 'Could not check';
-        }
-      });
-    }
-
-    // Generous pause between each check - UI responsiveness is priority
-    await new Promise(r => setTimeout(r, 150));
-  }
-}
-
-async function checkPropertyExists(property, serverUrl) {
-  try {
-    // Check by redfin_id, address, or mls_number
-    const params = new URLSearchParams();
-    if (property.redfin_id) params.set('redfin_id', property.redfin_id);
-    if (property.address) params.set('address', property.address);
-    if (property.mls_number) params.set('mls', property.mls_number);
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
-
-    const response = await fetch(`${serverUrl}/api/v1/properties/check?${params}`, {
-      signal: controller.signal
-    });
-    clearTimeout(timeoutId);
-
-    if (response.ok) {
-      const data = await response.json();
-      return data.exists ? '↻' : '✓';  // ↻ for update, ✓ for new
-    }
-    return '?';  // Unknown - API error
-  } catch (error) {
-    return '?';  // Unknown - network error or timeout
-  }
-}
 
 function updateBulkButtons() {
   const count = selectedResults.size;
