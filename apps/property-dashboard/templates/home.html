@@ -488,7 +488,7 @@
                         {% if contact.email %}
                         <div class="priority-contact-row">
                             <span>✉️</span>
-                            <a href="mailto:{{ contact.email }}">{{ contact.email|truncate(25) }}</a>
+                            <a href="https://mail.google.com/mail/?authuser=Joseph@JonTharpHomes.com&view=cm&fs=1&to={{ contact.email }}" target="_blank">{{ contact.email|truncate(25) }}</a>
                         </div>
                         {% endif %}
                         {% if contact.fub_id %}
