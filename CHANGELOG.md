@@ -9,6 +9,18 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **IDX Automation Improvements** - Reliable login and save search functionality
+  - Added browserless.io cloud browser support for headless VPS environments
+  - Added IPRoyal residential proxy support to bypass datacenter IP blocking
+  - Added `SKIP_PROXY` env var for localhost (home IP not blocked)
+  - Added `FORCE_LOCAL_BROWSER` env var to bypass browserless.io
+  - Debug screenshots at each login step for troubleshooting
+  - Login verification with credential fill confirmation
+  - DEV uses local browser (fast), PRD uses browserless.io + proxy
+- **Git Workflow Documentation** - Added to CLAUDE.md
+  - DEV vs PRD environment paths documented
+  - SSH git commands for PRD using `git -C /opt/mydreams`
+  - Full deploy workflow example
 - **Client Portfolio Password Protection** - Shareable portfolio links for clients
   - Simple password protection on `/client/<name>` route
   - Clean login form with Jon Tharp Homes branding
