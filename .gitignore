@@ -94,3 +94,4 @@ config/config.yaml
 *.env
 .env.*
 apps/property-extension-v3.zip
+*.zip
