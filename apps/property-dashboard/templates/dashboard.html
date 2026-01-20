@@ -58,6 +58,71 @@
         .dreams-table {
             min-width: 1400px;
         }
+
+        /* IDX Progress Modal */
+        .progress-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .progress-modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 32px 40px;
+            min-width: 400px;
+            max-width: 500px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            text-align: center;
+        }
+
+        .progress-modal h3 {
+            margin: 0 0 20px 0;
+            color: var(--primary-dark);
+            font-size: 18px;
+        }
+
+        .progress-bar-container {
+            background: #e5e7eb;
+            border-radius: 8px;
+            height: 12px;
+            overflow: hidden;
+            margin-bottom: 16px;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-blue), var(--success-green));
+            border-radius: 8px;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .progress-message {
+            font-size: 14px;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .progress-details {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .progress-modal.complete .progress-bar {
+            background: var(--success-green);
+        }
+
+        .progress-modal.error .progress-bar {
+            background: var(--alert-red);
+        }
     </style>
 </head>
 <body>
@@ -257,6 +322,18 @@
                 {% endfor %}
             </tbody>
         </table>
+    </div>
+
+    <!-- IDX Progress Modal -->
+    <div id="idxProgressModal" class="progress-modal" style="display: none;">
+        <div class="progress-modal-content">
+            <h3 id="progressTitle">Creating IDX Portfolio</h3>
+            <div class="progress-bar-container">
+                <div id="progressBar" class="progress-bar"></div>
+            </div>
+            <div id="progressMessage" class="progress-message">Initializing...</div>
+            <div id="progressDetails" class="progress-details"></div>
+        </div>
     </div>
 
     <!-- Footer -->
@@ -554,24 +631,10 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    btn.textContent = 'Launched!';
-
-                    // Show client portfolio URL if available
-                    if (data.client_url) {
-                        const prdUrl = data.client_url.replace(window.location.origin, 'https://app.wncmountain.homes');
-
-                        // Copy to clipboard
-                        navigator.clipboard.writeText(prdUrl).catch(() => {});
-
-                        // Show the URL with copy confirmation
-                        setTimeout(() => {
-                            alert(`Portfolio created!\n\nClient Portfolio URL (copied to clipboard):\n${prdUrl}\n\nPassword: dreams2026`);
-                        }, 500);
-                    }
-
-                    setTimeout(() => {
-                        btn.textContent = originalText;
-                    }, 3000);
+                    // Show progress modal and start polling
+                    const clientUrl = data.client_url;
+                    showProgressModal(finalMlsNumbers.length, clientUrl);
+                    btn.textContent = originalText;
                 } else {
                     alert('Error: ' + data.error);
                     btn.textContent = originalText;
@@ -581,6 +644,133 @@
                 btn.textContent = originalText;
             }
         }
+
+        // Progress modal functions
+        let progressPollInterval = null;
+
+        function showProgressModal(totalCount, clientUrl) {
+            const modal = document.getElementById('idxProgressModal');
+            const progressBar = document.getElementById('progressBar');
+            const progressMessage = document.getElementById('progressMessage');
+            const progressDetails = document.getElementById('progressDetails');
+            const progressTitle = document.getElementById('progressTitle');
+
+            // Reset modal state
+            modal.classList.remove('complete', 'error');
+            progressBar.style.width = '5%';
+            progressMessage.textContent = 'Initializing...';
+            progressDetails.textContent = `0 of ${totalCount} properties`;
+            progressTitle.textContent = 'Creating IDX Portfolio';
+            modal.style.display = 'flex';
+
+            // Store clientUrl for later
+            modal.dataset.clientUrl = clientUrl || '';
+
+            // Start polling for progress
+            progressPollInterval = setInterval(() => pollProgress(totalCount), 1000);
+        }
+
+        async function pollProgress(totalCount) {
+            try {
+                const response = await fetch('/api/idx-progress');
+                const data = await response.json();
+
+                const modal = document.getElementById('idxProgressModal');
+                const progressBar = document.getElementById('progressBar');
+                const progressMessage = document.getElementById('progressMessage');
+                const progressDetails = document.getElementById('progressDetails');
+                const progressTitle = document.getElementById('progressTitle');
+
+                // Update progress based on status
+                switch (data.status) {
+                    case 'starting':
+                        progressBar.style.width = '10%';
+                        progressMessage.textContent = data.message || 'Initializing...';
+                        break;
+
+                    case 'logging_in':
+                        progressBar.style.width = '20%';
+                        progressMessage.textContent = data.message || 'Logging into IDX site...';
+                        break;
+
+                    case 'searching':
+                        progressBar.style.width = '40%';
+                        progressMessage.textContent = data.message || 'Searching properties...';
+                        break;
+
+                    case 'saving':
+                        progressBar.style.width = '80%';
+                        progressMessage.textContent = data.message || 'Saving search...';
+                        break;
+
+                    case 'complete':
+                        progressBar.style.width = '100%';
+                        progressMessage.textContent = 'Portfolio created successfully!';
+                        progressTitle.textContent = 'Complete!';
+                        modal.classList.add('complete');
+
+                        // Stop polling
+                        clearInterval(progressPollInterval);
+                        progressPollInterval = null;
+
+                        // Show client URL if available
+                        const clientUrl = modal.dataset.clientUrl;
+                        if (clientUrl) {
+                            const prdUrl = clientUrl.replace(window.location.origin, 'https://app.wncmountain.homes');
+                            progressDetails.innerHTML = `<br><strong>Client URL:</strong><br><a href="${prdUrl}" target="_blank" style="color: var(--accent-blue);">${prdUrl}</a><br><br><small>Password: dreams2026</small>`;
+
+                            // Copy to clipboard
+                            navigator.clipboard.writeText(prdUrl).catch(() => {});
+                        }
+
+                        // Auto-hide after 5 seconds
+                        setTimeout(() => {
+                            modal.style.display = 'none';
+                        }, 5000);
+                        break;
+
+                    case 'error':
+                        progressBar.style.width = '100%';
+                        progressMessage.textContent = 'Error: ' + (data.error || 'Unknown error');
+                        progressTitle.textContent = 'Error';
+                        modal.classList.add('error');
+
+                        // Stop polling
+                        clearInterval(progressPollInterval);
+                        progressPollInterval = null;
+
+                        // Auto-hide after 5 seconds
+                        setTimeout(() => {
+                            modal.style.display = 'none';
+                        }, 5000);
+                        break;
+
+                    case 'idle':
+                        // Check if we've been idle for too long (automation may have started)
+                        // Keep showing initializing state
+                        break;
+                }
+
+                // Update details with counts if available
+                if (data.current !== undefined && data.total !== undefined && data.total > 0) {
+                    progressDetails.textContent = `${data.current} of ${data.total} properties`;
+                }
+
+            } catch (error) {
+                console.error('Error polling progress:', error);
+            }
+        }
+
+        // Allow clicking outside modal to close it (after completion)
+        document.getElementById('idxProgressModal').addEventListener('click', function(e) {
+            if (e.target === this && (this.classList.contains('complete') || this.classList.contains('error'))) {
+                this.style.display = 'none';
+                if (progressPollInterval) {
+                    clearInterval(progressPollInterval);
+                    progressPollInterval = null;
+                }
+            }
+        });
 
         // Table sorting
         let currentSort = { column: null, direction: null }; // null = unsorted, 'asc', 'desc'

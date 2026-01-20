@@ -4,6 +4,7 @@ DREAMS Property Dashboard
 A web-based summary view of properties and contacts from SQLite (source of truth)
 """
 
+import json
 import os
 import sys
 import subprocess
@@ -1008,6 +1009,29 @@ def create_idx_portfolio():
 
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/idx-progress')
+@requires_auth
+def get_idx_progress():
+    """Get current IDX portfolio automation progress (requires authentication)"""
+    progress_file = os.path.join(os.path.dirname(__file__), 'logs', 'idx-progress.json')
+
+    try:
+        if os.path.exists(progress_file):
+            with open(progress_file, 'r') as f:
+                progress = json.load(f)
+            return jsonify(progress)
+        else:
+            return jsonify({
+                'status': 'idle',
+                'message': 'No active portfolio creation'
+            })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'error': str(e)
+        })
 
 
 if __name__ == '__main__':

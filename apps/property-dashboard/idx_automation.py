@@ -2,17 +2,44 @@
 """
 IDX Portfolio Automation
 Uses Playwright to create property portfolios on the team IDX site
+Supports progress tracking via JSON file for remote monitoring
 """
 
 import asyncio
+import json
 import logging
 import os
+from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Callable
 
 from playwright.async_api import async_playwright, Browser, Page
 
 logger = logging.getLogger(__name__)
+
+# Global progress file path (set from command line)
+PROGRESS_FILE = None
+
+
+def write_progress(status: str, current: int = 0, total: int = 0, message: str = "", error: str = ""):
+    """Write progress to JSON file for dashboard to poll"""
+    if not PROGRESS_FILE:
+        return
+
+    progress = {
+        "status": status,  # starting, logging_in, searching, saving, complete, error
+        "current": current,
+        "total": total,
+        "message": message,
+        "error": error,
+        "timestamp": datetime.now().isoformat()
+    }
+
+    try:
+        with open(PROGRESS_FILE, 'w') as f:
+            json.dump(progress, f)
+    except Exception as e:
+        logger.error(f"Failed to write progress file: {e}")
 
 # Load environment variables
 def load_env_file():
@@ -354,7 +381,11 @@ class IDXPortfolioAutomation:
         """
         if not mls_numbers:
             logger.warning("No MLS numbers provided")
+            write_progress("error", error="No MLS numbers provided")
             return None
+
+        total = len(mls_numbers)
+        write_progress("starting", 0, total, f"Initializing for {total} properties...")
 
         if not self.browser:
             await self.start()
@@ -365,13 +396,17 @@ class IDXPortfolioAutomation:
 
             # Login first if credentials are configured
             if IDX_EMAIL and IDX_PHONE:
+                write_progress("logging_in", 0, total, "Logging into IDX site...")
                 login_success = await self.login(page)
                 if login_success:
                     logger.info("Login completed")
+                    write_progress("logging_in", 0, total, "Login successful")
                 else:
                     logger.warning("Login failed - continuing anyway")
+                    write_progress("logging_in", 0, total, "Login failed - continuing...")
 
             # Navigate to MLS search page
+            write_progress("searching", 0, total, "Loading MLS search page...")
             logger.info(f"Navigating to {IDX_MLS_SEARCH_URL}")
             await page.goto(IDX_MLS_SEARCH_URL, wait_until='domcontentloaded', timeout=30000)
 
@@ -387,6 +422,7 @@ class IDXPortfolioAutomation:
 
             # Format MLS numbers as comma-separated string
             mls_string = ', '.join(mls_numbers)
+            write_progress("searching", 0, total, f"Entering {total} MLS numbers...")
             logger.info(f"Filling in {len(mls_numbers)} MLS numbers: {mls_string[:50]}...")
 
             # Try multiple strategies to find and fill the input field
@@ -456,6 +492,7 @@ class IDXPortfolioAutomation:
             await page.wait_for_timeout(500)
 
             # Submit the form via JavaScript (most reliable)
+            write_progress("searching", 0, total, "Submitting search...")
             search_clicked = False
             await page.wait_for_timeout(500)
 
@@ -511,16 +548,28 @@ class IDXPortfolioAutomation:
 
                 # Save the search if a name was provided
                 if search_name:
+                    write_progress("saving", total, total, f"Saving search as '{search_name}'...")
                     save_success = await self.save_search(page, search_name)
                     if save_success:
                         logger.info(f"Search saved as: {search_name}")
+                        write_progress("saving", total, total, "Search saved successfully")
                     else:
                         logger.warning("Could not save search automatically")
+                        write_progress("saving", total, total, "Could not save search automatically")
 
             result_url = page.url
             logger.info(f"Current URL: {result_url}")
 
-            # Keep browser open indefinitely
+            # Write completion progress
+            write_progress("complete", total, total, f"Portfolio created with {total} properties", "")
+
+            # In headless mode OR when running as background task (progress file set), close browser
+            if self.headless or PROGRESS_FILE:
+                logger.info("Background/headless mode - closing browser")
+                await self.stop()
+                return result_url
+
+            # Interactive mode (no progress file): Keep browser open indefinitely
             print(f"\n{'='*60}")
             if filled:
                 print(f"Portfolio ready with {len(mls_numbers)} properties!")
@@ -545,6 +594,7 @@ class IDXPortfolioAutomation:
 
         except Exception as e:
             logger.error(f"Error creating portfolio: {e}")
+            write_progress("error", 0, total, "", str(e))
             import traceback
             traceback.print_exc()
             return None
@@ -580,14 +630,18 @@ if __name__ == '__main__':
     logger.info(f"Current working directory: {os.getcwd()}")
     logger.info(f"Script location: {os.path.dirname(os.path.abspath(__file__))}")
 
-    # Check if we have a display for non-headless mode
-    if not display:
-        logger.warning("No DISPLAY environment variable set - browser windows may not be visible")
-        logger.warning("Consider setting DISPLAY or running with Xvfb for headless servers")
+    # Determine headless mode based on DISPLAY availability
+    # With Xvfb, DISPLAY will be set (e.g., ":99") so browser can run
+    headless_mode = not bool(display)
+    if headless_mode:
+        logger.info("No DISPLAY - will run in headless mode")
+    else:
+        logger.info(f"DISPLAY={display} - running with visible browser")
 
-    # Example usage - can pass MLS numbers as command line args
+    # Command line args:
     # Arg 1: comma-separated MLS numbers
     # Arg 2: search name (optional)
+    # Arg 3: progress file path (optional)
     if len(sys.argv) > 1:
         mls_list = sys.argv[1].split(',')
         mls_list = [m.strip() for m in mls_list]
@@ -597,12 +651,21 @@ if __name__ == '__main__':
 
     search_name = sys.argv[2] if len(sys.argv) > 2 else ""
 
+    # Set progress file if provided
+    if len(sys.argv) > 3:
+        global PROGRESS_FILE
+        PROGRESS_FILE = sys.argv[3]
+        logger.info(f"Progress file: {PROGRESS_FILE}")
+
     logger.info(f"Creating portfolio for: {mls_list}")
     if search_name:
         logger.info(f"Will save as: {search_name}")
 
     try:
-        run_portfolio(mls_list, search_name)
+        # Run with headless=True when using xvfb (DISPLAY is set but no physical monitor)
+        # For xvfb-run, we actually have a virtual display, so headless=False is fine
+        asyncio.run(create_idx_portfolio(mls_list, search_name=search_name, headless=False))
         logger.info("Portfolio creation completed successfully")
     except Exception as e:
         logger.error(f"Portfolio creation failed: {e}", exc_info=True)
+        write_progress("error", 0, len(mls_list), "", str(e))
