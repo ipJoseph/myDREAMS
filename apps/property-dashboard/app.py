@@ -51,8 +51,21 @@ app = Flask(__name__)
 DASHBOARD_USERNAME = os.getenv('DASHBOARD_USERNAME')
 DASHBOARD_PASSWORD = os.getenv('DASHBOARD_PASSWORD')
 
+# Environment detection (dev/prd) - defaults to 'dev'
+DREAMS_ENV = os.getenv('DREAMS_ENV', 'dev').lower()
+
 # Client Portfolio Password (simple key-based access)
 CLIENT_PORTFOLIO_KEY = os.getenv('CLIENT_PORTFOLIO_KEY', 'dreams2026')
+
+
+@app.context_processor
+def inject_globals():
+    """Inject global variables into all templates"""
+    return {
+        'dreams_env': DREAMS_ENV,
+        'favicon': f'/static/favicon-{DREAMS_ENV}.svg'
+    }
+
 
 # Simple password form for client portfolio
 CLIENT_PASSWORD_FORM = '''
