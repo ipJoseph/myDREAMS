@@ -79,6 +79,9 @@ PROXY_PORT = os.getenv('PROXY_PORT', '')  # e.g., 12321
 PROXY_USER = os.getenv('PROXY_USER', '')
 PROXY_PASS = os.getenv('PROXY_PASS', '')
 
+# Force local browser (bypass browserless.io for debugging)
+FORCE_LOCAL_BROWSER = os.getenv('FORCE_LOCAL_BROWSER', '').lower() in ('true', '1', 'yes')
+
 
 class IDXPortfolioAutomation:
     """Automates creating property portfolios on the IDX site"""
@@ -117,7 +120,7 @@ class IDXPortfolioAutomation:
             }
             logger.info(f"Residential proxy configured: {PROXY_HOST}:{PROXY_PORT}")
 
-        if BROWSERLESS_TOKEN:
+        if BROWSERLESS_TOKEN and not FORCE_LOCAL_BROWSER:
             # Use browserless.io cloud browser
             browserless_url = f"wss://chrome.browserless.io?token={BROWSERLESS_TOKEN}&stealth=true"
             logger.info("Connecting to browserless.io cloud browser...")
@@ -556,7 +559,12 @@ class IDXPortfolioAutomation:
 
             if not filled:
                 logger.error("Could not find MLS input field with any strategy")
-                # Don't return - keep browser open so user can manually paste
+                # Report error if running as background task
+                if PROGRESS_FILE:
+                    write_progress("error", 0, total, "", "Could not find MLS input field - page may have changed or be blocked")
+                    await self.stop()
+                    return None
+                # Otherwise keep browser open so user can manually paste
 
             # Small delay before clicking search
             await page.wait_for_timeout(500)
@@ -579,6 +587,13 @@ class IDXPortfolioAutomation:
                     logger.info("Clicked Search button as fallback")
                 except Exception as e2:
                     logger.error(f"Button click also failed: {e2}")
+
+            if not search_clicked:
+                logger.error("Could not submit the search form")
+                if PROGRESS_FILE:
+                    write_progress("error", 0, total, "", "Could not submit search form - page may be blocked or changed")
+                    await self.stop()
+                    return None
 
             if search_clicked:
                 # Wait for results to load
