@@ -214,10 +214,12 @@
                         {% endif %}
                     </td>
                     <td class="address-col">
-                        {% if prop.url %}
-                        <a href="{{ prop.url }}" target="_blank" class="dreams-link">{{ prop.address or 'Unknown' }}</a>
+                        {% if idx_mls and idx_status == 'Validated' %}
+                        <a href="https://www.smokymountainhomes4sale.com/property/{{ idx_mls }}" target="_blank" class="dreams-link" title="View on IDX">{{ prop.address or 'Unknown' }}</a>
+                        {% elif prop.url %}
+                        <a href="{{ prop.url }}" target="_blank" class="dreams-link" title="View on {{ prop.source|default('Redfin')|title }}">{{ prop.address or 'Unknown' }}</a>
                         {% else %}
-                        <a href="{{ prop.notion_url }}" target="_blank" class="dreams-link">{{ prop.address or 'Unknown' }}</a>
+                        <span>{{ prop.address or 'Unknown' }}</span>
                         {% endif %}
                     </td>
                     <td>
