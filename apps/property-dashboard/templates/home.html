@@ -139,6 +139,7 @@
 
         .priority-info {
             flex: 1;
+            min-width: 0;
         }
 
         .priority-name {
@@ -152,9 +153,40 @@
             margin-top: 2px;
         }
 
+        .priority-contact {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            min-width: 180px;
+            padding: 0 12px;
+        }
+
+        .priority-contact-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .priority-contact-row a {
+            color: var(--text-secondary);
+            text-decoration: none;
+        }
+
+        .priority-contact-row a:hover {
+            color: var(--primary);
+        }
+
+        .priority-contact-row .fub-link {
+            color: #6366f1;
+            font-weight: 500;
+        }
+
         .priority-scores {
             display: flex;
             gap: 8px;
+            flex-shrink: 0;
         }
 
         .priority-score {
@@ -443,6 +475,27 @@
                         <div class="priority-meta">
                             {{ contact.stage or 'Unknown' }} | Priority: {{ "%.0f"|format(contact.priority_score or 0) }}
                         </div>
+                    </div>
+                    <div class="priority-contact">
+                        {% if contact.phone %}
+                        <div class="priority-contact-row">
+                            <span>📞</span>
+                            <a href="tel:{{ contact.phone }}">{{ contact.phone }}</a>
+                        </div>
+                        {% endif %}
+                        {% if contact.email %}
+                        <div class="priority-contact-row">
+                            <span>✉️</span>
+                            <a href="mailto:{{ contact.email }}">{{ contact.email|truncate(25) }}</a>
+                        </div>
+                        {% endif %}
+                        {% if contact.fub_id %}
+                        <div class="priority-contact-row">
+                            <a href="https://JonTharpTeam.followupboss.com/2/people/view/{{ contact.fub_id }}" target="_blank" class="fub-link">
+                                Open in FUB →
+                            </a>
+                        </div>
+                        {% endif %}
                     </div>
                     <div class="priority-scores">
                         <span class="priority-score heat">H: {{ "%.0f"|format(contact.heat_score or 0) }}</span>
