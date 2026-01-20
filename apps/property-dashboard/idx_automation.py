@@ -106,8 +106,11 @@ class IDXPortfolioAutomation:
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        # Don't close browser - leave it open for user interaction
-        pass
+        # Clean up resources in background/headless mode
+        # Leave browser open for user interaction in interactive mode
+        if self.headless or PROGRESS_FILE:
+            await self.stop()
+        return False  # Don't suppress exceptions
 
     async def start(self):
         """Start the browser - uses browserless.io + residential proxy if configured"""

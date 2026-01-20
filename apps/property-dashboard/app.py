@@ -259,8 +259,6 @@ def extract_property(prop):
     def clean_county_name(name):
         """Remove 'County' suffix from county names"""
         if name:
-            # Remove ' County' suffix (case insensitive)
-            import re
             return re.sub(r'\s+County$', '', name, flags=re.IGNORECASE).strip()
         return ''
 
@@ -415,40 +413,9 @@ def calculate_metrics(properties):
     }
 
 
-def get_unique_clients(properties):
-    """Get unique client names from properties"""
-    clients = set()
-    for p in properties:
-        if p.get('added_for'):
-            clients.add(p['added_for'])
-    return sorted(list(clients))
-
-
-def get_unique_cities(properties):
-    """Get unique city names from properties"""
-    cities = set()
-    for p in properties:
-        if p.get('city'):
-            cities.add(p['city'])
-    return sorted(list(cities))
-
-
-def get_unique_counties(properties):
-    """Get unique county names from properties"""
-    counties = set()
-    for p in properties:
-        if p.get('county'):
-            counties.add(p['county'])
-    return sorted(list(counties))
-
-
-def get_unique_statuses(properties):
-    """Get unique status values from properties"""
-    statuses = set()
-    for p in properties:
-        if p.get('status'):
-            statuses.add(p['status'])
-    return sorted(list(statuses))
+def get_unique_values(properties, key):
+    """Extract and sort unique values for a given property key."""
+    return sorted({p[key] for p in properties if p.get(key)})
 
 
 @app.route('/')
@@ -508,10 +475,10 @@ def properties_list():
 
     # Fetch all properties first to get dropdown options
     all_properties = fetch_properties()
-    clients = get_unique_clients(all_properties)
-    cities = get_unique_cities(all_properties)
-    counties = get_unique_counties(all_properties)
-    statuses = get_unique_statuses(all_properties)
+    clients = get_unique_values(all_properties, 'added_for')
+    cities = get_unique_values(all_properties, 'city')
+    counties = get_unique_values(all_properties, 'county')
+    statuses = get_unique_values(all_properties, 'status')
 
     # Apply filters
     properties = fetch_properties(
@@ -585,9 +552,9 @@ def client_dashboard(client_name):
     all_client_properties = fetch_properties(added_for=client_name)
 
     # Get filter options from this client's properties only
-    cities = get_unique_cities(all_client_properties)
-    counties = get_unique_counties(all_client_properties)
-    statuses = get_unique_statuses(all_client_properties)
+    cities = get_unique_values(all_client_properties, 'city')
+    counties = get_unique_values(all_client_properties, 'county')
+    statuses = get_unique_values(all_client_properties, 'status')
 
     # Apply additional filters
     properties = fetch_properties(
@@ -775,11 +742,7 @@ def populate_idx_cache_for_contact(db, contact_id: str, limit: int = 20):
 
     # Run async scraping
     try:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        result = loop.run_until_complete(scrape_batch())
-        loop.close()
-        return result
+        return asyncio.run(scrape_batch())
     except Exception as e:
         app.logger.error(f"Error running IDX cache: {e}")
         return 0
@@ -944,11 +907,7 @@ def validate_idx_properties():
 
     # Run validation
     try:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        results = loop.run_until_complete(validate_all(properties))
-        loop.close()
-
+        results = asyncio.run(validate_all(properties))
         validated_count = sum(1 for r in results if r['status'] == 'validated')
 
         return jsonify({
