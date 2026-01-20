@@ -286,12 +286,12 @@ async function handleMessage(message, sender) {
       if (activeTab) {
         await chrome.storage.local.set({ popoutSourceTabId: activeTab.id });
       }
-      // Open popup in a new window
+      // Open popup in a new window - sized to fit content
       await chrome.windows.create({
         url: chrome.runtime.getURL('popup/index.html?popout=true'),
         type: 'popup',
-        width: 560,
-        height: 750,
+        width: 520,
+        height: 780,
         focused: true
       });
       return { success: true };

@@ -95,12 +95,20 @@ const elements = {
 // ============================================
 
 document.addEventListener('DOMContentLoaded', async () => {
-  await loadSettings();
-  await updateServerStatus();
-  await updateQueueBadge();
-  await loadPageData();
-
+  // Setup event listeners FIRST so UI is immediately interactive
   setupEventListeners();
+
+  // Load settings (needed for other operations)
+  await loadSettings();
+
+  // Run these in parallel - don't block UI
+  Promise.all([
+    updateServerStatus(),
+    updateQueueBadge()
+  ]).catch(e => console.error('Status update error:', e));
+
+  // Load page data last
+  await loadPageData();
 });
 
 async function loadSettings() {
@@ -769,7 +777,12 @@ async function quickAddSelected() {
   statusMsg += ` for ${addedFor}.`;
 
   elements.bulkStatus.textContent = statusMsg;
+  elements.bulkStatus.style.fontWeight = 'bold';
+  elements.bulkStatus.style.color = '#059669'; // Green for success
   elements.bulkProgressFill.style.width = '100%';
+
+  // Scroll the status message into view
+  elements.bulkStatus.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
   updateQueueBadge();
 
@@ -782,6 +795,8 @@ async function quickAddSelected() {
   setTimeout(() => {
     elements.bulkProgress.classList.add('hidden');
     elements.bulkStatus.classList.add('hidden');
+    elements.bulkStatus.style.fontWeight = '';
+    elements.bulkStatus.style.color = '';
     elements.bulkProgressFill.style.width = '0%';
   }, 5000);
 }
