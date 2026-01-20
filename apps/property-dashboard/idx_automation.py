@@ -572,6 +572,18 @@ if __name__ == '__main__':
     import sys
 
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+    logger = logging.getLogger(__name__)
+
+    # Check environment
+    display = os.environ.get('DISPLAY', '')
+    logger.info(f"DISPLAY environment: '{display}'")
+    logger.info(f"Current working directory: {os.getcwd()}")
+    logger.info(f"Script location: {os.path.dirname(os.path.abspath(__file__))}")
+
+    # Check if we have a display for non-headless mode
+    if not display:
+        logger.warning("No DISPLAY environment variable set - browser windows may not be visible")
+        logger.warning("Consider setting DISPLAY or running with Xvfb for headless servers")
 
     # Example usage - can pass MLS numbers as command line args
     # Arg 1: comma-separated MLS numbers
@@ -585,7 +597,12 @@ if __name__ == '__main__':
 
     search_name = sys.argv[2] if len(sys.argv) > 2 else ""
 
-    print(f"Creating portfolio for: {mls_list}")
+    logger.info(f"Creating portfolio for: {mls_list}")
     if search_name:
-        print(f"Will save as: {search_name}")
-    run_portfolio(mls_list, search_name)
+        logger.info(f"Will save as: {search_name}")
+
+    try:
+        run_portfolio(mls_list, search_name)
+        logger.info("Portfolio creation completed successfully")
+    except Exception as e:
+        logger.error(f"Portfolio creation failed: {e}", exc_info=True)

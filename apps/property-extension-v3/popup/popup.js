@@ -173,7 +173,7 @@ function setupEventListeners() {
 
         // Update status text based on status
         if (status === 'scraping') {
-          elements.bulkStatus.textContent = `Scraping ${current}/${total}: ${property}...`;
+          elements.bulkStatus.textContent = `Collecting ${current}/${total}: ${property}...`;
         } else if (status === 'saving') {
           elements.bulkStatus.textContent = `Saving ${current}/${total}: ${property}...`;
         } else if (status === 'complete') {
@@ -228,7 +228,7 @@ function updateItemStatus(address, status) {
       switch (status) {
         case 'scraping':
           statusEl.textContent = '⏳';
-          statusEl.title = 'Scraping...';
+          statusEl.title = 'Collecting data...';
           break;
         case 'saving':
           statusEl.textContent = '💾';
@@ -318,8 +318,16 @@ async function loadPageData() {
         pageInfo = { error: 'No source tab found. Please close this window and try again.' };
       }
     } else {
-      // Normal popup mode - get from active tab
-      pageInfo = await chrome.runtime.sendMessage({ type: 'GET_PROPERTY_DATA' });
+      // Normal popup mode - get the current tab and pass its ID
+      const [currentTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (currentTab) {
+        pageInfo = await chrome.runtime.sendMessage({
+          type: 'GET_PROPERTY_DATA',
+          tabId: currentTab.id
+        });
+      } else {
+        pageInfo = { error: 'No active tab found' };
+      }
     }
 
     console.log('Page info response:', pageInfo);
@@ -330,12 +338,18 @@ async function loadPageData() {
 
     // Check if it's a search page first (even if property scrape returned an error)
     if (pageInfo.pageType === 'search') {
-      // Try to get search results - pass sourceTabId for popout mode
+      // Try to get search results - pass sourceTabId for popout mode or current tab
       let searchMessage = { type: 'GET_SEARCH_RESULTS' };
       if (isPopout) {
         const { popoutSourceTabId } = await chrome.storage.local.get('popoutSourceTabId');
         if (popoutSourceTabId) {
           searchMessage.sourceTabId = popoutSourceTabId;
+        }
+      } else {
+        // Pass the current tab ID for normal popup mode
+        const [currentTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (currentTab) {
+          searchMessage.sourceTabId = currentTab.id;
         }
       }
       const searchResponse = await chrome.runtime.sendMessage(searchMessage);
@@ -492,17 +506,23 @@ function displaySearchResults(results) {
     markUserInteracting();
   }, { passive: true });
 
-  // Check which properties already exist in database (async, low priority)
-  // Small delay before starting to let UI settle
-  setTimeout(() => {
-    checkExistingProperties(results);
-  }, 200);
+  // Track input field interactions
+  [elements.searchAddedBy, elements.searchAddedFor].forEach(input => {
+    if (input) {
+      input.addEventListener('focus', () => markUserInteracting());
+      input.addEventListener('input', () => markUserInteracting());
+      input.addEventListener('keydown', () => markUserInteracting());
+    }
+  });
+
+  // Background property checks disabled - they cause UI freezes
+  // The API handles duplicates appropriately, so this is optional
+  // TODO: Re-enable with Web Worker if needed in future
 }
 
 function getQualityIndicator(result) {
-  // Initial indicator - will be updated after checking database
-  // ⏳ = checking, ✓ = new record, ↻ = update existing
-  return '⏳';
+  // Simple indicator - no background checking to avoid UI freezes
+  return '○';
 }
 
 // Mark that user is actively interacting - pauses background checks
@@ -537,49 +557,37 @@ async function checkExistingProperties(results) {
   const settings = await chrome.storage.sync.get(['serverUrl']);
   const serverUrl = settings.serverUrl || 'http://localhost:5000';
 
-  // Process in smaller batches with more yielding
-  const BATCH_SIZE = 3; // Reduced from 5
-
-  for (let i = 0; i < results.length; i += BATCH_SIZE) {
-    // Wait if user is interacting
+  // Process one at a time with generous pauses to never block UI
+  for (let i = 0; i < results.length; i++) {
+    // Wait if user is interacting - check frequently
     while (checksPaused) {
-      await new Promise(r => setTimeout(r, 100));
+      await new Promise(r => setTimeout(r, 50));
     }
 
-    const batch = results.slice(i, i + BATCH_SIZE);
+    const result = results[i];
 
-    // Process batch concurrently but with staggered starts
-    const promises = batch.map(async (result, batchIdx) => {
-      // Small stagger to avoid simultaneous DOM updates
-      await new Promise(r => setTimeout(r, batchIdx * 20));
+    try {
+      const indicator = await checkPropertyExists(result, serverUrl);
+      // Schedule DOM update at low priority
+      scheduleUpdate(() => {
+        const statusEl = document.querySelector(`.result-status[data-index="${i}"] .status-indicator`);
+        if (statusEl) {
+          statusEl.textContent = indicator;
+          statusEl.title = indicator === '✓' ? 'New record' : indicator === '↻' ? 'Update existing' : 'Unknown';
+        }
+      });
+    } catch (error) {
+      scheduleUpdate(() => {
+        const statusEl = document.querySelector(`.result-status[data-index="${i}"] .status-indicator`);
+        if (statusEl) {
+          statusEl.textContent = '?';
+          statusEl.title = 'Could not check';
+        }
+      });
+    }
 
-      const idx = i + batchIdx;
-      try {
-        const indicator = await checkPropertyExists(result, serverUrl);
-        // Schedule DOM update at low priority
-        scheduleUpdate(() => {
-          const statusEl = document.querySelector(`.result-status[data-index="${idx}"] .status-indicator`);
-          if (statusEl) {
-            statusEl.textContent = indicator;
-            statusEl.title = indicator === '✓' ? 'New record' : indicator === '↻' ? 'Update existing' : 'Unknown';
-          }
-        });
-      } catch (error) {
-        // Schedule DOM update at low priority
-        scheduleUpdate(() => {
-          const statusEl = document.querySelector(`.result-status[data-index="${idx}"] .status-indicator`);
-          if (statusEl) {
-            statusEl.textContent = '?';
-            statusEl.title = 'Could not check';
-          }
-        });
-      }
-    });
-
-    await Promise.all(promises);
-
-    // Longer yield between batches
-    await new Promise(r => setTimeout(r, 100));
+    // Generous pause between each check - UI responsiveness is priority
+    await new Promise(r => setTimeout(r, 150));
   }
 }
 
@@ -614,7 +622,7 @@ function updateBulkButtons() {
   elements.quickAddBtn.disabled = count === 0;
   elements.deepScrapeBtn.disabled = count === 0;
   elements.quickAddBtn.textContent = `Quick Add ${count > 0 ? `(${count})` : 'Selected'}`;
-  elements.deepScrapeBtn.textContent = `Deep Scrape ${count > 0 ? `(${count})` : 'Selected'}`;
+  elements.deepScrapeBtn.textContent = `Deep Capture ${count > 0 ? `(${count})` : 'Selected'}`;
 }
 
 // ============================================
@@ -707,15 +715,22 @@ async function quickAddSelected() {
 
   const selected = Array.from(selectedResults).map(i => searchResults[i]);
   const addedBy = elements.searchAddedBy.value;
-  const addedFor = elements.searchAddedFor.value;
+  const addedFor = elements.searchAddedFor.value || 'Unknown';
 
   // Save "Added For" for next time
   await chrome.storage.sync.set({ lastAddedFor: addedFor });
 
+  // Disable buttons during operation
+  elements.quickAddBtn.disabled = true;
+  elements.deepScrapeBtn.disabled = true;
+  elements.quickAddBtn.textContent = 'Saving...';
+
   elements.bulkProgress.classList.remove('hidden');
   elements.bulkStatus.classList.remove('hidden');
 
-  let processed = 0;
+  let saved = 0;
+  let queued = 0;
+  let failed = 0;
   const total = selected.length;
 
   for (const result of selected) {
@@ -723,27 +738,52 @@ async function quickAddSelected() {
     result.added_for = addedFor;
 
     try {
-      await chrome.runtime.sendMessage({
+      const response = await chrome.runtime.sendMessage({
         type: 'SAVE_PROPERTY',
         data: result
       });
+      if (response.success) {
+        if (response.queued) {
+          queued++;
+        } else {
+          saved++;
+        }
+      } else {
+        failed++;
+      }
     } catch (e) {
       console.error('Failed to save:', e);
+      failed++;
     }
 
-    processed++;
+    const processed = saved + queued + failed;
     elements.bulkProgressFill.style.width = `${(processed / total) * 100}%`;
-    elements.bulkStatus.textContent = `Processed ${processed} of ${total}...`;
+    elements.bulkStatus.textContent = `Saving ${processed} of ${total}...`;
   }
 
-  elements.bulkStatus.textContent = `Done! Added ${processed} properties.`;
+  // Show completion message
+  let statusMsg = `✓ Complete! ${selected.length} properties selected.`;
+  if (saved > 0) statusMsg += ` ${saved} saved`;
+  if (queued > 0) statusMsg += `${saved > 0 ? ',' : ''} ${queued} queued`;
+  if (failed > 0) statusMsg += `${(saved + queued) > 0 ? ',' : ''} ${failed} failed`;
+  statusMsg += ` for ${addedFor}.`;
+
+  elements.bulkStatus.textContent = statusMsg;
+  elements.bulkProgressFill.style.width = '100%';
+
   updateQueueBadge();
 
+  // Re-enable buttons
+  elements.quickAddBtn.disabled = false;
+  elements.deepScrapeBtn.disabled = false;
+  updateBulkButtons();
+
+  // Keep the completion message visible longer
   setTimeout(() => {
     elements.bulkProgress.classList.add('hidden');
     elements.bulkStatus.classList.add('hidden');
     elements.bulkProgressFill.style.width = '0%';
-  }, 2000);
+  }, 5000);
 }
 
 async function deepScrapeSelected() {
@@ -759,13 +799,13 @@ async function deepScrapeSelected() {
   // Disable buttons during operation
   elements.quickAddBtn.disabled = true;
   elements.deepScrapeBtn.disabled = true;
-  elements.deepScrapeBtn.textContent = 'Scraping...';
+  elements.deepScrapeBtn.textContent = 'Collecting...';
 
   // Show progress UI
   elements.bulkProgress.classList.remove('hidden');
   elements.bulkStatus.classList.remove('hidden');
   elements.bulkProgressFill.style.width = '0%';
-  elements.bulkStatus.textContent = 'Starting deep scrape...';
+  elements.bulkStatus.textContent = 'Starting data collection...';
 
   try {
     // Send batch to background for deep scraping
@@ -783,7 +823,7 @@ async function deepScrapeSelected() {
       elements.bulkStatus.textContent = `Done! Saved: ${r.saved}, Queued: ${r.queued}, Failed: ${r.failed}`;
       elements.bulkProgressFill.style.width = '100%';
     } else {
-      elements.bulkStatus.textContent = 'Deep scrape completed';
+      elements.bulkStatus.textContent = 'Data collection completed';
     }
 
     updateQueueBadge();

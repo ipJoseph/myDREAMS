@@ -236,13 +236,18 @@ async function handleMessage(message, sender) {
       return await saveProperty(message.data);
 
     case 'GET_PROPERTY_DATA':
-      // Forward to content script
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (tab) {
+      // Forward to content script - use provided tabId or query for active tab
+      let propertyTabId = message.tabId;
+      if (!propertyTabId) {
+        const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+        propertyTabId = tab?.id;
+      }
+      if (propertyTabId) {
         try {
-          const response = await chrome.tabs.sendMessage(tab.id, { type: 'SCRAPE_PROPERTY' });
+          const response = await chrome.tabs.sendMessage(propertyTabId, { type: 'SCRAPE_PROPERTY' });
           return response;
         } catch (error) {
+          console.error('GET_PROPERTY_DATA error:', error.message);
           return { error: 'Content script not loaded. Please refresh the page.' };
         }
       }
