@@ -17,6 +17,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Debug screenshots at each login step for troubleshooting
   - Login verification with credential fill confirmation
   - Graceful handling of browser disconnect during save (form submission)
+  - Fixed race condition in progress polling (was showing stale "complete" status)
   - DEV: browser navigates to saved searches page and stays open 30s for verification
   - Completion modal shows actual property count and "View Saved Searches" link
   - DEV uses local browser (fast), PRD uses browserless.io + proxy
