@@ -506,28 +506,41 @@ class IDXPortfolioAutomation:
                 logger.error("Could not find save/+ button")
                 return False
 
-            # Wait for dialog (shorter wait)
-            await page.wait_for_timeout(1500)
+            # Wait for dialog to appear
+            await page.wait_for_timeout(2000)
 
-            # Fill name via JavaScript
-            name_filled = await page.evaluate(f'''() => {{
-                const inputs = document.querySelectorAll('input[type="text"]');
+            # Fill name via JavaScript - target modal specifically
+            logger.info("Filling name in save dialog...")
+            name_result = await page.evaluate(f'''() => {{
+                // Look for modal/dialog first
+                const modal = document.querySelector('.modal, [class*="modal"], [role="dialog"], .popup, [class*="popup"]');
+                let searchScope = modal || document;
+
+                // Find text input in the modal
+                const inputs = searchScope.querySelectorAll('input[type="text"]');
                 for (let input of inputs) {{
                     if (input.offsetParent !== null) {{
+                        // Clear and fill
+                        input.focus();
+                        input.select();
+                        input.value = '';
                         input.value = "{search_name}";
                         input.dispatchEvent(new Event('input', {{ bubbles: true }}));
                         input.dispatchEvent(new Event('change', {{ bubbles: true }}));
-                        return true;
+                        input.dispatchEvent(new KeyboardEvent('keyup', {{ bubbles: true }}));
+                        return {{ success: true, value: input.value, inModal: !!modal }};
                     }}
                 }}
-                return false;
+                return {{ error: 'no_input_found' }};
             }}''')
 
-            if not name_filled:
-                logger.error("Could not find search name input")
+            logger.info(f"Name fill result: {name_result}")
+
+            if not name_result or not name_result.get('success'):
+                logger.error(f"Could not find/fill search name input: {name_result}")
                 return False
 
-            logger.info("Name filled, clicking Save button...")
+            logger.info(f"Name filled: '{name_result.get('value')}' (in modal: {name_result.get('inModal')})")
 
             # Click the save/submit button using JavaScript (most reliable)
             submit_clicked = await page.evaluate('''() => {
