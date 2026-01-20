@@ -990,8 +990,11 @@ def create_idx_portfolio():
                 "message": "Starting automation...",
                 "error": ""
             }, f)
-    except Exception:
-        pass  # Will be created by launch script
+        print(f"DEBUG: Progress file initialized with {len(mls_numbers)} properties")
+    except Exception as e:
+        print(f"ERROR: Could not write progress file: {e}")
+        import traceback
+        traceback.print_exc()
 
     try:
         # Use shell script to properly detach the process
