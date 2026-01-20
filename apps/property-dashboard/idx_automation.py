@@ -642,6 +642,8 @@ if __name__ == '__main__':
     # Arg 1: comma-separated MLS numbers
     # Arg 2: search name (optional)
     # Arg 3: progress file path (optional)
+    global PROGRESS_FILE  # Must declare global before any assignment
+
     if len(sys.argv) > 1:
         mls_list = sys.argv[1].split(',')
         mls_list = [m.strip() for m in mls_list]
@@ -653,7 +655,6 @@ if __name__ == '__main__':
 
     # Set progress file if provided
     if len(sys.argv) > 3:
-        global PROGRESS_FILE
         PROGRESS_FILE = sys.argv[3]
         logger.info(f"Progress file: {PROGRESS_FILE}")
 
