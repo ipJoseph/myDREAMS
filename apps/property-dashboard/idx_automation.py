@@ -566,7 +566,32 @@ class IDXPortfolioAutomation:
             except Exception:
                 pass  # May timeout if no navigation
 
-            return True
+            # VERIFY: Navigate to saved searches and check if our search exists
+            logger.info("Verifying save by navigating to saved searches...")
+            try:
+                saved_searches_url = f"{IDX_BASE_URL}/search/saved/"
+                await page.goto(saved_searches_url, wait_until='domcontentloaded', timeout=30000)
+                await page.wait_for_timeout(3000)
+
+                # Screenshot of saved searches page
+                await page.screenshot(path=str(screenshot_dir / 'debug_06_saved_searches.png'))
+                logger.info("Screenshot saved: debug_06_saved_searches.png")
+
+                # Check if our search name appears on the page
+                page_content = await page.content()
+                if search_name in page_content:
+                    logger.info(f"VERIFIED: Search '{search_name}' found in saved searches!")
+                    return True
+                else:
+                    logger.error(f"VERIFICATION FAILED: Search '{search_name}' NOT found in saved searches")
+                    # Check if we see a login prompt instead
+                    if 'sign up' in page_content.lower() or 'log in' in page_content.lower():
+                        logger.error("Login appears to have failed - seeing login/signup prompts")
+                    return False
+
+            except Exception as e:
+                logger.error(f"Could not verify saved search: {e}")
+                return False
 
         except Exception as e:
             logger.error(f"Error saving search: {e}")
