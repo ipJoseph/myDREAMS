@@ -9,6 +9,22 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Redfin CSV Importer** - Bulk property import from Redfin CSV exports
+  - `apps/redfin-importer/` module with 4 components
+  - `wnc_zip_county.py` - ZIP to County lookup for 100+ Western NC ZIP codes
+  - `redfin_csv_importer.py` - CSV parser with field mapping, deduplication, MLS merging
+  - `redfin_page_scraper.py` - Playwright scraper for agent info and engagement metrics
+  - `redfin_auto_download.py` - Automated Redfin search + download + import pipeline
+  - Separate database (`data/redfin_imports.db`) to avoid disrupting main DREAMS
+  - Supports multi-county downloads with price filters
+  - NC County codes for URL construction (Macon, Jackson, Swain, Cherokee, etc.)
+- **Top Priority Contacts Enhancement** - Added contact info to home dashboard
+  - Phone number with tel: link
+  - Email with Gmail compose URL (authuser=Joseph@JonTharpHomes.com)
+  - FUB link with icon matching detail page style
+- **Status Dot Colors** - Updated visual indicators
+  - Sold: changed to red
+  - Contingent: changed to grey
 - **Dashboard Favicon** - Stylish house/moon icon for browser tab
   - Red gradient favicon for DEV environment (`DREAMS_ENV=dev`)
   - Blue gradient favicon for PRD environment (`DREAMS_ENV=prd`)
