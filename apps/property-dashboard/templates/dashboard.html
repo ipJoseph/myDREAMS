@@ -755,8 +755,9 @@
                         break;
                 }
 
-                // Update details with counts if available
-                if (data.current !== undefined && data.total !== undefined && data.total > 0) {
+                // Update details with counts if available (but not on complete/error - those have their own content)
+                if (data.status !== 'complete' && data.status !== 'error' &&
+                    data.current !== undefined && data.total !== undefined && data.total > 0) {
                     progressDetails.textContent = `${data.current} of ${data.total} properties`;
                 }
 
