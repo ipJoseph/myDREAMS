@@ -88,6 +88,17 @@ SKIP_PROXY = os.getenv('SKIP_PROXY', '').lower() in ('true', '1', 'yes')
 # Enable debug screenshots (disabled by default to avoid credential exposure)
 DEBUG_SCREENSHOTS = os.getenv('DEBUG_SCREENSHOTS', '').lower() in ('true', '1', 'yes')
 
+# Timeout constants (milliseconds) - tuned for browserless.io + residential proxy latency
+TIMEOUT_JS_RENDER = 2000      # Wait for JavaScript frameworks to render after navigation
+TIMEOUT_PANEL_APPEAR = 1500   # Wait for modal/panel animations to complete
+TIMEOUT_INPUT_SETTLE = 500    # Brief pause after filling inputs before next action
+TIMEOUT_LOGIN_PROCESS = 3000  # Wait for login authentication to process
+TIMEOUT_PAGE_LOAD = 3000      # Wait for page content after navigation
+TIMEOUT_TAB_SWITCH = 1000     # Wait after clicking a tab for content to load
+TIMEOUT_FORM_SUBMIT = 2000    # Wait after form submission for response
+TIMEOUT_STABILIZE = 1000      # Wait for page to stabilize before critical action
+TIMEOUT_DEV_VERIFY = 30000    # DEV only: keep browser open for manual verification
+
 
 class IDXPortfolioAutomation:
     """Automates creating property portfolios on the IDX site"""
@@ -104,25 +115,25 @@ class IDXPortfolioAutomation:
         self.context = None
         self.playwright = None
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> "IDXAutomation":
         await self.start()
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> bool:
         # Clean up resources in background/headless mode
         # Leave browser open for user interaction in interactive mode
         if self.headless or PROGRESS_FILE:
             await self.stop()
         return False  # Don't suppress exceptions
 
-    async def _debug_screenshot(self, page, filename: str):
+    async def _debug_screenshot(self, page: Page, filename: str) -> None:
         """Take screenshot only if DEBUG_SCREENSHOTS is enabled"""
         if DEBUG_SCREENSHOTS:
             screenshot_dir = Path(__file__).parent / 'logs'
             await page.screenshot(path=str(screenshot_dir / filename))
             logger.info(f"Screenshot saved: {filename}")
 
-    async def start(self):
+    async def start(self) -> None:
         """Start the browser - uses browserless.io + residential proxy if configured"""
         self.playwright = await async_playwright().start()
 
@@ -194,7 +205,7 @@ class IDXPortfolioAutomation:
             # Go to homepage
             logger.info(f"Navigating to {IDX_BASE_URL} for login")
             await page.goto(IDX_BASE_URL, wait_until='domcontentloaded', timeout=15000)
-            await page.wait_for_timeout(2000)  # Wait longer for JS to render
+            await page.wait_for_timeout(TIMEOUT_JS_RENDER)
 
             # Check for 403 Forbidden (IP blocking)
             page_title = await page.title()
@@ -235,7 +246,7 @@ class IDXPortfolioAutomation:
             logger.info(f"Clicked login icon via: {clicked}")
 
             # Wait for login panel to appear
-            await page.wait_for_timeout(1500)
+            await page.wait_for_timeout(TIMEOUT_PANEL_APPEAR)
 
             # Debug: Screenshot after clicking user icon
             await self._debug_screenshot(page, 'debug_01b_login_panel.png')
@@ -266,17 +277,17 @@ class IDXPortfolioAutomation:
 
                 if (emailInput) {{
                     emailInput.focus();
-                    emailInput.value = "{IDX_EMAIL}";
+                    emailInput.value = {json.dumps(IDX_EMAIL)};
                     emailInput.dispatchEvent(new Event('input', {{ bubbles: true }}));
                     emailInput.dispatchEvent(new Event('change', {{ bubbles: true }}));
-                    filled.email = emailInput.value === "{IDX_EMAIL}";
+                    filled.email = emailInput.value === {json.dumps(IDX_EMAIL)};
                 }}
                 if (phoneInput) {{
                     phoneInput.focus();
-                    phoneInput.value = "{IDX_PHONE}";
+                    phoneInput.value = {json.dumps(IDX_PHONE)};
                     phoneInput.dispatchEvent(new Event('input', {{ bubbles: true }}));
                     phoneInput.dispatchEvent(new Event('change', {{ bubbles: true }}));
-                    filled.phone = phoneInput.value === "{IDX_PHONE}";
+                    filled.phone = phoneInput.value === {json.dumps(IDX_PHONE)};
                 }}
                 return filled;
             }}''')
@@ -318,7 +329,7 @@ class IDXPortfolioAutomation:
             logger.info(f"Clicked login button: {login_clicked}")
 
             # Wait for login to process
-            await page.wait_for_timeout(3000)
+            await page.wait_for_timeout(TIMEOUT_LOGIN_PROCESS)
 
             # Debug: Screenshot after login attempt
             await self._debug_screenshot(page, 'debug_01d_after_login.png')
@@ -370,7 +381,7 @@ class IDXPortfolioAutomation:
             traceback.print_exc()
             return False
 
-    async def stop(self):
+    async def stop(self) -> None:
         """Stop the browser"""
         if self.context:
             await self.context.close()
@@ -440,18 +451,19 @@ class IDXPortfolioAutomation:
                 if (!nameInput) return {{ error: 'no_name_input', attempts }};
 
                 // Step 3: Clear and fill the name (more robust method)
+                const searchName = {json.dumps(search_name)};
                 nameInput.focus();
                 nameInput.select();
                 nameInput.value = '';
-                nameInput.value = "{search_name}";
+                nameInput.value = searchName;
                 nameInput.dispatchEvent(new Event('input', {{ bubbles: true }}));
                 nameInput.dispatchEvent(new Event('change', {{ bubbles: true }}));
                 nameInput.dispatchEvent(new KeyboardEvent('keyup', {{ bubbles: true }}));
 
                 // Verify the value was set
                 const actualValue = nameInput.value;
-                if (actualValue !== "{search_name}") {{
-                    return {{ error: 'value_not_set', expected: "{search_name}", actual: actualValue }};
+                if (actualValue !== searchName) {{
+                    return {{ error: 'value_not_set', expected: searchName, actual: actualValue }};
                 }}
 
                 // Step 4: Wait a bit then find and click the Save button
@@ -461,7 +473,7 @@ class IDXPortfolioAutomation:
                     const text = (btn.value || btn.textContent || '').toLowerCase().trim();
                     if (text === 'save') {{
                         btn.click();
-                        return {{ success: true, name: "{search_name}" }};
+                        return {{ success: true, name: searchName }};
                     }}
                 }}
 
@@ -522,6 +534,7 @@ class IDXPortfolioAutomation:
                 // Look for modal/dialog first
                 const modal = document.querySelector('.modal, [class*="modal"], [role="dialog"], .popup, [class*="popup"]');
                 let searchScope = modal || document;
+                const searchName = {json.dumps(search_name)};
 
                 // Find text input in the modal
                 const inputs = searchScope.querySelectorAll('input[type="text"]');
@@ -531,7 +544,7 @@ class IDXPortfolioAutomation:
                         input.focus();
                         input.select();
                         input.value = '';
-                        input.value = "{search_name}";
+                        input.value = searchName;
                         input.dispatchEvent(new Event('input', {{ bubbles: true }}));
                         input.dispatchEvent(new Event('change', {{ bubbles: true }}));
                         input.dispatchEvent(new KeyboardEvent('keyup', {{ bubbles: true }}));
@@ -630,7 +643,7 @@ class IDXPortfolioAutomation:
             await page.goto(IDX_MLS_SEARCH_URL, wait_until='domcontentloaded', timeout=30000)
 
             # Wait for the page to fully load
-            await page.wait_for_timeout(3000)  # Longer wait for JS
+            await page.wait_for_timeout(TIMEOUT_PAGE_LOAD)
 
             # Debug: Save screenshot of MLS search page
             await self._debug_screenshot(page, 'debug_02_mls_search.png')
@@ -684,10 +697,11 @@ class IDXPortfolioAutomation:
             if not filled:
                 logger.info("Trying JavaScript injection")
                 result = await page.evaluate(f'''() => {{
+                    const mlsValue = {json.dumps(mls_string)};
                     const textareas = document.querySelectorAll('textarea');
                     for (let ta of textareas) {{
                         if (ta.offsetParent !== null) {{  // visible
-                            ta.value = "{mls_string}";
+                            ta.value = mlsValue;
                             ta.dispatchEvent(new Event('input', {{ bubbles: true }}));
                             return true;
                         }}
@@ -695,7 +709,7 @@ class IDXPortfolioAutomation:
                     const inputs = document.querySelectorAll('input[type="text"]');
                     for (let inp of inputs) {{
                         if (inp.offsetParent !== null) {{
-                            inp.value = "{mls_string}";
+                            inp.value = mlsValue;
                             inp.dispatchEvent(new Event('input', {{ bubbles: true }}));
                             return true;
                         }}
@@ -811,8 +825,8 @@ class IDXPortfolioAutomation:
                     logger.info("Browser showing saved searches page - will stay open for 30 seconds")
                     write_progress("complete", total, total, f"Portfolio created with {total} properties - verify saved searches", "")
 
-                    # Keep browser open for 30 seconds so user can see
-                    await page.wait_for_timeout(30000)
+                    # Keep browser open for verification (DEV only)
+                    await page.wait_for_timeout(TIMEOUT_DEV_VERIFY)
                 except Exception as e:
                     logger.warning(f"Could not navigate to saved searches: {e}")
 

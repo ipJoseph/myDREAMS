@@ -14,6 +14,7 @@ import re
 from functools import wraps
 from datetime import datetime
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 from flask import Flask, render_template, render_template_string, request, jsonify, Response, redirect, url_for
 import httpx
 
@@ -205,7 +206,7 @@ def get_db():
     return DREAMSDatabase(db_path)
 
 
-def enrich_properties_with_idx_photos(properties):
+def enrich_properties_with_idx_photos(properties: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Add IDX photo URLs to properties that don't have photos from Notion."""
     # Collect MLS numbers for properties without photos
     mls_without_photos = {}
@@ -237,7 +238,7 @@ def enrich_properties_with_idx_photos(properties):
     return properties
 
 
-def extract_property(prop):
+def extract_property(prop: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Extract property data from Notion page properties"""
     def get_title(p):
         if p and p.get('title') and len(p['title']) > 0:
@@ -328,7 +329,8 @@ def extract_property(prop):
     }
 
 
-def fetch_properties(added_for=None, status=None, city=None, county=None):
+def fetch_properties(added_for: Optional[str] = None, status: Optional[str] = None,
+                      city: Optional[str] = None, county: Optional[str] = None) -> List[Dict[str, Any]]:
     """Fetch properties from SQLite with optional filters"""
     with db._get_connection() as conn:
         query = 'SELECT * FROM properties WHERE 1=1'
@@ -385,7 +387,7 @@ def fetch_properties(added_for=None, status=None, city=None, county=None):
         return properties
 
 
-def calculate_metrics(properties):
+def calculate_metrics(properties: List[Dict[str, Any]]) -> Dict[str, Any]:
     """Calculate summary metrics for a list of properties"""
     if not properties:
         return {}
@@ -417,14 +419,14 @@ def calculate_metrics(properties):
     }
 
 
-def get_unique_values(properties, key):
+def get_unique_values(properties: List[Dict[str, Any]], key: str) -> List[str]:
     """Extract and sort unique values for a given property key."""
     return sorted({p[key] for p in properties if p.get(key)})
 
 
-def calculate_status_counts(properties):
+def calculate_status_counts(properties: List[Dict[str, Any]]) -> Dict[str, int]:
     """Calculate count of properties by status."""
-    counts = {}
+    counts: Dict[str, int] = {}
     for p in properties:
         status = p.get('status') or 'Unknown'
         counts[status] = counts.get(status, 0) + 1
