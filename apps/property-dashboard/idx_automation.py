@@ -407,23 +407,48 @@ class IDXPortfolioAutomation:
                 // Step 2: Wait for dialog to appear (polling)
                 let attempts = 0;
                 let nameInput = null;
-                while (attempts < 20) {{
-                    await new Promise(r => setTimeout(r, 100));
-                    // Look for name input in modal
-                    nameInput = document.querySelector('.modal input[type="text"], [class*="modal"] input[type="text"], input[name="name"], input[name="search_name"]');
-                    if (nameInput && nameInput.offsetParent !== null) break;
+                while (attempts < 25) {{
+                    await new Promise(r => setTimeout(r, 150));
+                    // Look for name input - try multiple selectors
+                    const selectors = [
+                        '.modal input[type="text"]',
+                        '[class*="modal"] input[type="text"]',
+                        '[role="dialog"] input[type="text"]',
+                        'input[name="name"]',
+                        'input[name="search_name"]',
+                        'input[placeholder*="name" i]',
+                        'form input[type="text"]'
+                    ];
+                    for (const sel of selectors) {{
+                        const inp = document.querySelector(sel);
+                        if (inp && inp.offsetParent !== null) {{
+                            nameInput = inp;
+                            break;
+                        }}
+                    }}
+                    if (nameInput) break;
                     attempts++;
                 }}
 
                 if (!nameInput) return {{ error: 'no_name_input', attempts }};
 
-                // Step 3: Fill the name
+                // Step 3: Clear and fill the name (more robust method)
+                nameInput.focus();
+                nameInput.select();
+                nameInput.value = '';
                 nameInput.value = "{search_name}";
                 nameInput.dispatchEvent(new Event('input', {{ bubbles: true }}));
                 nameInput.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                nameInput.dispatchEvent(new KeyboardEvent('keyup', {{ bubbles: true }}));
 
-                // Step 4: Find and click the Save button in the dialog
-                await new Promise(r => setTimeout(r, 200));
+                // Verify the value was set
+                const actualValue = nameInput.value;
+                if (actualValue !== "{search_name}") {{
+                    return {{ error: 'value_not_set', expected: "{search_name}", actual: actualValue }};
+                }}
+
+                // Step 4: Wait a bit then find and click the Save button
+                await new Promise(r => setTimeout(r, 300));
                 const buttons = document.querySelectorAll('button, input[type="submit"]');
                 for (let btn of buttons) {{
                     const text = (btn.value || btn.textContent || '').toLowerCase().trim();
