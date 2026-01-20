@@ -966,6 +966,8 @@ def validate_idx_properties():
 @requires_auth
 def create_idx_portfolio():
     """Launch IDX portfolio automation with selected MLS numbers (requires authentication)"""
+    import time
+
     data = request.get_json()
     mls_numbers = data.get('mls_numbers', [])
     search_name = data.get('search_name', '')
@@ -973,9 +975,23 @@ def create_idx_portfolio():
     if not mls_numbers:
         return jsonify({'success': False, 'error': 'No MLS numbers provided'}), 400
 
-    # Path to the launch script
+    # Path to the launch script and progress file
     launch_script = os.path.join(os.path.dirname(__file__), 'launch_idx.sh')
+    progress_file = os.path.join(os.path.dirname(__file__), 'logs', 'idx-progress.json')
     mls_string = ','.join(mls_numbers)
+
+    # Clear old progress file to avoid race condition with polling
+    try:
+        with open(progress_file, 'w') as f:
+            json.dump({
+                "status": "initializing",
+                "current": 0,
+                "total": len(mls_numbers),
+                "message": "Starting automation...",
+                "error": ""
+            }, f)
+    except Exception:
+        pass  # Will be created by launch script
 
     try:
         # Use shell script to properly detach the process
@@ -988,6 +1004,9 @@ def create_idx_portfolio():
         )
 
         pid = result.stdout.strip()
+
+        # Wait briefly for automation to start and update progress
+        time.sleep(0.5)
 
         # Build client portfolio URL if search_name looks like a client name
         client_url = None
