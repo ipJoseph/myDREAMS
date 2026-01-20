@@ -320,21 +320,21 @@ class IDXPortfolioAutomation:
             login_verified = await page.evaluate('''() => {
                 const body = document.body.innerHTML.toLowerCase();
 
-                // Signs of being logged in
+                // Signs of being logged in (using valid CSS selectors only)
                 const loggedInSigns = [
                     document.querySelector('a[href*="logout"]'),
-                    document.querySelector('a:has-text("Log Out")'),
-                    document.querySelector('a:has-text("Sign Out")'),
+                    document.querySelector('a[href*="signout"]'),
                     document.querySelector('.user-name'),
                     document.querySelector('.logged-in'),
                     body.includes('my saved searches'),
                     body.includes('my account'),
                     body.includes('sign out'),
                     body.includes('log out'),
+                    body.includes('logout'),
                 ];
 
                 // Signs of NOT being logged in (login form still visible)
-                const loginFormVisible = document.querySelector('input[type="email"]:not([style*="display: none"])');
+                const loginFormVisible = document.querySelector('input[type="email"]');
                 const signUpVisible = body.includes('sign up for an account');
 
                 return {
@@ -464,15 +464,15 @@ class IDXPortfolioAutomation:
             # Fill in the search name
             name_filled = False
 
-            # Try various selectors for the name input
+            # Try various selectors for the name input in the save dialog
             name_selectors = [
+                '.modal input[type="text"]',
+                '.save-search-form input[type="text"]',
                 'input[name="search_name"]',
                 'input[name="name"]',
                 'input[placeholder*="name"]',
                 'input[placeholder*="Name"]',
-                'input[type="text"]:visible',
-                '.save-search-form input',
-                'input.search-name',
+                'form input[type="text"]',
             ]
 
             for selector in name_selectors:
@@ -488,18 +488,33 @@ class IDXPortfolioAutomation:
 
             # Fallback: JavaScript to find and fill name input
             if not name_filled:
-                logger.info("Trying JavaScript to find name input")
-                name_filled = await page.evaluate(f'''() => {{
-                    const inputs = document.querySelectorAll('input[type="text"]');
-                    for (let input of inputs) {{
-                        if (input.offsetParent !== null) {{  // visible
-                            input.value = "{search_name}";
-                            input.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                            return true;
+                logger.info("Trying JavaScript to find name input in modal")
+                try:
+                    name_filled = await page.evaluate(f'''() => {{
+                        // Look for modal/dialog inputs first
+                        const modalInputs = document.querySelectorAll('.modal input[type="text"], [class*="modal"] input[type="text"], [role="dialog"] input[type="text"]');
+                        for (let input of modalInputs) {{
+                            if (input.offsetParent !== null) {{
+                                input.value = "{search_name}";
+                                input.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                                input.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                                return true;
+                            }}
                         }}
-                    }}
-                    return false;
-                }}''')
+                        // Fallback: any visible text input
+                        const inputs = document.querySelectorAll('input[type="text"]');
+                        for (let input of inputs) {{
+                            if (input.offsetParent !== null) {{
+                                input.value = "{search_name}";
+                                input.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                                input.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                                return true;
+                            }}
+                        }}
+                        return false;
+                    }}''')
+                except Exception as e:
+                    logger.error(f"JavaScript name fill failed: {e}")
 
             if not name_filled:
                 logger.error("Could not find search name input")
