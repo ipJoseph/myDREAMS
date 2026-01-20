@@ -705,7 +705,7 @@
 
                     case 'complete':
                         progressBar.style.width = '100%';
-                        progressMessage.textContent = 'Portfolio created successfully!';
+                        progressMessage.textContent = data.message || 'Portfolio created successfully!';
                         progressTitle.textContent = 'Complete!';
                         modal.classList.add('complete');
 
@@ -713,20 +713,24 @@
                         clearInterval(progressPollInterval);
                         progressPollInterval = null;
 
-                        // Show client URL if available
+                        // Show client URL and saved searches link
                         const clientUrl = modal.dataset.clientUrl;
+                        const savedSearchesUrl = 'https://www.smokymountainhomes4sale.com/member/saved_searches/';
+                        let detailsHtml = `<br><strong>Verify on IDX:</strong><br><a href="${savedSearchesUrl}" target="_blank" style="color: var(--accent-blue);">View Saved Searches</a><br>`;
+
                         if (clientUrl) {
                             const prdUrl = clientUrl.replace(window.location.origin, 'https://app.wncmountain.homes');
-                            progressDetails.innerHTML = `<br><strong>Client URL:</strong><br><a href="${prdUrl}" target="_blank" style="color: var(--accent-blue);">${prdUrl}</a><br><br><small>Password: dreams2026</small>`;
+                            detailsHtml += `<br><strong>Client URL:</strong><br><a href="${prdUrl}" target="_blank" style="color: var(--accent-blue);">${prdUrl}</a><br><br><small>Password: dreams2026</small>`;
 
                             // Copy to clipboard
                             navigator.clipboard.writeText(prdUrl).catch(() => {});
                         }
+                        progressDetails.innerHTML = detailsHtml;
 
-                        // Auto-hide after 5 seconds
+                        // Auto-hide after 8 seconds (more time to click links)
                         setTimeout(() => {
                             modal.style.display = 'none';
-                        }, 5000);
+                        }, 8000);
                         break;
 
                     case 'error':

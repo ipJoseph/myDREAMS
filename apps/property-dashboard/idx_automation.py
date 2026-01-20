@@ -832,12 +832,31 @@ class IDXPortfolioAutomation:
             result_url = page.url
             logger.info(f"Current URL: {result_url}")
 
+            # Navigate to saved searches page so user can verify
+            saved_searches_url = f"{IDX_BASE_URL}/member/saved_searches/"
+
+            # On DEV (local browser, not browserless.io): navigate to saved searches and keep open
+            using_local_browser = FORCE_LOCAL_BROWSER or SKIP_PROXY or not BROWSERLESS_TOKEN
+
+            if using_local_browser and not self.headless:
+                try:
+                    logger.info(f"Navigating to saved searches: {saved_searches_url}")
+                    await page.goto(saved_searches_url, wait_until='domcontentloaded', timeout=30000)
+                    await page.wait_for_timeout(2000)
+                    logger.info("Browser showing saved searches page - will stay open for 30 seconds")
+                    write_progress("complete", total, total, f"Portfolio created with {total} properties - verify saved searches", "")
+
+                    # Keep browser open for 30 seconds so user can see
+                    await page.wait_for_timeout(30000)
+                except Exception as e:
+                    logger.warning(f"Could not navigate to saved searches: {e}")
+
             # Write completion progress
             write_progress("complete", total, total, f"Portfolio created with {total} properties", "")
 
-            # In headless mode OR when running as background task (progress file set), close browser
+            # Close browser when done
             if self.headless or PROGRESS_FILE:
-                logger.info("Background/headless mode - closing browser")
+                logger.info("Closing browser")
                 await self.stop()
                 return result_url
 
