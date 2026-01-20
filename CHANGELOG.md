@@ -22,6 +22,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Completion modal shows actual property count and "View Saved Searches" link
   - Auto-opens IDX saved searches page in new browser tab on completion
   - Fixed 30s timeout caused by `networkidle` wait (now uses `load` state)
+  - Fixed save dialog name not being filled (target modal, clear before fill)
+  - Removed blocking alert() that caused browserless.io disconnect
   - DEV uses local browser (fast), PRD uses browserless.io + proxy
   - **Fully working on both DEV and PRD**
 - **Git Workflow Documentation** - Added to CLAUDE.md
