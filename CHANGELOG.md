@@ -67,6 +67,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Views, Favorites, Shares columns in contacts table
   - Search box with real-time filtering (name, email, phone)
   - Clickable metric cards for quick filtering
+- **Selected Property Count** - Shows count of selected properties below total on dashboard
 - **Range Slider Component** - Added to shared design system
   - `.dreams-slider` base class with grey track
   - Color variants: `dreams-slider-red`, `dreams-slider-green`, `dreams-slider-blue`
@@ -120,6 +121,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - FUB-to-Sheets SQLite sync (parallel output alongside Sheets)
 
 ### Changed
+- **Property Dashboard Code Quality** - Comprehensive code review and cleanup
+  - Consolidated 4 duplicate `get_unique_*` functions into single `get_unique_values(properties, key)`
+  - Extracted duplicate status count logic into `calculate_status_counts()` helper
+  - Replaced `print()` statements with proper `logging` module
+  - Made debug screenshots conditional via `DEBUG_SCREENSHOTS` env var
+  - Added named timeout constants with rationale (TIMEOUT_JS_RENDER, TIMEOUT_PANEL_APPEAR, etc.)
+  - Fixed JavaScript string escaping using `json.dumps()` for safety in `page.evaluate()` calls
+  - Added return type hints to key functions (`fetch_properties`, `calculate_metrics`, etc.)
+  - Added typing imports to app.py
 - **Address Links Prioritize IDX** - Property addresses now link to team IDX site
   - If MLS number exists → link to `smokymountainhomes4sale.com/property/{mls}`
   - If no MLS but have source URL → link to Redfin/Zillow
@@ -149,6 +159,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - `/contacts` shows contacts list (new)
 
 ### Fixed
+- **Deprecated Async Pattern** - Replaced `asyncio.new_event_loop()` with `asyncio.run()` in app.py
+- **Broken Context Manager** - Fixed `__aexit__` to return `False` instead of `None` (was suppressing exceptions)
+- **Redundant Import** - Removed local `import re` from `clean_county_name()` (already imported at module level)
 - **Contact-Event Data Mismatch** - Events now correctly linked to contacts
   - Fixed fub_id lookup in `get_contact_property_summary()`
   - Fixed fub_id lookup in `get_activity_timeline()`
