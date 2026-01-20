@@ -222,6 +222,7 @@
             {% if metrics.status_counts %}
                 ({% for status, count in metrics.status_counts.items() %}{{ status }}: {{ count }}{% if not loop.last %}, {% endif %}{% endfor %})
             {% endif %}
+            <br><span id="selectedCount" style="font-size: 13px; color: var(--text-secondary);"><strong>{{ properties|length }}</strong> properties selected</span>
         </div>
         <div class="dreams-results-actions">
             <button class="dreams-btn dreams-btn-primary" onclick="copyMLSNumbers()" title="Copy MLS numbers to clipboard">
@@ -419,10 +420,21 @@
             return properties;
         }
 
+        // Update selected count display
+        function updateSelectedCount() {
+            const checkboxes = document.querySelectorAll('.row-select');
+            const selectedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
+            const countEl = document.getElementById('selectedCount');
+            if (countEl) {
+                countEl.innerHTML = `<strong>${selectedCount}</strong> properties selected`;
+            }
+        }
+
         // Toggle all checkboxes
         function toggleSelectAll(headerCheckbox) {
             const checkboxes = document.querySelectorAll('.row-select');
             checkboxes.forEach(cb => cb.checked = headerCheckbox.checked);
+            updateSelectedCount();
         }
 
         // Update header checkbox based on row selections
@@ -434,7 +446,11 @@
 
             selectAll.checked = allChecked;
             selectAll.indeterminate = someChecked && !allChecked;
+            updateSelectedCount();
         }
+
+        // Initialize selected count on page load
+        document.addEventListener('DOMContentLoaded', updateSelectedCount);
 
         // Copy MLS numbers to clipboard
         async function copyMLSNumbers() {
