@@ -69,6 +69,9 @@ IDX_MLS_SEARCH_URL = f"{IDX_BASE_URL}/search/mls_search/"
 IDX_EMAIL = os.getenv('IDX_EMAIL', '')
 IDX_PHONE = os.getenv('IDX_PHONE', '')
 
+# Browserless.io configuration (for cloud browser - avoids IP blocking)
+BROWSERLESS_TOKEN = os.getenv('BROWSERLESS_TOKEN', '')
+
 
 class IDXPortfolioAutomation:
     """Automates creating property portfolios on the IDX site"""
@@ -94,9 +97,31 @@ class IDXPortfolioAutomation:
         pass
 
     async def start(self):
-        """Start the browser"""
+        """Start the browser - uses browserless.io if token available, otherwise local"""
         self.playwright = await async_playwright().start()
 
+        if BROWSERLESS_TOKEN:
+            # Use browserless.io cloud browser (avoids IP blocking on VPS)
+            browserless_url = f"wss://chrome.browserless.io?token={BROWSERLESS_TOKEN}&stealth=true"
+            logger.info("Connecting to browserless.io cloud browser...")
+            try:
+                self.browser = await self.playwright.chromium.connect_over_cdp(browserless_url)
+                # Get existing context or create new one
+                contexts = self.browser.contexts
+                if contexts:
+                    self.context = contexts[0]
+                else:
+                    self.context = await self.browser.new_context(
+                        viewport={'width': 1280, 'height': 850},
+                        user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                    )
+                logger.info("Connected to browserless.io successfully")
+                return
+            except Exception as e:
+                logger.error(f"Failed to connect to browserless.io: {e}")
+                logger.info("Falling back to local browser...")
+
+        # Local browser (for development or as fallback)
         self.browser = await self.playwright.chromium.launch(
             headless=self.headless,
             args=[
@@ -109,7 +134,7 @@ class IDXPortfolioAutomation:
         self.context = await self.browser.new_context(
             viewport={'width': 1280, 'height': 850}
         )
-        logger.info("Browser started")
+        logger.info("Local browser started")
 
     async def login(self, page: Page) -> bool:
         """
