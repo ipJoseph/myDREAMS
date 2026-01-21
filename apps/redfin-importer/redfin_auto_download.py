@@ -295,9 +295,9 @@ class RedfinAutoDownloader:
         page = await self.context.new_page()
 
         try:
-            # Navigate to search page
-            await page.goto(url, wait_until='networkidle', timeout=60000)
-            await page.wait_for_timeout(3000)  # Let page fully render
+            # Navigate to search page (use 'load' instead of 'networkidle' to avoid timeouts)
+            await page.goto(url, wait_until='load', timeout=60000)
+            await page.wait_for_timeout(5000)  # Let JS render fully
 
             # Check for and handle login modal
             login_result = await self._handle_login_modal(page)

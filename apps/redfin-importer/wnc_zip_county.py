@@ -14,13 +14,15 @@ WNC_ZIP_COUNTY = {
     "28744": "Macon",      # Highlands (partial)
 
     # Jackson County
-    "28779": "Jackson",    # Sylva
-    "28783": "Jackson",    # Qualla (also Cherokee land)
     "28717": "Jackson",    # Cashiers
     "28723": "Jackson",    # Cullowhee
     "28725": "Jackson",    # Dillsboro
+    "28736": "Jackson",    # Glenville
     "28747": "Jackson",    # Lake Toxaway (partial)
     "28774": "Jackson",    # Sapphire
+    "28779": "Jackson",    # Sylva
+    "28783": "Jackson",    # Qualla (also Cherokee land)
+    "28788": "Jackson",    # Webster
 
     # Swain County
     "28713": "Swain",      # Bryson City
@@ -38,36 +40,44 @@ WNC_ZIP_COUNTY = {
     "28702": "Graham",     # Fontana Village
 
     # Clay County
-    "28904": "Clay",       # Brasstown (shared with Cherokee)
+    "28904": "Clay",       # Hayesville
     "28905": "Clay",       # Hayesville area
+    "28909": "Clay",       # Warne
 
     # Haywood County
+    "28707": "Haywood",    # Balsam
     "28716": "Haywood",    # Canton
     "28721": "Haywood",    # Clyde
+    "28745": "Haywood",    # Lake Junaluska
     "28751": "Haywood",    # Maggie Valley
     "28785": "Haywood",    # Waynesville
     "28786": "Haywood",    # Waynesville
-    "28745": "Haywood",    # Lake Junaluska
 
     # Buncombe County
+    "28701": "Buncombe",   # Alexander
+    "28704": "Buncombe",   # Arden
+    "28715": "Buncombe",   # Black Mountain
+    "28748": "Buncombe",   # Leicester
+    "28778": "Buncombe",   # Swannanoa
+    "28787": "Buncombe",   # Weaverville
     "28801": "Buncombe",   # Asheville
     "28802": "Buncombe",   # Asheville
     "28803": "Buncombe",   # Asheville
     "28804": "Buncombe",   # Asheville
     "28805": "Buncombe",   # Asheville
     "28806": "Buncombe",   # Asheville
-    "28715": "Buncombe",   # Black Mountain
-    "28748": "Buncombe",   # Leicester
-    "28778": "Buncombe",   # Swannanoa
-    "28787": "Buncombe",   # Weaverville
-    "28704": "Buncombe",   # Arden
 
     # Henderson County
+    "28710": "Henderson",  # Bat Cave
+    "28726": "Henderson",  # East Flat Rock
+    "28729": "Henderson",  # Etowah
     "28731": "Henderson",  # Flat Rock
     "28732": "Henderson",  # Fletcher
     "28739": "Henderson",  # Hendersonville
     "28742": "Henderson",  # Horse Shoe
     "28759": "Henderson",  # Mills River
+    "28790": "Henderson",  # Zirconia
+    "28791": "Henderson",  # Hendersonville
     "28792": "Henderson",  # Hendersonville
 
     # Transylvania County
@@ -138,6 +148,7 @@ WNC_ZIP_COUNTY = {
     "28697": "Wilkes",     # Wilkesboro
 
     # Madison County
+    "28743": "Madison",    # Hot Springs
     "28748": "Madison",    # Leicester (shared)
     "28753": "Madison",    # Marshall
     "28754": "Madison",    # Mars Hill
