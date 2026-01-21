@@ -55,8 +55,9 @@ def utility_processor():
         'now': datetime.utcnow
     }
 
-# Database path
+# Database paths
 DB_PATH = os.getenv('DREAMS_DB_PATH', str(PROJECT_ROOT / 'data' / 'dreams.db'))
+PROPERTIES_DB_PATH = os.getenv('PROPERTIES_DB_PATH', str(PROJECT_ROOT / 'data' / 'redfin_imports.db'))
 
 # Need types for intake forms
 NEED_TYPES = [
@@ -106,19 +107,30 @@ WATER_OPTIONS = [
 
 
 def get_db():
-    """Get database connection."""
+    """Get database connection for workflow data (leads, forms, packages)."""
     if 'db' not in g:
         g.db = sqlite3.connect(DB_PATH)
         g.db.row_factory = sqlite3.Row
     return g.db
 
 
+def get_properties_db():
+    """Get database connection for property searches (redfin_imports)."""
+    if 'properties_db' not in g:
+        g.properties_db = sqlite3.connect(PROPERTIES_DB_PATH)
+        g.properties_db.row_factory = sqlite3.Row
+    return g.properties_db
+
+
 @app.teardown_appcontext
 def close_db(error):
-    """Close database connection."""
+    """Close database connections."""
     db = g.pop('db', None)
     if db is not None:
         db.close()
+    props_db = g.pop('properties_db', None)
+    if props_db is not None:
+        props_db.close()
 
 
 def row_to_dict(row):
@@ -403,6 +415,7 @@ def intake_save():
 def intake_search(form_id):
     """Search properties based on intake form criteria."""
     db = get_db()
+    props_db = get_properties_db()
 
     form = db.execute('SELECT * FROM intake_forms WHERE id = ?', (form_id,)).fetchone()
     if not form:
@@ -457,9 +470,11 @@ def intake_search(form_id):
             query += f' AND property_type IN ({placeholders})'
             params.extend(types)
 
-    query += ' AND status = "active" ORDER BY days_on_market ASC, price ASC LIMIT 100'
+    # Use 'Active' to match redfin_imports format
+    query += ' AND (status = "active" OR status = "Active") ORDER BY days_on_market ASC, price ASC LIMIT 100'
 
-    properties = db.execute(query, params).fetchall()
+    # Query properties from redfin_imports database
+    properties = props_db.execute(query, params).fetchall()
 
     return render_template('intake_search_results.html',
         form=form,
@@ -516,6 +531,7 @@ def package_new(lead_id):
 def package_detail(package_id):
     """Package detail with properties."""
     db = get_db()
+    props_db = get_properties_db()
 
     package = db.execute('''
         SELECT p.*, l.first_name, l.last_name, l.email, l.phone
@@ -528,15 +544,35 @@ def package_detail(package_id):
         flash('Package not found', 'error')
         return redirect(url_for('packages_list'))
 
-    # Get properties in package
-    properties = db.execute('''
-        SELECT pr.*, pp.display_order, pp.agent_notes as package_notes,
-               pp.client_favorited, pp.client_rating, pp.showing_requested
-        FROM package_properties pp
-        JOIN properties pr ON pp.property_id = pr.id
-        WHERE pp.package_id = ?
-        ORDER BY pp.display_order
+    # Get package_properties metadata
+    pkg_props = db.execute('''
+        SELECT property_id, display_order, agent_notes as package_notes,
+               client_favorited, client_rating, showing_requested
+        FROM package_properties
+        WHERE package_id = ?
+        ORDER BY display_order
     ''', (package_id,)).fetchall()
+
+    # Fetch property details from redfin_imports
+    properties = []
+    if pkg_props:
+        prop_ids = [p['property_id'] for p in pkg_props]
+        placeholders = ','.join(['?' for _ in prop_ids])
+        props_data = props_db.execute(f'SELECT * FROM properties WHERE id IN ({placeholders})', prop_ids).fetchall()
+        props_dict = {p['id']: dict(p) for p in props_data}
+
+        # Merge property data with package metadata
+        for pp in pkg_props:
+            prop = props_dict.get(pp['property_id'])
+            if prop:
+                prop.update({
+                    'display_order': pp['display_order'],
+                    'package_notes': pp['package_notes'],
+                    'client_favorited': pp['client_favorited'],
+                    'client_rating': pp['client_rating'],
+                    'showing_requested': pp['showing_requested'],
+                })
+                properties.append(prop)
 
     # Get intake form if linked
     intake_form = None
@@ -548,7 +584,7 @@ def package_detail(package_id):
 
     return render_template('package_detail.html',
         package=row_to_dict(package),
-        properties=rows_to_list(properties),
+        properties=properties,  # Already list of dicts
         intake_form=row_to_dict(intake_form) if intake_form else None,
     )
 
@@ -601,6 +637,7 @@ def package_save():
 def package_add_properties(package_id):
     """Add properties to package."""
     db = get_db()
+    props_db = get_properties_db()
 
     package = db.execute('SELECT * FROM property_packages WHERE id = ?', (package_id,)).fetchone()
     if not package:
@@ -647,7 +684,7 @@ def package_add_properties(package_id):
     max_price = request.args.get('max_price', '')
     search = request.args.get('search', '')
 
-    query = 'SELECT * FROM properties WHERE status = "active"'
+    query = 'SELECT * FROM properties WHERE (status = "active" OR status = "Active")'
     params = []
 
     if existing_ids:
@@ -670,7 +707,8 @@ def package_add_properties(package_id):
 
     query += ' ORDER BY days_on_market ASC LIMIT 100'
 
-    properties = db.execute(query, params).fetchall()
+    # Query from redfin_imports database
+    properties = props_db.execute(query, params).fetchall()
 
     return render_template('package_add_properties.html',
         package=row_to_dict(package),
@@ -703,6 +741,7 @@ def package_remove_property(package_id, property_id):
 def client_view(share_token):
     """Public client view of a package."""
     db = get_db()
+    props_db = get_properties_db()
 
     package = db.execute('''
         SELECT p.*, l.first_name, l.last_name
@@ -728,19 +767,38 @@ def client_view(share_token):
     ''', (datetime.utcnow().isoformat(), package['id']))
     db.commit()
 
-    # Get properties
-    properties = db.execute('''
-        SELECT pr.*, pp.display_order, pp.client_notes, pp.highlight_features,
-               pp.client_favorited, pp.client_rating
-        FROM package_properties pp
-        JOIN properties pr ON pp.property_id = pr.id
-        WHERE pp.package_id = ?
-        ORDER BY pp.display_order
+    # Get package_properties metadata
+    pkg_props = db.execute('''
+        SELECT property_id, display_order, client_notes, highlight_features,
+               client_favorited, client_rating
+        FROM package_properties
+        WHERE package_id = ?
+        ORDER BY display_order
     ''', (package['id'],)).fetchall()
+
+    # Fetch property details from redfin_imports
+    properties = []
+    if pkg_props:
+        prop_ids = [p['property_id'] for p in pkg_props]
+        placeholders = ','.join(['?' for _ in prop_ids])
+        props_data = props_db.execute(f'SELECT * FROM properties WHERE id IN ({placeholders})', prop_ids).fetchall()
+        props_dict = {p['id']: dict(p) for p in props_data}
+
+        for pp in pkg_props:
+            prop = props_dict.get(pp['property_id'])
+            if prop:
+                prop.update({
+                    'display_order': pp['display_order'],
+                    'client_notes': pp['client_notes'],
+                    'highlight_features': pp['highlight_features'],
+                    'client_favorited': pp['client_favorited'],
+                    'client_rating': pp['client_rating'],
+                })
+                properties.append(prop)
 
     return render_template('client_view.html',
         package=row_to_dict(package),
-        properties=rows_to_list(properties),
+        properties=properties,  # Already list of dicts
     )
 
 
@@ -824,6 +882,7 @@ def showings_list():
 def showing_new(lead_id):
     """Create new showing."""
     db = get_db()
+    props_db = get_properties_db()
 
     lead = db.execute('SELECT * FROM leads WHERE id = ?', (lead_id,)).fetchone()
     if not lead:
@@ -839,20 +898,33 @@ def showing_new(lead_id):
         GROUP BY p.id
     ''', (lead_id,)).fetchall()
 
-    # Get properties with showing requested
-    requested = db.execute('''
-        SELECT pr.*, pp.package_id
+    # Get properties with showing requested - first get IDs from dreams.db
+    req_props = db.execute('''
+        SELECT pp.property_id, pp.package_id
         FROM package_properties pp
-        JOIN properties pr ON pp.property_id = pr.id
         JOIN property_packages pkg ON pp.package_id = pkg.id
         WHERE pkg.lead_id = ? AND pp.showing_requested = 1
     ''', (lead_id,)).fetchall()
+
+    # Then fetch property details from redfin_imports
+    requested = []
+    if req_props:
+        prop_ids = [p['property_id'] for p in req_props]
+        placeholders = ','.join(['?' for _ in prop_ids])
+        props_data = props_db.execute(f'SELECT * FROM properties WHERE id IN ({placeholders})', prop_ids).fetchall()
+        props_dict = {p['id']: dict(p) for p in props_data}
+
+        for rp in req_props:
+            prop = props_dict.get(rp['property_id'])
+            if prop:
+                prop['package_id'] = rp['package_id']
+                requested.append(prop)
 
     return render_template('showing_form.html',
         lead=row_to_dict(lead),
         showing=None,
         packages=rows_to_list(packages),
-        requested_properties=rows_to_list(requested),
+        requested_properties=requested,  # Already list of dicts
     )
 
 
@@ -860,6 +932,7 @@ def showing_new(lead_id):
 def showing_detail(showing_id):
     """Showing detail with itinerary."""
     db = get_db()
+    props_db = get_properties_db()
 
     showing = db.execute('''
         SELECT s.*, l.first_name, l.last_name, l.phone, l.email
@@ -872,19 +945,40 @@ def showing_detail(showing_id):
         flash('Showing not found', 'error')
         return redirect(url_for('showings_list'))
 
-    # Get properties in showing order
-    properties = db.execute('''
-        SELECT pr.*, sp.stop_order, sp.scheduled_time, sp.time_at_property,
-               sp.showing_type, sp.access_info, sp.special_instructions, sp.status
-        FROM showing_properties sp
-        JOIN properties pr ON sp.property_id = pr.id
-        WHERE sp.showing_id = ?
-        ORDER BY sp.stop_order
+    # Get showing_properties metadata
+    show_props = db.execute('''
+        SELECT property_id, stop_order, scheduled_time, time_at_property,
+               showing_type, access_info, special_instructions, status
+        FROM showing_properties
+        WHERE showing_id = ?
+        ORDER BY stop_order
     ''', (showing_id,)).fetchall()
+
+    # Fetch property details from redfin_imports
+    properties = []
+    if show_props:
+        prop_ids = [p['property_id'] for p in show_props]
+        placeholders = ','.join(['?' for _ in prop_ids])
+        props_data = props_db.execute(f'SELECT * FROM properties WHERE id IN ({placeholders})', prop_ids).fetchall()
+        props_dict = {p['id']: dict(p) for p in props_data}
+
+        for sp in show_props:
+            prop = props_dict.get(sp['property_id'])
+            if prop:
+                prop.update({
+                    'stop_order': sp['stop_order'],
+                    'scheduled_time': sp['scheduled_time'],
+                    'time_at_property': sp['time_at_property'],
+                    'showing_type': sp['showing_type'],
+                    'access_info': sp['access_info'],
+                    'special_instructions': sp['special_instructions'],
+                    'status': sp['status'],
+                })
+                properties.append(prop)
 
     return render_template('showing_detail.html',
         showing=row_to_dict(showing),
-        properties=rows_to_list(properties),
+        properties=properties,  # Already list of dicts
     )
 
 
@@ -957,6 +1051,7 @@ def api_leads_search():
 def showing_add_properties(showing_id):
     """Add properties to a showing."""
     db = get_db()
+    props_db = get_properties_db()
 
     showing = db.execute('SELECT * FROM showings WHERE id = ?', (showing_id,)).fetchone()
     if not showing:
@@ -998,14 +1093,20 @@ def showing_add_properties(showing_id):
     # Get properties from linked package if any
     properties = []
     if showing['package_id']:
-        properties = db.execute('''
-            SELECT pr.* FROM package_properties pp
-            JOIN properties pr ON pp.property_id = pr.id
-            WHERE pp.package_id = ?
-        ''', (showing['package_id'],)).fetchall()
+        # Get property_ids from package (dreams.db), then fetch details from props_db
+        package_prop_ids = db.execute(
+            'SELECT property_id FROM package_properties WHERE package_id = ?',
+            (showing['package_id'],)
+        ).fetchall()
+        if package_prop_ids:
+            prop_ids = [r['property_id'] for r in package_prop_ids]
+            placeholders = ','.join(['?' for _ in prop_ids])
+            properties = props_db.execute(f'''
+                SELECT * FROM properties WHERE id IN ({placeholders})
+            ''', prop_ids).fetchall()
     else:
-        # Get all active properties
-        properties = db.execute('''
+        # Get all active properties from redfin_imports
+        properties = props_db.execute('''
             SELECT * FROM properties
             WHERE status IN ('active', 'Active')
             ORDER BY county, city
@@ -1023,21 +1124,43 @@ def showing_add_properties(showing_id):
 def showing_optimize_route(showing_id):
     """Optimize the showing route order using nearest neighbor algorithm."""
     db = get_db()
+    props_db = get_properties_db()
 
     showing = db.execute('SELECT * FROM showings WHERE id = ?', (showing_id,)).fetchone()
     if not showing:
         return jsonify({'error': 'Showing not found'}), 404
 
-    # Get properties with coordinates
-    properties = db.execute('''
-        SELECT sp.id, sp.property_id, sp.stop_order, pr.address, pr.latitude, pr.longitude
-        FROM showing_properties sp
-        JOIN properties pr ON sp.property_id = pr.id
-        WHERE sp.showing_id = ?
-        ORDER BY sp.stop_order
+    # Get showing_properties from dreams.db
+    show_props = db.execute('''
+        SELECT id, property_id, stop_order FROM showing_properties
+        WHERE showing_id = ?
+        ORDER BY stop_order
     ''', (showing_id,)).fetchall()
 
-    properties = [dict(p) for p in properties]
+    if not show_props:
+        return jsonify({'error': 'No properties in showing'}), 400
+
+    # Fetch property coordinates from redfin_imports
+    prop_ids = [p['property_id'] for p in show_props]
+    placeholders = ','.join(['?' for _ in prop_ids])
+    props_data = props_db.execute(f'''
+        SELECT id, address, latitude, longitude FROM properties WHERE id IN ({placeholders})
+    ''', prop_ids).fetchall()
+    props_dict = {p['id']: dict(p) for p in props_data}
+
+    # Merge showing_properties with property data
+    properties = []
+    for sp in show_props:
+        prop = props_dict.get(sp['property_id'])
+        if prop:
+            properties.append({
+                'id': sp['id'],
+                'property_id': sp['property_id'],
+                'stop_order': sp['stop_order'],
+                'address': prop['address'],
+                'latitude': prop['latitude'],
+                'longitude': prop['longitude'],
+            })
 
     # Filter to properties with coordinates
     with_coords = [p for p in properties if p['latitude'] and p['longitude']]
@@ -1122,22 +1245,36 @@ def _haversine(lat1, lon1, lat2, lon2):
 def showing_google_maps_url(showing_id):
     """Generate Google Maps directions URL for the showing."""
     db = get_db()
+    props_db = get_properties_db()
 
     showing = db.execute('SELECT * FROM showings WHERE id = ?', (showing_id,)).fetchone()
     if not showing:
         return jsonify({'error': 'Showing not found'}), 404
 
-    # Get properties in order
-    properties = db.execute('''
-        SELECT pr.address, pr.city, pr.state, pr.zip
-        FROM showing_properties sp
-        JOIN properties pr ON sp.property_id = pr.id
-        WHERE sp.showing_id = ?
-        ORDER BY sp.stop_order
+    # Get showing_properties in order
+    show_props = db.execute('''
+        SELECT property_id FROM showing_properties
+        WHERE showing_id = ?
+        ORDER BY stop_order
     ''', (showing_id,)).fetchall()
 
-    if not properties:
+    if not show_props:
         return jsonify({'error': 'No properties in showing'}), 400
+
+    # Fetch property addresses from redfin_imports
+    prop_ids = [p['property_id'] for p in show_props]
+    placeholders = ','.join(['?' for _ in prop_ids])
+    props_data = props_db.execute(f'''
+        SELECT id, address, city, state, zip FROM properties WHERE id IN ({placeholders})
+    ''', prop_ids).fetchall()
+    props_dict = {p['id']: dict(p) for p in props_data}
+
+    # Build ordered list of properties
+    properties = []
+    for sp in show_props:
+        prop = props_dict.get(sp['property_id'])
+        if prop:
+            properties.append(prop)
 
     # Build Google Maps URL
     # Format: https://www.google.com/maps/dir/origin/waypoint1/waypoint2/.../destination
@@ -1167,20 +1304,20 @@ def showing_google_maps_url(showing_id):
 @app.route('/api/properties/search')
 def api_properties_search():
     """Search properties API."""
-    db = get_db()
+    props_db = get_properties_db()
 
     county = request.args.get('county')
     min_price = request.args.get('min_price')
     max_price = request.args.get('max_price')
     beds = request.args.get('beds')
-    status = request.args.get('status', 'active')
+    status = request.args.get('status', 'Active')  # Default to 'Active' to match redfin_imports
 
     query = 'SELECT * FROM properties WHERE 1=1'
     params = []
 
     if status:
-        query += ' AND status = ?'
-        params.append(status)
+        query += ' AND (status = ? OR LOWER(status) = LOWER(?))'
+        params.extend([status, status])
     if county:
         query += ' AND county = ?'
         params.append(county)
@@ -1196,7 +1333,7 @@ def api_properties_search():
 
     query += ' ORDER BY days_on_market LIMIT 50'
 
-    properties = db.execute(query, params).fetchall()
+    properties = props_db.execute(query, params).fetchall()
     return jsonify(rows_to_list(properties))
 
 
