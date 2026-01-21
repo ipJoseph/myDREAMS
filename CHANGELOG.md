@@ -9,6 +9,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Buyer Workflow Search Results Enhancement** - Improved property selection for package creation
+  - Selection checkboxes on each property card with Select All toggle
+  - Address now links directly to Redfin listing (removed redundant Redfin button)
+  - MLS# links to Google search for Canopy MLS lookup
+  - Selected count displays in header and Create Package button
+  - Package creation now adds only selected properties instead of all results
 - **Redfin CSV Importer** - Bulk property import from Redfin CSV exports
   - `apps/redfin-importer/` module with 4 components
   - `wnc_zip_county.py` - ZIP to County lookup for 100+ Western NC ZIP codes
