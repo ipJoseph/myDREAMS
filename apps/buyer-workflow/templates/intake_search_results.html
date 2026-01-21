@@ -29,14 +29,19 @@
     </div>
 </div>
 
-<div class="card" style="margin-bottom: 1rem; padding: 1rem;">
-    <strong>Search Criteria:</strong>
-    {% if form.min_price or form.max_price %}
-        Price: ${{ "{:,}".format(form.min_price|int) if form.min_price else '0' }} - ${{ "{:,}".format(form.max_price|int) if form.max_price else 'Any' }}
-    {% endif %}
-    {% if form.min_beds %}| {{ form.min_beds }}+ beds{% endif %}
-    {% if form.min_baths %}| {{ form.min_baths }}+ baths{% endif %}
-    {% if form.counties %}| Counties: {{ form.counties }}{% endif %}
+<div class="card" style="margin-bottom: 1rem; padding: 1rem; display: flex; justify-content: space-between; align-items: center;">
+    <div>
+        <strong>Search Criteria:</strong>
+        {% if form.min_price or form.max_price %}
+            Price: ${{ "{:,}".format(form.min_price|int) if form.min_price else '0' }} - ${{ "{:,}".format(form.max_price|int) if form.max_price else 'Any' }}
+        {% endif %}
+        {% if form.min_beds %}| {{ form.min_beds }}+ beds{% endif %}
+        {% if form.min_baths %}| {{ form.min_baths }}+ baths{% endif %}
+        {% if form.counties %}| Counties: {{ form.counties }}{% endif %}
+    </div>
+    <button type="button" class="btn btn-sm btn-secondary" onclick="fetchPhotos()" id="fetch-photos-btn" style="display: none;">
+        Fetch Photos (<span id="missing-photos-count">0</span>)
+    </button>
 </div>
 
 {% if properties %}
@@ -71,7 +76,7 @@
             </div>
             <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
                 {% if prop.mls_number %}
-                <a href="https://www.google.com/search?q=canopy+mls+{{ prop.mls_number }}" target="_blank" class="badge badge-gray" style="text-decoration: none;">MLS# {{ prop.mls_number }}</a>
+                <a href="#" onclick="openMLS('{{ prop.mls_number }}'); return false;" class="badge badge-gray" style="text-decoration: none; cursor: pointer;" title="Open in Canopy MLS">MLS# {{ prop.mls_number }}</a>
                 {% endif %}
                 {% if prop.days_on_market %}
                 <span class="badge badge-primary">{{ prop.days_on_market }} DOM</span>
@@ -125,5 +130,67 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 });
+
+function openMLS(mlsNumber) {
+    fetch('/api/mls/open/' + mlsNumber)
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert('MLS Login Required\n\nRun this command first:\npython apps/redfin-importer/mls_opener.py --login');
+            }
+        })
+        .catch(err => {
+            console.error('MLS open error:', err);
+            alert('Error opening MLS. Check console for details.');
+        });
+}
+
+function checkPhotoStatus() {
+    fetch('/api/photos/status')
+        .then(response => response.json())
+        .then(data => {
+            const btn = document.getElementById('fetch-photos-btn');
+            const count = document.getElementById('missing-photos-count');
+            if (data.without_photos > 0 && data.pending_in_queue > 0) {
+                btn.style.display = 'inline-block';
+                count.textContent = Math.min(data.pending_in_queue, 50);
+            }
+        })
+        .catch(err => console.error('Photo status error:', err));
+}
+
+function fetchPhotos() {
+    const btn = document.getElementById('fetch-photos-btn');
+    btn.disabled = true;
+    btn.textContent = 'Fetching...';
+
+    fetch('/api/photos/scrape', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({limit: 50})
+    })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                btn.textContent = 'Started! Refresh in 2-3 min';
+                setTimeout(() => {
+                    btn.style.display = 'none';
+                    btn.disabled = false;
+                }, 5000);
+            } else {
+                alert('Error: ' + (data.error || 'Unknown error'));
+                btn.disabled = false;
+                btn.textContent = 'Fetch Photos';
+            }
+        })
+        .catch(err => {
+            console.error('Photo fetch error:', err);
+            btn.disabled = false;
+            btn.textContent = 'Fetch Photos';
+        });
+}
+
+// Check photo status on page load
+checkPhotoStatus();
 </script>
 {% endblock %}

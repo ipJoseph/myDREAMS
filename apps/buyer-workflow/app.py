@@ -1326,6 +1326,88 @@ def showing_google_maps_url(showing_id):
     })
 
 
+@app.route('/api/photos/scrape', methods=['POST'])
+def api_photos_scrape():
+    """Trigger photo scraping for properties missing photos.
+
+    Accepts optional property_ids list, or scrapes all pending in queue.
+    """
+    import subprocess
+
+    scraper_script = PROJECT_ROOT / 'apps' / 'redfin-importer' / 'redfin_page_scraper.py'
+    limit = request.json.get('limit', 50) if request.is_json else 50
+
+    try:
+        # Run scraper in background
+        subprocess.Popen(
+            ['python', str(scraper_script), '--limit', str(limit)],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True
+        )
+        return jsonify({
+            'success': True,
+            'message': f'Photo scraping started for up to {limit} properties'
+        })
+    except Exception as e:
+        logger.error(f"Error launching photo scraper: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/photos/status')
+def api_photos_status():
+    """Get photo scraping status - how many properties have photos vs need them."""
+    props_db = get_properties_db()
+
+    total = props_db.execute('SELECT COUNT(*) FROM properties WHERE status = "Active"').fetchone()[0]
+    with_photos = props_db.execute('SELECT COUNT(*) FROM properties WHERE status = "Active" AND primary_photo IS NOT NULL').fetchone()[0]
+    pending_queue = props_db.execute('SELECT COUNT(*) FROM redfin_scrape_queue WHERE status = "pending"').fetchone()[0]
+
+    return jsonify({
+        'total_active': total,
+        'with_photos': with_photos,
+        'without_photos': total - with_photos,
+        'pending_in_queue': pending_queue
+    })
+
+
+@app.route('/api/mls/open/<mls_number>')
+def api_mls_open(mls_number):
+    """Open Canopy MLS listing page for a given MLS number.
+
+    Launches browser with authenticated MLS session.
+    Requires prior login: python apps/redfin-importer/mls_opener.py --login
+    """
+    import subprocess
+
+    cookies_file = PROJECT_ROOT / 'data' / '.canopy_mls_cookies.json'
+
+    if not cookies_file.exists():
+        return jsonify({
+            'error': 'MLS login required',
+            'message': 'Run: python apps/redfin-importer/mls_opener.py --login'
+        }), 401
+
+    # Launch MLS opener in background (headed mode so user sees browser)
+    mls_script = PROJECT_ROOT / 'apps' / 'redfin-importer' / 'mls_opener.py'
+
+    try:
+        # Run async in background - opens browser with MLS listing
+        subprocess.Popen(
+            ['python', str(mls_script), '--mls', mls_number, '--headed'],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True
+        )
+        return jsonify({
+            'success': True,
+            'message': f'Opening MLS# {mls_number} in browser'
+        })
+    except Exception as e:
+        logger.error(f"Error launching MLS opener: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/properties/search')
 def api_properties_search():
     """Search properties API."""
