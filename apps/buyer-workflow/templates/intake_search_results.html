@@ -3,22 +3,29 @@
 {% block title %}Search Results - DREAMS{% endblock %}
 
 {% block content %}
+<form id="package-form" method="POST" action="{{ url_for('package_save') }}">
+<input type="hidden" name="lead_id" value="{{ lead.id }}">
+<input type="hidden" name="intake_form_id" value="{{ form.id }}">
+<input type="hidden" name="name" value="{{ form.form_name or 'Property Package' }} - {{ now().strftime('%b %d') if now else 'Today' }}">
+
 <div class="page-header">
     <div>
         <h1 class="page-title">Search Results</h1>
         <div style="color: var(--gray-500);">
             {{ form.form_name or 'Search' }} for {{ lead.first_name }} {{ lead.last_name }}
             | {{ properties|length }} properties found
+            {% if properties %}| <span id="selected-count">0</span> selected{% endif %}
         </div>
     </div>
-    <div style="display: flex; gap: 0.5rem;">
+    <div style="display: flex; gap: 0.5rem; align-items: center;">
+        {% if properties %}
+        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+            <input type="checkbox" id="select-all" style="width: 18px; height: 18px;">
+            <span>Select All</span>
+        </label>
+        {% endif %}
         <a href="{{ url_for('intake_edit', form_id=form.id) }}" class="btn btn-secondary">Edit Criteria</a>
-        <form method="POST" action="{{ url_for('package_save') }}" style="display: inline;">
-            <input type="hidden" name="lead_id" value="{{ lead.id }}">
-            <input type="hidden" name="intake_form_id" value="{{ form.id }}">
-            <input type="hidden" name="name" value="{{ form.form_name or 'Property Package' }} - {{ now().strftime('%b %d') if now else 'Today' }}">
-            <button type="submit" class="btn btn-primary">Create Package from Results</button>
-        </form>
+        <button type="submit" class="btn btn-primary" id="create-package-btn" disabled>Create Package (<span id="btn-count">0</span>)</button>
     </div>
 </div>
 
@@ -35,17 +42,24 @@
 {% if properties %}
 <div class="property-grid">
     {% for prop in properties %}
-    <div class="property-card">
+    <div class="property-card" style="position: relative;">
+        <label class="property-checkbox" style="position: absolute; top: 0.5rem; left: 0.5rem; z-index: 10;">
+            <input type="checkbox" name="property_ids" value="{{ prop.id }}" class="property-select" style="width: 20px; height: 20px; cursor: pointer;">
+        </label>
         <div class="property-image" style="background-image: url('{{ prop.primary_photo or prop.photo_urls or '' }}');">
             {% if not prop.primary_photo and not prop.photo_urls %}
-            <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: var(--gray-500);">
+            <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: var(--gray-500); background: var(--gray-100);">
                 No Photo
             </div>
             {% endif %}
         </div>
         <div class="property-info">
             <div class="property-price">${{ "{:,}".format(prop.price) if prop.price else 'N/A' }}</div>
+            {% if prop.redfin_url %}
+            <a href="{{ prop.redfin_url }}" target="_blank" class="property-address" style="color: var(--primary); text-decoration: none;">{{ prop.address }}</a>
+            {% else %}
             <div class="property-address">{{ prop.address }}</div>
+            {% endif %}
             <div style="color: var(--gray-500); font-size: 0.875rem; margin-bottom: 0.5rem;">
                 {{ prop.city }}, {{ prop.state }} {{ prop.zip }} | {{ prop.county }} County
             </div>
@@ -55,12 +69,9 @@
                 <span>{{ "{:,}".format(prop.sqft) if prop.sqft else '-' }} sqft</span>
                 {% if prop.acreage %}<span>{{ prop.acreage }} ac</span>{% endif %}
             </div>
-            <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem;">
-                {% if prop.redfin_url %}
-                <a href="{{ prop.redfin_url }}" target="_blank" class="btn btn-sm btn-secondary">Redfin</a>
-                {% endif %}
+            <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
                 {% if prop.mls_number %}
-                <span class="badge badge-gray">MLS# {{ prop.mls_number }}</span>
+                <a href="https://www.google.com/search?q=canopy+mls+{{ prop.mls_number }}" target="_blank" class="badge badge-gray" style="text-decoration: none;">MLS# {{ prop.mls_number }}</a>
                 {% endif %}
                 {% if prop.days_on_market %}
                 <span class="badge badge-primary">{{ prop.days_on_market }} DOM</span>
@@ -81,4 +92,38 @@
     </a>
 </div>
 {% endif %}
+</form>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const selectAll = document.getElementById('select-all');
+    const checkboxes = document.querySelectorAll('.property-select');
+    const selectedCount = document.getElementById('selected-count');
+    const btnCount = document.getElementById('btn-count');
+    const createBtn = document.getElementById('create-package-btn');
+
+    function updateCount() {
+        const checked = document.querySelectorAll('.property-select:checked').length;
+        if (selectedCount) selectedCount.textContent = checked;
+        if (btnCount) btnCount.textContent = checked;
+        if (createBtn) createBtn.disabled = checked === 0;
+    }
+
+    if (selectAll) {
+        selectAll.addEventListener('change', function() {
+            checkboxes.forEach(cb => cb.checked = this.checked);
+            updateCount();
+        });
+    }
+
+    checkboxes.forEach(cb => {
+        cb.addEventListener('change', function() {
+            updateCount();
+            if (selectAll) {
+                selectAll.checked = document.querySelectorAll('.property-select:checked').length === checkboxes.length;
+            }
+        });
+    });
+});
+</script>
 {% endblock %}

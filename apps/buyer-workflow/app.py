@@ -93,8 +93,9 @@ WNC_COUNTIES = [
 ]
 
 PROPERTY_TYPES = [
-    'Single Family', 'Condo', 'Townhouse', 'Multi-Family',
-    'Land', 'Mobile/Manufactured', 'Farm/Ranch',
+    'Single Family Residential', 'Condo/Co-op', 'Townhouse',
+    'Multi-Family (2-4 Unit)', 'Vacant Land', 'Mobile/Manufactured Home',
+    'Ranch', 'Other',
 ]
 
 VIEW_OPTIONS = [
@@ -473,8 +474,13 @@ def intake_search(form_id):
     # Use 'Active' to match redfin_imports format
     query += ' AND (status = "active" OR status = "Active") ORDER BY days_on_market ASC, price ASC LIMIT 100'
 
+    # Debug logging
+    logger.info(f"Search query: {query}")
+    logger.info(f"Search params: {params}")
+
     # Query properties from redfin_imports database
     properties = props_db.execute(query, params).fetchall()
+    logger.info(f"Found {len(properties)} properties")
 
     return render_template('intake_search_results.html',
         form=form,
@@ -627,9 +633,28 @@ def package_save():
         values = [v for k, v in data.items() if k != 'id'] + [package_id]
         db.execute(f'UPDATE property_packages SET {set_clause} WHERE id = ?', values)
 
+    # Add selected properties to the package (from search results)
+    property_ids = request.form.getlist('property_ids')
+    if property_ids:
+        for i, prop_id in enumerate(property_ids):
+            # Check if already in package
+            existing = db.execute(
+                'SELECT id FROM package_properties WHERE package_id = ? AND property_id = ?',
+                (package_id, prop_id)
+            ).fetchone()
+
+            if not existing:
+                db.execute('''
+                    INSERT INTO package_properties (id, package_id, property_id, display_order, added_at)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (str(uuid.uuid4()), package_id, prop_id, i + 1, datetime.utcnow().isoformat()))
+
     db.commit()
 
-    flash('Package saved successfully', 'success')
+    if property_ids:
+        flash(f'Package created with {len(property_ids)} properties', 'success')
+    else:
+        flash('Package saved successfully', 'success')
     return redirect(url_for('package_detail', package_id=package_id))
 
 
