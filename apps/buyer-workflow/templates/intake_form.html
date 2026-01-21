@@ -1,0 +1,301 @@
+{% extends "base.html" %}
+
+{% block title %}{% if form %}Edit{% else %}New{% endif %} Intake Form - DREAMS{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">
+        {% if form %}Edit{% else %}New{% endif %} Buyer Intake Form
+        <span style="font-weight: normal; color: var(--gray-500);">
+            for {{ lead.first_name }} {{ lead.last_name }}
+        </span>
+    </h1>
+</div>
+
+<form method="POST" action="{{ url_for('intake_save') }}">
+    <input type="hidden" name="lead_id" value="{{ lead.id }}">
+    {% if form %}<input type="hidden" name="form_id" value="{{ form.id }}">{% endif %}
+
+    <div class="card">
+        <h3 class="card-title" style="margin-bottom: 1rem;">Basic Information</h3>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label">Search Name</label>
+                <input type="text" name="form_name" class="form-input"
+                       value="{{ form.form_name if form else '' }}"
+                       placeholder="e.g., Mountain Home Search">
+                <div class="form-hint">A friendly name for this search</div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Property Need Type *</label>
+                <select name="need_type" class="form-select" required>
+                    <option value="">Select type...</option>
+                    {% for value, label in need_types %}
+                    <option value="{{ value }}" {% if form and form.need_type == value %}selected{% endif %}>
+                        {{ label }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Status</label>
+                <select name="status" class="form-select">
+                    <option value="active" {% if not form or form.status == 'active' %}selected{% endif %}>Active</option>
+                    <option value="paused" {% if form and form.status == 'paused' %}selected{% endif %}>Paused</option>
+                    <option value="completed" {% if form and form.status == 'completed' %}selected{% endif %}>Completed</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label">Source</label>
+                <select name="source" class="form-select">
+                    <option value="">How did you capture this?</option>
+                    <option value="phone_call" {% if form and form.source == 'phone_call' %}selected{% endif %}>Phone Call</option>
+                    <option value="email" {% if form and form.source == 'email' %}selected{% endif %}>Email</option>
+                    <option value="idx_activity" {% if form and form.source == 'idx_activity' %}selected{% endif %}>IDX Activity</option>
+                    <option value="in_person" {% if form and form.source == 'in_person' %}selected{% endif %}>In Person</option>
+                    <option value="text" {% if form and form.source == 'text' %}selected{% endif %}>Text Message</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Source Date</label>
+                <input type="date" name="source_date" class="form-input"
+                       value="{{ form.source_date if form else '' }}">
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3 class="card-title" style="margin-bottom: 1rem;">Location Preferences</h3>
+
+        <div class="form-group">
+            <label class="form-label">Counties</label>
+            <div class="checkbox-group">
+                {% set selected_counties = (form.counties | from_json if form and form.counties else []) %}
+                {% for county in counties %}
+                <label class="checkbox-item">
+                    <input type="checkbox" name="counties" value="{{ county }}"
+                           {% if county in selected_counties %}checked{% endif %}>
+                    {{ county }}
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Specific Cities (comma-separated)</label>
+            <input type="text" name="cities" class="form-input"
+                   value="{{ (form.cities | from_json | join(', ')) if form and form.cities else '' }}"
+                   placeholder="Franklin, Highlands, Cashiers">
+        </div>
+    </div>
+
+    <div class="card">
+        <h3 class="card-title" style="margin-bottom: 1rem;">Property Requirements</h3>
+
+        <div class="form-group">
+            <label class="form-label">Property Types</label>
+            <div class="checkbox-group">
+                {% set selected_types = (form.property_types | from_json if form and form.property_types else []) %}
+                {% for ptype in property_types %}
+                <label class="checkbox-item">
+                    <input type="checkbox" name="property_types" value="{{ ptype }}"
+                           {% if ptype in selected_types %}checked{% endif %}>
+                    {{ ptype }}
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label">Min Price</label>
+                <input type="number" name="min_price" class="form-input"
+                       value="{{ form.min_price if form else '' }}" placeholder="100000">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Max Price</label>
+                <input type="number" name="max_price" class="form-input"
+                       value="{{ form.max_price if form else '' }}" placeholder="500000">
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label">Min Beds</label>
+                <input type="number" name="min_beds" class="form-input"
+                       value="{{ form.min_beds if form else '' }}" min="0" max="10">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Max Beds</label>
+                <input type="number" name="max_beds" class="form-input"
+                       value="{{ form.max_beds if form else '' }}" min="0" max="10">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Min Baths</label>
+                <input type="number" name="min_baths" class="form-input" step="0.5"
+                       value="{{ form.min_baths if form else '' }}" min="0" max="10">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Max Baths</label>
+                <input type="number" name="max_baths" class="form-input" step="0.5"
+                       value="{{ form.max_baths if form else '' }}" min="0" max="10">
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label">Min Sq Ft</label>
+                <input type="number" name="min_sqft" class="form-input"
+                       value="{{ form.min_sqft if form else '' }}" placeholder="1000">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Max Sq Ft</label>
+                <input type="number" name="max_sqft" class="form-input"
+                       value="{{ form.max_sqft if form else '' }}" placeholder="3000">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Min Acreage</label>
+                <input type="number" name="min_acreage" class="form-input" step="0.1"
+                       value="{{ form.min_acreage if form else '' }}" placeholder="0.5">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Max Acreage</label>
+                <input type="number" name="max_acreage" class="form-input" step="0.1"
+                       value="{{ form.max_acreage if form else '' }}" placeholder="10">
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3 class="card-title" style="margin-bottom: 1rem;">Features & Preferences</h3>
+
+        <div class="form-group">
+            <label class="form-label">Views Required</label>
+            <div class="checkbox-group">
+                {% set selected_views = (form.views_required | from_json if form and form.views_required else []) %}
+                {% for view in view_options %}
+                <label class="checkbox-item">
+                    <input type="checkbox" name="views_required" value="{{ view }}"
+                           {% if view in selected_views %}checked{% endif %}>
+                    {{ view }}
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Water Features</label>
+            <div class="checkbox-group">
+                {% set selected_water = (form.water_features | from_json if form and form.water_features else []) %}
+                {% for water in water_options %}
+                <label class="checkbox-item">
+                    <input type="checkbox" name="water_features" value="{{ water }}"
+                           {% if water in selected_water %}checked{% endif %}>
+                    {{ water }}
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label">Must Have Features</label>
+                <textarea name="must_have_features" class="form-textarea" rows="3"
+                          placeholder="e.g., Main level primary, Garage, Updated kitchen">{{ form.must_have_features if form else '' }}</textarea>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Nice to Have</label>
+                <textarea name="nice_to_have_features" class="form-textarea" rows="3"
+                          placeholder="e.g., Screened porch, Workshop, Guest house">{{ form.nice_to_have_features if form else '' }}</textarea>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Deal Breakers</label>
+            <textarea name="deal_breakers" class="form-textarea" rows="2"
+                      placeholder="e.g., HOA over $500/mo, Steep driveway, No cell service">{{ form.deal_breakers if form else '' }}</textarea>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3 class="card-title" style="margin-bottom: 1rem;">Timeline & Financing</h3>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label">Urgency</label>
+                <select name="urgency" class="form-select">
+                    <option value="">Select...</option>
+                    {% for value, label in urgency_options %}
+                    <option value="{{ value }}" {% if form and form.urgency == value %}selected{% endif %}>
+                        {{ label }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Target Move-In Date</label>
+                <input type="date" name="move_in_date" class="form-input"
+                       value="{{ form.move_in_date if form else '' }}">
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label">Financing Status</label>
+                <select name="financing_status" class="form-select">
+                    <option value="">Select...</option>
+                    {% for value, label in financing_options %}
+                    <option value="{{ value }}" {% if form and form.financing_status == value %}selected{% endif %}>
+                        {{ label }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Pre-Approval Amount</label>
+                <input type="number" name="pre_approval_amount" class="form-input"
+                       value="{{ form.pre_approval_amount if form else '' }}" placeholder="500000">
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3 class="card-title" style="margin-bottom: 1rem;">Agent Notes</h3>
+
+        <div class="form-group">
+            <label class="form-label">Notes</label>
+            <textarea name="agent_notes" class="form-textarea" rows="4"
+                      placeholder="Any additional notes about this buyer's search...">{{ form.agent_notes if form else '' }}</textarea>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Confidence Score (1-10)</label>
+            <input type="number" name="confidence_score" class="form-input" style="max-width: 100px;"
+                   value="{{ form.confidence_score if form else '' }}" min="1" max="10">
+            <div class="form-hint">How confident are you that these requirements are accurate?</div>
+        </div>
+    </div>
+
+    <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+        <a href="{{ url_for('lead_detail', lead_id=lead.id) }}" class="btn btn-secondary">Cancel</a>
+        <button type="submit" class="btn btn-primary">Save Intake Form</button>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Convert comma-separated cities input to array on form submit
+document.querySelector('form').addEventListener('submit', function(e) {
+    const citiesInput = document.querySelector('input[name="cities"]');
+    if (citiesInput.value) {
+        const cities = citiesInput.value.split(',').map(c => c.trim()).filter(c => c);
+        // The backend will handle this
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}Add Properties to Showing - DREAMS{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Add Properties to Showing</h1>
+</div>
+
+<form method="POST">
+    <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <span>Select properties to add to this tour</span>
+            <button type="submit" class="btn btn-primary">Add Selected</button>
+        </div>
+
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 40px;">
+                            <input type="checkbox" id="select-all">
+                        </th>
+                        <th>Property</th>
+                        <th>Price</th>
+                        <th>Beds/Baths</th>
+                        <th>County</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for prop in properties %}
+                    <tr>
+                        <td>
+                            <input type="checkbox" name="property_ids" value="{{ prop.id }}"
+                                   {% if prop.id in existing_ids %}checked disabled{% endif %}>
+                        </td>
+                        <td>
+                            <div style="font-weight: 500;">{{ prop.address }}</div>
+                            <div style="font-size: 0.8125rem; color: var(--gray-500);">
+                                {{ prop.city }}, {{ prop.state }}
+                            </div>
+                        </td>
+                        <td>${{ "{:,}".format(prop.price) if prop.price else 'N/A' }}</td>
+                        <td>{{ prop.beds or '-' }} / {{ prop.baths or '-' }}</td>
+                        <td>{{ prop.county }}</td>
+                        <td>
+                            {% if prop.id in existing_ids %}
+                            <span class="badge badge-success">Added</span>
+                            {% else %}
+                            <span class="badge badge-gray">{{ prop.status }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" style="text-align: center; padding: 2rem; color: var(--gray-500);">
+                            No properties available
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1rem;">
+        <a href="{{ url_for('showing_detail', showing_id=showing.id) }}" class="btn btn-secondary">Back to Showing</a>
+        <button type="submit" class="btn btn-primary">Add Selected</button>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('select-all').addEventListener('change', function() {
+    document.querySelectorAll('input[name="property_ids"]:not(:disabled)').forEach(cb => {
+        cb.checked = this.checked;
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block title %}Buyers / Leads - DREAMS{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Buyers / Leads</h1>
+</div>
+
+<div class="card">
+    <form method="GET" style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+        <input type="text" name="search" value="{{ search }}" placeholder="Search name, email..."
+               class="form-input" style="max-width: 300px;">
+        <select name="stage" class="form-select" style="max-width: 150px;">
+            <option value="">All Stages</option>
+            <option value="lead" {% if stage == 'lead' %}selected{% endif %}>Lead</option>
+            <option value="active" {% if stage == 'active' %}selected{% endif %}>Active</option>
+            <option value="hot" {% if stage == 'hot' %}selected{% endif %}>Hot</option>
+            <option value="under_contract" {% if stage == 'under_contract' %}selected{% endif %}>Under Contract</option>
+        </select>
+        <select name="type" class="form-select" style="max-width: 150px;">
+            <option value="">All Types</option>
+            <option value="buyer" {% if lead_type == 'buyer' %}selected{% endif %}>Buyer</option>
+            <option value="seller" {% if lead_type == 'seller' %}selected{% endif %}>Seller</option>
+        </select>
+        <button type="submit" class="btn btn-primary">Filter</button>
+    </form>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                    <th>Stage</th>
+                    <th>Heat Score</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for lead in leads %}
+                <tr>
+                    <td>
+                        <a href="{{ url_for('lead_detail', lead_id=lead.id) }}" style="font-weight: 500;">
+                            {{ lead.first_name }} {{ lead.last_name }}
+                        </a>
+                    </td>
+                    <td>{{ lead.email or '-' }}</td>
+                    <td>{{ lead.phone or '-' }}</td>
+                    <td><span class="badge badge-primary">{{ lead.stage }}</span></td>
+                    <td>
+                        {% if lead.heat_score >= 80 %}
+                            <span class="badge badge-danger">{{ lead.heat_score }}</span>
+                        {% elif lead.heat_score >= 50 %}
+                            <span class="badge badge-warning">{{ lead.heat_score }}</span>
+                        {% else %}
+                            <span class="badge badge-gray">{{ lead.heat_score or 0 }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{{ url_for('intake_new', lead_id=lead.id) }}" class="btn btn-sm btn-primary">
+                            + Intake
+                        </a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" style="text-align: center; padding: 2rem; color: var(--gray-500);">
+                        No leads found
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

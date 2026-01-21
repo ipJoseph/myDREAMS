@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - DREAMS{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Dashboard</h1>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-value">{{ leads_count }}</div>
+        <div class="stat-label">Active Leads</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ active_forms }}</div>
+        <div class="stat-label">Active Searches</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ active_packages }}</div>
+        <div class="stat-label">Property Packages</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ upcoming_showings }}</div>
+        <div class="stat-label">Upcoming Showings</div>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Recent Leads</h2>
+            <a href="{{ url_for('leads_list') }}" class="btn btn-sm btn-secondary">View All</a>
+        </div>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Contact</th>
+                        <th>Heat</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for lead in recent_leads %}
+                    <tr>
+                        <td>
+                            <a href="{{ url_for('lead_detail', lead_id=lead.id) }}">
+                                {{ lead.first_name }} {{ lead.last_name }}
+                            </a>
+                        </td>
+                        <td>{{ lead.email or lead.phone }}</td>
+                        <td>
+                            {% if lead.heat_score >= 80 %}
+                                <span class="badge badge-danger">{{ lead.heat_score }}</span>
+                            {% elif lead.heat_score >= 50 %}
+                                <span class="badge badge-warning">{{ lead.heat_score }}</span>
+                            {% else %}
+                                <span class="badge badge-gray">{{ lead.heat_score }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Active Buyer Searches</h2>
+        </div>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Buyer</th>
+                        <th>Search Name</th>
+                        <th>Type</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for form in active_intake %}
+                    <tr>
+                        <td>{{ form.first_name }} {{ form.last_name }}</td>
+                        <td>
+                            <a href="{{ url_for('intake_edit', form_id=form.id) }}">
+                                {{ form.form_name or 'Untitled Search' }}
+                            </a>
+                        </td>
+                        <td><span class="badge badge-primary">{{ form.need_type }}</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

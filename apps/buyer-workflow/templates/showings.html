@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}Showings - DREAMS{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Showings</h1>
+</div>
+
+<div class="card">
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Buyer</th>
+                    <th>Tour Name</th>
+                    <th>Properties</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for showing in showings %}
+                <tr>
+                    <td>
+                        <div style="font-weight: 500;">{{ showing.scheduled_date }}</div>
+                        <div style="font-size: 0.8125rem; color: var(--gray-500);">{{ showing.scheduled_time or '' }}</div>
+                    </td>
+                    <td>{{ showing.first_name }} {{ showing.last_name }}</td>
+                    <td>
+                        <a href="{{ url_for('showing_detail', showing_id=showing.id) }}">
+                            {{ showing.name or 'Property Tour' }}
+                        </a>
+                    </td>
+                    <td>{{ showing.property_count }} properties</td>
+                    <td>
+                        {% if showing.status == 'scheduled' %}
+                            <span class="badge badge-primary">Scheduled</span>
+                        {% elif showing.status == 'confirmed' %}
+                            <span class="badge badge-success">Confirmed</span>
+                        {% elif showing.status == 'completed' %}
+                            <span class="badge badge-gray">Completed</span>
+                        {% else %}
+                            <span class="badge badge-warning">{{ showing.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{{ url_for('showing_detail', showing_id=showing.id) }}" class="btn btn-sm btn-secondary">
+                            View
+                        </a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" style="text-align: center; padding: 2rem; color: var(--gray-500);">
+                        No showings scheduled. Select a buyer to schedule a showing.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

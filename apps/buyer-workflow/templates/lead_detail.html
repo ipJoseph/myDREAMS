@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+
+{% block title %}{{ lead.first_name }} {{ lead.last_name }} - DREAMS{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">{{ lead.first_name }} {{ lead.last_name }}</h1>
+        <div style="color: var(--gray-500);">
+            {{ lead.email or '' }} {% if lead.email and lead.phone %}|{% endif %} {{ lead.phone or '' }}
+        </div>
+    </div>
+    <div style="display: flex; gap: 0.5rem;">
+        <a href="{{ url_for('intake_new', lead_id=lead.id) }}" class="btn btn-primary">+ New Intake Form</a>
+        <a href="{{ url_for('package_new', lead_id=lead.id) }}" class="btn btn-secondary">+ New Package</a>
+        <a href="{{ url_for('showing_new', lead_id=lead.id) }}" class="btn btn-secondary">+ Schedule Showing</a>
+    </div>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-value">{{ lead.heat_score or 0 }}</div>
+        <div class="stat-label">Heat Score</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ lead.properties_viewed or 0 }}</div>
+        <div class="stat-label">Properties Viewed</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ lead.properties_favorited or 0 }}</div>
+        <div class="stat-label">Favorites</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ intake_forms|length }}</div>
+        <div class="stat-label">Active Searches</div>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem;">
+    <div>
+        <!-- Intake Forms -->
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">Property Searches (Intake Forms)</h2>
+                <a href="{{ url_for('intake_new', lead_id=lead.id) }}" class="btn btn-sm btn-primary">+ Add</a>
+            </div>
+
+            {% if intake_forms %}
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Search Name</th>
+                            <th>Need Type</th>
+                            <th>Price Range</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for form in intake_forms %}
+                        <tr>
+                            <td>
+                                <a href="{{ url_for('intake_edit', form_id=form.id) }}" style="font-weight: 500;">
+                                    {{ form.form_name or 'Untitled' }}
+                                </a>
+                            </td>
+                            <td>
+                                <span class="badge badge-primary">{{ form.need_type }}</span>
+                            </td>
+                            <td>
+                                {% if form.min_price or form.max_price %}
+                                    ${{ "{:,}".format(form.min_price or 0) }} - ${{ "{:,}".format(form.max_price or 0) }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if form.status == 'active' %}
+                                    <span class="badge badge-success">Active</span>
+                                {% else %}
+                                    <span class="badge badge-gray">{{ form.status }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{{ url_for('intake_search', form_id=form.id) }}" class="btn btn-sm btn-secondary">
+                                    Search
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p style="color: var(--gray-500); padding: 1rem 0;">
+                No intake forms yet. <a href="{{ url_for('intake_new', lead_id=lead.id) }}">Create one</a> to capture buyer requirements.
+            </p>
+            {% endif %}
+        </div>
+
+        <!-- Packages -->
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">Property Packages</h2>
+                <a href="{{ url_for('package_new', lead_id=lead.id) }}" class="btn btn-sm btn-primary">+ Create</a>
+            </div>
+
+            {% if packages %}
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Package Name</th>
+                            <th>Properties</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for pkg in packages %}
+                        <tr>
+                            <td>
+                                <a href="{{ url_for('package_detail', package_id=pkg.id) }}" style="font-weight: 500;">
+                                    {{ pkg.name }}
+                                </a>
+                            </td>
+                            <td>{{ pkg.property_count }} properties</td>
+                            <td>
+                                {% if pkg.status == 'sent' %}
+                                    <span class="badge badge-success">Sent</span>
+                                {% elif pkg.status == 'ready' %}
+                                    <span class="badge badge-primary">Ready</span>
+                                {% else %}
+                                    <span class="badge badge-gray">{{ pkg.status }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if pkg.share_token %}
+                                <a href="{{ url_for('client_view', share_token=pkg.share_token) }}"
+                                   target="_blank" class="btn btn-sm btn-secondary">
+                                    View Link
+                                </a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p style="color: var(--gray-500); padding: 1rem 0;">
+                No packages created yet.
+            </p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div>
+        <!-- Lead Info -->
+        <div class="card">
+            <h3 class="card-title" style="margin-bottom: 1rem;">Lead Details</h3>
+
+            <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                <div>
+                    <div style="font-size: 0.75rem; color: var(--gray-500);">Stage</div>
+                    <div><span class="badge badge-primary">{{ lead.stage }}</span></div>
+                </div>
+                <div>
+                    <div style="font-size: 0.75rem; color: var(--gray-500);">Type</div>
+                    <div>{{ lead.type or 'Buyer' }}</div>
+                </div>
+                <div>
+                    <div style="font-size: 0.75rem; color: var(--gray-500);">Source</div>
+                    <div>{{ lead.source or '-' }}</div>
+                </div>
+                {% if lead.preferred_cities %}
+                <div>
+                    <div style="font-size: 0.75rem; color: var(--gray-500);">Preferred Cities</div>
+                    <div>{{ lead.preferred_cities }}</div>
+                </div>
+                {% endif %}
+                {% if lead.min_price or lead.max_price %}
+                <div>
+                    <div style="font-size: 0.75rem; color: var(--gray-500);">Budget</div>
+                    <div>${{ "{:,}".format(lead.min_price or 0) }} - ${{ "{:,}".format(lead.max_price or 0) }}</div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Upcoming Showings -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Showings</h3>
+            </div>
+            {% if showings %}
+            {% for showing in showings[:5] %}
+            <div style="padding: 0.75rem 0; border-bottom: 1px solid var(--gray-200);">
+                <div style="font-weight: 500;">{{ showing.name or 'Showing' }}</div>
+                <div style="font-size: 0.875rem; color: var(--gray-500);">
+                    {{ showing.scheduled_date }} {{ showing.scheduled_time or '' }}
+                </div>
+            </div>
+            {% endfor %}
+            {% else %}
+            <p style="color: var(--gray-500);">No showings scheduled</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

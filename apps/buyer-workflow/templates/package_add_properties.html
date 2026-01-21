@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block title %}Add Properties - DREAMS{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Add Properties to {{ package.name }}</h1>
+</div>
+
+<div class="card" style="margin-bottom: 1rem;">
+    <form method="GET" style="display: flex; gap: 1rem; flex-wrap: wrap;">
+        <select name="county" class="form-select" style="max-width: 150px;">
+            <option value="">All Counties</option>
+            {% for c in counties %}
+            <option value="{{ c }}" {% if county == c %}selected{% endif %}>{{ c }}</option>
+            {% endfor %}
+        </select>
+        <input type="number" name="min_price" value="{{ min_price }}" placeholder="Min Price"
+               class="form-input" style="max-width: 120px;">
+        <input type="number" name="max_price" value="{{ max_price }}" placeholder="Max Price"
+               class="form-input" style="max-width: 120px;">
+        <input type="text" name="search" value="{{ search }}" placeholder="Address, MLS#..."
+               class="form-input" style="max-width: 200px;">
+        <button type="submit" class="btn btn-primary">Filter</button>
+        <a href="{{ url_for('package_add_properties', package_id=package.id) }}" class="btn btn-secondary">Clear</a>
+    </form>
+</div>
+
+<form method="POST">
+    <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <span>{{ properties|length }} properties available</span>
+            <button type="submit" class="btn btn-primary">Add Selected to Package</button>
+        </div>
+
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 40px;">
+                            <input type="checkbox" id="select-all">
+                        </th>
+                        <th>Property</th>
+                        <th>Price</th>
+                        <th>Beds/Baths</th>
+                        <th>County</th>
+                        <th>DOM</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for prop in properties %}
+                    <tr>
+                        <td>
+                            <input type="checkbox" name="property_ids" value="{{ prop.id }}">
+                        </td>
+                        <td>
+                            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                                <div style="width: 60px; height: 45px; background: var(--gray-200); border-radius: 0.25rem; flex-shrink: 0; background-size: cover; background-position: center;"
+                                     {% if prop.primary_photo %}style="background-image: url('{{ prop.primary_photo }}')"{% endif %}>
+                                </div>
+                                <div>
+                                    <div style="font-weight: 500;">{{ prop.address }}</div>
+                                    <div style="font-size: 0.8125rem; color: var(--gray-500);">
+                                        {{ prop.city }}, {{ prop.state }} {{ prop.zip }}
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                        <td style="font-weight: 500;">${{ "{:,}".format(prop.price) if prop.price else 'N/A' }}</td>
+                        <td>{{ prop.beds or '-' }} / {{ prop.baths or '-' }}</td>
+                        <td>{{ prop.county }}</td>
+                        <td>{{ prop.days_on_market or '-' }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" style="text-align: center; padding: 2rem; color: var(--gray-500);">
+                            No properties match your filters
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1rem;">
+        <a href="{{ url_for('package_detail', package_id=package.id) }}" class="btn btn-secondary">Back to Package</a>
+        <button type="submit" class="btn btn-primary">Add Selected to Package</button>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('select-all').addEventListener('change', function() {
+    document.querySelectorAll('input[name="property_ids"]').forEach(cb => {
+        cb.checked = this.checked;
+    });
+});
+</script>
+{% endblock %}

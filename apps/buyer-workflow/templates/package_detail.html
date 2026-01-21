@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block title %}{{ package.name }} - DREAMS{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">{{ package.name }}</h1>
+        <div style="color: var(--gray-500);">
+            {{ package.first_name }} {{ package.last_name }} | {{ properties|length }} properties
+        </div>
+    </div>
+    <div style="display: flex; gap: 0.5rem;">
+        <a href="{{ url_for('package_add_properties', package_id=package.id) }}" class="btn btn-primary">
+            + Add Properties
+        </a>
+        {% if package.share_token %}
+        <a href="{{ url_for('client_view', share_token=package.share_token) }}"
+           target="_blank" class="btn btn-success">
+            View Client Link
+        </a>
+        <button onclick="copyLink()" class="btn btn-secondary" id="copy-btn">
+            Copy Link
+        </button>
+        {% endif %}
+    </div>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-value">{{ properties|length }}</div>
+        <div class="stat-label">Properties</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ package.view_count or 0 }}</div>
+        <div class="stat-label">Client Views</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ properties|selectattr('client_favorited')|list|length }}</div>
+        <div class="stat-label">Client Favorites</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ properties|selectattr('showing_requested')|list|length }}</div>
+        <div class="stat-label">Showing Requests</div>
+    </div>
+</div>
+
+{% if properties %}
+<div class="property-grid">
+    {% for prop in properties %}
+    <div class="property-card" style="position: relative;">
+        {% if prop.client_favorited %}
+        <div style="position: absolute; top: 0.5rem; right: 0.5rem; background: var(--danger); color: white; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem;">
+            Favorited
+        </div>
+        {% endif %}
+        {% if prop.showing_requested %}
+        <div style="position: absolute; top: 0.5rem; left: 0.5rem; background: var(--success); color: white; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem;">
+            Showing Requested
+        </div>
+        {% endif %}
+        <div class="property-image" style="background-image: url('{{ prop.primary_photo or '' }}');">
+            {% if not prop.primary_photo %}
+            <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: var(--gray-500);">
+                No Photo
+            </div>
+            {% endif %}
+        </div>
+        <div class="property-info">
+            <div class="property-price">${{ "{:,}".format(prop.price) if prop.price else 'N/A' }}</div>
+            <div class="property-address">{{ prop.address }}</div>
+            <div style="color: var(--gray-500); font-size: 0.875rem; margin-bottom: 0.5rem;">
+                {{ prop.city }}, {{ prop.state }} | {{ prop.county }} County
+            </div>
+            <div class="property-details">
+                <span>{{ prop.beds or '-' }} bd</span>
+                <span>{{ prop.baths or '-' }} ba</span>
+                <span>{{ "{:,}".format(prop.sqft) if prop.sqft else '-' }} sqft</span>
+                {% if prop.acreage %}<span>{{ prop.acreage }} ac</span>{% endif %}
+            </div>
+            <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                {% if prop.mls_number %}
+                <span class="badge badge-gray">MLS# {{ prop.mls_number }}</span>
+                {% endif %}
+                {% if prop.days_on_market %}
+                <span class="badge badge-primary">{{ prop.days_on_market }} DOM</span>
+                {% endif %}
+            </div>
+            <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--gray-200); display: flex; gap: 0.5rem;">
+                {% if prop.redfin_url %}
+                <a href="{{ prop.redfin_url }}" target="_blank" class="btn btn-sm btn-secondary">Redfin</a>
+                {% endif %}
+                <button onclick="removeProperty('{{ package.id }}', '{{ prop.id }}')"
+                        class="btn btn-sm btn-danger">Remove</button>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card" style="text-align: center; padding: 3rem;">
+    <h3>No Properties Added</h3>
+    <p style="color: var(--gray-500);">Add properties to this package to share with your client.</p>
+    <a href="{{ url_for('package_add_properties', package_id=package.id) }}" class="btn btn-primary" style="margin-top: 1rem;">
+        + Add Properties
+    </a>
+</div>
+{% endif %}
+
+<input type="hidden" id="share-url" value="{{ request.host_url }}view/{{ package.share_token }}">
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function copyLink() {
+    const url = document.getElementById('share-url').value;
+    navigator.clipboard.writeText(url).then(() => {
+        const btn = document.getElementById('copy-btn');
+        btn.textContent = 'Copied!';
+        setTimeout(() => btn.textContent = 'Copy Link', 2000);
+    });
+}
+
+function removeProperty(packageId, propertyId) {
+    if (!confirm('Remove this property from the package?')) return;
+
+    fetch(`/packages/${packageId}/remove/${propertyId}`, {
+        method: 'POST'
+    }).then(r => r.json()).then(data => {
+        if (data.success) location.reload();
+    });
+}
+</script>
+{% endblock %}

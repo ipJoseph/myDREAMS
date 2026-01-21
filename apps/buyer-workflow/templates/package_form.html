@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}{% if package %}Edit{% else %}New{% endif %} Package - DREAMS{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">
+        {% if package %}Edit{% else %}New{% endif %} Property Package
+        <span style="font-weight: normal; color: var(--gray-500);">
+            for {{ lead.first_name }} {{ lead.last_name }}
+        </span>
+    </h1>
+</div>
+
+<form method="POST" action="{{ url_for('package_save') }}">
+    <input type="hidden" name="lead_id" value="{{ lead.id }}">
+    {% if package %}<input type="hidden" name="package_id" value="{{ package.id }}">{% endif %}
+
+    <div class="card">
+        <div class="form-group">
+            <label class="form-label">Package Name *</label>
+            <input type="text" name="name" class="form-input" required
+                   value="{{ package.name if package else '' }}"
+                   placeholder="e.g., Mountain View Homes - January 2025">
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Description</label>
+            <textarea name="description" class="form-textarea" rows="2"
+                      placeholder="Brief description for the client...">{{ package.description if package else '' }}</textarea>
+        </div>
+
+        {% if intake_forms %}
+        <div class="form-group">
+            <label class="form-label">Link to Search (optional)</label>
+            <select name="intake_form_id" class="form-select">
+                <option value="">-- No linked search --</option>
+                {% for form in intake_forms %}
+                <option value="{{ form.id }}" {% if package and package.intake_form_id == form.id %}selected{% endif %}>
+                    {{ form.form_name or 'Untitled' }} ({{ form.need_type }})
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
+
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label">Status</label>
+                <select name="status" class="form-select">
+                    <option value="draft" {% if not package or package.status == 'draft' %}selected{% endif %}>Draft</option>
+                    <option value="ready" {% if package and package.status == 'ready' %}selected{% endif %}>Ready to Send</option>
+                    <option value="sent" {% if package and package.status == 'sent' %}selected{% endif %}>Sent</option>
+                    <option value="archived" {% if package and package.status == 'archived' %}selected{% endif %}>Archived</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Agent Notes (private)</label>
+            <textarea name="notes" class="form-textarea" rows="2"
+                      placeholder="Internal notes...">{{ package.notes if package else '' }}</textarea>
+        </div>
+    </div>
+
+    <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+        <a href="{{ url_for('lead_detail', lead_id=lead.id) }}" class="btn btn-secondary">Cancel</a>
+        <button type="submit" class="btn btn-primary">Save Package</button>
+    </div>
+</form>
+{% endblock %}

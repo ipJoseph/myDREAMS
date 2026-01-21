@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}Property Packages - DREAMS{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Property Packages</h1>
+</div>
+
+<div class="card">
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Package Name</th>
+                    <th>Buyer</th>
+                    <th>Properties</th>
+                    <th>Status</th>
+                    <th>Views</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for pkg in packages %}
+                <tr>
+                    <td>
+                        <a href="{{ url_for('package_detail', package_id=pkg.id) }}" style="font-weight: 500;">
+                            {{ pkg.name }}
+                        </a>
+                    </td>
+                    <td>{{ pkg.first_name }} {{ pkg.last_name }}</td>
+                    <td>{{ pkg.property_count }} properties</td>
+                    <td>
+                        {% if pkg.status == 'sent' %}
+                            <span class="badge badge-success">Sent</span>
+                        {% elif pkg.status == 'viewed' %}
+                            <span class="badge badge-primary">Viewed</span>
+                        {% elif pkg.status == 'ready' %}
+                            <span class="badge badge-warning">Ready</span>
+                        {% else %}
+                            <span class="badge badge-gray">{{ pkg.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ pkg.view_count or 0 }}</td>
+                    <td>
+                        <a href="{{ url_for('package_detail', package_id=pkg.id) }}" class="btn btn-sm btn-secondary">
+                            View
+                        </a>
+                        {% if pkg.share_token %}
+                        <a href="{{ url_for('client_view', share_token=pkg.share_token) }}"
+                           target="_blank" class="btn btn-sm btn-primary">
+                            Client Link
+                        </a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" style="text-align: center; padding: 2rem; color: var(--gray-500);">
+                        No packages created yet. Select a buyer to create a package.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

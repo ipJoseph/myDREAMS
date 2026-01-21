@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ package.name }} | Properties for {{ package.first_name }}</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --success: #22c55e;
+            --danger: #ef4444;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-500: #6b7280;
+            --gray-700: #374151;
+            --gray-900: #111827;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--gray-50);
+            color: var(--gray-900);
+            line-height: 1.5;
+        }
+
+        .header {
+            background: white;
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--gray-200);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .header-meta {
+            color: var(--gray-500);
+            font-size: 0.875rem;
+        }
+
+        .main {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem 1rem;
+        }
+
+        .intro {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 0.75rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .property-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .property-card {
+            background: white;
+            border-radius: 0.75rem;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .property-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .property-image {
+            height: 220px;
+            background: var(--gray-200);
+            background-size: cover;
+            background-position: center;
+            position: relative;
+        }
+
+        .property-badges {
+            position: absolute;
+            top: 0.75rem;
+            left: 0.75rem;
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .badge {
+            padding: 0.375rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: rgba(0,0,0,0.7);
+            color: white;
+        }
+
+        .badge-favorite {
+            background: var(--danger);
+        }
+
+        .property-info {
+            padding: 1.25rem;
+        }
+
+        .property-price {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--primary);
+            margin-bottom: 0.25rem;
+        }
+
+        .property-address {
+            font-weight: 500;
+            font-size: 1.0625rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .property-location {
+            color: var(--gray-500);
+            font-size: 0.875rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .property-details {
+            display: flex;
+            gap: 1rem;
+            padding: 0.75rem 0;
+            border-top: 1px solid var(--gray-100);
+            border-bottom: 1px solid var(--gray-100);
+            margin-bottom: 0.75rem;
+        }
+
+        .property-detail {
+            text-align: center;
+        }
+
+        .property-detail-value {
+            font-weight: 600;
+            font-size: 1.125rem;
+        }
+
+        .property-detail-label {
+            font-size: 0.75rem;
+            color: var(--gray-500);
+            text-transform: uppercase;
+        }
+
+        .property-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 0.625rem 1rem;
+            border-radius: 0.5rem;
+            font-weight: 500;
+            text-align: center;
+            text-decoration: none;
+            cursor: pointer;
+            border: none;
+            transition: all 0.15s;
+            font-size: 0.875rem;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+        }
+
+        .btn-outline {
+            background: white;
+            color: var(--gray-700);
+            border: 1px solid var(--gray-300);
+        }
+
+        .btn-outline:hover {
+            background: var(--gray-50);
+        }
+
+        .btn-favorite {
+            background: white;
+            color: var(--gray-700);
+            border: 1px solid var(--gray-300);
+        }
+
+        .btn-favorite.active {
+            background: #fee2e2;
+            color: var(--danger);
+            border-color: var(--danger);
+        }
+
+        .footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--gray-500);
+            font-size: 0.875rem;
+        }
+
+        .footer a {
+            color: var(--primary);
+        }
+
+        @media (max-width: 640px) {
+            .property-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <h1>{{ package.name }}</h1>
+            <div class="header-meta">
+                Curated for {{ package.first_name }} {{ package.last_name }} | {{ properties|length }} properties
+            </div>
+        </div>
+    </header>
+
+    <main class="main">
+        {% if package.description %}
+        <div class="intro">
+            <p>{{ package.description }}</p>
+        </div>
+        {% endif %}
+
+        <div class="property-grid">
+            {% for prop in properties %}
+            <div class="property-card" data-property-id="{{ prop.id }}">
+                <div class="property-image" style="{% if prop.primary_photo %}background-image: url('{{ prop.primary_photo }}'){% endif %}">
+                    <div class="property-badges">
+                        {% if prop.days_on_market and prop.days_on_market <= 7 %}
+                        <span class="badge">New</span>
+                        {% endif %}
+                        {% if prop.client_favorited %}
+                        <span class="badge badge-favorite">Favorited</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="property-info">
+                    <div class="property-price">${{ "{:,}".format(prop.price) if prop.price else 'Contact for Price' }}</div>
+                    <div class="property-address">{{ prop.address }}</div>
+                    <div class="property-location">{{ prop.city }}, {{ prop.state }} {{ prop.zip }} | {{ prop.county }} County</div>
+
+                    <div class="property-details">
+                        <div class="property-detail">
+                            <div class="property-detail-value">{{ prop.beds or '-' }}</div>
+                            <div class="property-detail-label">Beds</div>
+                        </div>
+                        <div class="property-detail">
+                            <div class="property-detail-value">{{ prop.baths or '-' }}</div>
+                            <div class="property-detail-label">Baths</div>
+                        </div>
+                        <div class="property-detail">
+                            <div class="property-detail-value">{{ "{:,}".format(prop.sqft) if prop.sqft else '-' }}</div>
+                            <div class="property-detail-label">Sq Ft</div>
+                        </div>
+                        {% if prop.acreage %}
+                        <div class="property-detail">
+                            <div class="property-detail-value">{{ prop.acreage }}</div>
+                            <div class="property-detail-label">Acres</div>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    {% if prop.client_notes %}
+                    <div style="background: var(--gray-50); padding: 0.75rem; border-radius: 0.375rem; margin-bottom: 0.75rem; font-size: 0.875rem;">
+                        {{ prop.client_notes }}
+                    </div>
+                    {% endif %}
+
+                    <div class="property-actions">
+                        <button class="btn btn-favorite {% if prop.client_favorited %}active{% endif %}"
+                                onclick="toggleFavorite('{{ prop.id }}', this)">
+                            {{ 'Favorited' if prop.client_favorited else 'Favorite' }}
+                        </button>
+                        <button class="btn btn-primary" onclick="requestShowing('{{ prop.id }}')">
+                            Request Showing
+                        </button>
+                    </div>
+
+                    {% if prop.redfin_url or prop.idx_url %}
+                    <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem;">
+                        {% if prop.redfin_url %}
+                        <a href="{{ prop.redfin_url }}" target="_blank" class="btn btn-outline" style="flex: 1;">
+                            View on Redfin
+                        </a>
+                        {% endif %}
+                        {% if prop.idx_url %}
+                        <a href="{{ prop.idx_url }}" target="_blank" class="btn btn-outline" style="flex: 1;">
+                            Full Details
+                        </a>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </main>
+
+    <footer class="footer">
+        <p>
+            Powered by <strong>DREAMS</strong> | Jon Tharp Homes - Keller Williams
+        </p>
+        <p style="margin-top: 0.5rem;">
+            Questions? Contact your agent: {{ package.email or package.phone or '' }}
+        </p>
+    </footer>
+
+    <script>
+        const shareToken = '{{ package.share_token }}';
+
+        function toggleFavorite(propertyId, btn) {
+            fetch(`/view/${shareToken}/favorite/${propertyId}`, {
+                method: 'POST'
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.favorited) {
+                    btn.classList.add('active');
+                    btn.textContent = 'Favorited';
+                } else {
+                    btn.classList.remove('active');
+                    btn.textContent = 'Favorite';
+                }
+            });
+        }
+
+        function requestShowing(propertyId) {
+            fetch(`/view/${shareToken}/request-showing/${propertyId}`, {
+                method: 'POST'
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Showing request sent! Your agent will contact you soon.');
+                }
+            });
+        }
+    </script>
+</body>
+</html>

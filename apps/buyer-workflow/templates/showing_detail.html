@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+
+{% block title %}{{ showing.name or 'Showing' }} - DREAMS{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">{{ showing.name or 'Property Tour' }}</h1>
+        <div style="color: var(--gray-500);">
+            {{ showing.first_name }} {{ showing.last_name }} |
+            {{ showing.scheduled_date }} {{ showing.scheduled_time or '' }}
+        </div>
+    </div>
+    <div style="display: flex; gap: 0.5rem;">
+        <a href="{{ url_for('showing_add_properties', showing_id=showing.id) }}" class="btn btn-secondary">
+            + Add Properties
+        </a>
+        {% if properties %}
+        <button onclick="optimizeRoute()" class="btn btn-secondary" id="optimize-btn">
+            Optimize Route
+        </button>
+        <button onclick="openGoogleMaps()" class="btn btn-success">
+            Open in Google Maps
+        </button>
+        {% endif %}
+    </div>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-value">{{ properties|length }}</div>
+        <div class="stat-label">Properties</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ showing.total_drive_time or '-' }}</div>
+        <div class="stat-label">Est. Drive Time (min)</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ showing.status }}</div>
+        <div class="stat-label">Status</div>
+    </div>
+</div>
+
+{% if showing.meeting_point or showing.meeting_address %}
+<div class="card">
+    <h3 class="card-title" style="margin-bottom: 0.5rem;">Meeting Point</h3>
+    <div>{{ showing.meeting_point }}</div>
+    {% if showing.meeting_address %}
+    <div style="color: var(--gray-500);">{{ showing.meeting_address }}</div>
+    {% endif %}
+</div>
+{% endif %}
+
+<div class="card">
+    <h3 class="card-title" style="margin-bottom: 1rem;">Tour Itinerary</h3>
+
+    {% if properties %}
+    <div style="display: flex; flex-direction: column; gap: 1rem;">
+        {% for prop in properties %}
+        <div style="display: flex; gap: 1rem; padding: 1rem; background: var(--gray-50); border-radius: 0.5rem;">
+            <div style="width: 40px; height: 40px; background: var(--primary); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0;">
+                {{ prop.stop_order }}
+            </div>
+            <div style="flex: 1;">
+                <div style="display: flex; justify-content: space-between; align-items: start;">
+                    <div>
+                        <div style="font-weight: 500;">{{ prop.address }}</div>
+                        <div style="font-size: 0.875rem; color: var(--gray-500);">
+                            {{ prop.city }}, {{ prop.state }} | {{ prop.county }} County
+                        </div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-weight: 500; color: var(--primary);">${{ "{:,}".format(prop.price) if prop.price else 'N/A' }}</div>
+                        <div style="font-size: 0.8125rem; color: var(--gray-500);">
+                            {{ prop.beds or '-' }} bd | {{ prop.baths or '-' }} ba | {{ "{:,}".format(prop.sqft) if prop.sqft else '-' }} sqft
+                        </div>
+                    </div>
+                </div>
+
+                {% if prop.scheduled_time %}
+                <div style="margin-top: 0.5rem; font-size: 0.875rem;">
+                    <strong>Scheduled:</strong> {{ prop.scheduled_time }} ({{ prop.time_at_property }} min)
+                </div>
+                {% endif %}
+
+                {% if prop.access_info or prop.special_instructions %}
+                <div style="margin-top: 0.5rem; padding: 0.5rem; background: #fff3cd; border-radius: 0.25rem; font-size: 0.875rem;">
+                    {% if prop.access_info %}<div><strong>Access:</strong> {{ prop.access_info }}</div>{% endif %}
+                    {% if prop.special_instructions %}<div><strong>Instructions:</strong> {{ prop.special_instructions }}</div>{% endif %}
+                </div>
+                {% endif %}
+
+                <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem;">
+                    {% if prop.redfin_url %}
+                    <a href="{{ prop.redfin_url }}" target="_blank" class="btn btn-sm btn-secondary">Redfin</a>
+                    {% endif %}
+                    <a href="https://www.google.com/maps/search/?api=1&query={{ prop.address | urlencode }}"
+                       target="_blank" class="btn btn-sm btn-secondary">Map</a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p style="color: var(--gray-500);">No properties added to this tour yet.</p>
+    {% endif %}
+</div>
+
+{% if showing.agent_notes %}
+<div class="card">
+    <h3 class="card-title" style="margin-bottom: 0.5rem;">Agent Notes</h3>
+    <div>{{ showing.agent_notes }}</div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const showingId = '{{ showing.id }}';
+
+function optimizeRoute() {
+    const btn = document.getElementById('optimize-btn');
+    btn.textContent = 'Optimizing...';
+    btn.disabled = true;
+
+    fetch(`/showings/${showingId}/optimize-route`, {
+        method: 'POST'
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            alert(`Route optimized! Total distance: ${data.total_distance} miles, Est. drive time: ${data.drive_time_minutes} minutes`);
+            location.reload();
+        } else {
+            alert(data.error || 'Error optimizing route');
+        }
+    })
+    .catch(err => {
+        alert('Error optimizing route');
+        console.error(err);
+    })
+    .finally(() => {
+        btn.textContent = 'Optimize Route';
+        btn.disabled = false;
+    });
+}
+
+function openGoogleMaps() {
+    fetch(`/showings/${showingId}/google-maps-url`)
+    .then(r => r.json())
+    .then(data => {
+        if (data.url) {
+            window.open(data.url, '_blank');
+        } else {
+            alert(data.error || 'Error generating maps URL');
+        }
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}{% if showing %}Edit{% else %}Schedule{% endif %} Showing - DREAMS{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">
+        {% if showing %}Edit{% else %}Schedule{% endif %} Showing
+        <span style="font-weight: normal; color: var(--gray-500);">
+            for {{ lead.first_name }} {{ lead.last_name }}
+        </span>
+    </h1>
+</div>
+
+<form method="POST" action="{{ url_for('showing_save') }}">
+    <input type="hidden" name="lead_id" value="{{ lead.id }}">
+    {% if showing %}<input type="hidden" name="showing_id" value="{{ showing.id }}">{% endif %}
+
+    <div class="card">
+        <h3 class="card-title" style="margin-bottom: 1rem;">Showing Details</h3>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label">Tour Name</label>
+                <input type="text" name="name" class="form-input"
+                       value="{{ showing.name if showing else '' }}"
+                       placeholder="e.g., Mountain Properties Tour">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Link to Package (optional)</label>
+                <select name="package_id" class="form-select">
+                    <option value="">-- Select package --</option>
+                    {% for pkg in packages %}
+                    <option value="{{ pkg.id }}" {% if showing and showing.package_id == pkg.id %}selected{% endif %}>
+                        {{ pkg.name }} ({{ pkg.property_count }} properties)
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label">Date *</label>
+                <input type="date" name="scheduled_date" class="form-input" required
+                       value="{{ showing.scheduled_date if showing else '' }}">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Start Time</label>
+                <input type="time" name="scheduled_time" class="form-input"
+                       value="{{ showing.scheduled_time if showing else '' }}">
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label">Meeting Point</label>
+                <input type="text" name="meeting_point" class="form-input"
+                       value="{{ showing.meeting_point if showing else '' }}"
+                       placeholder="e.g., Starbucks on Main St">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Meeting Address</label>
+                <input type="text" name="meeting_address" class="form-input"
+                       value="{{ showing.meeting_address if showing else '' }}"
+                       placeholder="123 Main St, Franklin, NC">
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Agent Notes</label>
+            <textarea name="agent_notes" class="form-textarea" rows="3"
+                      placeholder="Notes about this showing...">{{ showing.agent_notes if showing else '' }}</textarea>
+        </div>
+    </div>
+
+    {% if requested_properties %}
+    <div class="card">
+        <h3 class="card-title" style="margin-bottom: 1rem;">Properties with Showing Requests</h3>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Property</th>
+                        <th>Price</th>
+                        <th>County</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for prop in requested_properties %}
+                    <tr>
+                        <td>{{ prop.address }}</td>
+                        <td>${{ "{:,}".format(prop.price) if prop.price else 'N/A' }}</td>
+                        <td>{{ prop.county }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+        <a href="{{ url_for('lead_detail', lead_id=lead.id) }}" class="btn btn-secondary">Cancel</a>
+        <button type="submit" class="btn btn-primary">Save Showing</button>
+    </div>
+</form>
+{% endblock %}
