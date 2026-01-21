@@ -119,31 +119,50 @@ class CanopyMLSOpener:
         After login, saves cookies for future headless use.
         """
         logger.info("Opening Canopy MLS login page...")
-        logger.info("Please log in manually. The script will save your session.")
+        logger.info("Please log in manually in the browser window.")
+        logger.info("You have 5 minutes to complete login.")
 
         await self.page.goto(MLS_LOGIN_URL, wait_until='load')
 
         # Wait for user to complete login
-        # We'll detect successful login by checking for the Matrix dashboard
+        # Detect successful login by checking for Matrix elements or URL change
         logger.info("Waiting for login completion...")
-        logger.info("(Looking for Matrix dashboard or search page)")
 
         try:
-            # Wait for either the search page or dashboard to load
-            # This indicates successful login
-            await self.page.wait_for_selector(
-                'input[id*="search"], .MatrixHeader, #ctl00_m_ucSearchTab',
-                timeout=300000  # 5 minutes to login
-            )
-            logger.info("Login successful!")
+            # Poll for login success - check URL and page content
+            for _ in range(60):  # Check every 5 seconds for 5 minutes
+                await self.page.wait_for_timeout(5000)
 
-            # Save cookies
-            await self.save_cookies()
+                url = self.page.url
+                logger.info(f"Current URL: {url}")
 
-            return True
+                # If we're on a Matrix page (not login), we're logged in
+                if 'matrix.canopymls.com/Matrix' in url and 'login' not in url.lower():
+                    logger.info("Login successful! Detected Matrix page.")
+                    await self.save_cookies()
+                    return True
+
+                # Check for common post-login elements
+                try:
+                    content = await self.page.content()
+                    if any(x in content for x in ['Logout', 'Sign Out', 'My Matrix', 'Quick Search', 'Search/Res']):
+                        logger.info("Login successful! Detected logged-in content.")
+                        await self.save_cookies()
+                        return True
+                except:
+                    pass
+
+            logger.error("Login timeout - 5 minutes elapsed")
+            # Save screenshot for debugging
+            await self.page.screenshot(path=str(DATA_DIR / 'mls_login_timeout.png'))
+            return False
 
         except Exception as e:
-            logger.error(f"Login timeout or error: {e}")
+            logger.error(f"Login error: {e}")
+            try:
+                await self.page.screenshot(path=str(DATA_DIR / 'mls_login_error.png'))
+            except:
+                pass
             return False
 
     async def check_login(self) -> bool:

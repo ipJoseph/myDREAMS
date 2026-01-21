@@ -1340,7 +1340,7 @@ def api_photos_scrape():
     try:
         # Run scraper in background
         subprocess.Popen(
-            ['python', str(scraper_script), '--limit', str(limit)],
+            ['python3', str(scraper_script), '--limit', str(limit)],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             start_new_session=True
@@ -1394,7 +1394,7 @@ def api_mls_open(mls_number):
     try:
         # Run async in background - opens browser with MLS listing
         subprocess.Popen(
-            ['python', str(mls_script), '--mls', mls_number, '--headed'],
+            ['python3', str(mls_script), '--mls', mls_number, '--headed'],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             start_new_session=True
