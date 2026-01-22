@@ -229,7 +229,10 @@
         <div class="dreams-results-actions">
             {% if selected_client %}
             <button class="dreams-btn dreams-btn-success" onclick="copyClientLink()" title="Copy shareable client link">
-                <span id="clientLinkBtnText">Client Link</span>
+                <span id="clientLinkBtnText">Copy Client Link</span>
+            </button>
+            <button class="dreams-btn dreams-btn-secondary" onclick="viewClientLink()" title="Open client view in new tab">
+                View Client Link
             </button>
             {% endif %}
             <button class="dreams-btn dreams-btn-primary" onclick="copyMLSNumbers()" title="Copy MLS numbers to clipboard">
@@ -473,11 +476,23 @@
                 await navigator.clipboard.writeText(clientUrl);
                 const btn = document.getElementById('clientLinkBtnText');
                 btn.textContent = 'Copied!';
-                setTimeout(() => btn.textContent = 'Client Link', 2000);
+                setTimeout(() => btn.textContent = 'Copy Client Link', 2000);
             } catch (err) {
                 // Fallback
                 prompt('Copy this link:', clientUrl);
             }
+        }
+
+        // Open client view in new tab
+        function viewClientLink() {
+            const clientName = '{{ selected_client | default("", true) }}';
+            if (!clientName) {
+                alert('No client selected');
+                return;
+            }
+            const baseUrl = window.location.origin;
+            const clientUrl = `${baseUrl}/client/${encodeURIComponent(clientName)}?key=dreams2026`;
+            window.open(clientUrl, '_blank');
         }
 
         // Copy MLS numbers to clipboard
