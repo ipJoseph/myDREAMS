@@ -1,5 +1,5 @@
 {
-  "serverUrl": "http://localhost:5000",
+  "serverUrl": "https://api.wncmountain.homes",
   "healthCheckInterval": 30000,
   "retryDelays": [1000, 5000, 15000, 60000, 300000],
   "maxRetries": 5,

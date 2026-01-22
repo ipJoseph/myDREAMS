@@ -8,7 +8,7 @@
  */
 
 const DEFAULT_CONFIG = {
-  SERVER_URL: 'http://localhost:5000',
+  SERVER_URL: 'https://api.wncmountain.homes',
   HEALTH_CHECK_INTERVAL: 30000,
   RETRY_DELAYS: [1000, 5000, 15000, 60000, 300000],
   MAX_RETRIES: 5
