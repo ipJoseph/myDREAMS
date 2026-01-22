@@ -15,13 +15,16 @@
             + Add Properties
         </a>
         {% if package.share_token %}
-        <a href="{{ url_for('client_view', share_token=package.share_token) }}"
-           target="_blank" class="btn btn-success">
-            View Client Link
-        </a>
-        <button onclick="copyLink()" class="btn btn-secondary" id="copy-btn">
-            Copy Link
+        <button onclick="copyClientLink()" class="btn btn-success" id="client-link-btn">
+            Client Link
         </button>
+        <button onclick="copyMLSNumbers()" class="btn btn-secondary" id="mls-btn">
+            Copy MLS #s
+        </button>
+        <a href="{{ url_for('client_view', share_token=package.share_token) }}"
+           target="_blank" class="btn btn-outline" title="Preview client view">
+            Preview
+        </a>
         {% endif %}
     </div>
 </div>
@@ -112,12 +115,28 @@
 
 {% block extra_js %}
 <script>
-function copyLink() {
+function copyClientLink() {
     const url = document.getElementById('share-url').value;
     navigator.clipboard.writeText(url).then(() => {
-        const btn = document.getElementById('copy-btn');
+        const btn = document.getElementById('client-link-btn');
         btn.textContent = 'Copied!';
-        setTimeout(() => btn.textContent = 'Copy Link', 2000);
+        setTimeout(() => btn.textContent = 'Client Link', 2000);
+    });
+}
+
+function copyMLSNumbers() {
+    const mlsNumbers = [];
+    document.querySelectorAll('.badge-gray').forEach(badge => {
+        const text = badge.textContent;
+        if (text.includes('MLS#')) {
+            mlsNumbers.push(text.replace('MLS# ', '').trim());
+        }
+    });
+    const mlsText = mlsNumbers.join(', ');
+    navigator.clipboard.writeText(mlsText).then(() => {
+        const btn = document.getElementById('mls-btn');
+        btn.textContent = 'Copied!';
+        setTimeout(() => btn.textContent = 'Copy MLS #s', 2000);
     });
 }
 
