@@ -227,6 +227,11 @@
             <br><span id="selectedCount" style="font-size: 13px; color: var(--text-secondary);"><strong>{{ properties|length }}</strong> properties selected</span>
         </div>
         <div class="dreams-results-actions">
+            {% if selected_client %}
+            <button class="dreams-btn dreams-btn-success" onclick="copyClientLink()" title="Copy shareable client link">
+                <span id="clientLinkBtnText">Client Link</span>
+            </button>
+            {% endif %}
             <button class="dreams-btn dreams-btn-primary" onclick="copyMLSNumbers()" title="Copy MLS numbers to clipboard">
                 <span id="copyBtnText">Copy MLS #s</span>
             </button>
@@ -453,6 +458,27 @@
 
         // Initialize selected count on page load
         document.addEventListener('DOMContentLoaded', updateSelectedCount);
+
+        // Copy client link to clipboard
+        async function copyClientLink() {
+            const clientName = '{{ selected_client | default("", true) }}';
+            if (!clientName) {
+                alert('No client selected');
+                return;
+            }
+            const baseUrl = window.location.origin;
+            const clientUrl = `${baseUrl}/client/${encodeURIComponent(clientName)}?key=dreams2026`;
+
+            try {
+                await navigator.clipboard.writeText(clientUrl);
+                const btn = document.getElementById('clientLinkBtnText');
+                btn.textContent = 'Copied!';
+                setTimeout(() => btn.textContent = 'Client Link', 2000);
+            } catch (err) {
+                // Fallback
+                prompt('Copy this link:', clientUrl);
+            }
+        }
 
         // Copy MLS numbers to clipboard
         async function copyMLSNumbers() {
