@@ -1338,9 +1338,9 @@ def api_photos_scrape():
     limit = request.json.get('limit', 50) if request.is_json else 50
 
     try:
-        # Run scraper in background
+        # Run scraper in background using same Python as Flask app
         subprocess.Popen(
-            ['python3', str(scraper_script), '--limit', str(limit)],
+            [sys.executable, str(scraper_script), '--limit', str(limit)],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             start_new_session=True
@@ -1394,7 +1394,7 @@ def api_mls_open(mls_number):
     try:
         # Run async in background - opens browser with MLS listing
         subprocess.Popen(
-            ['python3', str(mls_script), '--mls', mls_number, '--headed'],
+            [sys.executable, str(mls_script), '--mls', mls_number, '--headed'],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             start_new_session=True
