@@ -85,7 +85,7 @@ def get_package_data(package_id: str) -> Optional[Dict[str, Any]]:
             FROM package_properties pp
             JOIN properties pr ON pr.id = pp.property_id
             WHERE pp.package_id = ?
-            ORDER BY pp.display_order, pp.created_at
+            ORDER BY pp.display_order, pp.added_at
         ''', [package_id]).fetchall()
 
         properties = []
