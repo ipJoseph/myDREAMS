@@ -9,6 +9,18 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Action Management System** - Full task tracking for contacts
+  - **Contact Actions UI** - Actions section on contact detail page with add/complete functionality
+  - **My Actions Page** (`/actions`) - Dashboard view of all pending actions across contacts
+    - Grouped by: Overdue, Due Today, Upcoming, No Due Date
+    - Quick action buttons (Call, Email) with contact info
+    - Mark complete with animated removal
+  - **Scoring Runs History** (`/system/scoring-runs`) - Audit trail of FUB sync runs
+    - Shows run time, status, source, stats (processed/scored/new/updated)
+    - Duration and expandable config snapshots for debugging
+  - API endpoints for CRUD operations on actions
+  - Navigation links added to all dashboard pages
+
 - **Enhanced Contacts Dashboard** - Merged best features from Apps Script dashboard
   - **Action Queue Tab** - Prioritized leads grouped by urgency tier (Immediate Contact, High Value Warm, Nurture Opportunities, Re-engagement)
   - **Score Analysis Tab** - Distribution charts for Priority/Heat/Value/Relationship scores with visual breakdown
