@@ -715,6 +715,96 @@ class DREAMSDatabase:
             }
 
     # ==========================================
+    # INTAKE FORM OPERATIONS
+    # ==========================================
+
+    def get_intake_forms_for_lead(self, lead_id: str) -> List[Dict[str, Any]]:
+        """Get all intake forms for a lead."""
+        with self._get_connection() as conn:
+            # Try both lead_id formats (UUID and fub_id)
+            rows = conn.execute('''
+                SELECT * FROM intake_forms
+                WHERE lead_id = ? OR lead_id = (
+                    SELECT fub_id FROM leads WHERE id = ?
+                )
+                ORDER BY priority ASC, updated_at DESC
+            ''', (lead_id, lead_id)).fetchall()
+            return [dict(row) for row in rows]
+
+    def get_stated_requirements(self, lead_id: str) -> Dict[str, Any]:
+        """
+        Get consolidated stated requirements from intake forms.
+        Merges multiple intake forms into a single requirements dict.
+        Primary home needs take priority over investment needs.
+        """
+        forms = self.get_intake_forms_for_lead(lead_id)
+
+        if not forms:
+            return {
+                'has_intake_form': False,
+                'min_price': None,
+                'max_price': None,
+                'min_beds': None,
+                'max_beds': None,
+                'min_baths': None,
+                'max_baths': None,
+                'min_sqft': None,
+                'max_sqft': None,
+                'min_acreage': None,
+                'max_acreage': None,
+                'counties': [],
+                'cities': [],
+                'property_types': [],
+                'must_have_features': [],
+                'deal_breakers': [],
+                'confidence': 0.0
+            }
+
+        # Prioritize primary_home over investment
+        primary = next((f for f in forms if f.get('need_type') == 'primary_home'), None)
+        form = primary or forms[0]
+
+        import json
+
+        def parse_json_list(val):
+            if not val:
+                return []
+            if isinstance(val, list):
+                return val
+            try:
+                result = json.loads(val)
+                return result if isinstance(result, list) else []
+            except:
+                return []
+
+        return {
+            'has_intake_form': True,
+            'need_type': form.get('need_type'),
+            'min_price': form.get('min_price'),
+            'max_price': form.get('max_price'),
+            'min_beds': form.get('min_beds'),
+            'max_beds': form.get('max_beds'),
+            'min_baths': form.get('min_baths'),
+            'max_baths': form.get('max_baths'),
+            'min_sqft': form.get('min_sqft'),
+            'max_sqft': form.get('max_sqft'),
+            'min_acreage': form.get('min_acreage'),
+            'max_acreage': form.get('max_acreage'),
+            'counties': parse_json_list(form.get('counties')),
+            'cities': parse_json_list(form.get('cities')),
+            'property_types': parse_json_list(form.get('property_types')),
+            'must_have_features': parse_json_list(form.get('must_have_features')),
+            'nice_to_have': parse_json_list(form.get('nice_to_have_features')),
+            'deal_breakers': parse_json_list(form.get('deal_breakers')),
+            'views_required': parse_json_list(form.get('views_required')),
+            'water_features': parse_json_list(form.get('water_features')),
+            'urgency': form.get('urgency'),
+            'financing_status': form.get('financing_status'),
+            'pre_approval_amount': form.get('pre_approval_amount'),
+            'confidence': form.get('confidence_score', 50) / 100.0
+        }
+
+    # ==========================================
     # CONTACT-PROPERTY RELATIONSHIP OPERATIONS
     # ==========================================
 
@@ -935,9 +1025,14 @@ class DREAMSDatabase:
         """
         Find properties that match a buyer's stated and behavioral preferences.
 
+        Data sources (in priority order):
+        1. Intake forms (highest priority - explicit stated requirements)
+        2. Leads table (mid priority - may have some requirements)
+        3. Behavioral analysis (always used - weighted 60%)
+
         Uses weighted multi-factor scoring:
         - Price fit (30%): Property price within buyer's range
-        - Location (25%): City matches preferred locations
+        - Location (25%): City/county matches preferred locations
         - Size (25%): Meets bedroom/bathroom requirements
         - Recency (20%): Newer listings score higher
 
@@ -950,9 +1045,12 @@ class DREAMSDatabase:
         # Get behavioral preferences
         behavioral = self.get_behavioral_preferences(lead_id)
 
-        # Blend stated and behavioral price ranges
-        stated_min = lead.get('min_price')
-        stated_max = lead.get('max_price')
+        # Get stated requirements from intake forms (highest priority)
+        intake = self.get_stated_requirements(lead_id)
+
+        # Determine stated price range (intake form > leads table)
+        stated_min = intake.get('min_price') or lead.get('min_price')
+        stated_max = intake.get('max_price') or lead.get('max_price')
         behav_min, behav_max = behavioral.get('price_range') or (None, None)
 
         # Weighted blend: behavioral 60%, stated 40%
@@ -979,9 +1077,10 @@ class DREAMSDatabase:
         if max_price:
             max_price = int(max_price * 1.15)  # 15% above
 
-        # Get stated and behavioral cities
-        stated_cities = []
-        if lead.get('preferred_cities'):
+        # Get stated locations (intake forms have counties and cities)
+        stated_cities = intake.get('cities', [])
+        stated_counties = intake.get('counties', [])
+        if not stated_cities and lead.get('preferred_cities'):
             try:
                 import json
                 stated_cities = json.loads(lead['preferred_cities'])
@@ -989,9 +1088,11 @@ class DREAMSDatabase:
                 pass
         behavioral_cities = behavioral.get('cities', [])
 
-        # Stated requirements
-        min_beds = lead.get('min_beds')
-        min_baths = lead.get('min_baths')
+        # Stated requirements (intake form > leads table)
+        min_beds = intake.get('min_beds') or lead.get('min_beds')
+        min_baths = intake.get('min_baths') or lead.get('min_baths')
+        min_sqft = intake.get('min_sqft')
+        min_acreage = intake.get('min_acreage')
 
         # Query properties
         with self._get_connection() as conn:
@@ -1353,14 +1454,16 @@ class DREAMSDatabase:
         """
         Analyze contact_events to infer buyer preferences from behavior.
 
-        Returns dict with:
-        - price_range: (min, max) from viewed properties
-        - avg_price: average price of viewed properties
-        - cities: list of cities from viewed properties
-        - view_count: total property views
-        - favorite_count: total favorites
-        - confidence: 0-1 score based on data volume
+        Examines viewed/favorited/shared properties to extract patterns in:
+        - Price range (10th-90th percentile, weighted by engagement)
+        - Locations (cities, weighted by engagement)
+        - Size requirements (beds, baths, sqft patterns)
+        - Land requirements (acreage patterns)
+
+        Returns comprehensive preference dict for matching algorithm.
         """
+        from collections import Counter
+
         with self._get_connection() as conn:
             # Get fub_id for the lead (events use fub_id as contact_id)
             fub_row = conn.execute(
@@ -1382,77 +1485,346 @@ class DREAMSDatabase:
                     'price_range': None,
                     'avg_price': None,
                     'cities': [],
+                    'counties': [],
+                    'beds_range': None,
+                    'baths_range': None,
+                    'sqft_range': None,
+                    'acreage_range': None,
+                    'avg_beds': None,
+                    'avg_baths': None,
                     'view_count': 0,
                     'favorite_count': 0,
                     'confidence': 0.0
                 }
 
-            # Weight by event type
+            # Weight by event type (favorites/shares are stronger signals)
             weights = {'property_view': 1.0, 'property_favorite': 3.0, 'property_share': 2.5}
 
             weighted_prices = []
+            weighted_beds = []
+            weighted_baths = []
+            weighted_sqft = []
+            weighted_acreage = []
             cities = []
+            counties = []
             view_count = 0
             favorite_count = 0
+
+            # Collect MLS numbers for batch property lookup
+            mls_numbers = set()
+            for event in events:
+                mls = event[2]
+                if mls:
+                    mls_numbers.add(mls)
+
+            # Batch fetch property details
+            property_cache = {}
+            if mls_numbers:
+                placeholders = ','.join(['?' for _ in mls_numbers])
+                props = conn.execute(f'''
+                    SELECT mls_number, idx_mls_number, city, county, beds, baths, sqft, acreage
+                    FROM properties
+                    WHERE mls_number IN ({placeholders}) OR idx_mls_number IN ({placeholders})
+                ''', list(mls_numbers) + list(mls_numbers)).fetchall()
+                for prop in props:
+                    # Cache by both mls_number and idx_mls_number
+                    if prop[0]:
+                        property_cache[prop[0]] = prop
+                    if prop[1]:
+                        property_cache[prop[1]] = prop
 
             for event in events:
                 event_type = event[0]
                 price = event[1]
                 mls = event[2]
-                address = event[3]
 
                 weight = weights.get(event_type, 1.0)
+                weight_int = int(weight)
 
                 if event_type == 'property_view':
                     view_count += 1
                 elif event_type == 'property_favorite':
                     favorite_count += 1
 
+                # Add price data (weighted)
                 if price:
-                    # Add price weighted times
-                    for _ in range(int(weight)):
+                    for _ in range(weight_int):
                         weighted_prices.append(price)
 
-                # Try to get city from address or property lookup
-                if mls:
-                    prop = conn.execute(
-                        'SELECT city FROM properties WHERE mls_number = ? OR idx_mls_number = ?',
-                        (mls, mls)
-                    ).fetchone()
-                    if prop and prop[0]:
-                        for _ in range(int(weight)):
-                            cities.append(prop[0])
+                # Look up property details for beds/baths/sqft/acreage/location
+                if mls and mls in property_cache:
+                    prop = property_cache[mls]
+                    city = prop[2]
+                    county = prop[3]
+                    beds = prop[4]
+                    baths = prop[5]
+                    sqft = prop[6]
+                    acreage = prop[7]
 
-            # Calculate price range (10th to 90th percentile)
-            min_price = max_price = avg_price = None
-            if weighted_prices:
-                weighted_prices.sort()
-                n = len(weighted_prices)
-                min_price = weighted_prices[int(n * 0.1)] if n > 1 else weighted_prices[0]
-                max_price = weighted_prices[int(n * 0.9)] if n > 1 else weighted_prices[0]
-                avg_price = sum(weighted_prices) // len(weighted_prices)
+                    if city:
+                        for _ in range(weight_int):
+                            cities.append(city)
+                    if county:
+                        for _ in range(weight_int):
+                            counties.append(county)
+                    if beds:
+                        for _ in range(weight_int):
+                            weighted_beds.append(beds)
+                    if baths:
+                        for _ in range(weight_int):
+                            weighted_baths.append(baths)
+                    if sqft:
+                        for _ in range(weight_int):
+                            weighted_sqft.append(sqft)
+                    if acreage and acreage > 0:
+                        for _ in range(weight_int):
+                            weighted_acreage.append(acreage)
 
-            # Get most common cities
-            from collections import Counter
+            def calc_range(values):
+                """Calculate 10th-90th percentile range."""
+                if not values:
+                    return None
+                values.sort()
+                n = len(values)
+                min_val = values[int(n * 0.1)] if n > 1 else values[0]
+                max_val = values[int(n * 0.9)] if n > 1 else values[0]
+                return (min_val, max_val)
+
+            def calc_avg(values):
+                """Calculate average, return None if empty."""
+                if not values:
+                    return None
+                return sum(values) / len(values)
+
+            # Calculate ranges and averages
+            price_range = calc_range(weighted_prices)
+            avg_price = int(calc_avg(weighted_prices)) if weighted_prices else None
+            beds_range = calc_range(weighted_beds)
+            avg_beds = round(calc_avg(weighted_beds), 1) if weighted_beds else None
+            baths_range = calc_range(weighted_baths)
+            avg_baths = round(calc_avg(weighted_baths), 1) if weighted_baths else None
+            sqft_range = calc_range(weighted_sqft)
+            acreage_range = calc_range(weighted_acreage)
+
+            # Get most common locations
             city_counts = Counter(cities)
+            county_counts = Counter(counties)
             top_cities = [city for city, _ in city_counts.most_common(5)]
+            top_counties = [county for county, _ in county_counts.most_common(3)]
 
             # Confidence based on data volume
             confidence = min(1.0, len(events) / 30)
 
             return {
-                'price_range': (min_price, max_price) if min_price else None,
+                'price_range': price_range,
                 'avg_price': avg_price,
                 'cities': top_cities,
+                'counties': top_counties,
+                'beds_range': beds_range,
+                'avg_beds': avg_beds,
+                'baths_range': baths_range,
+                'avg_baths': avg_baths,
+                'sqft_range': sqft_range,
+                'acreage_range': acreage_range,
                 'view_count': view_count,
                 'favorite_count': favorite_count,
                 'confidence': round(confidence, 2)
             }
 
     # ==========================================
+    # NOTE PARSING FOR REQUIREMENTS EXTRACTION
+    # ==========================================
+
+    def parse_requirements_from_notes(self, notes_text: str) -> Dict[str, Any]:
+        """
+        Extract buyer requirements from free-text notes using pattern matching.
+
+        Looks for patterns like:
+        - Price: "budget $300k", "under 400000", "$250k-$350k"
+        - Bedrooms: "3 bed", "3+ bedrooms", "at least 2 bed"
+        - Bathrooms: "2 bath", "2+ baths", "needs 2 full baths"
+        - Size: "1500 sqft", "2000+ square feet", "min 1800 sf"
+        - Acreage: "1 acre", "2+ acres", "at least 5 acres"
+        - Location: "near downtown", "in Bryson City", "Macon County"
+
+        Returns dict with extracted requirements.
+        """
+        import re
+
+        if not notes_text:
+            return {'has_requirements': False}
+
+        text = notes_text.lower()
+        result = {'has_requirements': False}
+
+        def parse_price(s):
+            """Parse price string like '350k', '350,000', '350000' to int."""
+            s = s.replace(',', '').replace('$', '').strip()
+            if s.endswith('k'):
+                return int(float(s[:-1]) * 1000)
+            else:
+                val = int(float(s))
+                # If it looks like shorthand (e.g., 350 meaning 350k)
+                if val < 1000:
+                    return val * 1000
+                return val
+
+        # Price range patterns (most specific first)
+        range_match = re.search(r'\$?(\d+(?:,\d{3})?k?)\s*[-–to]+\s*\$?(\d+(?:,\d{3})?k?)', text)
+        if range_match:
+            result['has_requirements'] = True
+            result['min_price'] = parse_price(range_match.group(1))
+            result['max_price'] = parse_price(range_match.group(2))
+        else:
+            # Single price patterns
+            budget_match = re.search(r'budget[:\s]+\$?(\d+(?:,\d{3})?k?)', text)
+            under_match = re.search(r'(?:under|less than|max(?:imum)?)[:\s]+\$?(\d+(?:,\d{3})?k?)', text)
+            around_match = re.search(r'(?:around|about|approximately)[:\s]+\$?(\d+(?:,\d{3})?k?)', text)
+            looking_match = re.search(r'(?:looking for|want(?:s)?)[:\s]+\$?(\d+(?:,\d{3})?k?)', text)
+            dollar_match = re.search(r'\$(\d+(?:,\d{3})?k?)', text)
+
+            if under_match:
+                result['has_requirements'] = True
+                result['max_price'] = parse_price(under_match.group(1))
+            elif budget_match:
+                result['has_requirements'] = True
+                price = parse_price(budget_match.group(1))
+                result['min_price'] = int(price * 0.85)
+                result['max_price'] = int(price * 1.15)
+            elif around_match:
+                result['has_requirements'] = True
+                price = parse_price(around_match.group(1))
+                result['min_price'] = int(price * 0.9)
+                result['max_price'] = int(price * 1.1)
+            elif looking_match:
+                result['has_requirements'] = True
+                result['max_price'] = parse_price(looking_match.group(1))
+            elif dollar_match and 'bed' not in text[:text.find('$')+10]:
+                # Only use dollar match if it's not near "bed" (avoid matching $3k for 3 bed)
+                result['has_requirements'] = True
+                result['budget'] = parse_price(dollar_match.group(1))
+
+        # Bedroom patterns
+        bed_patterns = [
+            r'(\d+)\+?\s*(?:bed(?:room)?s?|br|bd)',  # 3 bed, 3+ bedrooms, 3 br
+            r'at\s+least\s+(\d+)\s*(?:bed(?:room)?s?|br|bd)',  # at least 3 bed
+            r'min(?:imum)?\s+(\d+)\s*(?:bed(?:room)?s?|br|bd)',  # min 3 bed
+        ]
+
+        for pattern in bed_patterns:
+            match = re.search(pattern, text)
+            if match:
+                result['has_requirements'] = True
+                result['min_beds'] = int(match.group(1))
+                break
+
+        # Bathroom patterns
+        bath_patterns = [
+            r'(\d+(?:\.\d)?)\+?\s*(?:bath(?:room)?s?|ba)',  # 2 bath, 2+ baths
+            r'at\s+least\s+(\d+(?:\.\d)?)\s*(?:bath(?:room)?s?|ba)',  # at least 2 bath
+            r'min(?:imum)?\s+(\d+(?:\.\d)?)\s*(?:bath(?:room)?s?|ba)',  # min 2 bath
+        ]
+
+        for pattern in bath_patterns:
+            match = re.search(pattern, text)
+            if match:
+                result['has_requirements'] = True
+                result['min_baths'] = float(match.group(1))
+                break
+
+        # Square footage patterns
+        sqft_patterns = [
+            r'(\d{1,2}),?(\d{3})\+?\s*(?:sq\.?\s*f(?:oo)?t|sqft|sf)',  # 1500 sqft
+            r'min(?:imum)?\s+(\d{1,2}),?(\d{3})\s*(?:sq\.?\s*f(?:oo)?t|sqft|sf)',  # min 1500 sqft
+            r'at\s+least\s+(\d{1,2}),?(\d{3})\s*(?:sq\.?\s*f(?:oo)?t|sqft|sf)',  # at least 1500 sqft
+        ]
+
+        for pattern in sqft_patterns:
+            match = re.search(pattern, text)
+            if match:
+                result['has_requirements'] = True
+                sqft = int(match.group(1) + match.group(2))
+                result['min_sqft'] = sqft
+                break
+
+        # Acreage patterns
+        acre_patterns = [
+            r'(\d+(?:\.\d+)?)\+?\s*acres?',  # 5 acres, 2.5+ acres
+            r'at\s+least\s+(\d+(?:\.\d+)?)\s*acres?',  # at least 5 acres
+            r'min(?:imum)?\s+(\d+(?:\.\d+)?)\s*acres?',  # min 5 acres
+        ]
+
+        for pattern in acre_patterns:
+            match = re.search(pattern, text)
+            if match:
+                result['has_requirements'] = True
+                result['min_acreage'] = float(match.group(1))
+                break
+
+        # Location patterns (WNC-specific cities and counties)
+        wnc_cities = [
+            'bryson city', 'sylva', 'waynesville', 'asheville', 'franklin',
+            'highlands', 'cashiers', 'murphy', 'cherokee', 'maggie valley',
+            'canton', 'clyde', 'dillsboro', 'cullowhee', 'webster',
+            'robbinsville', 'andrews', 'hayesville', 'young harris'
+        ]
+        wnc_counties = [
+            'macon', 'jackson', 'swain', 'haywood', 'buncombe', 'henderson',
+            'transylvania', 'clay', 'cherokee', 'graham', 'madison'
+        ]
+
+        found_cities = []
+        found_counties = []
+
+        for city in wnc_cities:
+            if city in text:
+                result['has_requirements'] = True
+                found_cities.append(city.title())
+
+        for county in wnc_counties:
+            if county + ' county' in text or f'in {county}' in text:
+                result['has_requirements'] = True
+                found_counties.append(county.title())
+
+        if found_cities:
+            result['preferred_cities'] = found_cities
+        if found_counties:
+            result['preferred_counties'] = found_counties
+
+        # Feature keywords
+        features = []
+        feature_keywords = {
+            'mountain view': 'Mountain Views',
+            'long range view': 'Long Range Views',
+            'creek': 'Creek/Water',
+            'river': 'River/Water',
+            'waterfront': 'Waterfront',
+            'garage': 'Garage',
+            'basement': 'Basement',
+            'workshop': 'Workshop',
+            'barn': 'Barn',
+            'flat land': 'Flat/Usable Land',
+            'usable land': 'Flat/Usable Land',
+            'fenced': 'Fenced',
+            'privacy': 'Privacy',
+            'no hoa': 'No HOA',
+            'paved road': 'Paved Road Access',
+        }
+
+        for keyword, feature_name in feature_keywords.items():
+            if keyword in text:
+                result['has_requirements'] = True
+                features.append(feature_name)
+
+        if features:
+            result['desired_features'] = features
+
+        return result
+
+    # ==========================================
     # SYNC LOG OPERATIONS
     # ==========================================
-    
+
     def log_sync_start(
         self,
         sync_type: str,

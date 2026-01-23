@@ -1173,14 +1173,23 @@ def get_scoring_runs_api():
 def get_contact_matches_api(contact_id):
     """
     Get property matches for a contact based on stated and behavioral preferences.
+
+    Data sources:
+    1. Intake forms (explicit stated requirements)
+    2. Behavioral analysis (property viewing patterns)
+    3. Lead table data (basic preferences)
+
     Returns matched properties with score breakdowns.
     """
     db = get_db()
     min_score = request.args.get('min_score', 40.0, type=float)
     limit = request.args.get('limit', 15, type=int)
 
-    # Get behavioral preferences for display
+    # Get behavioral preferences (from activity analysis)
     behavioral = db.get_behavioral_preferences(contact_id)
+
+    # Get stated requirements (from intake forms)
+    stated = db.get_stated_requirements(contact_id)
 
     # Get matching properties
     matches = db.find_matching_properties(contact_id, min_score=min_score, limit=limit)
@@ -1188,6 +1197,7 @@ def get_contact_matches_api(contact_id):
     return jsonify({
         'success': True,
         'behavioral_preferences': behavioral,
+        'stated_requirements': stated,
         'matches': matches,
         'count': len(matches)
     })
