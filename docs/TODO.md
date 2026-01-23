@@ -36,9 +36,9 @@ Last updated: January 23, 2026 (Contact Workspace feature added)
 
 | # | Task | Status | Category | Notes |
 |---|------|--------|----------|-------|
-| 9 | **Weekly market summary report** | Pending | Phase 3 | Automated email with market stats |
-| 10 | **Monthly lead activity report** | Pending | Phase 3 | Engagement trends over time |
-| 11 | **New listing alerts for saved searches** | Pending | Phase 3 | Notify when matching properties hit market |
+| 9 | **Weekly market summary report** | DONE | Phase 3 | Monday 6:30 AM email with week-over-week stats |
+| 10 | **Monthly lead activity report** | DONE | Phase 3 | 1st of month email with trends, hot/cooling leads |
+| 11 | **New listing alerts for saved searches** | DONE | Phase 3 | Daily 8:00 AM digest to buyers with matching properties |
 | 12 | **Historical price chart generation** | Pending | Phase 3 | Price history visualization per property |
 | 13 | **Customizable alert thresholds** | Pending | Phase 3 | User-configurable notification rules |
 
@@ -81,7 +81,7 @@ Last updated: January 23, 2026 (Contact Workspace feature added)
 
 | # | Task | Status | Category | Notes |
 |---|------|--------|----------|-------|
-| 26 | **PDF property packages** | Pending | Phase 3 | Printable property summaries |
+| 26 | **PDF property packages** | DONE | Phase 3 | WeasyPrint HTML-to-PDF, download from dashboard |
 | 27 | **Branded property flyers** | Pending | Phase 3 | Marketing materials |
 | 28 | **Comparative market analysis** | Pending | Phase 3 | CMA generation |
 | 29 | **Client presentation decks** | Pending | Phase 3 | Slide generation |
@@ -110,6 +110,10 @@ Last updated: January 23, 2026 (Contact Workspace feature added)
 | - | Requirements consolidation (Phase 5) | Jan 23, 2026 | Multi-source merge with confidence scoring |
 | - | Source comparison UI | Jan 23, 2026 | Compare intake vs behavioral vs notes values |
 | - | Agent override capability | Jan 23, 2026 | Override any requirement field with confidence 1.0 |
+| 9 | Weekly market summary report | Jan 23, 2026 | Monday 6:30 AM automated email |
+| 10 | Monthly lead activity report | Jan 23, 2026 | 1st of month automated email |
+| 11 | New listing alerts | Jan 23, 2026 | Daily 8:00 AM buyer digest |
+| 26 | PDF property packages | Jan 23, 2026 | WeasyPrint generation with dashboard download |
 
 ---
 
