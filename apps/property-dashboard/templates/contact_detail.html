@@ -612,6 +612,195 @@
         </div>
     </div>
 
+    <!-- Actions Section -->
+    <div class="actions-section" style="margin: 0 20px 20px 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <h3 class="section-title" style="margin: 0;">Actions</h3>
+            <button onclick="openAddActionModal()" class="dreams-btn dreams-btn-primary" style="padding: 8px 16px; font-size: 13px;">
+                + Add Action
+            </button>
+        </div>
+
+        <div class="actions-list" style="background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            {% if actions %}
+                {% for action in actions %}
+                <div class="action-item" data-action-id="{{ action.id }}" style="
+                    display: flex;
+                    align-items: flex-start;
+                    gap: 12px;
+                    padding: 16px;
+                    border-bottom: 1px solid var(--border);
+                    {% if action.completed_at %}opacity: 0.6;{% endif %}
+                ">
+                    {% if not action.completed_at %}
+                    <button onclick="completeAction({{ action.id }})" class="action-complete-btn" style="
+                        width: 24px;
+                        height: 24px;
+                        border: 2px solid var(--primary);
+                        border-radius: 50%;
+                        background: white;
+                        cursor: pointer;
+                        flex-shrink: 0;
+                        margin-top: 2px;
+                    " title="Mark complete"></button>
+                    {% else %}
+                    <span style="
+                        width: 24px;
+                        height: 24px;
+                        border-radius: 50%;
+                        background: var(--success);
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        color: white;
+                        font-size: 14px;
+                        flex-shrink: 0;
+                        margin-top: 2px;
+                    ">✓</span>
+                    {% endif %}
+
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                            <span class="action-type-badge" style="
+                                background: {% if action.action_type == 'call' %}#dbeafe{% elif action.action_type == 'email' %}#fef3c7{% elif action.action_type == 'meeting' %}#d1fae5{% elif action.action_type == 'showing' %}#fae8ff{% else %}#f3f4f6{% endif %};
+                                color: {% if action.action_type == 'call' %}#1e40af{% elif action.action_type == 'email' %}#92400e{% elif action.action_type == 'meeting' %}#065f46{% elif action.action_type == 'showing' %}#86198f{% else %}#374151{% endif %};
+                                padding: 2px 8px;
+                                border-radius: 12px;
+                                font-size: 11px;
+                                font-weight: 600;
+                                text-transform: uppercase;
+                            ">{{ action.action_type }}</span>
+
+                            {% if action.due_date and not action.completed_at %}
+                            <span style="
+                                font-size: 12px;
+                                color: {% if action.due_date < today %}#dc2626{% elif action.due_date == today %}#d97706{% else %}var(--text-secondary){% endif %};
+                            ">
+                                {% if action.due_date < today %}Overdue{% elif action.due_date == today %}Today{% else %}Due {{ action.due_date }}{% endif %}
+                            </span>
+                            {% endif %}
+
+                            {% if action.priority and action.priority <= 2 %}
+                            <span style="color: #dc2626; font-size: 12px;">High Priority</span>
+                            {% endif %}
+                        </div>
+
+                        {% if action.description %}
+                        <div style="color: var(--text-primary); {% if action.completed_at %}text-decoration: line-through;{% endif %}">
+                            {{ action.description }}
+                        </div>
+                        {% endif %}
+
+                        {% if action.completed_at %}
+                        <div style="font-size: 12px; color: var(--text-tertiary); margin-top: 4px;">
+                            Completed {{ action.completed_at[:10] }}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div style="padding: 32px; text-align: center; color: var(--text-secondary);">
+                    No actions yet. Click "Add Action" to create one.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Add Action Modal -->
+    <div id="addActionModal" style="
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.5);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+    ">
+        <div style="
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+        ">
+            <h3 style="margin: 0 0 20px 0;">Add Action</h3>
+
+            <form id="addActionForm" onsubmit="submitAction(event)">
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; font-weight: 500; margin-bottom: 6px;">Type</label>
+                    <select name="action_type" required style="
+                        width: 100%;
+                        padding: 10px;
+                        border: 1px solid var(--border);
+                        border-radius: 6px;
+                        font-size: 14px;
+                    ">
+                        <option value="call">📱 Call</option>
+                        <option value="email">📧 Email</option>
+                        <option value="text">💬 Text</option>
+                        <option value="meeting">🤝 Meeting</option>
+                        <option value="showing">🏠 Showing</option>
+                        <option value="follow_up">📋 Follow Up</option>
+                        <option value="note">📝 Note</option>
+                    </select>
+                </div>
+
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; font-weight: 500; margin-bottom: 6px;">Description</label>
+                    <textarea name="description" rows="3" placeholder="What needs to be done?" style="
+                        width: 100%;
+                        padding: 10px;
+                        border: 1px solid var(--border);
+                        border-radius: 6px;
+                        font-size: 14px;
+                        resize: vertical;
+                        box-sizing: border-box;
+                    "></textarea>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px;">
+                    <div>
+                        <label style="display: block; font-weight: 500; margin-bottom: 6px;">Due Date</label>
+                        <input type="date" name="due_date" style="
+                            width: 100%;
+                            padding: 10px;
+                            border: 1px solid var(--border);
+                            border-radius: 6px;
+                            font-size: 14px;
+                            box-sizing: border-box;
+                        ">
+                    </div>
+                    <div>
+                        <label style="display: block; font-weight: 500; margin-bottom: 6px;">Priority</label>
+                        <select name="priority" style="
+                            width: 100%;
+                            padding: 10px;
+                            border: 1px solid var(--border);
+                            border-radius: 6px;
+                            font-size: 14px;
+                        ">
+                            <option value="1">High</option>
+                            <option value="2">Medium-High</option>
+                            <option value="3" selected>Normal</option>
+                            <option value="4">Low</option>
+                            <option value="5">Lowest</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                    <button type="button" onclick="closeAddActionModal()" class="dreams-btn dreams-btn-secondary">Cancel</button>
+                    <button type="submit" class="dreams-btn dreams-btn-primary">Add Action</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Intent Signals -->
     <div class="intent-section">
         <h3 class="section-title">Intent Signals ({{ contact.intent_signal_count or 0 }} of 4 active)</h3>
@@ -959,6 +1148,95 @@
                 });
             }
         });
+
+        // Action management functions
+        const contactId = '{{ contact.id }}';
+
+        function openAddActionModal() {
+            const modal = document.getElementById('addActionModal');
+            modal.style.display = 'flex';
+            // Reset form
+            document.getElementById('addActionForm').reset();
+            // Set default due date to today
+            const today = new Date().toISOString().split('T')[0];
+            document.querySelector('input[name="due_date"]').value = today;
+        }
+
+        function closeAddActionModal() {
+            document.getElementById('addActionModal').style.display = 'none';
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('addActionModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeAddActionModal();
+            }
+        });
+
+        // Close modal on Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeAddActionModal();
+            }
+        });
+
+        async function submitAction(event) {
+            event.preventDefault();
+            const form = event.target;
+            const formData = new FormData(form);
+
+            const data = {
+                action_type: formData.get('action_type'),
+                description: formData.get('description'),
+                due_date: formData.get('due_date') || null,
+                priority: parseInt(formData.get('priority')) || 3
+            };
+
+            try {
+                const response = await fetch(`/api/contacts/${contactId}/actions`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // Reload page to show new action
+                    window.location.reload();
+                } else {
+                    alert('Error adding action: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error adding action. Please try again.');
+            }
+        }
+
+        async function completeAction(actionId) {
+            try {
+                const response = await fetch(`/api/contacts/${contactId}/actions/${actionId}/complete`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // Reload page to show updated action
+                    window.location.reload();
+                } else {
+                    alert('Error completing action: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error completing action. Please try again.');
+            }
+        }
     </script>
 </body>
 </html>

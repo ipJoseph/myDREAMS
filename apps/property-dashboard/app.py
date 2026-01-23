@@ -1009,13 +1009,91 @@ def contact_detail(contact_id):
     # Get trend summary (scoring history, 7d avg, trend direction)
     trend_summary = db.get_contact_trend_summary(contact_id)
 
+    # Get contact actions (pending and recent completed)
+    actions = db.get_contact_actions(contact_id, include_completed=True, limit=20)
+
+    # Today's date for due date comparisons
+    today = datetime.now().strftime('%Y-%m-%d')
+
     return render_template('contact_detail.html',
                          contact=contact,
                          properties=properties,
                          property_summary=property_summary,
                          timeline=timeline,
                          trend_summary=trend_summary,
+                         actions=actions,
+                         today=today,
                          refresh_time=datetime.now().strftime('%B %d, %Y %I:%M %p'))
+
+
+# =========================================================================
+# CONTACT ACTIONS API
+# =========================================================================
+
+@app.route('/api/contacts/<contact_id>/actions', methods=['GET'])
+@requires_auth
+def get_contact_actions_api(contact_id):
+    """Get actions for a contact."""
+    db = get_db()
+    include_completed = request.args.get('include_completed', 'false').lower() == 'true'
+    actions = db.get_contact_actions(contact_id, include_completed=include_completed)
+    return jsonify({'success': True, 'actions': actions})
+
+
+@app.route('/api/contacts/<contact_id>/actions', methods=['POST'])
+@requires_auth
+def add_contact_action_api(contact_id):
+    """Add a new action for a contact."""
+    db = get_db()
+    data = request.get_json()
+
+    if not data or not data.get('action_type'):
+        return jsonify({'success': False, 'error': 'action_type is required'}), 400
+
+    action_id = db.add_contact_action(
+        contact_id=contact_id,
+        action_type=data.get('action_type'),
+        description=data.get('description'),
+        due_date=data.get('due_date'),
+        priority=data.get('priority', 3),
+        created_by='user'
+    )
+
+    return jsonify({'success': True, 'action_id': action_id})
+
+
+@app.route('/api/contacts/<contact_id>/actions/<int:action_id>/complete', methods=['POST'])
+@requires_auth
+def complete_contact_action_api(contact_id, action_id):
+    """Mark an action as completed."""
+    db = get_db()
+    success = db.complete_contact_action(action_id, completed_by='user')
+
+    if success:
+        return jsonify({'success': True})
+    else:
+        return jsonify({'success': False, 'error': 'Action not found or already completed'}), 404
+
+
+@app.route('/api/actions/pending', methods=['GET'])
+@requires_auth
+def get_pending_actions_api():
+    """Get all pending actions across all contacts."""
+    db = get_db()
+    due_before = request.args.get('due_before')
+    limit = request.args.get('limit', 100, type=int)
+    actions = db.get_pending_actions(due_before=due_before, limit=limit)
+    return jsonify({'success': True, 'actions': actions})
+
+
+@app.route('/api/scoring-runs', methods=['GET'])
+@requires_auth
+def get_scoring_runs_api():
+    """Get recent scoring runs."""
+    db = get_db()
+    limit = request.args.get('limit', 10, type=int)
+    runs = db.get_recent_scoring_runs(limit=limit)
+    return jsonify({'success': True, 'runs': runs})
 
 
 # =========================================================================
