@@ -21,10 +21,10 @@ Last updated: January 23, 2026
 
 | # | Task | Status | Category | Notes |
 |---|------|--------|----------|-------|
-| 5 | **Weighted buyer-property matching algorithm** | Pending | Phase 2 | Match leads to properties based on criteria |
-| 6 | **Match score breakdown visualization** | Pending | Phase 2 | Show why a property matched a buyer |
+| 5 | **Weighted buyer-property matching algorithm** | DONE | Phase 2 | 4-factor scoring: Price(30%), Location(25%), Size(25%), Recency(20%) |
+| 6 | **Match score breakdown visualization** | DONE | Phase 2 | Visual bars showing contribution of each factor |
 | 7 | **Lead requirements extraction from CRM notes** | Pending | Phase 2 | Parse buyer criteria from FUB notes |
-| 8 | **Stated requirements vs behavioral preferences** | Pending | Phase 2 | Compare what they say vs what they view |
+| 8 | **Stated requirements vs behavioral preferences** | DONE | Phase 2 | Blends stated (40%) + behavioral (60%) for matching |
 
 ---
 
@@ -92,6 +92,10 @@ Last updated: January 23, 2026
 | 2 | Click-to-Call FUB deep links | Jan 23, 2026 | Phone numbers link to FUB |
 | 3 | Remove unused httpx import | Jan 23, 2026 | Cleaned up dead import |
 | 4 | ENABLE_STAGE_SYNC review | Jan 23, 2026 | Feature confirmed implemented, disabled by default |
+| 5 | Buyer-property matching algorithm | Jan 23, 2026 | 4-factor weighted scoring in contact detail |
+| 6 | Match score breakdown visualization | Jan 23, 2026 | Visual bars for Price/Location/Size/Recency |
+| 8 | Stated vs behavioral preferences | Jan 23, 2026 | 60/40 blend for matching |
+| - | Email deduplication | Jan 23, 2026 | New contacts deduped by email (FUB data quality) |
 | - | New contacts in daily email | Jan 23, 2026 | Shows last 3 days with Today/Yesterday/N days ago |
 | - | Action Management System | Jan 23, 2026 | Contact actions, My Actions page, Scoring History |
 | - | Enhanced Contacts Dashboard | Jan 22, 2026 | Action Queue, Score Analysis, Insights, Trends tabs |

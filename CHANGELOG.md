@@ -9,6 +9,48 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Buyer-Property Matching (Phase 2)** - Intelligent property recommendations on contact detail
+  - **Weighted Multi-Factor Scoring** - 4 factors with configurable weights:
+    - Price fit (30%): Blends stated + behavioral price preferences
+    - Location (25%): Matches cities from viewed properties
+    - Size (25%): Meets bedroom/bathroom requirements
+    - Recency (20%): Newer listings score higher
+  - **Behavioral Preference Inference** - Analyzes contact_events to infer:
+    - Price range (10th-90th percentile of viewed properties)
+    - Preferred cities from viewed properties
+    - View and favorite counts
+    - Confidence score based on data volume
+  - **Stated vs Behavioral Blend** - 60% behavioral + 40% stated preferences
+  - **Visual Score Breakdown** - Colored bars showing contribution of each factor
+  - **Inferred Preferences Display** - Shows what we learned from their behavior
+  - API endpoint: `/api/contacts/<id>/matches`
+  - Refresh button to regenerate matches
+- **Score Decay for Inactive Leads** - 6-tier time-based decay multipliers
+  - 0-7 days: No decay (1.0x)
+  - 8-14 days: 5% decay (0.95x)
+  - 15-30 days: 15% decay (0.85x)
+  - 31-60 days: 30% decay (0.70x)
+  - 61-90 days: 50% decay (0.50x)
+  - 90+ days: 70% decay (0.30x)
+  - Based on ANY activity (website visits, property views, etc.)
+- **Click-to-Call FUB Deep Links** - Phone numbers link to FUB contact page
+  - Available when fub_id present on contact
+  - Shows FUB icon with link in contacts, actions, and detail pages
+- **Metrics Dashboard Dropdown** - Quick access to system pages from main dashboard
+  - Links to Actions and Scoring History pages
+  - Hover dropdown with proper gap bridging
+- **New Contacts in Daily Email** - Shows contacts added in last 3 days
+  - Formatted with "Today", "Yesterday", "N days ago" labels
+  - Deduplicated by email (handles FUB duplicate records)
+
+### Fixed
+- **Email Deduplication** - New contacts list now dedupes by email address
+  - Addresses FUB data quality issue where contacts appear twice with different fub_ids
+  - Keeps the most complete record (prefers one with phone number)
+
+### Removed
+- Unused `httpx` import from property-dashboard/app.py
+
 - **Action Management System** - Full task tracking for contacts
   - **Contact Actions UI** - Actions section on contact detail page with add/complete functionality
   - **My Actions Page** (`/actions`) - Dashboard view of all pending actions across contacts
