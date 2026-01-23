@@ -10,6 +10,96 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='shared/css/dreams.css') }}">
     <!-- Page-specific overrides -->
     <style>
+        /* Metrics dropdown */
+        .metrics-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+
+        .metrics-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .metrics-btn:hover {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            transform: translateY(-1px);
+        }
+
+        .metrics-btn .arrow {
+            font-size: 10px;
+            transition: transform 0.2s;
+        }
+
+        .metrics-dropdown:hover .arrow {
+            transform: rotate(180deg);
+        }
+
+        .metrics-menu {
+            display: none;
+            position: absolute;
+            top: 100%;
+            right: 0;
+            margin-top: 8px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+            min-width: 200px;
+            z-index: 100;
+            overflow: hidden;
+        }
+
+        .metrics-dropdown:hover .metrics-menu {
+            display: block;
+        }
+
+        .metrics-menu a {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            color: var(--text-primary);
+            text-decoration: none;
+            transition: background 0.2s;
+        }
+
+        .metrics-menu a:hover {
+            background: var(--bg-secondary);
+        }
+
+        .metrics-menu a .menu-icon {
+            font-size: 18px;
+        }
+
+        .metrics-menu a .menu-text {
+            flex: 1;
+        }
+
+        .metrics-menu a .menu-label {
+            font-weight: 500;
+        }
+
+        .metrics-menu a .menu-desc {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .metrics-menu-divider {
+            height: 1px;
+            background: var(--border);
+            margin: 4px 0;
+        }
+
         /* Hero metrics grid */
         .hero-metrics {
             display: grid;
@@ -400,7 +490,28 @@
         <nav style="display: flex; gap: 16px; align-items: center;">
             <a href="/properties" class="dreams-btn dreams-btn-secondary">Properties</a>
             <a href="/contacts" class="dreams-btn dreams-btn-secondary">Contacts</a>
-            <a href="/actions" class="dreams-btn dreams-btn-secondary">Actions</a>
+            <div class="metrics-dropdown">
+                <button class="metrics-btn">
+                    Metrics <span class="arrow">&#9662;</span>
+                </button>
+                <div class="metrics-menu">
+                    <a href="/actions">
+                        <span class="menu-icon">&#9745;</span>
+                        <span class="menu-text">
+                            <span class="menu-label">My Actions</span>
+                            <span class="menu-desc">Tasks & follow-ups</span>
+                        </span>
+                    </a>
+                    <div class="metrics-menu-divider"></div>
+                    <a href="/system/scoring-runs">
+                        <span class="menu-icon">&#128202;</span>
+                        <span class="menu-text">
+                            <span class="menu-label">Scoring History</span>
+                            <span class="menu-desc">FUB sync audit trail</span>
+                        </span>
+                    </a>
+                </div>
+            </div>
             <span style="font-size: 13px; opacity: 0.8;">{{ refresh_time }}</span>
         </nav>
     </header>
