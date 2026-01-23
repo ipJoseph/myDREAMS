@@ -16,8 +16,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from flask import Flask, render_template, render_template_string, request, jsonify, Response, redirect, url_for
-import httpx
-
 # Module logger
 logger = logging.getLogger(__name__)
 

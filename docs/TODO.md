@@ -12,8 +12,8 @@ Last updated: January 23, 2026
 |---|------|--------|----------|-------|
 | 1 | **Score decay for inactive leads** | DONE | Phase 2 | 6-tier decay: 0%->5%->15%->30%->50%->70% |
 | 2 | **Click-to-Call FUB deep links** | DONE | Phase 4 | Phone numbers link to FUB when fub_id available |
-| 3 | **Remove unused `httpx` import** | Pending | Tech Debt | Dead import in `property-dashboard/app.py:19` |
-| 4 | **Complete or remove `ENABLE_STAGE_SYNC`** | Pending | Tech Debt | Feature flag exists but feature incomplete |
+| 3 | **Remove unused `httpx` import** | DONE | Tech Debt | Removed from `property-dashboard/app.py` |
+| 4 | **`ENABLE_STAGE_SYNC` review** | DONE | Tech Debt | Feature implemented in fub-core, disabled by default for safety |
 
 ---
 
@@ -90,6 +90,8 @@ Last updated: January 23, 2026
 |---|------|-----------|-------|
 | 1 | Score decay for inactive leads | Jan 23, 2026 | 6-tier decay multipliers |
 | 2 | Click-to-Call FUB deep links | Jan 23, 2026 | Phone numbers link to FUB |
+| 3 | Remove unused httpx import | Jan 23, 2026 | Cleaned up dead import |
+| 4 | ENABLE_STAGE_SYNC review | Jan 23, 2026 | Feature confirmed implemented, disabled by default |
 | - | New contacts in daily email | Jan 23, 2026 | Shows last 3 days with Today/Yesterday/N days ago |
 | - | Action Management System | Jan 23, 2026 | Contact actions, My Actions page, Scoring History |
 | - | Enhanced Contacts Dashboard | Jan 22, 2026 | Action Queue, Score Analysis, Insights, Trends tabs |
