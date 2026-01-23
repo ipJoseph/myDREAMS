@@ -51,20 +51,18 @@ def get_package_data(package_id: str) -> Optional[Dict[str, Any]]:
     conn = get_db_connection()
 
     try:
-        # Get package
+        # Get package (using property_packages table)
         package = conn.execute('''
             SELECT
                 p.id,
                 p.lead_id,
-                p.title,
-                p.property_ids,
-                p.showing_date,
+                p.name as title,
                 p.status,
                 p.created_at,
                 l.first_name,
                 l.last_name,
                 l.email
-            FROM packages p
+            FROM property_packages p
             JOIN leads l ON l.id = p.lead_id
             WHERE p.id = ?
         ''', [package_id]).fetchone()
@@ -75,29 +73,23 @@ def get_package_data(package_id: str) -> Optional[Dict[str, Any]]:
 
         package_dict = dict(package)
 
-        # Parse property IDs
-        property_ids = []
-        if package['property_ids']:
-            try:
-                property_ids = json.loads(package['property_ids'])
-            except json.JSONDecodeError:
-                # Try comma-separated fallback
-                property_ids = [p.strip() for p in package['property_ids'].split(',')]
+        # Get properties from package_properties join table
+        props = conn.execute('''
+            SELECT
+                pr.id, pr.mls_number, pr.address, pr.city, pr.state, pr.zip, pr.county,
+                pr.price, pr.beds, pr.baths, pr.sqft, pr.acreage, pr.year_built,
+                pr.property_type, pr.style, pr.status, pr.views, pr.water_features,
+                pr.days_on_market, pr.heating, pr.cooling, pr.garage,
+                pr.photo_urls, pr.zillow_url, pr.redfin_url, pr.idx_url, pr.notes,
+                pp.display_order, pp.agent_notes as package_notes
+            FROM package_properties pp
+            JOIN properties pr ON pr.id = pp.property_id
+            WHERE pp.package_id = ?
+            ORDER BY pp.display_order, pp.created_at
+        ''', [package_id]).fetchall()
 
-        # Get properties
         properties = []
-        if property_ids:
-            placeholders = ','.join(['?' for _ in property_ids])
-            props = conn.execute(f'''
-                SELECT
-                    id, mls_number, address, city, state, zip, county,
-                    price, beds, baths, sqft, acreage, year_built,
-                    property_type, style, status, views, water_features,
-                    days_on_market, heating, cooling, garage,
-                    photo_urls, zillow_url, redfin_url, idx_url, notes
-                FROM properties
-                WHERE id IN ({placeholders})
-            ''', property_ids).fetchall()
+        if props:
 
             for prop in props:
                 prop_dict = dict(prop)
@@ -112,14 +104,16 @@ def get_package_data(package_id: str) -> Optional[Dict[str, Any]]:
                 else:
                     prop_dict['photo_url'] = None
 
-                # Get agent notes for this property in this package context
-                # (stored in contact_properties or package-specific storage)
-                agent_notes = conn.execute('''
-                    SELECT notes FROM contact_properties
-                    WHERE contact_id = ? AND property_id = ?
-                ''', [package['lead_id'], prop_dict['id']]).fetchone()
+                # Use package_notes from join, or fall back to contact_properties
+                if not prop_dict.get('package_notes'):
+                    agent_notes = conn.execute('''
+                        SELECT notes FROM contact_properties
+                        WHERE contact_id = ? AND property_id = ?
+                    ''', [package['lead_id'], prop_dict['id']]).fetchone()
+                    prop_dict['agent_notes'] = agent_notes['notes'] if agent_notes else None
+                else:
+                    prop_dict['agent_notes'] = prop_dict.get('package_notes')
 
-                prop_dict['agent_notes'] = agent_notes['notes'] if agent_notes else None
                 prop_dict['description'] = None  # Could add later
 
                 properties.append(prop_dict)
@@ -281,32 +275,21 @@ def list_packages_for_contact(contact_id: str) -> List[Dict[str, Any]]:
     try:
         packages = conn.execute('''
             SELECT
-                id,
-                title,
-                property_ids,
-                showing_date,
-                pdf_path,
-                status,
-                created_at
-            FROM packages
-            WHERE lead_id = ?
-            ORDER BY created_at DESC
+                p.id,
+                p.name as title,
+                p.status,
+                p.created_at,
+                COUNT(pp.property_id) as property_count
+            FROM property_packages p
+            LEFT JOIN package_properties pp ON pp.package_id = p.id
+            WHERE p.lead_id = ?
+            GROUP BY p.id
+            ORDER BY p.created_at DESC
         ''', [contact_id]).fetchall()
 
         results = []
         for pkg in packages:
             pkg_dict = dict(pkg)
-
-            # Count properties
-            if pkg_dict.get('property_ids'):
-                try:
-                    ids = json.loads(pkg_dict['property_ids'])
-                    pkg_dict['property_count'] = len(ids)
-                except json.JSONDecodeError:
-                    pkg_dict['property_count'] = len(pkg_dict['property_ids'].split(','))
-            else:
-                pkg_dict['property_count'] = 0
-
             results.append(pkg_dict)
 
         return results
