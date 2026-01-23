@@ -1,0 +1,1465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ contact.first_name }} {{ contact.last_name }} | Workspace | DREAMS</title>
+    <link rel="icon" type="image/svg+xml" href="{{ favicon }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='shared/css/dreams.css') }}">
+    <style>
+        /* Workspace Layout */
+        .workspace-container {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 0;
+            min-height: calc(100vh - 60px);
+        }
+
+        /* Left Panel - Contact Info */
+        .contact-panel {
+            background: white;
+            border-right: 1px solid var(--border);
+            padding: 24px;
+            overflow-y: auto;
+        }
+
+        .contact-avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            font-weight: 600;
+            margin: 0 auto 16px;
+        }
+
+        .contact-name {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--text-primary);
+            text-align: center;
+            margin-bottom: 4px;
+        }
+
+        .contact-stage {
+            text-align: center;
+            margin-bottom: 16px;
+        }
+
+        .score-mini-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin: 16px 0;
+        }
+
+        .score-mini {
+            text-align: center;
+            padding: 12px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+        }
+
+        .score-mini-value {
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .score-mini-value.priority { color: var(--primary); }
+        .score-mini-value.heat { color: #ef4444; }
+        .score-mini-value.value { color: #10b981; }
+        .score-mini-value.relationship { color: #3b82f6; }
+
+        .score-mini-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .contact-info-list {
+            margin: 20px 0;
+        }
+
+        .contact-info-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--bg-tertiary);
+            font-size: 14px;
+        }
+
+        .contact-info-item:last-child {
+            border-bottom: none;
+        }
+
+        .contact-info-icon {
+            width: 20px;
+            color: var(--text-secondary);
+        }
+
+        .contact-info-item a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        .contact-info-item a:hover {
+            text-decoration: underline;
+        }
+
+        .quick-actions {
+            margin-top: 20px;
+        }
+
+        .quick-actions-title {
+            font-size: 12px;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+        }
+
+        .quick-action-btn {
+            display: block;
+            width: 100%;
+            padding: 10px 16px;
+            margin-bottom: 8px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: white;
+            color: var(--text-primary);
+            text-decoration: none;
+            font-size: 14px;
+            text-align: left;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .quick-action-btn:hover {
+            background: var(--bg-secondary);
+        }
+
+        /* Right Panel - Main Content */
+        .main-panel {
+            background: var(--bg-page);
+            overflow-y: auto;
+        }
+
+        /* Tabs */
+        .workspace-tabs {
+            display: flex;
+            background: white;
+            border-bottom: 1px solid var(--border);
+            padding: 0 24px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .workspace-tab {
+            padding: 16px 20px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-weight: 500;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -1px;
+            transition: all 0.2s;
+        }
+
+        .workspace-tab:hover {
+            color: var(--text-primary);
+            background: var(--bg-secondary);
+        }
+
+        .workspace-tab.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+        }
+
+        .tab-content {
+            padding: 24px;
+        }
+
+        /* Section Cards */
+        .section-card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .section-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .section-card-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        /* Requirements Display */
+        .requirements-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+        }
+
+        .req-item {
+            padding: 12px;
+            background: var(--bg-secondary);
+            border-radius: 6px;
+        }
+
+        .req-item-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+        }
+
+        .req-item-value {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .confidence-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .confidence-high { background: #dcfce7; color: #166534; }
+        .confidence-medium { background: #fef3c7; color: #92400e; }
+        .confidence-low { background: #fee2e2; color: #991b1b; }
+
+        /* Intake Forms List */
+        .intake-form-card {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+
+        .intake-form-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .intake-form-name {
+            font-weight: 600;
+            font-size: 15px;
+        }
+
+        .intake-form-meta {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        /* Package Cards */
+        .package-card {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .package-info h4 {
+            margin: 0 0 4px 0;
+            font-size: 15px;
+        }
+
+        .package-meta {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .package-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        /* Showing Cards */
+        .showing-card {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+
+        .showing-date {
+            font-weight: 600;
+            font-size: 16px;
+            color: var(--primary);
+        }
+
+        .showing-meta {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        /* Empty States */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .empty-state h3 {
+            margin: 0 0 8px 0;
+            color: var(--text-primary);
+        }
+
+        /* Form Styles */
+        .form-section {
+            margin-bottom: 24px;
+        }
+
+        .form-section-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--bg-tertiary);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .form-group {
+            margin-bottom: 12px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+
+        .form-input, .form-select, .form-textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+
+        .form-input:focus, .form-select:focus, .form-textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(26, 54, 93, 0.1);
+        }
+
+        .checkbox-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 8px;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            background: var(--bg-secondary);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .checkbox-item:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .checkbox-item input[type="checkbox"] {
+            margin: 0;
+        }
+
+        /* Activity Timeline - compact version */
+        .timeline-compact {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .timeline-item-compact {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--bg-tertiary);
+        }
+
+        .timeline-icon-compact {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            flex-shrink: 0;
+        }
+
+        .timeline-icon-compact.call { background: #dbeafe; color: #1d4ed8; }
+        .timeline-icon-compact.text { background: #dcfce7; color: #166534; }
+        .timeline-icon-compact.website_visit { background: #fef3c7; color: #92400e; }
+        .timeline-icon-compact.property_view { background: #ede9fe; color: #6d28d9; }
+        .timeline-icon-compact.property_favorite { background: #fce7f3; color: #be185d; }
+        .timeline-icon-compact.property_share { background: #e0e7ff; color: #4338ca; }
+
+        .timeline-content-compact {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .timeline-title-compact {
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .timeline-subtitle-compact {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .timeline-time-compact {
+            font-size: 11px;
+            color: var(--text-tertiary);
+            white-space: nowrap;
+        }
+
+        /* Trend badge */
+        .trend-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .trend-badge.warming { background: #dcfce7; color: #166534; }
+        .trend-badge.cooling { background: #fee2e2; color: #991b1b; }
+        .trend-badge.stable { background: #f3f4f6; color: #374151; }
+
+        /* Matches section */
+        .match-card {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 16px;
+            padding: 16px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 12px;
+        }
+
+        .match-score {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        /* Behavioral preferences display */
+        .behavioral-summary {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            padding: 12px;
+            background: var(--bg-secondary);
+            border-radius: 6px;
+            margin-bottom: 16px;
+        }
+
+        .behavioral-item {
+            font-size: 13px;
+        }
+
+        .behavioral-item strong {
+            color: var(--text-primary);
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="dreams-header">
+        <div>
+            <h1>Contact Workspace</h1>
+            <div class="dreams-header-subtitle">
+                {{ contact.first_name }} {{ contact.last_name }}
+            </div>
+        </div>
+        <nav style="display: flex; gap: 16px; align-items: center;">
+            <a href="/" class="dreams-btn dreams-btn-secondary">Home</a>
+            <a href="/contacts" class="dreams-btn dreams-btn-secondary">Contacts</a>
+            <a href="/contacts/{{ contact.id }}" class="dreams-btn dreams-btn-secondary">Classic View</a>
+        </nav>
+    </header>
+
+    <div class="workspace-container">
+        <!-- Left Panel: Contact Info -->
+        <div class="contact-panel">
+            <div class="contact-avatar">
+                {{ (contact.first_name or 'X')[0] }}{{ (contact.last_name or '')[0] }}
+            </div>
+
+            <h2 class="contact-name">{{ contact.first_name or '' }} {{ contact.last_name or '' }}</h2>
+
+            <div class="contact-stage">
+                <span class="dreams-badge dreams-badge-{{ (contact.stage or 'unknown')|lower|replace(' ', '-') }}">
+                    {{ contact.stage or 'Unknown' }}
+                </span>
+                {% if trend_summary and trend_summary.trend_direction %}
+                <span class="trend-badge {{ trend_summary.trend_direction }}" style="margin-left: 8px;">
+                    {% if trend_summary.trend_direction == 'warming' %}&#8593;
+                    {% elif trend_summary.trend_direction == 'cooling' %}&#8595;
+                    {% else %}&#8596;{% endif %}
+                </span>
+                {% endif %}
+            </div>
+
+            <div class="score-mini-grid">
+                <div class="score-mini">
+                    <div class="score-mini-value priority">{{ "%.0f"|format(contact.priority_score or 0) }}</div>
+                    <div class="score-mini-label">Priority</div>
+                </div>
+                <div class="score-mini">
+                    <div class="score-mini-value heat">{{ "%.0f"|format(contact.heat_score or 0) }}</div>
+                    <div class="score-mini-label">Heat</div>
+                </div>
+                <div class="score-mini">
+                    <div class="score-mini-value value">{{ "%.0f"|format(contact.value_score or 0) }}</div>
+                    <div class="score-mini-label">Value</div>
+                </div>
+                <div class="score-mini">
+                    <div class="score-mini-value relationship">{{ "%.0f"|format(contact.relationship_score or 0) }}</div>
+                    <div class="score-mini-label">Relationship</div>
+                </div>
+            </div>
+
+            <div class="contact-info-list">
+                {% if contact.email %}
+                <div class="contact-info-item">
+                    <span class="contact-info-icon">&#9993;</span>
+                    <a href="mailto:{{ contact.email }}">{{ contact.email }}</a>
+                </div>
+                {% endif %}
+                {% if contact.phone %}
+                <div class="contact-info-item">
+                    <span class="contact-info-icon">&#9742;</span>
+                    <a href="tel:{{ contact.phone }}">{{ contact.phone }}</a>
+                </div>
+                {% endif %}
+                {% if contact.source %}
+                <div class="contact-info-item">
+                    <span class="contact-info-icon">&#10140;</span>
+                    Source: {{ contact.source }}
+                </div>
+                {% endif %}
+                {% if contact.fub_id %}
+                <div class="contact-info-item">
+                    <span class="contact-info-icon">&#8599;</span>
+                    <a href="https://JonTharpTeam.followupboss.com/2/people/view/{{ contact.fub_id }}" target="_blank">
+                        Open in FUB
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="quick-actions">
+                <div class="quick-actions-title">Quick Actions</div>
+                <a href="/contacts/{{ contact.id }}/search" class="quick-action-btn">
+                    &#128269; Search Properties
+                </a>
+                <a href="/contacts/{{ contact.id }}/workspace?tab=requirements&new=1" class="quick-action-btn">
+                    &#43; New Intake Form
+                </a>
+                {% if contact.phone %}
+                <a href="tel:{{ contact.phone }}" class="quick-action-btn">
+                    &#128222; Call
+                </a>
+                {% endif %}
+                {% if contact.email %}
+                <a href="https://mail.google.com/mail/?authuser=Joseph@JonTharpHomes.com&view=cm&fs=1&to={{ contact.email }}" target="_blank" class="quick-action-btn">
+                    &#9993; Email
+                </a>
+                {% endif %}
+            </div>
+
+            <!-- Activity Summary -->
+            <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border);">
+                <div class="quick-actions-title">Activity Summary</div>
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; font-size: 13px;">
+                    <div>Views: <strong>{{ contact.properties_viewed or 0 }}</strong></div>
+                    <div>Favorites: <strong>{{ contact.properties_favorited or 0 }}</strong></div>
+                    <div>Calls In: <strong>{{ contact.calls_inbound or 0 }}</strong></div>
+                    <div>Calls Out: <strong>{{ contact.calls_outbound or 0 }}</strong></div>
+                    <div style="grid-column: span 2;">
+                        Days Since Activity: <strong>{% if contact.days_since_activity is not none and contact.days_since_activity < 999 %}{{ contact.days_since_activity }}{% else %}--{% endif %}</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel: Tabbed Content -->
+        <div class="main-panel">
+            <nav class="workspace-tabs">
+                <a href="?tab=info" class="workspace-tab {% if active_tab == 'info' %}active{% endif %}">Info</a>
+                <a href="?tab=requirements" class="workspace-tab {% if active_tab == 'requirements' %}active{% endif %}">Requirements</a>
+                <a href="?tab=activity" class="workspace-tab {% if active_tab == 'activity' %}active{% endif %}">Activity</a>
+                <a href="?tab=packages" class="workspace-tab {% if active_tab == 'packages' %}active{% endif %}">
+                    Packages {% if packages %}({{ packages|length }}){% endif %}
+                </a>
+                <a href="?tab=showings" class="workspace-tab {% if active_tab == 'showings' %}active{% endif %}">
+                    Showings {% if showings %}({{ showings|length }}){% endif %}
+                </a>
+                <a href="?tab=matches" class="workspace-tab {% if active_tab == 'matches' %}active{% endif %}">Matches</a>
+            </nav>
+
+            <div class="tab-content">
+                <!-- INFO TAB -->
+                {% if active_tab == 'info' %}
+                <div class="section-card">
+                    <div class="section-card-header">
+                        <h3 class="section-card-title">Contact Information</h3>
+                    </div>
+
+                    <div class="requirements-summary">
+                        <div class="req-item">
+                            <div class="req-item-label">Full Name</div>
+                            <div class="req-item-value">{{ contact.first_name or '' }} {{ contact.last_name or '' }}</div>
+                        </div>
+                        <div class="req-item">
+                            <div class="req-item-label">Email</div>
+                            <div class="req-item-value">{{ contact.email or '--' }}</div>
+                        </div>
+                        <div class="req-item">
+                            <div class="req-item-label">Phone</div>
+                            <div class="req-item-value">{{ contact.phone or '--' }}</div>
+                        </div>
+                        <div class="req-item">
+                            <div class="req-item-label">Stage</div>
+                            <div class="req-item-value">{{ contact.stage or '--' }}</div>
+                        </div>
+                        <div class="req-item">
+                            <div class="req-item-label">Type</div>
+                            <div class="req-item-value">{{ contact.type or 'Buyer' }}</div>
+                        </div>
+                        <div class="req-item">
+                            <div class="req-item-label">Source</div>
+                            <div class="req-item-value">{{ contact.source or '--' }}</div>
+                        </div>
+                        {% if contact.lead_type_tags %}
+                        <div class="req-item">
+                            <div class="req-item-label">Tags</div>
+                            <div class="req-item-value">{{ contact.lead_type_tags }}</div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Next Action -->
+                {% if contact.next_action %}
+                <div class="section-card" style="border-left: 4px solid #f59e0b;">
+                    <div class="section-card-header">
+                        <h3 class="section-card-title">Next Action</h3>
+                        {% if contact.next_action_date %}
+                        <span style="font-size: 13px; color: var(--text-secondary);">{{ contact.next_action_date }}</span>
+                        {% endif %}
+                    </div>
+                    <div style="font-size: 15px;">{{ contact.next_action }}</div>
+                </div>
+                {% endif %}
+
+                <!-- Actions List -->
+                <div class="section-card">
+                    <div class="section-card-header">
+                        <h3 class="section-card-title">Actions</h3>
+                        <button onclick="openAddActionModal()" class="dreams-btn dreams-btn-primary" style="padding: 6px 12px; font-size: 13px;">
+                            + Add Action
+                        </button>
+                    </div>
+
+                    {% if actions %}
+                    <div style="max-height: 300px; overflow-y: auto;">
+                        {% for action in actions %}
+                        <div style="display: flex; align-items: flex-start; gap: 12px; padding: 12px; border-bottom: 1px solid var(--bg-tertiary); {% if action.completed_at %}opacity: 0.6;{% endif %}">
+                            <span style="
+                                display: inline-block;
+                                padding: 2px 8px;
+                                border-radius: 12px;
+                                font-size: 11px;
+                                font-weight: 600;
+                                text-transform: uppercase;
+                                background: {% if action.action_type == 'call' %}#dbeafe{% elif action.action_type == 'email' %}#fef3c7{% else %}#f3f4f6{% endif %};
+                                color: {% if action.action_type == 'call' %}#1e40af{% elif action.action_type == 'email' %}#92400e{% else %}#374151{% endif %};
+                            ">{{ action.action_type }}</span>
+                            <div style="flex: 1;">
+                                <div style="{% if action.completed_at %}text-decoration: line-through;{% endif %}">{{ action.description or action.action_type }}</div>
+                                {% if action.due_date and not action.completed_at %}
+                                <div style="font-size: 12px; color: {% if action.due_date < today %}#dc2626{% else %}var(--text-secondary){% endif %};">
+                                    {% if action.due_date < today %}Overdue - {% endif %}Due {{ action.due_date }}
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% if not action.completed_at %}
+                            <button onclick="completeAction({{ action.id }})" class="dreams-btn dreams-btn-secondary" style="padding: 4px 8px; font-size: 12px;">Done</button>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="empty-state" style="padding: 20px;">
+                        <p>No actions yet.</p>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Intent Signals -->
+                <div class="section-card">
+                    <h3 class="section-card-title">Intent Signals ({{ contact.intent_signal_count or 0 }} of 4 active)</h3>
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 12px;">
+                        <div style="padding: 12px; border-radius: 6px; text-align: center; background: {% if contact.intent_repeat_views %}#dcfce7{% else %}var(--bg-secondary){% endif %};">
+                            <div style="font-size: 20px;">R</div>
+                            <div style="font-size: 11px; color: var(--text-secondary);">Repeat Views</div>
+                        </div>
+                        <div style="padding: 12px; border-radius: 6px; text-align: center; background: {% if contact.intent_high_favorites %}#dcfce7{% else %}var(--bg-secondary){% endif %};">
+                            <div style="font-size: 20px;">F</div>
+                            <div style="font-size: 11px; color: var(--text-secondary);">High Favorites</div>
+                        </div>
+                        <div style="padding: 12px; border-radius: 6px; text-align: center; background: {% if contact.intent_activity_burst %}#dcfce7{% else %}var(--bg-secondary){% endif %};">
+                            <div style="font-size: 20px;">B</div>
+                            <div style="font-size: 11px; color: var(--text-secondary);">Activity Burst</div>
+                        </div>
+                        <div style="padding: 12px; border-radius: 6px; text-align: center; background: {% if contact.intent_sharing %}#dcfce7{% else %}var(--bg-secondary){% endif %};">
+                            <div style="font-size: 20px;">S</div>
+                            <div style="font-size: 11px; color: var(--text-secondary);">Sharing</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- REQUIREMENTS TAB -->
+                {% elif active_tab == 'requirements' %}
+
+                <!-- Consolidated Requirements Summary -->
+                {% if stated_requirements and stated_requirements.confidence > 0 %}
+                <div class="section-card">
+                    <div class="section-card-header">
+                        <h3 class="section-card-title">Stated Requirements</h3>
+                        <span class="confidence-indicator {% if stated_requirements.confidence >= 0.7 %}confidence-high{% elif stated_requirements.confidence >= 0.4 %}confidence-medium{% else %}confidence-low{% endif %}">
+                            {{ (stated_requirements.confidence * 100)|int }}% confidence
+                        </span>
+                    </div>
+                    <div class="requirements-summary">
+                        {% if stated_requirements.min_price or stated_requirements.max_price %}
+                        <div class="req-item">
+                            <div class="req-item-label">Price Range</div>
+                            <div class="req-item-value">
+                                {% if stated_requirements.min_price %}${{ "{:,.0f}".format(stated_requirements.min_price) }}{% else %}Any{% endif %}
+                                -
+                                {% if stated_requirements.max_price %}${{ "{:,.0f}".format(stated_requirements.max_price) }}{% else %}Any{% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% if stated_requirements.min_beds %}
+                        <div class="req-item">
+                            <div class="req-item-label">Bedrooms</div>
+                            <div class="req-item-value">{{ stated_requirements.min_beds }}+ beds</div>
+                        </div>
+                        {% endif %}
+                        {% if stated_requirements.min_baths %}
+                        <div class="req-item">
+                            <div class="req-item-label">Bathrooms</div>
+                            <div class="req-item-value">{{ stated_requirements.min_baths }}+ baths</div>
+                        </div>
+                        {% endif %}
+                        {% if stated_requirements.counties %}
+                        <div class="req-item">
+                            <div class="req-item-label">Counties</div>
+                            <div class="req-item-value">{{ stated_requirements.counties|join(', ') }}</div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div style="margin-top: 16px;">
+                        <a href="/contacts/{{ contact.id }}/search" class="dreams-btn dreams-btn-primary">
+                            &#128269; Search Properties Matching These Requirements
+                        </a>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Behavioral Preferences -->
+                {% if behavioral_prefs and behavioral_prefs.confidence > 0 %}
+                <div class="section-card">
+                    <div class="section-card-header">
+                        <h3 class="section-card-title">Behavioral Preferences (Inferred)</h3>
+                        <span class="confidence-indicator confidence-medium">
+                            {{ (behavioral_prefs.confidence * 100)|int }}% confidence
+                        </span>
+                    </div>
+                    <div class="behavioral-summary">
+                        {% if behavioral_prefs.price_range %}
+                        <div class="behavioral-item">
+                            <strong>Price Range:</strong> ${{ "{:,.0f}".format(behavioral_prefs.price_range[0]) }} - ${{ "{:,.0f}".format(behavioral_prefs.price_range[1]) }}
+                        </div>
+                        {% endif %}
+                        {% if behavioral_prefs.avg_price %}
+                        <div class="behavioral-item">
+                            <strong>Avg Price:</strong> ${{ "{:,.0f}".format(behavioral_prefs.avg_price) }}
+                        </div>
+                        {% endif %}
+                        {% if behavioral_prefs.cities %}
+                        <div class="behavioral-item">
+                            <strong>Cities:</strong> {{ behavioral_prefs.cities|join(', ') }}
+                        </div>
+                        {% endif %}
+                        <div class="behavioral-item">
+                            <strong>Views:</strong> {{ behavioral_prefs.view_count }}
+                        </div>
+                        <div class="behavioral-item">
+                            <strong>Favorites:</strong> {{ behavioral_prefs.favorite_count }}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Intake Forms List -->
+                <div class="section-card">
+                    <div class="section-card-header">
+                        <h3 class="section-card-title">Intake Forms</h3>
+                        <a href="?tab=requirements&new=1" class="dreams-btn dreams-btn-primary" style="padding: 6px 12px; font-size: 13px;">
+                            + New Intake Form
+                        </a>
+                    </div>
+
+                    {% if intake_forms %}
+                        {% for form in intake_forms %}
+                        <div class="intake-form-card">
+                            <div class="intake-form-header">
+                                <div>
+                                    <span class="intake-form-name">{{ form.form_name or 'Untitled Search' }}</span>
+                                    <span class="dreams-badge dreams-badge-{{ form.status or 'active' }}" style="margin-left: 8px;">{{ form.status or 'active' }}</span>
+                                </div>
+                                <div class="intake-form-meta">
+                                    {{ form.need_type|replace('_', ' ')|title if form.need_type else '' }}
+                                    {% if form.updated_at %} | Updated {{ form.updated_at[:10] }}{% endif %}
+                                </div>
+                            </div>
+                            <div class="requirements-summary" style="font-size: 13px;">
+                                {% if form.min_price or form.max_price %}
+                                <div class="req-item">
+                                    <div class="req-item-label">Price</div>
+                                    <div class="req-item-value">
+                                        {% if form.min_price %}${{ "{:,.0f}".format(form.min_price|int) }}{% endif %}
+                                        -
+                                        {% if form.max_price %}${{ "{:,.0f}".format(form.max_price|int) }}{% endif %}
+                                    </div>
+                                </div>
+                                {% endif %}
+                                {% if form.min_beds %}
+                                <div class="req-item">
+                                    <div class="req-item-label">Beds</div>
+                                    <div class="req-item-value">{{ form.min_beds }}+</div>
+                                </div>
+                                {% endif %}
+                                {% if form.counties %}
+                                <div class="req-item">
+                                    <div class="req-item-label">Counties</div>
+                                    <div class="req-item-value">{{ form.counties|from_json|join(', ') }}</div>
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div style="margin-top: 12px; display: flex; gap: 8px;">
+                                <a href="/contacts/{{ contact.id }}/search?form_id={{ form.id }}" class="dreams-btn dreams-btn-primary" style="padding: 6px 12px; font-size: 13px;">
+                                    Search Properties
+                                </a>
+                                <a href="?tab=requirements&edit={{ form.id }}" class="dreams-btn dreams-btn-secondary" style="padding: 6px 12px; font-size: 13px;">
+                                    Edit
+                                </a>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                    <div class="empty-state">
+                        <div class="empty-state-icon">&#128203;</div>
+                        <h3>No Intake Forms Yet</h3>
+                        <p>Create an intake form to capture this buyer's requirements.</p>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- New/Edit Intake Form -->
+                {% if request.args.get('new') or request.args.get('edit') %}
+                {% set edit_form = none %}
+                {% if request.args.get('edit') %}
+                    {% for f in intake_forms %}
+                        {% if f.id == request.args.get('edit') %}
+                            {% set edit_form = f %}
+                        {% endif %}
+                    {% endfor %}
+                {% endif %}
+
+                <div class="section-card" id="intake-form-section">
+                    <h3 class="section-card-title">{% if edit_form %}Edit{% else %}New{% endif %} Intake Form</h3>
+
+                    <form method="POST" action="/contacts/{{ contact.id }}/intake/save">
+                        {% if edit_form %}<input type="hidden" name="form_id" value="{{ edit_form.id }}">{% endif %}
+
+                        <div class="form-section">
+                            <div class="form-section-title">Basic Information</div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Search Name</label>
+                                    <input type="text" name="form_name" class="form-input"
+                                           value="{{ edit_form.form_name if edit_form else '' }}"
+                                           placeholder="e.g., Mountain Home Search">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Property Need Type *</label>
+                                    <select name="need_type" class="form-select" required>
+                                        <option value="">Select type...</option>
+                                        {% for value, label in need_types %}
+                                        <option value="{{ value }}" {% if edit_form and edit_form.need_type == value %}selected{% endif %}>{{ label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Status</label>
+                                    <select name="status" class="form-select">
+                                        <option value="active" {% if not edit_form or edit_form.status == 'active' %}selected{% endif %}>Active</option>
+                                        <option value="paused" {% if edit_form and edit_form.status == 'paused' %}selected{% endif %}>Paused</option>
+                                        <option value="completed" {% if edit_form and edit_form.status == 'completed' %}selected{% endif %}>Completed</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <div class="form-section-title">Location Preferences</div>
+                            <div class="form-group">
+                                <label class="form-label">Counties</label>
+                                <div class="checkbox-grid">
+                                    {% set selected_counties = (edit_form.counties|from_json if edit_form and edit_form.counties else []) %}
+                                    {% for county in counties %}
+                                    <label class="checkbox-item">
+                                        <input type="checkbox" name="counties" value="{{ county }}"
+                                               {% if county in selected_counties %}checked{% endif %}>
+                                        {{ county }}
+                                    </label>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Specific Cities (comma-separated)</label>
+                                <input type="text" name="cities" class="form-input"
+                                       value="{{ (edit_form.cities|from_json|join(', ')) if edit_form and edit_form.cities else '' }}"
+                                       placeholder="Franklin, Highlands, Cashiers">
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <div class="form-section-title">Property Requirements</div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Min Price</label>
+                                    <input type="number" name="min_price" class="form-input"
+                                           value="{{ edit_form.min_price if edit_form else '' }}" placeholder="100000">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Max Price</label>
+                                    <input type="number" name="max_price" class="form-input"
+                                           value="{{ edit_form.max_price if edit_form else '' }}" placeholder="500000">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Min Beds</label>
+                                    <input type="number" name="min_beds" class="form-input"
+                                           value="{{ edit_form.min_beds if edit_form else '' }}" min="0" max="10">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Min Baths</label>
+                                    <input type="number" name="min_baths" class="form-input" step="0.5"
+                                           value="{{ edit_form.min_baths if edit_form else '' }}" min="0" max="10">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Min Sq Ft</label>
+                                    <input type="number" name="min_sqft" class="form-input"
+                                           value="{{ edit_form.min_sqft if edit_form else '' }}" placeholder="1000">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Min Acreage</label>
+                                    <input type="number" name="min_acreage" class="form-input" step="0.1"
+                                           value="{{ edit_form.min_acreage if edit_form else '' }}" placeholder="0.5">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <div class="form-section-title">Features & Preferences</div>
+                            <div class="form-group">
+                                <label class="form-label">Views Required</label>
+                                <div class="checkbox-grid">
+                                    {% set selected_views = (edit_form.views_required|from_json if edit_form and edit_form.views_required else []) %}
+                                    {% for view in view_options %}
+                                    <label class="checkbox-item">
+                                        <input type="checkbox" name="views_required" value="{{ view }}"
+                                               {% if view in selected_views %}checked{% endif %}>
+                                        {{ view }}
+                                    </label>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Water Features</label>
+                                <div class="checkbox-grid">
+                                    {% set selected_water = (edit_form.water_features|from_json if edit_form and edit_form.water_features else []) %}
+                                    {% for water in water_options %}
+                                    <label class="checkbox-item">
+                                        <input type="checkbox" name="water_features" value="{{ water }}"
+                                               {% if water in selected_water %}checked{% endif %}>
+                                        {{ water }}
+                                    </label>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Must Have Features</label>
+                                    <textarea name="must_have_features" class="form-textarea" rows="2"
+                                              placeholder="e.g., Main level primary, Garage">{{ edit_form.must_have_features if edit_form else '' }}</textarea>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Deal Breakers</label>
+                                    <textarea name="deal_breakers" class="form-textarea" rows="2"
+                                              placeholder="e.g., HOA over $500/mo, Steep driveway">{{ edit_form.deal_breakers if edit_form else '' }}</textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <div class="form-section-title">Timeline & Financing</div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Urgency</label>
+                                    <select name="urgency" class="form-select">
+                                        <option value="">Select...</option>
+                                        {% for value, label in urgency_options %}
+                                        <option value="{{ value }}" {% if edit_form and edit_form.urgency == value %}selected{% endif %}>{{ label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Financing Status</label>
+                                    <select name="financing_status" class="form-select">
+                                        <option value="">Select...</option>
+                                        {% for value, label in financing_options %}
+                                        <option value="{{ value }}" {% if edit_form and edit_form.financing_status == value %}selected{% endif %}>{{ label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Pre-Approval Amount</label>
+                                    <input type="number" name="pre_approval_amount" class="form-input"
+                                           value="{{ edit_form.pre_approval_amount if edit_form else '' }}" placeholder="500000">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <div class="form-section-title">Agent Notes</div>
+                            <div class="form-group">
+                                <textarea name="agent_notes" class="form-textarea" rows="3"
+                                          placeholder="Any additional notes...">{{ edit_form.agent_notes if edit_form else '' }}</textarea>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                            <a href="?tab=requirements" class="dreams-btn dreams-btn-secondary">Cancel</a>
+                            <button type="submit" class="dreams-btn dreams-btn-primary">Save Intake Form</button>
+                        </div>
+                    </form>
+                </div>
+                {% endif %}
+
+                <!-- ACTIVITY TAB -->
+                {% elif active_tab == 'activity' %}
+                <div class="section-card">
+                    <h3 class="section-card-title">Activity Timeline (Last 30 Days)</h3>
+
+                    {% if timeline %}
+                    <div class="timeline-compact">
+                        {% for item in timeline %}
+                        <div class="timeline-item-compact">
+                            <div class="timeline-icon-compact {{ item.activity_type }}">
+                                {% if item.activity_type == 'call' %}&#128222;
+                                {% elif item.activity_type == 'text' %}&#128172;
+                                {% elif item.activity_type == 'website_visit' %}&#127760;
+                                {% elif item.activity_type == 'property_view' %}&#128065;
+                                {% elif item.activity_type == 'property_favorite' %}&#10084;
+                                {% elif item.activity_type == 'property_share' %}&#128228;
+                                {% else %}&#128196;{% endif %}
+                            </div>
+                            <div class="timeline-content-compact">
+                                <div class="timeline-title-compact">
+                                    {% if item.activity_type == 'call' %}{{ item.direction|capitalize }} Call
+                                    {% elif item.activity_type == 'text' %}{{ item.direction|capitalize }} Text
+                                    {% elif item.activity_type == 'website_visit' %}Website Visit
+                                    {% elif item.activity_type == 'property_view' %}Viewed Property
+                                    {% elif item.activity_type == 'property_favorite' %}Favorited Property
+                                    {% elif item.activity_type == 'property_share' %}Shared Property
+                                    {% else %}{{ item.activity_type|replace('_', ' ')|title }}{% endif %}
+                                </div>
+                                <div class="timeline-subtitle-compact">
+                                    {% if item.property_address %}{{ item.property_address }}
+                                    {% if item.property_price %}(${{ "{:,.0f}".format(item.property_price) }}){% endif %}
+                                    {% elif item.fub_user_name %}Agent: {{ item.fub_user_name }}{% endif %}
+                                </div>
+                            </div>
+                            <div class="timeline-time-compact">{{ item.occurred_at[:10] if item.occurred_at else '' }}</div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="empty-state">
+                        <div class="empty-state-icon">&#128197;</div>
+                        <h3>No Recent Activity</h3>
+                        <p>Activity data will appear after the next FUB sync.</p>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Properties Viewed -->
+                {% if property_summary %}
+                <div class="section-card">
+                    <h3 class="section-card-title">Properties Viewed ({{ property_summary|length }})</h3>
+                    <div style="max-height: 400px; overflow-y: auto;">
+                        <table class="dreams-table">
+                            <thead>
+                                <tr>
+                                    <th>Address</th>
+                                    <th>Price</th>
+                                    <th>Views</th>
+                                    <th>Fav</th>
+                                    <th>Last Viewed</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for prop in property_summary %}
+                                <tr>
+                                    <td>
+                                        <a href="https://www.smokymountainhomes4sale.com/property/{{ prop.property_mls }}" target="_blank" class="dreams-link">
+                                            {% if prop.property_address and prop.property_address != '[Not found on IDX]' %}
+                                                {{ prop.property_address }}
+                                            {% else %}
+                                                MLS# {{ prop.property_mls }}
+                                            {% endif %}
+                                        </a>
+                                    </td>
+                                    <td>{% if prop.property_price %}${{ "{:,.0f}".format(prop.property_price) }}{% else %}--{% endif %}</td>
+                                    <td><span style="background: var(--primary-light); color: var(--primary); padding: 2px 8px; border-radius: 12px; font-size: 12px;">{{ prop.view_count }}x</span></td>
+                                    <td>{% if prop.is_favorited %}&#10084;{% else %}--{% endif %}</td>
+                                    <td style="font-size: 12px; color: var(--text-secondary);">{{ prop.last_viewed[:10] if prop.last_viewed else '--' }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- PACKAGES TAB -->
+                {% elif active_tab == 'packages' %}
+                <div class="section-card">
+                    <div class="section-card-header">
+                        <h3 class="section-card-title">Property Packages</h3>
+                        <a href="/contacts/{{ contact.id }}/search" class="dreams-btn dreams-btn-primary" style="padding: 6px 12px; font-size: 13px;">
+                            Search & Create Package
+                        </a>
+                    </div>
+
+                    {% if packages %}
+                        {% for pkg in packages %}
+                        <div class="package-card">
+                            <div class="package-info">
+                                <h4>{{ pkg.name or 'Untitled Package' }}</h4>
+                                <div class="package-meta">
+                                    <span class="dreams-badge dreams-badge-{{ pkg.status or 'draft' }}">{{ pkg.status or 'draft' }}</span>
+                                    {{ pkg.property_count or 0 }} properties
+                                    {% if pkg.view_count %} | Viewed {{ pkg.view_count }}x{% endif %}
+                                    {% if pkg.created_at %} | Created {{ pkg.created_at[:10] }}{% endif %}
+                                </div>
+                            </div>
+                            <div class="package-actions">
+                                <a href="/contacts/{{ contact.id }}/packages/{{ pkg.id }}" class="dreams-btn dreams-btn-secondary" style="padding: 6px 12px; font-size: 13px;">View</a>
+                                {% if pkg.share_token %}
+                                <button onclick="copyClientLink('{{ pkg.share_token }}')" class="dreams-btn dreams-btn-primary" style="padding: 6px 12px; font-size: 13px;">Copy Link</button>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                    <div class="empty-state">
+                        <div class="empty-state-icon">&#128230;</div>
+                        <h3>No Packages Yet</h3>
+                        <p>Search for properties and create a package to share with this client.</p>
+                        <a href="/contacts/{{ contact.id }}/search" class="dreams-btn dreams-btn-primary" style="margin-top: 16px;">
+                            Search Properties
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- SHOWINGS TAB -->
+                {% elif active_tab == 'showings' %}
+                <div class="section-card">
+                    <div class="section-card-header">
+                        <h3 class="section-card-title">Showings</h3>
+                    </div>
+
+                    {% if showings %}
+                        {% for showing in showings %}
+                        <div class="showing-card">
+                            <div class="showing-date">
+                                {{ showing.scheduled_date }}
+                                {% if showing.scheduled_time %} at {{ showing.scheduled_time }}{% endif %}
+                            </div>
+                            <div class="showing-meta">
+                                <span class="dreams-badge dreams-badge-{{ showing.status or 'scheduled' }}">{{ showing.status or 'scheduled' }}</span>
+                                {{ showing.property_count or 0 }} properties
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                    <div class="empty-state">
+                        <div class="empty-state-icon">&#127968;</div>
+                        <h3>No Showings Scheduled</h3>
+                        <p>Showings will appear here when scheduled.</p>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- MATCHES TAB -->
+                {% elif active_tab == 'matches' %}
+                <div class="section-card">
+                    <div class="section-card-header">
+                        <h3 class="section-card-title">Property Matches</h3>
+                        <button onclick="loadPropertyMatches()" class="dreams-btn dreams-btn-secondary" style="padding: 6px 12px; font-size: 13px;">
+                            Refresh Matches
+                        </button>
+                    </div>
+                    <div id="matches-container">
+                        <div style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                            Loading property matches...
+                        </div>
+                    </div>
+                </div>
+
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Action Modal -->
+    <div id="addActionModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+        <div style="background: white; border-radius: 12px; padding: 24px; max-width: 400px; width: 90%; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);">
+            <h3 style="margin: 0 0 20px 0;">Add Action</h3>
+            <form id="addActionForm" onsubmit="submitAction(event)">
+                <div class="form-group">
+                    <label class="form-label">Type</label>
+                    <select name="action_type" class="form-select" required>
+                        <option value="call">Call</option>
+                        <option value="email">Email</option>
+                        <option value="text">Text</option>
+                        <option value="meeting">Meeting</option>
+                        <option value="showing">Showing</option>
+                        <option value="follow_up">Follow Up</option>
+                        <option value="note">Note</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Description</label>
+                    <textarea name="description" class="form-textarea" rows="3" placeholder="What needs to be done?"></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Due Date</label>
+                        <input type="date" name="due_date" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Priority</label>
+                        <select name="priority" class="form-select">
+                            <option value="1">High</option>
+                            <option value="2">Medium-High</option>
+                            <option value="3" selected>Normal</option>
+                            <option value="4">Low</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 20px;">
+                    <button type="button" onclick="closeAddActionModal()" class="dreams-btn dreams-btn-secondary">Cancel</button>
+                    <button type="submit" class="dreams-btn dreams-btn-primary">Add Action</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const contactId = '{{ contact.id }}';
+
+        // Action Modal
+        function openAddActionModal() {
+            const modal = document.getElementById('addActionModal');
+            modal.style.display = 'flex';
+            document.getElementById('addActionForm').reset();
+            document.querySelector('input[name="due_date"]').value = new Date().toISOString().split('T')[0];
+        }
+
+        function closeAddActionModal() {
+            document.getElementById('addActionModal').style.display = 'none';
+        }
+
+        document.getElementById('addActionModal').addEventListener('click', function(e) {
+            if (e.target === this) closeAddActionModal();
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') closeAddActionModal();
+        });
+
+        async function submitAction(event) {
+            event.preventDefault();
+            const form = event.target;
+            const formData = new FormData(form);
+
+            const data = {
+                action_type: formData.get('action_type'),
+                description: formData.get('description'),
+                due_date: formData.get('due_date') || null,
+                priority: parseInt(formData.get('priority')) || 3
+            };
+
+            try {
+                const response = await fetch(`/api/contacts/${contactId}/actions`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                if (result.success) {
+                    window.location.reload();
+                } else {
+                    alert('Error adding action: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error adding action. Please try again.');
+            }
+        }
+
+        async function completeAction(actionId) {
+            try {
+                const response = await fetch(`/api/contacts/${contactId}/actions/${actionId}/complete`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const result = await response.json();
+                if (result.success) {
+                    window.location.reload();
+                } else {
+                    alert('Error completing action');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error completing action');
+            }
+        }
+
+        // Property Matches
+        async function loadPropertyMatches() {
+            const container = document.getElementById('matches-container');
+            if (!container) return;
+
+            container.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-secondary);">Loading...</div>';
+
+            try {
+                const response = await fetch(`/api/contacts/${contactId}/matches`);
+                const data = await response.json();
+
+                if (!data.success || !data.matches || data.matches.length === 0) {
+                    container.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-secondary);">No matching properties found. This contact needs more activity data or stated preferences.</div>';
+                    return;
+                }
+
+                let html = '';
+                for (const match of data.matches) {
+                    const prop = match.property;
+                    html += `
+                        <div class="match-card">
+                            <div>
+                                <div style="font-weight: 600; margin-bottom: 4px;">${prop.address || 'Address N/A'}${prop.city ? ', ' + prop.city : ''}</div>
+                                <div style="font-size: 13px; color: var(--text-secondary);">${prop.beds || '?'} bed | ${prop.baths || '?'} bath | ${prop.sqft ? prop.sqft.toLocaleString() + ' sqft' : '? sqft'}</div>
+                                <div style="font-weight: 700; color: var(--primary); margin-top: 4px;">${prop.price ? '$' + prop.price.toLocaleString() : 'Price N/A'}</div>
+                            </div>
+                            <div class="match-score">${Math.round(match.total_score)}</div>
+                        </div>
+                    `;
+                }
+                container.innerHTML = html;
+            } catch (error) {
+                console.error('Error loading matches:', error);
+                container.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-secondary);">Error loading matches.</div>';
+            }
+        }
+
+        // Copy client link
+        function copyClientLink(shareToken) {
+            const url = `${window.location.origin}/view/${shareToken}`;
+            navigator.clipboard.writeText(url).then(() => {
+                alert('Client link copied to clipboard!');
+            }).catch(() => {
+                prompt('Copy this link:', url);
+            });
+        }
+
+        // Load matches on matches tab
+        if (window.location.search.includes('tab=matches')) {
+            document.addEventListener('DOMContentLoaded', loadPropertyMatches);
+        }
+    </script>
+</body>
+</html>

@@ -9,6 +9,25 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Unified Contact Workspace (Phase 1 - Hearth Integration)** - Central hub for buyer management
+  - **Contact Workspace** (`/contacts/<id>/workspace`) - Tabbed interface with:
+    - Info tab: Contact details, scores, intent signals, actions
+    - Requirements tab: Intake forms with inline editing + behavioral inference
+    - Activity tab: Timeline of communications and events
+    - Packages tab: Property packages for this contact
+    - Showings tab: Scheduled and past showings
+    - Matches tab: AI-suggested properties
+  - **Intake Form Editor** - Create/edit buyer requirements inline in workspace
+  - **Property Search** (`/contacts/<id>/search`) - Search redfin_imports database using intake criteria
+    - Grid view with multi-select checkboxes
+    - Floating action bar for package creation
+    - Search based on stated requirements OR behavioral preferences
+  - **Package Creation** - Create packages from selected search results
+    - Auto-generates shareable client links
+    - Shows client favorites and showing requests
+  - **"Open Workspace" button** - Added to contact detail page header for quick access
+  - New templates: `contact_workspace.html`, `property_search_results.html`, `package_detail.html`
+  - Migrated intake form functionality from buyer-workflow to property-dashboard
 - **Buyer-Property Matching (Phase 2)** - Intelligent property recommendations on contact detail
   - **Weighted Multi-Factor Scoring** - 4 factors with configurable weights:
     - Price fit (30%): Blends stated + behavioral price preferences

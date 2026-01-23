@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Property Search | {{ contact.first_name }} {{ contact.last_name }} | DREAMS</title>
+    <link rel="icon" type="image/svg+xml" href="{{ favicon }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='shared/css/dreams.css') }}">
+    <style>
+        .search-header {
+            background: white;
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .search-header-info h1 {
+            font-size: 20px;
+            margin: 0 0 4px 0;
+        }
+
+        .search-header-info .subtitle {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .search-criteria-summary {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 16px;
+        }
+
+        .criteria-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 10px;
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            font-size: 13px;
+        }
+
+        .criteria-badge strong {
+            color: var(--primary);
+        }
+
+        .search-actions {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .results-container {
+            padding: 24px;
+        }
+
+        .results-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 12px 16px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .results-count {
+            font-weight: 600;
+        }
+
+        .selection-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .selection-count {
+            background: var(--primary);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 16px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        /* Property Grid */
+        .property-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 20px;
+        }
+
+        .property-card {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            transition: box-shadow 0.2s, transform 0.2s;
+            position: relative;
+        }
+
+        .property-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .property-card.selected {
+            box-shadow: 0 0 0 3px var(--primary);
+        }
+
+        .property-card-select {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            z-index: 10;
+        }
+
+        .property-card-select input[type="checkbox"] {
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+        }
+
+        .property-card-image {
+            height: 180px;
+            background: var(--bg-tertiary);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .property-card-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .property-card-image .no-image {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--text-tertiary);
+            font-size: 48px;
+        }
+
+        .property-card-status {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: white;
+        }
+
+        .property-card-status.active { color: #166534; }
+        .property-card-status.pending { color: #92400e; }
+
+        .property-card-body {
+            padding: 16px;
+        }
+
+        .property-card-price {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 4px;
+        }
+
+        .property-card-address {
+            font-size: 14px;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+            line-height: 1.3;
+        }
+
+        .property-card-details {
+            display: flex;
+            gap: 12px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .property-card-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: var(--text-tertiary);
+            padding-top: 8px;
+            border-top: 1px solid var(--bg-tertiary);
+        }
+
+        /* Filters Sidebar */
+        .filters-panel {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .filters-panel h3 {
+            margin: 0 0 16px 0;
+            font-size: 14px;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+        }
+
+        .filter-group {
+            margin-bottom: 16px;
+        }
+
+        .filter-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 6px;
+        }
+
+        .filter-input, .filter-select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .filter-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+        }
+
+        .empty-state h3 {
+            margin: 0 0 8px 0;
+            color: var(--text-primary);
+        }
+
+        /* Floating Action Bar */
+        .floating-action-bar {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--primary);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            display: none;
+            align-items: center;
+            gap: 16px;
+            z-index: 100;
+        }
+
+        .floating-action-bar.visible {
+            display: flex;
+        }
+
+        .floating-action-bar .count {
+            font-weight: 600;
+        }
+
+        .floating-action-bar button {
+            background: white;
+            color: var(--primary);
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .floating-action-bar button:hover {
+            background: var(--bg-secondary);
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="dreams-header">
+        <div>
+            <h1>Property Search</h1>
+            <div class="dreams-header-subtitle">
+                {{ contact.first_name }} {{ contact.last_name }}
+            </div>
+        </div>
+        <nav style="display: flex; gap: 16px; align-items: center;">
+            <a href="/contacts/{{ contact.id }}/workspace" class="dreams-btn dreams-btn-secondary">Back to Workspace</a>
+            <a href="/contacts/{{ contact.id }}/workspace?tab=requirements" class="dreams-btn dreams-btn-secondary">Edit Requirements</a>
+        </nav>
+    </header>
+
+    <!-- Search Criteria Summary -->
+    <div class="search-header">
+        <div class="search-header-info">
+            <h1>Search Results</h1>
+            <p class="subtitle">
+                {% if intake_form %}
+                Based on intake form: {{ intake_form.form_name or 'Untitled Search' }}
+                {% elif requirements and requirements.confidence > 0 %}
+                Based on stated requirements ({{ (requirements.confidence * 100)|int }}% confidence)
+                {% elif behavioral and behavioral.confidence > 0 %}
+                Based on behavioral preferences ({{ (behavioral.confidence * 100)|int }}% confidence)
+                {% else %}
+                Showing all active properties
+                {% endif %}
+            </p>
+
+            <div class="search-criteria-summary">
+                {% if search_criteria.get('min_price') or search_criteria.get('max_price') %}
+                <span class="criteria-badge">
+                    <strong>Price:</strong>
+                    {% if search_criteria.get('min_price') %}${{ "{:,.0f}".format(search_criteria.min_price|int) }}{% else %}Any{% endif %}
+                    -
+                    {% if search_criteria.get('max_price') %}${{ "{:,.0f}".format(search_criteria.max_price|int) }}{% else %}Any{% endif %}
+                </span>
+                {% endif %}
+                {% if search_criteria.get('min_beds') %}
+                <span class="criteria-badge"><strong>Beds:</strong> {{ search_criteria.min_beds }}+</span>
+                {% endif %}
+                {% if search_criteria.get('min_baths') %}
+                <span class="criteria-badge"><strong>Baths:</strong> {{ search_criteria.min_baths }}+</span>
+                {% endif %}
+                {% if search_criteria.get('counties') %}
+                    {% set county_list = search_criteria.counties %}
+                    {% if county_list is string %}
+                        {% set county_list = county_list|from_json %}
+                    {% endif %}
+                    {% if county_list %}
+                    <span class="criteria-badge"><strong>Counties:</strong> {{ county_list|join(', ') }}</span>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="search-actions">
+            <a href="/contacts/{{ contact.id }}/workspace?tab=requirements&new=1" class="dreams-btn dreams-btn-secondary">
+                Adjust Criteria
+            </a>
+        </div>
+    </div>
+
+    <div class="results-container">
+        <!-- Results Toolbar -->
+        <div class="results-toolbar">
+            <span class="results-count">{{ properties|length }} properties found</span>
+            <div class="selection-info">
+                <span id="selection-count" class="selection-count" style="display: none;">0 selected</span>
+                <button id="select-all-btn" class="dreams-btn dreams-btn-secondary" style="padding: 6px 12px; font-size: 13px;" onclick="toggleSelectAll()">
+                    Select All
+                </button>
+            </div>
+        </div>
+
+        {% if properties %}
+        <!-- Property Grid -->
+        <form id="create-package-form" method="POST" action="/contacts/{{ contact.id }}/packages/create">
+            {% if intake_form %}
+            <input type="hidden" name="intake_form_id" value="{{ intake_form.id }}">
+            {% endif %}
+
+            <div class="property-grid">
+                {% for prop in properties %}
+                <div class="property-card" data-property-id="{{ prop.id }}">
+                    <div class="property-card-select">
+                        <input type="checkbox" name="property_ids" value="{{ prop.id }}" onchange="updateSelection()">
+                    </div>
+
+                    <div class="property-card-image">
+                        {% if prop.primary_photo or prop.photo_url %}
+                        <img src="{{ prop.primary_photo or prop.photo_url }}" alt="{{ prop.address }}" loading="lazy">
+                        {% else %}
+                        <div class="no-image">&#127968;</div>
+                        {% endif %}
+                        <span class="property-card-status {{ (prop.status or 'active')|lower }}">
+                            {{ prop.status or 'Active' }}
+                        </span>
+                    </div>
+
+                    <div class="property-card-body">
+                        <div class="property-card-price">
+                            {% if prop.price %}${{ "{:,.0f}".format(prop.price) }}{% else %}Price N/A{% endif %}
+                        </div>
+                        <div class="property-card-address">
+                            {{ prop.address or 'Address N/A' }}
+                            {% if prop.city %}, {{ prop.city }}{% endif %}
+                        </div>
+                        <div class="property-card-details">
+                            <span>{{ prop.beds or '?' }} beds</span>
+                            <span>{{ prop.baths or '?' }} baths</span>
+                            <span>{{ "{:,.0f}".format(prop.sqft) if prop.sqft else '?' }} sqft</span>
+                            {% if prop.acreage %}<span>{{ prop.acreage }} acres</span>{% endif %}
+                        </div>
+                        <div class="property-card-meta">
+                            <span>{{ prop.county or '' }} County</span>
+                            <span>DOM: {{ prop.days_on_market or '?' }}</span>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Add to Existing Package Option -->
+            {% if packages %}
+            <input type="hidden" id="add-to-package-id" name="add_to_package_id" value="">
+            {% endif %}
+        </form>
+
+        <!-- Floating Action Bar -->
+        <div id="floating-action-bar" class="floating-action-bar">
+            <span class="count"><span id="float-count">0</span> properties selected</span>
+            <button type="button" onclick="createNewPackage()">Create New Package</button>
+            {% if packages %}
+            <select id="add-to-existing-select" style="padding: 8px 12px; border-radius: 6px; border: none;">
+                <option value="">Add to existing package...</option>
+                {% for pkg in packages %}
+                <option value="{{ pkg.id }}">{{ pkg.name }} ({{ pkg.status }})</option>
+                {% endfor %}
+            </select>
+            {% endif %}
+        </div>
+
+        {% else %}
+        <!-- Empty State -->
+        <div class="empty-state">
+            <div class="empty-state-icon">&#128269;</div>
+            <h3>No Properties Found</h3>
+            <p>No active properties match the current search criteria.</p>
+            <p style="margin-top: 12px;">
+                <a href="/contacts/{{ contact.id }}/workspace?tab=requirements" class="dreams-btn dreams-btn-primary">
+                    Adjust Requirements
+                </a>
+            </p>
+        </div>
+        {% endif %}
+    </div>
+
+    <script>
+        let selectedCount = 0;
+
+        function updateSelection() {
+            const checkboxes = document.querySelectorAll('input[name="property_ids"]');
+            const selected = document.querySelectorAll('input[name="property_ids"]:checked');
+            selectedCount = selected.length;
+
+            // Update count displays
+            const countBadge = document.getElementById('selection-count');
+            const floatCount = document.getElementById('float-count');
+            const floatingBar = document.getElementById('floating-action-bar');
+
+            if (selectedCount > 0) {
+                countBadge.textContent = selectedCount + ' selected';
+                countBadge.style.display = 'inline-block';
+                floatCount.textContent = selectedCount;
+                floatingBar.classList.add('visible');
+            } else {
+                countBadge.style.display = 'none';
+                floatingBar.classList.remove('visible');
+            }
+
+            // Update card selected state
+            document.querySelectorAll('.property-card').forEach(card => {
+                const checkbox = card.querySelector('input[type="checkbox"]');
+                if (checkbox && checkbox.checked) {
+                    card.classList.add('selected');
+                } else {
+                    card.classList.remove('selected');
+                }
+            });
+
+            // Update select all button
+            const selectAllBtn = document.getElementById('select-all-btn');
+            if (selectedCount === checkboxes.length && checkboxes.length > 0) {
+                selectAllBtn.textContent = 'Deselect All';
+            } else {
+                selectAllBtn.textContent = 'Select All';
+            }
+        }
+
+        function toggleSelectAll() {
+            const checkboxes = document.querySelectorAll('input[name="property_ids"]');
+            const allSelected = selectedCount === checkboxes.length;
+
+            checkboxes.forEach(cb => {
+                cb.checked = !allSelected;
+            });
+
+            updateSelection();
+        }
+
+        function createNewPackage() {
+            if (selectedCount === 0) {
+                alert('Please select at least one property');
+                return;
+            }
+            document.getElementById('create-package-form').submit();
+        }
+
+        // Handle click on property card to toggle selection
+        document.querySelectorAll('.property-card').forEach(card => {
+            card.addEventListener('click', (e) => {
+                // Don't toggle if clicking checkbox directly
+                if (e.target.type === 'checkbox') return;
+
+                const checkbox = card.querySelector('input[type="checkbox"]');
+                if (checkbox) {
+                    checkbox.checked = !checkbox.checked;
+                    updateSelection();
+                }
+            });
+        });
+
+        // Add to existing package
+        {% if packages %}
+        document.getElementById('add-to-existing-select').addEventListener('change', function() {
+            if (this.value && selectedCount > 0) {
+                const form = document.getElementById('create-package-form');
+                form.action = '/contacts/{{ contact.id }}/packages/' + this.value + '/add';
+                form.submit();
+            }
+        });
+        {% endif %}
+    </script>
+</body>
+</html>

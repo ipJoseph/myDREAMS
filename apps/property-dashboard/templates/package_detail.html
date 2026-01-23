@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ package.name or 'Package' }} | {{ contact.first_name }} {{ contact.last_name }} | DREAMS</title>
+    <link rel="icon" type="image/svg+xml" href="{{ favicon }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='shared/css/dreams.css') }}">
+    <style>
+        .package-header {
+            background: white;
+            padding: 24px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .package-header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .package-header h1 {
+            font-size: 24px;
+            margin: 0 0 8px 0;
+        }
+
+        .package-meta {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            margin-top: 12px;
+        }
+
+        .package-meta-item {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .package-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        /* Client Link Box */
+        .client-link-box {
+            background: var(--bg-secondary);
+            padding: 16px;
+            border-radius: 8px;
+            margin-top: 16px;
+        }
+
+        .client-link-box h4 {
+            margin: 0 0 8px 0;
+            font-size: 14px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        .client-link-input {
+            display: flex;
+            gap: 8px;
+        }
+
+        .client-link-input input {
+            flex: 1;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 14px;
+            background: white;
+        }
+
+        /* Properties Container */
+        .properties-container {
+            padding: 24px;
+        }
+
+        .properties-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .properties-header h2 {
+            margin: 0;
+            font-size: 18px;
+        }
+
+        /* Property Cards */
+        .package-property-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+            gap: 20px;
+        }
+
+        .package-property-card {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .package-property-image {
+            height: 180px;
+            background: var(--bg-tertiary);
+            position: relative;
+        }
+
+        .package-property-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .package-property-image .no-image {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--text-tertiary);
+            font-size: 48px;
+        }
+
+        .package-property-order {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            width: 28px;
+            height: 28px;
+            background: var(--primary);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 14px;
+        }
+
+        .package-property-badges {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            display: flex;
+            gap: 6px;
+        }
+
+        .package-property-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            background: white;
+        }
+
+        .package-property-badge.favorited {
+            background: #fce7f3;
+            color: #be185d;
+        }
+
+        .package-property-badge.showing-requested {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .package-property-body {
+            padding: 16px;
+        }
+
+        .package-property-price {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 4px;
+        }
+
+        .package-property-address {
+            font-size: 14px;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .package-property-details {
+            display: flex;
+            gap: 12px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+        }
+
+        .package-property-actions {
+            display: flex;
+            gap: 8px;
+            padding-top: 12px;
+            border-top: 1px solid var(--bg-tertiary);
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+        }
+
+        .empty-state h3 {
+            margin: 0 0 8px 0;
+            color: var(--text-primary);
+        }
+
+        /* Toast notification */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #166534;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            display: none;
+            z-index: 1000;
+        }
+
+        .toast.visible {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="dreams-header">
+        <div>
+            <h1>Package Detail</h1>
+            <div class="dreams-header-subtitle">
+                {{ contact.first_name }} {{ contact.last_name }}
+            </div>
+        </div>
+        <nav style="display: flex; gap: 16px; align-items: center;">
+            <a href="/contacts/{{ contact.id }}/workspace?tab=packages" class="dreams-btn dreams-btn-secondary">Back to Workspace</a>
+            <a href="/contacts/{{ contact.id }}/search" class="dreams-btn dreams-btn-secondary">Add More Properties</a>
+        </nav>
+    </header>
+
+    <!-- Package Header -->
+    <div class="package-header">
+        <div class="package-header-top">
+            <div>
+                <h1>{{ package.name or 'Untitled Package' }}</h1>
+                <div class="package-meta">
+                    <span class="dreams-badge dreams-badge-{{ package.status or 'draft' }}">{{ package.status or 'draft' }}</span>
+                    <span class="package-meta-item">{{ properties|length }} properties</span>
+                    {% if package.view_count %}
+                    <span class="package-meta-item">Viewed {{ package.view_count }}x</span>
+                    {% endif %}
+                    {% if package.created_at %}
+                    <span class="package-meta-item">Created {{ package.created_at[:10] }}</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="package-actions">
+                {% if package.status == 'draft' %}
+                <form method="POST" action="/contacts/{{ contact.id }}/packages/{{ package.id }}/status" style="display: inline;">
+                    <input type="hidden" name="status" value="ready">
+                    <button type="submit" class="dreams-btn dreams-btn-primary">Mark Ready to Send</button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if client_url %}
+        <div class="client-link-box">
+            <h4>Client Shareable Link</h4>
+            <div class="client-link-input">
+                <input type="text" id="client-link" value="{{ client_url }}" readonly>
+                <button onclick="copyClientLink()" class="dreams-btn dreams-btn-primary">Copy Link</button>
+                <a href="{{ client_url }}" target="_blank" class="dreams-btn dreams-btn-secondary">Preview</a>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Properties -->
+    <div class="properties-container">
+        <div class="properties-header">
+            <h2>Properties in Package</h2>
+        </div>
+
+        {% if properties %}
+        <div class="package-property-grid">
+            {% for prop in properties %}
+            <div class="package-property-card" data-property-id="{{ prop.id }}">
+                <div class="package-property-image">
+                    {% if prop.primary_photo or prop.photo_url %}
+                    <img src="{{ prop.primary_photo or prop.photo_url }}" alt="{{ prop.address }}" loading="lazy">
+                    {% else %}
+                    <div class="no-image">&#127968;</div>
+                    {% endif %}
+
+                    <span class="package-property-order">{{ prop.display_order or loop.index }}</span>
+
+                    <div class="package-property-badges">
+                        {% if prop.client_favorited %}
+                        <span class="package-property-badge favorited">&#10084; Favorited</span>
+                        {% endif %}
+                        {% if prop.showing_requested %}
+                        <span class="package-property-badge showing-requested">&#128197; Showing Requested</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="package-property-body">
+                    <div class="package-property-price">
+                        {% if prop.price %}${{ "{:,.0f}".format(prop.price) }}{% else %}Price N/A{% endif %}
+                    </div>
+                    <div class="package-property-address">
+                        {{ prop.address or 'Address N/A' }}
+                        {% if prop.city %}, {{ prop.city }}{% endif %}
+                    </div>
+                    <div class="package-property-details">
+                        <span>{{ prop.beds or '?' }} beds</span>
+                        <span>{{ prop.baths or '?' }} baths</span>
+                        <span>{{ "{:,.0f}".format(prop.sqft) if prop.sqft else '?' }} sqft</span>
+                    </div>
+
+                    {% if prop.package_notes %}
+                    <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px;">
+                        <strong>Notes:</strong> {{ prop.package_notes }}
+                    </div>
+                    {% endif %}
+
+                    <div class="package-property-actions">
+                        {% if prop.redfin_url or prop.url %}
+                        <a href="{{ prop.redfin_url or prop.url }}" target="_blank" class="dreams-btn dreams-btn-secondary" style="padding: 6px 10px; font-size: 12px;">
+                            View Listing
+                        </a>
+                        {% endif %}
+                        <button onclick="removeProperty('{{ prop.id }}')" class="dreams-btn dreams-btn-secondary" style="padding: 6px 10px; font-size: 12px; color: #dc2626;">
+                            Remove
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-state-icon">&#128230;</div>
+            <h3>No Properties in Package</h3>
+            <p>Add properties from the search results.</p>
+            <a href="/contacts/{{ contact.id }}/search" class="dreams-btn dreams-btn-primary" style="margin-top: 16px;">
+                Search Properties
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="toast">Link copied to clipboard!</div>
+
+    <script>
+        const contactId = '{{ contact.id }}';
+        const packageId = '{{ package.id }}';
+
+        function copyClientLink() {
+            const input = document.getElementById('client-link');
+            input.select();
+            document.execCommand('copy');
+
+            // Show toast
+            const toast = document.getElementById('toast');
+            toast.classList.add('visible');
+            setTimeout(() => {
+                toast.classList.remove('visible');
+            }, 2000);
+        }
+
+        async function removeProperty(propertyId) {
+            if (!confirm('Remove this property from the package?')) return;
+
+            try {
+                const response = await fetch(`/contacts/${contactId}/packages/${packageId}/remove/${propertyId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const result = await response.json();
+
+                if (result.success) {
+                    // Remove card from DOM
+                    const card = document.querySelector(`[data-property-id="${propertyId}"]`);
+                    if (card) {
+                        card.remove();
+                    }
+                } else {
+                    alert('Error removing property');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error removing property');
+            }
+        }
+    </script>
+</body>
+</html>

@@ -2,7 +2,7 @@
 
 *Exhaustive prioritized task list - check off as completed*
 
-Last updated: January 23, 2026
+Last updated: January 23, 2026 (Contact Workspace feature added)
 
 ---
 
@@ -21,10 +21,13 @@ Last updated: January 23, 2026
 
 | # | Task | Status | Category | Notes |
 |---|------|--------|----------|-------|
-| 5 | **Weighted buyer-property matching algorithm** | DONE | Phase 2 | 4-factor scoring: Price(30%), Location(25%), Size(25%), Recency(20%) |
-| 6 | **Match score breakdown visualization** | DONE | Phase 2 | Visual bars showing contribution of each factor |
-| 7 | **Lead requirements extraction from CRM notes** | Pending | Phase 2 | Parse buyer criteria from FUB notes |
-| 8 | **Stated requirements vs behavioral preferences** | DONE | Phase 2 | Blends stated (40%) + behavioral (60%) for matching |
+| 5 | **Unified Contact Workspace (Hearth Integration)** | DONE | Phase 1 | Central hub with tabs: Info, Requirements, Activity, Packages, Showings, Matches |
+| 6 | **Intake-Driven Property Search** | DONE | Phase 1 | Search redfin_imports using intake criteria, multi-select for package creation |
+| 7 | **Package Management in Workspace** | DONE | Phase 1 | Create packages from search, generate client links, track favorites |
+| 8 | **Weighted buyer-property matching algorithm** | DONE | Phase 2 | 4-factor scoring: Price(30%), Location(25%), Size(25%), Recency(20%) |
+| 9 | **Match score breakdown visualization** | DONE | Phase 2 | Visual bars showing contribution of each factor |
+| 10 | **Lead requirements extraction from CRM notes** | Pending | Phase 2 | Parse buyer criteria from FUB notes |
+| 11 | **Stated requirements vs behavioral preferences** | DONE | Phase 2 | Blends stated (40%) + behavioral (60%) for matching |
 
 ---
 

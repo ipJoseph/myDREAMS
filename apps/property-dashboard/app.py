@@ -1433,5 +1433,641 @@ def get_idx_progress():
         })
 
 
+# =========================================================================
+# CONTACT WORKSPACE ROUTES (Phase 1: Unified Contact Hub)
+# =========================================================================
+
+# Buyer workflow constants (migrated from buyer-workflow app)
+NEED_TYPES = [
+    ('primary_home', 'Primary Home'),
+    ('second_home', 'Second Home'),
+    ('child_home', 'Home for Child/Family'),
+    ('str', 'Short-Term Rental (STR)'),
+    ('ltr', 'Long-Term Rental (LTR)'),
+    ('investment', 'Investment Property'),
+    ('land', 'Land/Lot'),
+    ('relocation', 'Relocation'),
+]
+
+URGENCY_OPTIONS = [
+    ('asap', 'ASAP - Ready to buy now'),
+    ('1-3_months', '1-3 months'),
+    ('3-6_months', '3-6 months'),
+    ('6-12_months', '6-12 months'),
+    ('flexible', 'Flexible / Just browsing'),
+]
+
+FINANCING_OPTIONS = [
+    ('pre_approved', 'Pre-approved'),
+    ('cash', 'Cash buyer'),
+    ('needs_pre_approval', 'Needs pre-approval'),
+    ('unknown', 'Unknown'),
+]
+
+WNC_COUNTIES = [
+    'Macon', 'Jackson', 'Swain', 'Cherokee', 'Clay', 'Graham',
+    'Haywood', 'Transylvania', 'Henderson', 'Buncombe', 'Madison',
+    'Yancey', 'Mitchell', 'Avery', 'Watauga', 'Ashe', 'Alleghany',
+]
+
+PROPERTY_TYPES = [
+    'Single Family Residential', 'Condo/Co-op', 'Townhouse',
+    'Multi-Family (2-4 Unit)', 'Vacant Land', 'Mobile/Manufactured Home',
+    'Ranch', 'Other',
+]
+
+VIEW_OPTIONS = [
+    'Mountain', 'Long Range', 'Lake', 'River', 'Valley', 'Wooded', 'Pastoral',
+]
+
+WATER_OPTIONS = [
+    'Creek', 'River', 'Pond', 'Lake Access', 'Lake Front', 'River Front', 'Springs',
+]
+
+# Redfin imports database path
+PROPERTIES_DB_PATH = os.getenv('PROPERTIES_DB_PATH', str(PROJECT_ROOT / 'data' / 'redfin_imports.db'))
+
+
+def get_properties_db():
+    """Get database connection for property searches (redfin_imports)."""
+    import sqlite3
+    conn = sqlite3.connect(PROPERTIES_DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+@app.template_filter('from_json')
+def from_json_filter(value):
+    """Parse JSON string to Python object."""
+    if not value:
+        return []
+    try:
+        return json.loads(value)
+    except (json.JSONDecodeError, TypeError):
+        return []
+
+
+@app.route('/contacts/<contact_id>/workspace')
+@requires_auth
+def contact_workspace(contact_id):
+    """
+    Unified Contact Workspace - central hub for managing a buyer relationship.
+
+    Tabs:
+    - Info: Basic contact info, stage, scores, quick actions
+    - Requirements: Intake forms with inline editing + behavioral inference
+    - Activity: Timeline of communications and events
+    - Packages: Property packages created for this contact
+    - Showings: Scheduled and past showings
+    - Matches: AI-suggested properties based on requirements
+    """
+    db = get_db()
+
+    # Get contact
+    contact = db.get_lead(contact_id)
+    if not contact:
+        return "Contact not found", 404
+
+    # Auto-populate IDX cache for this contact's uncached MLS numbers
+    populate_idx_cache_for_contact(db, contact_id, limit=20)
+
+    # Get active tab from query param
+    active_tab = request.args.get('tab', 'info')
+
+    # Get intake forms for this contact
+    intake_forms = db.get_intake_forms_for_lead(contact_id)
+
+    # Get stated requirements (consolidated from intake forms)
+    stated_requirements = db.get_stated_requirements(contact_id)
+
+    # Get behavioral preferences (inferred from activity)
+    behavioral_prefs = db.get_behavioral_preferences(contact_id)
+
+    # Get activity timeline
+    timeline = db.get_activity_timeline(contact_id, days=30, limit=50)
+
+    # Get trend summary
+    trend_summary = db.get_contact_trend_summary(contact_id)
+
+    # Get contact actions
+    actions = db.get_contact_actions(contact_id, include_completed=True, limit=20)
+
+    # Get property view summary
+    property_summary = db.get_contact_property_summary(contact_id)
+
+    # Get packages for this contact
+    packages = []
+    try:
+        with db._get_connection() as conn:
+            packages = conn.execute('''
+                SELECT p.*, COUNT(pp.id) as property_count
+                FROM property_packages p
+                LEFT JOIN package_properties pp ON p.id = pp.package_id
+                WHERE p.lead_id = ?
+                GROUP BY p.id
+                ORDER BY p.created_at DESC
+            ''', (contact_id,)).fetchall()
+            packages = [dict(row) for row in packages]
+    except Exception as e:
+        logger.warning(f"Error fetching packages: {e}")
+
+    # Get showings for this contact
+    showings = []
+    try:
+        with db._get_connection() as conn:
+            showings = conn.execute('''
+                SELECT s.*, COUNT(sp.id) as property_count
+                FROM showings s
+                LEFT JOIN showing_properties sp ON s.id = sp.showing_id
+                WHERE s.lead_id = ?
+                GROUP BY s.id
+                ORDER BY s.scheduled_date DESC
+            ''', (contact_id,)).fetchall()
+            showings = [dict(row) for row in showings]
+    except Exception as e:
+        logger.warning(f"Error fetching showings: {e}")
+
+    # Today's date for due date comparisons
+    today = datetime.now().strftime('%Y-%m-%d')
+
+    return render_template('contact_workspace.html',
+        contact=contact,
+        active_tab=active_tab,
+        intake_forms=intake_forms,
+        stated_requirements=stated_requirements,
+        behavioral_prefs=behavioral_prefs,
+        timeline=timeline,
+        trend_summary=trend_summary,
+        actions=actions,
+        property_summary=property_summary,
+        packages=packages,
+        showings=showings,
+        today=today,
+        # Intake form options
+        need_types=NEED_TYPES,
+        urgency_options=URGENCY_OPTIONS,
+        financing_options=FINANCING_OPTIONS,
+        counties=WNC_COUNTIES,
+        property_types=PROPERTY_TYPES,
+        view_options=VIEW_OPTIONS,
+        water_options=WATER_OPTIONS,
+        refresh_time=datetime.now().strftime('%B %d, %Y %I:%M %p'))
+
+
+@app.route('/contacts/<contact_id>/intake/save', methods=['POST'])
+@requires_auth
+def contact_intake_save(contact_id):
+    """Save intake form for a contact (inline workspace editing)."""
+    import uuid
+    db = get_db()
+
+    form_id = request.form.get('form_id')
+    is_new = not form_id
+
+    if is_new:
+        form_id = str(uuid.uuid4())
+
+    # Build JSON arrays from multi-select fields
+    def get_json_array(field):
+        values = request.form.getlist(field)
+        return json.dumps(values) if values else None
+
+    # Handle cities as comma-separated input
+    cities_input = request.form.get('cities', '')
+    cities_list = [c.strip() for c in cities_input.split(',') if c.strip()]
+
+    data = {
+        'id': form_id,
+        'lead_id': contact_id,
+        'form_name': request.form.get('form_name'),
+        'need_type': request.form.get('need_type'),
+        'status': request.form.get('status', 'active'),
+        'priority': request.form.get('priority', 1),
+        'source': request.form.get('source'),
+        'source_date': request.form.get('source_date'),
+        'source_notes': request.form.get('source_notes'),
+
+        # Location
+        'counties': get_json_array('counties'),
+        'cities': json.dumps(cities_list) if cities_list else None,
+        'zip_codes': get_json_array('zip_codes'),
+
+        # Property criteria
+        'property_types': get_json_array('property_types'),
+        'min_price': request.form.get('min_price') or None,
+        'max_price': request.form.get('max_price') or None,
+        'min_beds': request.form.get('min_beds') or None,
+        'max_beds': request.form.get('max_beds') or None,
+        'min_baths': request.form.get('min_baths') or None,
+        'max_baths': request.form.get('max_baths') or None,
+        'min_sqft': request.form.get('min_sqft') or None,
+        'max_sqft': request.form.get('max_sqft') or None,
+        'min_acreage': request.form.get('min_acreage') or None,
+        'max_acreage': request.form.get('max_acreage') or None,
+        'min_year_built': request.form.get('min_year_built') or None,
+        'max_year_built': request.form.get('max_year_built') or None,
+
+        # Features
+        'views_required': get_json_array('views_required'),
+        'water_features': get_json_array('water_features'),
+        'style_preferences': get_json_array('style_preferences'),
+        'must_have_features': request.form.get('must_have_features'),
+        'nice_to_have_features': request.form.get('nice_to_have_features'),
+        'deal_breakers': request.form.get('deal_breakers'),
+
+        # Investment
+        'target_cap_rate': request.form.get('target_cap_rate') or None,
+        'target_rental_income': request.form.get('target_rental_income') or None,
+        'accepts_fixer_upper': 1 if request.form.get('accepts_fixer_upper') else 0,
+
+        # Timeline
+        'urgency': request.form.get('urgency'),
+        'move_in_date': request.form.get('move_in_date') or None,
+        'financing_status': request.form.get('financing_status'),
+        'pre_approval_amount': request.form.get('pre_approval_amount') or None,
+
+        # Notes
+        'agent_notes': request.form.get('agent_notes'),
+        'confidence_score': request.form.get('confidence_score') or None,
+        'updated_at': datetime.now().isoformat(),
+    }
+
+    try:
+        with db._get_connection() as conn:
+            if is_new:
+                data['created_at'] = datetime.now().isoformat()
+                placeholders = ', '.join(['?' for _ in data])
+                columns = ', '.join(data.keys())
+                conn.execute(f'INSERT INTO intake_forms ({columns}) VALUES ({placeholders})', list(data.values()))
+            else:
+                set_clause = ', '.join([f'{k} = ?' for k in data.keys() if k != 'id'])
+                values = [v for k, v in data.items() if k != 'id'] + [form_id]
+                conn.execute(f'UPDATE intake_forms SET {set_clause} WHERE id = ?', values)
+            conn.commit()
+    except Exception as e:
+        logger.error(f"Error saving intake form: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+    # Redirect back to workspace requirements tab
+    return redirect(url_for('contact_workspace', contact_id=contact_id, tab='requirements'))
+
+
+@app.route('/contacts/<contact_id>/search')
+@requires_auth
+def contact_property_search(contact_id):
+    """
+    Search properties based on contact's intake requirements.
+    Queries the redfin_imports database.
+    """
+    db = get_db()
+
+    # Get contact
+    contact = db.get_lead(contact_id)
+    if not contact:
+        return "Contact not found", 404
+
+    # Get stated requirements
+    requirements = db.get_stated_requirements(contact_id)
+
+    # Get behavioral preferences for additional context
+    behavioral = db.get_behavioral_preferences(contact_id)
+
+    # Get form_id if specified (for specific intake form search)
+    form_id = request.args.get('form_id')
+    intake_form = None
+
+    if form_id:
+        forms = db.get_intake_forms_for_lead(contact_id)
+        for f in forms:
+            if f.get('id') == form_id:
+                intake_form = f
+                break
+
+    # Build search criteria from requirements or form
+    search_criteria = {}
+
+    if intake_form:
+        # Use specific intake form criteria
+        search_criteria = {
+            'min_price': intake_form.get('min_price'),
+            'max_price': intake_form.get('max_price'),
+            'min_beds': intake_form.get('min_beds'),
+            'min_baths': intake_form.get('min_baths'),
+            'min_sqft': intake_form.get('min_sqft'),
+            'min_acreage': intake_form.get('min_acreage'),
+            'counties': intake_form.get('counties'),
+            'property_types': intake_form.get('property_types'),
+        }
+    elif requirements and requirements.get('confidence', 0) > 0:
+        # Use consolidated stated requirements
+        search_criteria = {
+            'min_price': requirements.get('min_price'),
+            'max_price': requirements.get('max_price'),
+            'min_beds': requirements.get('min_beds'),
+            'min_baths': requirements.get('min_baths'),
+            'min_sqft': requirements.get('min_sqft'),
+            'min_acreage': requirements.get('min_acreage'),
+            'counties': json.dumps(requirements.get('counties', [])) if requirements.get('counties') else None,
+        }
+    elif behavioral and behavioral.get('confidence', 0) > 0:
+        # Fall back to behavioral inference
+        search_criteria = {
+            'min_price': int(behavioral.get('price_range', [0, 0])[0] * 0.9) if behavioral.get('price_range') else None,
+            'max_price': int(behavioral.get('price_range', [0, 0])[1] * 1.1) if behavioral.get('price_range') else None,
+            'counties': json.dumps(behavioral.get('counties', [])) if behavioral.get('counties') else None,
+        }
+
+    # Allow URL parameter overrides
+    if request.args.get('min_price'):
+        search_criteria['min_price'] = request.args.get('min_price')
+    if request.args.get('max_price'):
+        search_criteria['max_price'] = request.args.get('max_price')
+    if request.args.get('min_beds'):
+        search_criteria['min_beds'] = request.args.get('min_beds')
+    if request.args.get('county'):
+        search_criteria['counties'] = json.dumps([request.args.get('county')])
+
+    # Query redfin_imports database
+    properties = []
+    try:
+        props_db = get_properties_db()
+
+        query = 'SELECT * FROM properties WHERE (status = "active" OR status = "Active")'
+        params = []
+
+        # Apply search criteria
+        if search_criteria.get('min_price'):
+            query += ' AND price >= ?'
+            params.append(int(search_criteria['min_price']))
+        if search_criteria.get('max_price'):
+            query += ' AND price <= ?'
+            params.append(int(search_criteria['max_price']))
+        if search_criteria.get('min_beds'):
+            query += ' AND beds >= ?'
+            params.append(int(search_criteria['min_beds']))
+        if search_criteria.get('min_baths'):
+            query += ' AND baths >= ?'
+            params.append(float(search_criteria['min_baths']))
+        if search_criteria.get('min_sqft'):
+            query += ' AND sqft >= ?'
+            params.append(int(search_criteria['min_sqft']))
+        if search_criteria.get('min_acreage'):
+            query += ' AND acreage >= ?'
+            params.append(float(search_criteria['min_acreage']))
+
+        # Counties filter
+        if search_criteria.get('counties'):
+            try:
+                counties = json.loads(search_criteria['counties'])
+                if counties:
+                    placeholders = ','.join(['?' for _ in counties])
+                    query += f' AND county IN ({placeholders})'
+                    params.extend(counties)
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+        # Property types filter
+        if search_criteria.get('property_types'):
+            try:
+                types = json.loads(search_criteria['property_types'])
+                if types:
+                    placeholders = ','.join(['?' for _ in types])
+                    query += f' AND property_type IN ({placeholders})'
+                    params.extend(types)
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+        query += ' ORDER BY days_on_market ASC, price ASC LIMIT 100'
+
+        logger.info(f"Property search query: {query}")
+        logger.info(f"Property search params: {params}")
+
+        rows = props_db.execute(query, params).fetchall()
+        properties = [dict(row) for row in rows]
+        props_db.close()
+
+    except Exception as e:
+        logger.error(f"Property search error: {e}")
+
+    # Get existing packages for "Add to Package" dropdown
+    packages = []
+    try:
+        with db._get_connection() as conn:
+            packages = conn.execute('''
+                SELECT id, name, status FROM property_packages
+                WHERE lead_id = ? AND status IN ('draft', 'ready')
+                ORDER BY created_at DESC
+            ''', (contact_id,)).fetchall()
+            packages = [dict(row) for row in packages]
+    except Exception as e:
+        logger.warning(f"Error fetching packages: {e}")
+
+    return render_template('property_search_results.html',
+        contact=contact,
+        properties=properties,
+        search_criteria=search_criteria,
+        requirements=requirements,
+        behavioral=behavioral,
+        intake_form=intake_form,
+        packages=packages,
+        counties=WNC_COUNTIES,
+        property_types=PROPERTY_TYPES)
+
+
+@app.route('/contacts/<contact_id>/packages/create', methods=['POST'])
+@requires_auth
+def contact_create_package(contact_id):
+    """Create a new package from selected properties."""
+    import uuid
+    import secrets
+    db = get_db()
+
+    # Get contact
+    contact = db.get_lead(contact_id)
+    if not contact:
+        return jsonify({'success': False, 'error': 'Contact not found'}), 404
+
+    # Get selected property IDs
+    property_ids = request.form.getlist('property_ids')
+    if not property_ids:
+        return jsonify({'success': False, 'error': 'No properties selected'}), 400
+
+    # Create package
+    package_id = str(uuid.uuid4())
+    share_token = secrets.token_urlsafe(16)
+
+    # Generate package name from contact name and date
+    contact_name = f"{contact.get('first_name', '')} {contact.get('last_name', '')}".strip()
+    package_name = f"{contact_name} - {datetime.now().strftime('%b %d, %Y')}"
+
+    # Get intake form ID if provided
+    intake_form_id = request.form.get('intake_form_id')
+
+    try:
+        with db._get_connection() as conn:
+            # Create package
+            conn.execute('''
+                INSERT INTO property_packages (id, lead_id, intake_form_id, name, status, share_token, created_at, updated_at)
+                VALUES (?, ?, ?, ?, 'draft', ?, ?, ?)
+            ''', (package_id, contact_id, intake_form_id, package_name, share_token,
+                  datetime.now().isoformat(), datetime.now().isoformat()))
+
+            # Add properties to package
+            for i, prop_id in enumerate(property_ids):
+                pp_id = str(uuid.uuid4())
+                conn.execute('''
+                    INSERT INTO package_properties (id, package_id, property_id, display_order, added_at)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (pp_id, package_id, prop_id, i + 1, datetime.now().isoformat()))
+
+            conn.commit()
+    except Exception as e:
+        logger.error(f"Error creating package: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+    # Redirect to package detail or back to workspace
+    return redirect(url_for('contact_package_detail', contact_id=contact_id, package_id=package_id))
+
+
+@app.route('/contacts/<contact_id>/packages/<package_id>')
+@requires_auth
+def contact_package_detail(contact_id, package_id):
+    """View package detail within contact workspace context."""
+    db = get_db()
+
+    # Get contact
+    contact = db.get_lead(contact_id)
+    if not contact:
+        return "Contact not found", 404
+
+    # Get package
+    package = None
+    properties = []
+
+    try:
+        with db._get_connection() as conn:
+            package = conn.execute('''
+                SELECT * FROM property_packages WHERE id = ? AND lead_id = ?
+            ''', (package_id, contact_id)).fetchone()
+
+            if not package:
+                return "Package not found", 404
+
+            package = dict(package)
+
+            # Get package properties metadata
+            pkg_props = conn.execute('''
+                SELECT property_id, display_order, agent_notes as package_notes,
+                       client_favorited, client_rating, showing_requested
+                FROM package_properties
+                WHERE package_id = ?
+                ORDER BY display_order
+            ''', (package_id,)).fetchall()
+
+        # Fetch property details from redfin_imports
+        if pkg_props:
+            props_db = get_properties_db()
+            prop_ids = [p['property_id'] for p in pkg_props]
+            placeholders = ','.join(['?' for _ in prop_ids])
+            props_data = props_db.execute(f'SELECT * FROM properties WHERE id IN ({placeholders})', prop_ids).fetchall()
+            props_dict = {p['id']: dict(p) for p in props_data}
+            props_db.close()
+
+            # Merge property data with package metadata
+            for pp in pkg_props:
+                prop = props_dict.get(pp['property_id'])
+                if prop:
+                    prop.update({
+                        'display_order': pp['display_order'],
+                        'package_notes': pp['package_notes'],
+                        'client_favorited': pp['client_favorited'],
+                        'client_rating': pp['client_rating'],
+                        'showing_requested': pp['showing_requested'],
+                    })
+                    properties.append(prop)
+
+    except Exception as e:
+        logger.error(f"Error fetching package: {e}")
+        return "Error loading package", 500
+
+    # Generate shareable client URL
+    client_url = None
+    if package.get('share_token'):
+        base_url = request.host_url.rstrip('/')
+        client_url = f"{base_url}/view/{package['share_token']}"
+
+    return render_template('package_detail.html',
+        contact=contact,
+        package=package,
+        properties=properties,
+        client_url=client_url)
+
+
+@app.route('/contacts/<contact_id>/packages/<package_id>/add', methods=['POST'])
+@requires_auth
+def contact_package_add_properties(contact_id, package_id):
+    """Add properties to an existing package."""
+    import uuid
+    db = get_db()
+
+    property_ids = request.form.getlist('property_ids')
+    if not property_ids:
+        return jsonify({'success': False, 'error': 'No properties selected'}), 400
+
+    try:
+        with db._get_connection() as conn:
+            # Get current max order
+            max_order = conn.execute(
+                'SELECT MAX(display_order) FROM package_properties WHERE package_id = ?',
+                (package_id,)
+            ).fetchone()[0] or 0
+
+            for i, prop_id in enumerate(property_ids):
+                # Check if already in package
+                existing = conn.execute(
+                    'SELECT id FROM package_properties WHERE package_id = ? AND property_id = ?',
+                    (package_id, prop_id)
+                ).fetchone()
+
+                if not existing:
+                    pp_id = str(uuid.uuid4())
+                    conn.execute('''
+                        INSERT INTO package_properties (id, package_id, property_id, display_order, added_at)
+                        VALUES (?, ?, ?, ?, ?)
+                    ''', (pp_id, package_id, prop_id, max_order + i + 1, datetime.now().isoformat()))
+
+            # Update package timestamp
+            conn.execute('UPDATE property_packages SET updated_at = ? WHERE id = ?',
+                        (datetime.now().isoformat(), package_id))
+            conn.commit()
+    except Exception as e:
+        logger.error(f"Error adding properties to package: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+    return redirect(url_for('contact_package_detail', contact_id=contact_id, package_id=package_id))
+
+
+@app.route('/contacts/<contact_id>/packages/<package_id>/remove/<property_id>', methods=['POST'])
+@requires_auth
+def contact_package_remove_property(contact_id, package_id, property_id):
+    """Remove a property from a package."""
+    db = get_db()
+
+    try:
+        with db._get_connection() as conn:
+            conn.execute(
+                'DELETE FROM package_properties WHERE package_id = ? AND property_id = ?',
+                (package_id, property_id)
+            )
+            conn.execute('UPDATE property_packages SET updated_at = ? WHERE id = ?',
+                        (datetime.now().isoformat(), package_id))
+            conn.commit()
+    except Exception as e:
+        logger.error(f"Error removing property from package: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+    return jsonify({'success': True})
+
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001, debug=True)
