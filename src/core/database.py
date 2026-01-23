@@ -926,6 +926,231 @@ class DREAMSDatabase:
                 ).fetchone()
             return dict(row) if row else None
 
+    def find_matching_properties(
+        self,
+        lead_id: str,
+        min_score: float = 40.0,
+        limit: int = 20
+    ) -> List[Dict[str, Any]]:
+        """
+        Find properties that match a buyer's stated and behavioral preferences.
+
+        Uses weighted multi-factor scoring:
+        - Price fit (30%): Property price within buyer's range
+        - Location (25%): City matches preferred locations
+        - Size (25%): Meets bedroom/bathroom requirements
+        - Recency (20%): Newer listings score higher
+
+        Returns list of matches with score breakdown.
+        """
+        lead = self.get_lead(lead_id)
+        if not lead:
+            return []
+
+        # Get behavioral preferences
+        behavioral = self.get_behavioral_preferences(lead_id)
+
+        # Blend stated and behavioral price ranges
+        stated_min = lead.get('min_price')
+        stated_max = lead.get('max_price')
+        behav_min, behav_max = behavioral.get('price_range') or (None, None)
+
+        # Weighted blend: behavioral 60%, stated 40%
+        min_price = None
+        max_price = None
+
+        if behav_min and stated_min:
+            min_price = int(stated_min * 0.4 + behav_min * 0.6)
+        elif behav_min:
+            min_price = behav_min
+        elif stated_min:
+            min_price = stated_min
+
+        if behav_max and stated_max:
+            max_price = int(stated_max * 0.4 + behav_max * 0.6)
+        elif behav_max:
+            max_price = behav_max
+        elif stated_max:
+            max_price = stated_max
+
+        # If we have a price range, expand it slightly for flexibility
+        if min_price:
+            min_price = int(min_price * 0.8)  # 20% below
+        if max_price:
+            max_price = int(max_price * 1.15)  # 15% above
+
+        # Get stated and behavioral cities
+        stated_cities = []
+        if lead.get('preferred_cities'):
+            try:
+                import json
+                stated_cities = json.loads(lead['preferred_cities'])
+            except (json.JSONDecodeError, TypeError):
+                pass
+        behavioral_cities = behavioral.get('cities', [])
+
+        # Stated requirements
+        min_beds = lead.get('min_beds')
+        min_baths = lead.get('min_baths')
+
+        # Query properties
+        with self._get_connection() as conn:
+            query = '''
+                SELECT * FROM properties
+                WHERE status = 'active'
+            '''
+            params = []
+
+            # Apply loose price filter if available
+            if min_price:
+                query += ' AND (price IS NULL OR price >= ?)'
+                params.append(min_price)
+            if max_price:
+                query += ' AND (price IS NULL OR price <= ?)'
+                params.append(max_price)
+
+            query += ' ORDER BY created_at DESC LIMIT 200'
+
+            properties = conn.execute(query, params).fetchall()
+
+        # Score each property
+        matches = []
+        for prop_row in properties:
+            prop = dict(prop_row)
+            score_breakdown = {}
+
+            # Price scoring (30%)
+            price_score = self._score_price_match(
+                prop.get('price'),
+                stated_min, stated_max,
+                behav_min, behav_max
+            )
+            score_breakdown['price'] = round(price_score * 30, 1)
+
+            # Location scoring (25%)
+            location_score = self._score_location_match(
+                prop.get('city'),
+                stated_cities,
+                behavioral_cities
+            )
+            score_breakdown['location'] = round(location_score * 25, 1)
+
+            # Size scoring (25%)
+            size_score = self._score_size_match(
+                prop.get('beds'),
+                prop.get('baths'),
+                min_beds,
+                min_baths
+            )
+            score_breakdown['size'] = round(size_score * 25, 1)
+
+            # Recency scoring (20%)
+            recency_score = self._score_recency_match(prop.get('days_on_market'))
+            score_breakdown['recency'] = round(recency_score * 20, 1)
+
+            total_score = sum(score_breakdown.values())
+
+            if total_score >= min_score:
+                matches.append({
+                    'property': prop,
+                    'total_score': round(total_score, 1),
+                    'score_breakdown': score_breakdown,
+                    'stated_contribution': round(score_breakdown['size'] + score_breakdown['price'] * 0.4, 1),
+                    'behavioral_contribution': round(
+                        score_breakdown['location'] + score_breakdown['price'] * 0.6 + score_breakdown['recency'],
+                        1
+                    )
+                })
+
+        # Sort by score and return top matches
+        matches.sort(key=lambda m: m['total_score'], reverse=True)
+        return matches[:limit]
+
+    def _score_price_match(
+        self,
+        price: int,
+        stated_min: int,
+        stated_max: int,
+        behav_min: int,
+        behav_max: int
+    ) -> float:
+        """Score price fit. Returns 0.0-1.0"""
+        if not price:
+            return 0.5  # Neutral if no price
+
+        # Blend ranges
+        min_p = stated_min or behav_min or 0
+        max_p = stated_max or behav_max or float('inf')
+
+        if behav_min and stated_min:
+            min_p = stated_min * 0.4 + behav_min * 0.6
+        if behav_max and stated_max:
+            max_p = stated_max * 0.4 + behav_max * 0.6
+
+        if min_p <= price <= max_p:
+            return 1.0
+        elif price < min_p:
+            return 0.7  # Under budget is okay
+        else:
+            over_pct = (price - max_p) / max_p if max_p else 0
+            return max(0, 1.0 - over_pct * 2)
+
+    def _score_location_match(
+        self,
+        city: str,
+        stated_cities: List[str],
+        behavioral_cities: List[str]
+    ) -> float:
+        """Score location match. Returns 0.0-1.0"""
+        if not city:
+            return 0.5
+
+        city_lower = city.lower()
+
+        # Behavioral match (stronger signal)
+        for bc in behavioral_cities:
+            if bc.lower() == city_lower:
+                return 1.0
+
+        # Stated preference match
+        for sc in stated_cities:
+            if sc.lower() == city_lower:
+                return 0.9
+
+        # Not in any preferred list
+        return 0.3
+
+    def _score_size_match(
+        self,
+        beds: int,
+        baths: float,
+        min_beds: int,
+        min_baths: float
+    ) -> float:
+        """Score size requirements. Returns 0.0-1.0"""
+        score = 1.0
+
+        if min_beds and beds and beds < min_beds:
+            score *= 0.5
+        if min_baths and baths and baths < min_baths:
+            score *= 0.8
+
+        return score
+
+    def _score_recency_match(self, days_on_market: int) -> float:
+        """Score freshness. Returns 0.0-1.0"""
+        if days_on_market is None:
+            return 0.5
+
+        if days_on_market <= 7:
+            return 1.0
+        elif days_on_market <= 30:
+            return 0.8
+        elif days_on_market <= 90:
+            return 0.6
+        else:
+            return 0.4
+
     def upsert_property_dict(self, data: Dict[str, Any]) -> bool:
         """Insert or update a property from a dictionary."""
         with self._get_connection() as conn:
@@ -1111,19 +1336,119 @@ class DREAMSDatabase:
         """Get activities for a lead."""
         query = 'SELECT * FROM lead_activities WHERE lead_id = ?'
         params = [lead_id]
-        
+
         if activity_types:
             placeholders = ', '.join(['?' for _ in activity_types])
             query += f' AND activity_type IN ({placeholders})'
             params.extend(activity_types)
-        
+
         query += ' ORDER BY occurred_at DESC LIMIT ?'
         params.append(limit)
-        
+
         with self._get_connection() as conn:
             rows = conn.execute(query, params).fetchall()
             return [dict(row) for row in rows]
-    
+
+    def get_behavioral_preferences(self, lead_id: str) -> Dict[str, Any]:
+        """
+        Analyze contact_events to infer buyer preferences from behavior.
+
+        Returns dict with:
+        - price_range: (min, max) from viewed properties
+        - avg_price: average price of viewed properties
+        - cities: list of cities from viewed properties
+        - view_count: total property views
+        - favorite_count: total favorites
+        - confidence: 0-1 score based on data volume
+        """
+        with self._get_connection() as conn:
+            # Get fub_id for the lead (events use fub_id as contact_id)
+            fub_row = conn.execute(
+                'SELECT fub_id FROM leads WHERE id = ?', (lead_id,)
+            ).fetchone()
+            contact_id = fub_row[0] if fub_row and fub_row[0] else lead_id
+
+            # Get property events with price data
+            events = conn.execute('''
+                SELECT event_type, property_price, property_mls, property_address
+                FROM contact_events
+                WHERE contact_id = ? AND event_type IN ('property_view', 'property_favorite', 'property_share')
+                ORDER BY occurred_at DESC
+                LIMIT 200
+            ''', (contact_id,)).fetchall()
+
+            if not events:
+                return {
+                    'price_range': None,
+                    'avg_price': None,
+                    'cities': [],
+                    'view_count': 0,
+                    'favorite_count': 0,
+                    'confidence': 0.0
+                }
+
+            # Weight by event type
+            weights = {'property_view': 1.0, 'property_favorite': 3.0, 'property_share': 2.5}
+
+            weighted_prices = []
+            cities = []
+            view_count = 0
+            favorite_count = 0
+
+            for event in events:
+                event_type = event[0]
+                price = event[1]
+                mls = event[2]
+                address = event[3]
+
+                weight = weights.get(event_type, 1.0)
+
+                if event_type == 'property_view':
+                    view_count += 1
+                elif event_type == 'property_favorite':
+                    favorite_count += 1
+
+                if price:
+                    # Add price weighted times
+                    for _ in range(int(weight)):
+                        weighted_prices.append(price)
+
+                # Try to get city from address or property lookup
+                if mls:
+                    prop = conn.execute(
+                        'SELECT city FROM properties WHERE mls_number = ? OR idx_mls_number = ?',
+                        (mls, mls)
+                    ).fetchone()
+                    if prop and prop[0]:
+                        for _ in range(int(weight)):
+                            cities.append(prop[0])
+
+            # Calculate price range (10th to 90th percentile)
+            min_price = max_price = avg_price = None
+            if weighted_prices:
+                weighted_prices.sort()
+                n = len(weighted_prices)
+                min_price = weighted_prices[int(n * 0.1)] if n > 1 else weighted_prices[0]
+                max_price = weighted_prices[int(n * 0.9)] if n > 1 else weighted_prices[0]
+                avg_price = sum(weighted_prices) // len(weighted_prices)
+
+            # Get most common cities
+            from collections import Counter
+            city_counts = Counter(cities)
+            top_cities = [city for city, _ in city_counts.most_common(5)]
+
+            # Confidence based on data volume
+            confidence = min(1.0, len(events) / 30)
+
+            return {
+                'price_range': (min_price, max_price) if min_price else None,
+                'avg_price': avg_price,
+                'cities': top_cities,
+                'view_count': view_count,
+                'favorite_count': favorite_count,
+                'confidence': round(confidence, 2)
+            }
+
     # ==========================================
     # SYNC LOG OPERATIONS
     # ==========================================
@@ -2402,7 +2727,10 @@ class DREAMSDatabase:
 
     def get_recent_contacts(self, days: int = 3) -> List[Dict[str, Any]]:
         """
-        Get contacts created in the last N days.
+        Get contacts created in the last N days, deduplicated by email.
+
+        When duplicates exist (same email), keeps the most complete record
+        (prefers the one with phone number).
 
         Args:
             days: Number of days to look back (default 3)
@@ -2413,20 +2741,22 @@ class DREAMSDatabase:
         cutoff = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
 
         with self._get_connection() as conn:
+            # Use GROUP BY with CASE to prefer records with phone numbers
             rows = conn.execute('''
                 SELECT
-                    id,
+                    MAX(CASE WHEN phone IS NOT NULL AND phone != '' THEN id ELSE id END) as id,
                     first_name,
                     last_name,
                     email,
-                    phone,
+                    MAX(phone) as phone,
                     stage,
                     source,
-                    created_at,
-                    DATE(created_at) as created_date,
-                    CAST(julianday('now') - julianday(DATE(created_at)) AS INTEGER) as days_ago
+                    MIN(created_at) as created_at,
+                    DATE(MIN(created_at)) as created_date,
+                    CAST(julianday('now') - julianday(DATE(MIN(created_at))) AS INTEGER) as days_ago
                 FROM leads
                 WHERE DATE(created_at) >= ?
-                ORDER BY created_at DESC
+                GROUP BY LOWER(COALESCE(email, first_name || ' ' || last_name))
+                ORDER BY MIN(created_at) DESC
             ''', (cutoff,)).fetchall()
             return [dict(row) for row in rows]

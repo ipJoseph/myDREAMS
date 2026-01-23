@@ -1168,6 +1168,31 @@ def get_scoring_runs_api():
     return jsonify({'success': True, 'runs': runs})
 
 
+@app.route('/api/contacts/<contact_id>/matches', methods=['GET'])
+@requires_auth
+def get_contact_matches_api(contact_id):
+    """
+    Get property matches for a contact based on stated and behavioral preferences.
+    Returns matched properties with score breakdowns.
+    """
+    db = get_db()
+    min_score = request.args.get('min_score', 40.0, type=float)
+    limit = request.args.get('limit', 15, type=int)
+
+    # Get behavioral preferences for display
+    behavioral = db.get_behavioral_preferences(contact_id)
+
+    # Get matching properties
+    matches = db.find_matching_properties(contact_id, min_score=min_score, limit=limit)
+
+    return jsonify({
+        'success': True,
+        'behavioral_preferences': behavioral,
+        'matches': matches,
+        'count': len(matches)
+    })
+
+
 # =========================================================================
 # IDX VALIDATION ROUTES
 # =========================================================================

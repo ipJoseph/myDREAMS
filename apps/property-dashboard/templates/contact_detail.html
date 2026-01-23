@@ -455,6 +455,113 @@
             padding: 40px;
             color: var(--text-secondary);
         }
+
+        /* Property Matches Section */
+        .property-matches-section {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 0 20px 20px 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .match-card {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 16px;
+            padding: 16px;
+            border: 1px solid var(--bg-tertiary);
+            border-radius: 8px;
+            margin-bottom: 12px;
+            transition: box-shadow 0.2s;
+        }
+
+        .match-card:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .match-property-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .match-property-address {
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 15px;
+        }
+
+        .match-property-details {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .match-property-price {
+            font-weight: 700;
+            color: var(--primary);
+            font-size: 16px;
+            margin-top: 4px;
+        }
+
+        .match-scores {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 8px;
+        }
+
+        .match-total-score {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .match-score-breakdown {
+            display: flex;
+            gap: 4px;
+        }
+
+        .score-bar-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+        }
+
+        .score-bar {
+            width: 32px;
+            height: 24px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: 600;
+            color: white;
+        }
+
+        .score-bar.price { background: #3b82f6; }
+        .score-bar.location { background: #10b981; }
+        .score-bar.size { background: #f59e0b; }
+        .score-bar.recency { background: #8b5cf6; }
+
+        .score-bar-label {
+            font-size: 9px;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+        }
+
+        .matches-empty {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-secondary);
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 13px;
+        }
     </style>
 </head>
 <body>
@@ -821,6 +928,25 @@
             <div class="intent-item {% if contact.intent_sharing %}active{% endif %}">
                 <span class="intent-indicator">S</span>
                 <span>Property Sharing</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Property Matches Section -->
+    <div class="property-matches-section" id="property-matches-section">
+        <div class="section-header-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <h3 class="section-title" style="margin: 0;">Property Matches</h3>
+            <button onclick="loadPropertyMatches()" class="btn btn-secondary btn-sm" id="refresh-matches-btn">
+                Refresh Matches
+            </button>
+        </div>
+        <div id="matches-behavioral-prefs" style="display: none; margin-bottom: 16px; padding: 12px; background: var(--bg-secondary); border-radius: 6px;">
+            <div style="font-size: 12px; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 8px;">Inferred Preferences</div>
+            <div id="behavioral-prefs-content" style="display: flex; gap: 20px; flex-wrap: wrap; font-size: 14px;"></div>
+        </div>
+        <div id="matches-container">
+            <div class="matches-loading" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                <span>Loading property matches...</span>
             </div>
         </div>
     </div>
@@ -1238,6 +1364,109 @@
                 alert('Error completing action. Please try again.');
             }
         }
+
+        // Property Matches
+        async function loadPropertyMatches() {
+            const container = document.getElementById('matches-container');
+            const prefsContainer = document.getElementById('matches-behavioral-prefs');
+            const prefsContent = document.getElementById('behavioral-prefs-content');
+
+            container.innerHTML = '<div class="matches-loading" style="text-align: center; padding: 40px; color: var(--text-secondary);"><span>Loading property matches...</span></div>';
+
+            try {
+                const response = await fetch(`/api/contacts/${contactId}/matches`);
+                const data = await response.json();
+
+                if (!data.success) {
+                    container.innerHTML = '<div class="matches-empty">Error loading matches</div>';
+                    return;
+                }
+
+                // Display behavioral preferences
+                const prefs = data.behavioral_preferences;
+                if (prefs && prefs.confidence > 0) {
+                    let prefsHtml = '';
+                    if (prefs.price_range) {
+                        prefsHtml += `<span><strong>Price Range:</strong> $${prefs.price_range[0]?.toLocaleString() || '?'} - $${prefs.price_range[1]?.toLocaleString() || '?'}</span>`;
+                    }
+                    if (prefs.avg_price) {
+                        prefsHtml += `<span><strong>Avg Price:</strong> $${prefs.avg_price.toLocaleString()}</span>`;
+                    }
+                    if (prefs.cities && prefs.cities.length > 0) {
+                        prefsHtml += `<span><strong>Cities:</strong> ${prefs.cities.join(', ')}</span>`;
+                    }
+                    prefsHtml += `<span><strong>Views:</strong> ${prefs.view_count}</span>`;
+                    prefsHtml += `<span><strong>Favorites:</strong> ${prefs.favorite_count}</span>`;
+                    prefsHtml += `<span style="color: var(--text-tertiary);">Confidence: ${Math.round(prefs.confidence * 100)}%</span>`;
+
+                    prefsContent.innerHTML = prefsHtml;
+                    prefsContainer.style.display = 'block';
+                } else {
+                    prefsContainer.style.display = 'none';
+                }
+
+                // Display matches
+                if (!data.matches || data.matches.length === 0) {
+                    container.innerHTML = '<div class="matches-empty">No matching properties found. This contact needs more activity data or stated preferences.</div>';
+                    return;
+                }
+
+                let html = '';
+                for (const match of data.matches) {
+                    const prop = match.property;
+                    const scores = match.score_breakdown;
+
+                    html += `
+                        <div class="match-card">
+                            <div class="match-property-info">
+                                <a href="/properties/${prop.id}" class="match-property-address dreams-link">
+                                    ${prop.address || 'Address N/A'}${prop.city ? ', ' + prop.city : ''}
+                                </a>
+                                <div class="match-property-details">
+                                    ${prop.beds || '?'} bed | ${prop.baths || '?'} bath | ${prop.sqft ? prop.sqft.toLocaleString() + ' sqft' : '? sqft'}
+                                    ${prop.mls_number ? ' | MLS# ' + prop.mls_number : ''}
+                                </div>
+                                <div class="match-property-price">
+                                    ${prop.price ? '$' + prop.price.toLocaleString() : 'Price N/A'}
+                                </div>
+                            </div>
+                            <div class="match-scores">
+                                <div class="match-total-score">${Math.round(match.total_score)}</div>
+                                <div class="match-score-breakdown">
+                                    <div class="score-bar-container">
+                                        <div class="score-bar price" title="Price: ${scores.price}/30">${Math.round(scores.price)}</div>
+                                        <div class="score-bar-label">Price</div>
+                                    </div>
+                                    <div class="score-bar-container">
+                                        <div class="score-bar location" title="Location: ${scores.location}/25">${Math.round(scores.location)}</div>
+                                        <div class="score-bar-label">Loc</div>
+                                    </div>
+                                    <div class="score-bar-container">
+                                        <div class="score-bar size" title="Size: ${scores.size}/25">${Math.round(scores.size)}</div>
+                                        <div class="score-bar-label">Size</div>
+                                    </div>
+                                    <div class="score-bar-container">
+                                        <div class="score-bar recency" title="Recency: ${scores.recency}/20">${Math.round(scores.recency)}</div>
+                                        <div class="score-bar-label">New</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                container.innerHTML = html;
+
+            } catch (error) {
+                console.error('Error loading matches:', error);
+                container.innerHTML = '<div class="matches-empty">Error loading matches. Please try again.</div>';
+            }
+        }
+
+        // Load matches on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadPropertyMatches();
+        });
     </script>
 </body>
 </html>
