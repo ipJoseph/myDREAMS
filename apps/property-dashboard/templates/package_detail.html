@@ -265,6 +265,11 @@
                 </div>
             </div>
             <div class="package-actions">
+                <a href="/contacts/{{ contact.id }}/packages/{{ package.id }}/pdf"
+                   class="dreams-btn dreams-btn-secondary"
+                   title="Download PDF package">
+                    Download PDF
+                </a>
                 {% if package.status == 'draft' %}
                 <form method="POST" action="/contacts/{{ contact.id }}/packages/{{ package.id }}/status" style="display: inline;">
                     <input type="hidden" name="status" value="ready">

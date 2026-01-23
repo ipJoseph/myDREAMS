@@ -9,6 +9,34 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Automation & Reports (Phase 3)** - Scheduled automation features for market intelligence and client engagement
+  - **Weekly Market Summary** - Monday 6:30 AM email with week-over-week market statistics:
+    - Market snapshots captured to `market_snapshots` table
+    - Active listings, new listings, price trends, days on market
+    - County-by-county breakdown for WNC tracked counties
+    - Key insights generation with notable listings
+  - **New Listing Alerts** - Daily 8:00 AM digest emails to buyers:
+    - Matches new properties to buyer requirements from `contact_requirements`
+    - Match scoring based on price, beds, baths, location, size, acreage
+    - Deduplication via `alert_log` table to prevent duplicate alerts
+    - Configurable match threshold (default 60%)
+  - **Monthly Lead Report** - 1st of month 7:00 AM lead activity summary:
+    - Pipeline stage overview and transitions
+    - Month-over-month engagement comparison
+    - Hot leads (warming up) and cooling leads (need attention)
+    - New leads added during the month
+  - **PDF Property Packages** - Generate branded PDF packages for buyers:
+    - WeasyPrint HTML-to-PDF conversion
+    - Cover page with agent branding and client name
+    - Property pages with photos, specs, details, features
+    - Agent contact page with branding
+    - Download button added to package detail page
+  - New directory: `apps/automation/` with shared infrastructure
+  - Shared email service: `email_service.py` with Jinja2 templates
+  - HTML email templates: `weekly_summary.html`, `listing_alert.html`, `monthly_report.html`, `property_package.html`
+  - Database tables: `alert_log`, `market_snapshots`
+  - Dashboard route: GET `/contacts/<id>/packages/<id>/pdf` for PDF download
+  - Cron jobs: `weekly_market_summary.py`, `new_listing_alerts.py`, `monthly_lead_report.py`
 - **Requirements Consolidation (Phase 5)** - Multi-source requirements merging with confidence tracking
   - **Consolidated Requirements** - Merges data from multiple sources with per-field confidence:
     - Intake forms (0.9 base confidence)

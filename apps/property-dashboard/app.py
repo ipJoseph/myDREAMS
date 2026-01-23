@@ -2089,6 +2089,39 @@ def contact_package_remove_property(contact_id, package_id, property_id):
     return jsonify({'success': True})
 
 
+@app.route('/contacts/<contact_id>/packages/<package_id>/pdf')
+@requires_auth
+def contact_package_pdf(contact_id, package_id):
+    """Generate and download PDF for a property package."""
+    try:
+        from apps.automation.pdf_generator import generate_pdf_bytes, get_package_pdf_filename
+
+        # Generate PDF bytes
+        pdf_bytes = generate_pdf_bytes(package_id)
+
+        if not pdf_bytes:
+            return "Failed to generate PDF. Make sure WeasyPrint is installed.", 500
+
+        # Get filename
+        filename = get_package_pdf_filename(package_id)
+
+        # Return PDF as download
+        return Response(
+            pdf_bytes,
+            mimetype='application/pdf',
+            headers={
+                'Content-Disposition': f'attachment; filename="{filename}"',
+                'Content-Type': 'application/pdf'
+            }
+        )
+
+    except ImportError:
+        return "PDF generation requires WeasyPrint. Install with: pip install weasyprint", 500
+    except Exception as e:
+        logger.error(f"Error generating PDF: {e}")
+        return f"Error generating PDF: {str(e)}", 500
+
+
 # =========================================================================
 # WORKFLOW PIPELINE ROUTES (Phase 4: Kanban Pipeline)
 # =========================================================================

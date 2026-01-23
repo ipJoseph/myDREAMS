@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monthly Lead Report</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 750px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f8fafc;
+        }
+        .header {
+            background: linear-gradient(135deg, #1a365d 0%, #2b6cb0 100%);
+            color: white;
+            padding: 25px;
+            text-align: center;
+            border-radius: 8px 8px 0 0;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        .header .date {
+            opacity: 0.9;
+            font-size: 14px;
+            margin-top: 8px;
+        }
+        .content {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-top: none;
+            padding: 25px;
+            border-radius: 0 0 8px 8px;
+        }
+        .executive-summary {
+            background: linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 25px;
+        }
+        .executive-summary h2 {
+            margin: 0 0 15px 0;
+            font-size: 16px;
+            color: #1a365d;
+        }
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+        }
+        .summary-stat {
+            text-align: center;
+        }
+        .summary-stat .value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #1a365d;
+        }
+        .summary-stat .label {
+            font-size: 11px;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1a365d;
+            margin: 30px 0 15px 0;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        th {
+            background: #f1f5f9;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            color: #475569;
+        }
+        td {
+            font-size: 14px;
+        }
+        .trend-up {
+            color: #16a34a;
+            font-weight: 500;
+        }
+        .trend-down {
+            color: #dc2626;
+            font-weight: 500;
+        }
+        .trend-stable {
+            color: #64748b;
+        }
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+        .badge-hot {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        .badge-warm {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .badge-cold {
+            background: #e0e7ff;
+            color: #3730a3;
+        }
+        .badge-new {
+            background: #dcfce7;
+            color: #166534;
+        }
+        .stage-flow {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        .stage-box {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 15px 20px;
+            text-align: center;
+            min-width: 100px;
+        }
+        .stage-box .count {
+            font-size: 24px;
+            font-weight: 700;
+            color: #1a365d;
+        }
+        .stage-box .name {
+            font-size: 12px;
+            color: #64748b;
+            text-transform: uppercase;
+        }
+        .stage-arrow {
+            color: #94a3b8;
+            font-size: 20px;
+        }
+        .highlight-row {
+            background: #fefce8;
+        }
+        .action-needed {
+            background: #fef2f2;
+        }
+        .contact-row td:first-child {
+            font-weight: 500;
+        }
+        .metric-comparison {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .comparison-card {
+            background: #f8fafc;
+            border-radius: 8px;
+            padding: 15px;
+            border: 1px solid #e2e8f0;
+        }
+        .comparison-card .title {
+            font-size: 12px;
+            color: #64748b;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+        .comparison-card .values {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+        }
+        .comparison-card .current {
+            font-size: 24px;
+            font-weight: 700;
+            color: #1a365d;
+        }
+        .comparison-card .previous {
+            font-size: 14px;
+            color: #94a3b8;
+        }
+        .comparison-card .delta {
+            font-size: 13px;
+            margin-top: 5px;
+        }
+        .footer {
+            text-align: center;
+            padding: 25px;
+            color: #64748b;
+            font-size: 12px;
+        }
+        .insight-box {
+            background: #eff6ff;
+            border-left: 4px solid #2b6cb0;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        .insight-box h3 {
+            margin: 0 0 10px 0;
+            color: #1a365d;
+            font-size: 14px;
+        }
+        .insight-box ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        .insight-box li {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Monthly Lead Report</h1>
+        <div class="date">{{ report_month }} {{ report_year }}</div>
+    </div>
+
+    <div class="content">
+        <div class="executive-summary">
+            <h2>Executive Summary</h2>
+            <div class="summary-grid">
+                <div class="summary-stat">
+                    <div class="value">{{ summary.total_leads }}</div>
+                    <div class="label">Total Leads</div>
+                </div>
+                <div class="summary-stat">
+                    <div class="value">{{ summary.new_leads }}</div>
+                    <div class="label">New This Month</div>
+                </div>
+                <div class="summary-stat">
+                    <div class="value">{{ summary.active_leads }}</div>
+                    <div class="label">Active</div>
+                </div>
+                <div class="summary-stat">
+                    <div class="value">{{ summary.conversions }}</div>
+                    <div class="label">Conversions</div>
+                </div>
+            </div>
+        </div>
+
+        {% if insights %}
+        <div class="insight-box">
+            <h3>Key Insights</h3>
+            <ul>
+                {% for insight in insights %}
+                <li>{{ insight }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        <div class="section-title">Pipeline Overview</div>
+        <div class="stage-flow">
+            {% for stage in pipeline_stages %}
+            <div class="stage-box">
+                <div class="count">{{ stage.count }}</div>
+                <div class="name">{{ stage.name }}</div>
+            </div>
+            {% if not loop.last %}
+            <div class="stage-arrow">&rarr;</div>
+            {% endif %}
+            {% endfor %}
+        </div>
+
+        <div class="section-title">Month-over-Month Comparison</div>
+        <div class="metric-comparison">
+            <div class="comparison-card">
+                <div class="title">Total Engagement</div>
+                <div class="values">
+                    <span class="current">{{ comparison.engagement_current }}</span>
+                    <span class="previous">vs {{ comparison.engagement_previous }}</span>
+                </div>
+                <div class="delta {% if comparison.engagement_delta > 0 %}trend-up{% elif comparison.engagement_delta < 0 %}trend-down{% else %}trend-stable{% endif %}">
+                    {{ '+' if comparison.engagement_delta > 0 else '' }}{{ comparison.engagement_delta }}% change
+                </div>
+            </div>
+            <div class="comparison-card">
+                <div class="title">Avg Heat Score</div>
+                <div class="values">
+                    <span class="current">{{ '%.1f'|format(comparison.heat_current) }}</span>
+                    <span class="previous">vs {{ '%.1f'|format(comparison.heat_previous) }}</span>
+                </div>
+                <div class="delta {% if comparison.heat_delta > 0 %}trend-up{% elif comparison.heat_delta < 0 %}trend-down{% else %}trend-stable{% endif %}">
+                    {{ '+' if comparison.heat_delta > 0 else '' }}{{ '%.1f'|format(comparison.heat_delta) }} points
+                </div>
+            </div>
+            <div class="comparison-card">
+                <div class="title">Properties Viewed</div>
+                <div class="values">
+                    <span class="current">{{ comparison.views_current }}</span>
+                    <span class="previous">vs {{ comparison.views_previous }}</span>
+                </div>
+                <div class="delta {% if comparison.views_delta > 0 %}trend-up{% elif comparison.views_delta < 0 %}trend-down{% else %}trend-stable{% endif %}">
+                    {{ '+' if comparison.views_delta > 0 else '' }}{{ comparison.views_delta }}% change
+                </div>
+            </div>
+            <div class="comparison-card">
+                <div class="title">Stage Transitions</div>
+                <div class="values">
+                    <span class="current">{{ comparison.transitions_current }}</span>
+                    <span class="previous">vs {{ comparison.transitions_previous }}</span>
+                </div>
+                <div class="delta {% if comparison.transitions_delta > 0 %}trend-up{% elif comparison.transitions_delta < 0 %}trend-down{% else %}trend-stable{% endif %}">
+                    {{ '+' if comparison.transitions_delta > 0 else '' }}{{ comparison.transitions_delta }}% change
+                </div>
+            </div>
+        </div>
+
+        {% if hot_leads %}
+        <div class="section-title">Hot Leads (Warming Up)</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Stage</th>
+                    <th>Heat Score</th>
+                    <th>Trend</th>
+                    <th>Recent Activity</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for lead in hot_leads %}
+                <tr class="contact-row">
+                    <td>{{ lead.name }}</td>
+                    <td>{{ lead.stage }}</td>
+                    <td>{{ '%.0f'|format(lead.heat_score) }}</td>
+                    <td class="trend-up">+{{ '%.0f'|format(lead.heat_delta) }}</td>
+                    <td>{{ lead.activity_summary }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+
+        {% if cooling_leads %}
+        <div class="section-title">Needs Attention (Cooling Down)</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Stage</th>
+                    <th>Heat Score</th>
+                    <th>Trend</th>
+                    <th>Last Activity</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for lead in cooling_leads %}
+                <tr class="contact-row action-needed">
+                    <td>{{ lead.name }}</td>
+                    <td>{{ lead.stage }}</td>
+                    <td>{{ '%.0f'|format(lead.heat_score) }}</td>
+                    <td class="trend-down">{{ '%.0f'|format(lead.heat_delta) }}</td>
+                    <td>{{ lead.days_since_activity }} days ago</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+
+        {% if new_leads %}
+        <div class="section-title">New Leads This Month</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Source</th>
+                    <th>Type</th>
+                    <th>Heat Score</th>
+                    <th>Added</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for lead in new_leads %}
+                <tr class="contact-row">
+                    <td>{{ lead.name }} <span class="badge badge-new">New</span></td>
+                    <td>{{ lead.source or 'Unknown' }}</td>
+                    <td>{{ lead.type }}</td>
+                    <td>{{ '%.0f'|format(lead.heat_score) }}</td>
+                    <td>{{ lead.created_date }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+
+        {% if stage_transitions %}
+        <div class="section-title">Stage Transitions This Month</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>From</th>
+                    <th>To</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for transition in stage_transitions %}
+                <tr>
+                    <td>{{ transition.name }}</td>
+                    <td>{{ transition.from_stage }}</td>
+                    <td>{{ transition.to_stage }}</td>
+                    <td>{{ transition.date }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+    </div>
+
+    <div class="footer">
+        <p>
+            {{ agent_name }}<br>
+            {{ brokerage_name }}<br>
+            {{ agent_email }} | {{ agent_phone }}
+        </p>
+        <p style="margin-top: 15px;">
+            Generated by DREAMS Automation<br>
+            {{ report_month }} {{ report_year }}
+        </p>
+    </div>
+</body>
+</html>

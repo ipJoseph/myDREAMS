@@ -612,6 +612,37 @@ class DREAMSDatabase:
             changed_at TEXT DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (contact_id) REFERENCES leads(id)
         );
+
+        -- Alert log (track sent alerts to prevent duplicates)
+        CREATE TABLE IF NOT EXISTS alert_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            alert_type TEXT NOT NULL,        -- 'new_listing', 'price_drop', 'weekly_summary', 'monthly_report'
+            contact_id TEXT,
+            property_id TEXT,
+            sent_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            email_to TEXT,
+            status TEXT DEFAULT 'sent',      -- 'sent', 'failed', 'bounced'
+            error_message TEXT,
+            metadata TEXT,                   -- JSON for additional context
+            UNIQUE(alert_type, contact_id, property_id)
+        );
+
+        -- Market snapshots (weekly market state for trend comparison)
+        CREATE TABLE IF NOT EXISTS market_snapshots (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            snapshot_date TEXT NOT NULL,     -- YYYY-MM-DD format
+            county TEXT,                     -- NULL = all counties combined
+            total_active INTEGER DEFAULT 0,
+            new_listings INTEGER DEFAULT 0,
+            avg_price INTEGER,
+            median_price INTEGER,
+            avg_dom REAL,                    -- Average days on market
+            pending_count INTEGER DEFAULT 0,
+            sold_count INTEGER DEFAULT 0,
+            price_reduced_count INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(snapshot_date, county)
+        );
         '''
 
     def _get_indexes_schema(self) -> str:
@@ -666,6 +697,14 @@ class DREAMSDatabase:
         CREATE INDEX IF NOT EXISTS idx_requirements_contact ON contact_requirements(contact_id);
         CREATE INDEX IF NOT EXISTS idx_requirements_changes_contact ON requirements_changes(contact_id);
         CREATE INDEX IF NOT EXISTS idx_requirements_changes_field ON requirements_changes(field_name);
+        -- Alert log indexes
+        CREATE INDEX IF NOT EXISTS idx_alert_log_type ON alert_log(alert_type);
+        CREATE INDEX IF NOT EXISTS idx_alert_log_contact ON alert_log(contact_id);
+        CREATE INDEX IF NOT EXISTS idx_alert_log_property ON alert_log(property_id);
+        CREATE INDEX IF NOT EXISTS idx_alert_log_sent ON alert_log(sent_at DESC);
+        -- Market snapshots indexes
+        CREATE INDEX IF NOT EXISTS idx_market_snapshots_date ON market_snapshots(snapshot_date DESC);
+        CREATE INDEX IF NOT EXISTS idx_market_snapshots_county ON market_snapshots(county);
         '''
     
     # ==========================================

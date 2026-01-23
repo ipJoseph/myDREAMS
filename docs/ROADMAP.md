@@ -127,13 +127,13 @@
 
 ---
 
-## Phase 3: Automation & Monitoring (In Progress)
+## Phase 3: Automation & Monitoring (Completed)
 
 ### Property Monitoring
 - [x] Price change detection (logged to SQLite)
 - [x] Status change alerts (logged to SQLite)
 - [x] VPS deployment scripts (`vps_setup.sh`, `run_monitor.sh`)
-- [ ] New listing alerts for saved searches
+- [x] New listing alerts for buyers (matches to contact_requirements)
 - [ ] Historical price chart generation
 
 **Scraper Status:**
@@ -143,13 +143,26 @@
 | Zillow | Broken | Code exists, blocked in practice |
 | Realtor.com | Not Implemented | Falls back to Redfin scraper |
 
-### Automated Reports
+### Automated Reports (January 2026)
 - [x] Daily priority call list email
 - [x] Property changes in daily email report
 - [x] Today's Changes section on dashboard
-- [ ] Weekly market summary
-- [ ] Monthly lead activity report
+- [x] Weekly market summary (Monday 6:30 AM email with week-over-week stats)
+- [x] Monthly lead activity report (1st of month, includes trends and stage transitions)
+- [x] New listing alerts (Daily 8:00 AM digest to buyers with matching properties)
 - [ ] Customizable alert thresholds
+
+### Automation Infrastructure (January 2026)
+| Task | Status | Notes |
+|------|--------|-------|
+| apps/automation/ directory | Done | Shared automation infrastructure |
+| Email service | Done | Jinja2 templated HTML emails |
+| Weekly market summary | Done | Cron job with market_snapshots table |
+| Monthly lead report | Done | Activity aggregation, pipeline analysis |
+| New listing alerts | Done | Buyer matching with deduplication |
+| PDF packages | Done | WeasyPrint HTML-to-PDF generation |
+| Alert log table | Done | Prevents duplicate notifications |
+| Market snapshots table | Done | Week-over-week comparison data |
 
 ### Properties Viewed Feature (New - January 2026)
 | Task | Status | Notes |
@@ -168,7 +181,7 @@
 - [ ] Feature toggles
 
 ### Package Generation
-- [ ] PDF showing packages
+- [x] PDF showing packages (WeasyPrint with agent branding)
 - [ ] Branded property flyers
 - [ ] Comparative market analysis
 - [ ] Client presentation decks

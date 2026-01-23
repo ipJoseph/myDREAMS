@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Property Matches</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 650px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f8fafc;
+        }
+        .header {
+            background: linear-gradient(135deg, #1a365d 0%, #2b6cb0 100%);
+            color: white;
+            padding: 25px;
+            text-align: center;
+            border-radius: 8px 8px 0 0;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 22px;
+        }
+        .header .subtitle {
+            opacity: 0.9;
+            font-size: 14px;
+            margin-top: 8px;
+        }
+        .content {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-top: none;
+            padding: 25px;
+            border-radius: 0 0 8px 8px;
+        }
+        .greeting {
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
+        .property-card {
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            margin: 20px 0;
+            overflow: hidden;
+        }
+        .property-image {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            background: #f1f5f9;
+            display: block;
+        }
+        .property-details {
+            padding: 18px;
+        }
+        .property-price {
+            font-size: 24px;
+            font-weight: 700;
+            color: #1a365d;
+            margin-bottom: 5px;
+        }
+        .property-address {
+            color: #475569;
+            font-size: 15px;
+            margin-bottom: 12px;
+        }
+        .property-specs {
+            display: flex;
+            gap: 20px;
+            color: #64748b;
+            font-size: 14px;
+            margin-bottom: 12px;
+        }
+        .property-specs span {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .match-score {
+            display: inline-block;
+            background: #dcfce7;
+            color: #166534;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 500;
+        }
+        .property-features {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #e2e8f0;
+            font-size: 13px;
+            color: #64748b;
+        }
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #1a365d;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 500;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+        .btn:hover {
+            background: #2b6cb0;
+        }
+        .footer {
+            text-align: center;
+            padding: 25px;
+            color: #64748b;
+            font-size: 12px;
+        }
+        .agent-box {
+            background: #f8fafc;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 25px;
+            text-align: center;
+        }
+        .agent-box img {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            margin-bottom: 10px;
+        }
+        .agent-name {
+            font-weight: 600;
+            color: #1a365d;
+            font-size: 16px;
+        }
+        .agent-info {
+            color: #64748b;
+            font-size: 13px;
+            margin-top: 5px;
+        }
+        .agent-contact {
+            margin-top: 10px;
+        }
+        .agent-contact a {
+            color: #2b6cb0;
+            text-decoration: none;
+            margin: 0 10px;
+        }
+        .divider {
+            border-top: 1px solid #e2e8f0;
+            margin: 25px 0;
+        }
+        .highlight-badge {
+            display: inline-block;
+            background: #fef3c7;
+            color: #92400e;
+            padding: 3px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>New Properties Matching Your Criteria</h1>
+        <div class="subtitle">{{ property_count }} new listing{{ 's' if property_count != 1 else '' }} found</div>
+    </div>
+
+    <div class="content">
+        <div class="greeting">
+            Hi {{ contact_name }},<br><br>
+            {{ 'These properties' if property_count > 1 else 'This property' }} just hit the market and match{{ '' if property_count > 1 else 'es' }} what you're looking for!
+        </div>
+
+        {% for property in properties %}
+        <div class="property-card">
+            {% if property.photo_url %}
+            <img src="{{ property.photo_url }}" alt="{{ property.address }}" class="property-image">
+            {% else %}
+            <div class="property-image" style="display: flex; align-items: center; justify-content: center; color: #94a3b8;">
+                No photo available
+            </div>
+            {% endif %}
+            <div class="property-details">
+                <div class="property-price">
+                    ${{ '{:,.0f}'.format(property.price) }}
+                    {% if property.is_price_drop %}
+                    <span class="highlight-badge">Price Reduced!</span>
+                    {% endif %}
+                </div>
+                <div class="property-address">{{ property.address }}, {{ property.city }}</div>
+                <div class="property-specs">
+                    <span>{{ property.beds }} beds</span>
+                    <span>{{ property.baths }} baths</span>
+                    {% if property.sqft %}
+                    <span>{{ '{:,}'.format(property.sqft) }} sqft</span>
+                    {% endif %}
+                    {% if property.acreage %}
+                    <span>{{ property.acreage }} acres</span>
+                    {% endif %}
+                </div>
+                <span class="match-score">{{ property.match_score }}% match</span>
+                {% if property.matching_features %}
+                <div class="property-features">
+                    <strong>Matches your criteria:</strong> {{ property.matching_features }}
+                </div>
+                {% endif %}
+                {% if property.listing_url %}
+                <a href="{{ property.listing_url }}" class="btn" target="_blank">View Listing</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+
+        <div class="divider"></div>
+
+        <div class="agent-box">
+            {% if agent_headshot %}
+            <img src="{{ agent_headshot }}" alt="{{ agent_name }}">
+            {% endif %}
+            <div class="agent-name">{{ agent_name }}</div>
+            <div class="agent-info">{{ brokerage_name }}</div>
+            <div class="agent-contact">
+                <a href="mailto:{{ agent_email }}">{{ agent_email }}</a>
+                <a href="tel:{{ agent_phone }}">{{ agent_phone }}</a>
+            </div>
+            <p style="margin-top: 15px; font-size: 14px; color: #475569;">
+                Interested in any of these properties? Reply to this email or give me a call to schedule a showing!
+            </p>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>
+            You're receiving this because you're searching for a home with {{ brokerage_name }}.<br>
+            Your criteria: {{ criteria_summary }}
+        </p>
+        <p style="margin-top: 10px;">
+            Generated by DREAMS | {{ alert_date }}
+        </p>
+    </div>
+</body>
+</html>
