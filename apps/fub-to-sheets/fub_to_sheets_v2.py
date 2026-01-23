@@ -881,7 +881,7 @@ def compute_daily_activity_stats(
     # Get new contacts from the last 3 days (from SQLite)
     try:
         from src.core.database import DREAMSDatabase
-        db = DREAMSDatabase(Config.SQLITE_DB_PATH)
+        db = DREAMSDatabase(Config.DREAMS_DB_PATH)
         new_contacts = db.get_recent_contacts(days=3)
         stats["new_contacts"] = new_contacts
         logger.info(f"✓ Found {len(new_contacts)} new contacts in last 3 days")
