@@ -1209,6 +1209,23 @@
                             <strong>Cities:</strong> {{ behavioral_prefs.cities|join(', ') }}
                         </div>
                         {% endif %}
+                        {% if behavioral_prefs.avg_beds %}
+                        <div class="behavioral-item">
+                            <strong>Beds:</strong> {{ behavioral_prefs.avg_beds }} avg
+                            {% if behavioral_prefs.beds_range %}({{ behavioral_prefs.beds_range[0] }}-{{ behavioral_prefs.beds_range[1] }}){% endif %}
+                        </div>
+                        {% endif %}
+                        {% if behavioral_prefs.avg_baths %}
+                        <div class="behavioral-item">
+                            <strong>Baths:</strong> {{ behavioral_prefs.avg_baths }} avg
+                            {% if behavioral_prefs.baths_range %}({{ behavioral_prefs.baths_range[0] }}-{{ behavioral_prefs.baths_range[1] }}){% endif %}
+                        </div>
+                        {% endif %}
+                        {% if behavioral_prefs.acreage_range %}
+                        <div class="behavioral-item">
+                            <strong>Lot Size:</strong> {{ "%.1f"|format(behavioral_prefs.acreage_range[0]) }} - {{ "%.1f"|format(behavioral_prefs.acreage_range[1]) }} acres
+                        </div>
+                        {% endif %}
                         <div class="behavioral-item">
                             <strong>Views:</strong> {{ behavioral_prefs.view_count }}
                         </div>
