@@ -27,7 +27,7 @@ Last updated: January 23, 2026 (Contact Workspace feature added)
 | 8 | **Workflow Pipeline (Kanban View)** | DONE | Phase 4 | Drag-drop Kanban board with 10 stages, stage history, auto-inference |
 | 9 | **Weighted buyer-property matching algorithm** | DONE | Phase 2 | 4-factor scoring: Price(30%), Location(25%), Size(25%), Recency(20%) |
 | 9 | **Match score breakdown visualization** | DONE | Phase 2 | Visual bars showing contribution of each factor |
-| 10 | **Lead requirements extraction from CRM notes** | Pending | Phase 2 | Parse buyer criteria from FUB notes |
+| 10 | **Lead requirements extraction from CRM notes** | DONE | Phase 2 | Regex parsing for price, beds, baths, acreage, counties, cities |
 | 11 | **Stated requirements vs behavioral preferences** | DONE | Phase 2 | Blends stated (40%) + behavioral (60%) for matching |
 
 ---
@@ -106,6 +106,10 @@ Last updated: January 23, 2026 (Contact Workspace feature added)
 | - | Database Normalization | Jan 22, 2026 | contact_daily_activity, contact_actions, scoring_runs tables |
 | - | FUB Sync with Trend Evaluation | Jan 22, 2026 | Scoring runs audit, trend detection, daily aggregation |
 | - | Metrics dropdown | Jan 23, 2026 | Navigation menu on main dashboard |
+| 10 | Lead requirements extraction from notes | Jan 23, 2026 | Regex parsing for price, beds, baths, acreage, counties, cities |
+| - | Requirements consolidation (Phase 5) | Jan 23, 2026 | Multi-source merge with confidence scoring |
+| - | Source comparison UI | Jan 23, 2026 | Compare intake vs behavioral vs notes values |
+| - | Agent override capability | Jan 23, 2026 | Override any requirement field with confidence 1.0 |
 
 ---
 

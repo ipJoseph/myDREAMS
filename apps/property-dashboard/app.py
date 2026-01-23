@@ -1543,6 +1543,24 @@ def contact_workspace(contact_id):
     # Get behavioral preferences (inferred from activity)
     behavioral_prefs = db.get_behavioral_preferences(contact_id)
 
+    # Get consolidated requirements (Phase 5)
+    consolidated_reqs = db.get_consolidated_requirements(contact_id)
+    if not consolidated_reqs and (stated_requirements.get('confidence', 0) > 0 or behavioral_prefs.get('confidence', 0) > 0):
+        # Auto-consolidate if we have source data
+        try:
+            consolidated_reqs = db.consolidate_requirements(contact_id)
+        except Exception as e:
+            logger.warning(f"Error consolidating requirements: {e}")
+            consolidated_reqs = None
+
+    # Get requirements by source for comparison view
+    requirements_sources = None
+    if active_tab == 'requirements':
+        try:
+            requirements_sources = db.get_requirements_by_source(contact_id)
+        except Exception as e:
+            logger.warning(f"Error getting requirements sources: {e}")
+
     # Get activity timeline
     timeline = db.get_activity_timeline(contact_id, days=30, limit=50)
 
@@ -1596,6 +1614,8 @@ def contact_workspace(contact_id):
         intake_forms=intake_forms,
         stated_requirements=stated_requirements,
         behavioral_prefs=behavioral_prefs,
+        consolidated_reqs=consolidated_reqs,
+        requirements_sources=requirements_sources,
         timeline=timeline,
         trend_summary=trend_summary,
         actions=actions,
@@ -2203,6 +2223,123 @@ def api_auto_stage_contact(contact_id):
         })
     except Exception as e:
         logger.error(f"Error auto-staging contact: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# =========================================================================
+# REQUIREMENTS CONSOLIDATION API (Phase 5)
+# =========================================================================
+
+@app.route('/api/contacts/<contact_id>/requirements')
+@requires_auth
+def api_get_requirements(contact_id):
+    """Get consolidated requirements for a contact."""
+    db = get_db()
+
+    try:
+        # Get or create consolidated requirements
+        requirements = db.get_consolidated_requirements(contact_id)
+        if not requirements:
+            requirements = db.consolidate_requirements(contact_id)
+
+        return jsonify({
+            'success': True,
+            'requirements': requirements
+        })
+    except Exception as e:
+        logger.error(f"Error getting requirements: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/contacts/<contact_id>/requirements/sources')
+@requires_auth
+def api_get_requirements_by_source(contact_id):
+    """Get requirements broken down by source for comparison."""
+    db = get_db()
+
+    try:
+        sources = db.get_requirements_by_source(contact_id)
+        return jsonify({
+            'success': True,
+            'sources': sources
+        })
+    except Exception as e:
+        logger.error(f"Error getting requirements by source: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/contacts/<contact_id>/requirements/consolidate', methods=['POST'])
+@requires_auth
+def api_consolidate_requirements(contact_id):
+    """Force re-consolidation of requirements from all sources."""
+    db = get_db()
+
+    try:
+        requirements = db.consolidate_requirements(contact_id)
+        return jsonify({
+            'success': True,
+            'requirements': requirements
+        })
+    except Exception as e:
+        logger.error(f"Error consolidating requirements: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/contacts/<contact_id>/requirements/override', methods=['POST'])
+@requires_auth
+def api_override_requirement(contact_id):
+    """Override a specific requirement field."""
+    db = get_db()
+
+    data = request.get_json() or {}
+    field_name = data.get('field')
+    value = data.get('value')
+
+    if not field_name:
+        return jsonify({'success': False, 'error': 'Field name required'}), 400
+
+    try:
+        requirements = db.override_requirement(contact_id, field_name, value, 'agent')
+        return jsonify({
+            'success': True,
+            'requirements': requirements
+        })
+    except Exception as e:
+        logger.error(f"Error overriding requirement: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/contacts/<contact_id>/requirements/changes')
+@requires_auth
+def api_get_requirements_changes(contact_id):
+    """Get audit trail of requirement changes."""
+    db = get_db()
+
+    try:
+        changes = db.get_requirements_changes(contact_id)
+        return jsonify({
+            'success': True,
+            'changes': changes
+        })
+    except Exception as e:
+        logger.error(f"Error getting requirement changes: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/contacts/<contact_id>/requirements/refresh', methods=['POST'])
+@requires_auth
+def api_refresh_requirements(contact_id):
+    """Re-consolidate requirements from all sources."""
+    db = get_db()
+
+    try:
+        requirements = db.consolidate_requirements(contact_id)
+        return jsonify({
+            'success': True,
+            'requirements': requirements
+        })
+    except Exception as e:
+        logger.error(f"Error refreshing requirements: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 

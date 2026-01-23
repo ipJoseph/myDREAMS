@@ -9,6 +9,29 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Requirements Consolidation (Phase 5)** - Multi-source requirements merging with confidence tracking
+  - **Consolidated Requirements** - Merges data from multiple sources with per-field confidence:
+    - Intake forms (0.9 base confidence)
+    - Behavioral analysis (0.7 base confidence, scaled by data volume)
+    - Note parsing (0.6 base confidence)
+    - Agent overrides (1.0 confidence, always wins)
+  - **Note Parsing** - Regex extraction of requirements from FUB notes:
+    - Price ranges ($300k-$500k, budget of $400,000, etc.)
+    - Beds/baths (3 bed, 2 bath, etc.)
+    - Acreage (5 acres, 10+ acres, etc.)
+    - Counties (Buncombe, Henderson, etc.)
+    - Cities (Asheville, Black Mountain, etc.)
+  - **Source Comparison UI** - Collapsible table comparing values across all sources
+  - **Agent Override** - Click "Override" on any field to set a manual value
+  - **Data Completeness Meter** - Visual indicator of how much data we have
+  - **Confidence Bars** - Per-field confidence indicators with color coding
+  - **Refresh Button** - Re-consolidate from all sources on demand
+  - Database tables: `contact_requirements`, `requirements_changes`
+  - API endpoints:
+    - GET `/api/contacts/<id>/requirements` - Get consolidated requirements
+    - POST `/api/contacts/<id>/requirements/override` - Override a field
+    - POST `/api/contacts/<id>/requirements/refresh` - Re-consolidate
+    - GET `/api/contacts/<id>/requirements/changes` - Audit trail
 - **Workflow Pipeline (Phase 4)** - Kanban-style pipeline for contact workflow management
   - **Pipeline View** (`/pipeline`) - Drag-and-drop Kanban board with 10 workflow stages:
     - New Lead, Requirements Discovery, Active Search, Reviewing Options

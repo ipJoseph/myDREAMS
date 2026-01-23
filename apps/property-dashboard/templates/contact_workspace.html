@@ -245,6 +245,160 @@
         .confidence-medium { background: #fef3c7; color: #92400e; }
         .confidence-low { background: #fee2e2; color: #991b1b; }
 
+        /* Source Badges */
+        .source-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .source-intake { background: #e0f2fe; color: #0369a1; }
+        .source-behavioral { background: #f3e8ff; color: #7c3aed; }
+        .source-notes { background: #fef3c7; color: #b45309; }
+        .source-override { background: #d1fae5; color: #065f46; }
+
+        /* Consolidated Requirements Grid */
+        .consolidated-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+        }
+
+        .consolidated-item {
+            padding: 16px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            border-left: 4px solid var(--border);
+        }
+
+        .consolidated-item.has-data {
+            border-left-color: var(--primary);
+        }
+
+        .consolidated-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 8px;
+        }
+
+        .consolidated-item-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+
+        .consolidated-item-value {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .consolidated-item-meta {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .confidence-bar {
+            flex: 1;
+            min-width: 60px;
+            max-width: 100px;
+            height: 6px;
+            background: var(--bg-tertiary);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .confidence-bar-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.3s ease;
+        }
+
+        .confidence-bar-fill.high { background: #22c55e; }
+        .confidence-bar-fill.medium { background: #f59e0b; }
+        .confidence-bar-fill.low { background: #ef4444; }
+
+        .confidence-text {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        /* Override button */
+        .override-btn {
+            padding: 2px 6px;
+            font-size: 10px;
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .override-btn:hover {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+
+        /* Requirements comparison */
+        .req-comparison {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px dashed var(--border);
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .req-comparison-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 4px 0;
+        }
+
+        .completeness-meter {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+
+        .completeness-bar {
+            flex: 1;
+            height: 8px;
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .completeness-fill {
+            height: 100%;
+            border-radius: 4px;
+            background: linear-gradient(90deg, var(--primary), #22c55e);
+            transition: width 0.3s ease;
+        }
+
+        .completeness-text {
+            font-weight: 600;
+            color: var(--text-primary);
+            min-width: 80px;
+            text-align: right;
+        }
+
         /* Intake Forms List */
         .intake-form-card {
             border: 1px solid var(--border);
@@ -775,49 +929,257 @@
                 <!-- REQUIREMENTS TAB -->
                 {% elif active_tab == 'requirements' %}
 
-                <!-- Consolidated Requirements Summary -->
-                {% if stated_requirements and stated_requirements.confidence > 0 %}
+                <!-- Consolidated Requirements (Phase 5) -->
+                {% if consolidated_reqs %}
                 <div class="section-card">
                     <div class="section-card-header">
-                        <h3 class="section-card-title">Stated Requirements</h3>
-                        <span class="confidence-indicator {% if stated_requirements.confidence >= 0.7 %}confidence-high{% elif stated_requirements.confidence >= 0.4 %}confidence-medium{% else %}confidence-low{% endif %}">
-                            {{ (stated_requirements.confidence * 100)|int }}% confidence
+                        <h3 class="section-card-title">Consolidated Requirements</h3>
+                        <span class="confidence-indicator {% if consolidated_reqs.overall_confidence >= 0.7 %}confidence-high{% elif consolidated_reqs.overall_confidence >= 0.4 %}confidence-medium{% else %}confidence-low{% endif %}">
+                            {{ (consolidated_reqs.overall_confidence * 100)|int }}% overall confidence
                         </span>
                     </div>
-                    <div class="requirements-summary">
-                        {% if stated_requirements.min_price or stated_requirements.max_price %}
-                        <div class="req-item">
-                            <div class="req-item-label">Price Range</div>
-                            <div class="req-item-value">
-                                {% if stated_requirements.min_price %}${{ "{:,.0f}".format(stated_requirements.min_price) }}{% else %}Any{% endif %}
-                                -
-                                {% if stated_requirements.max_price %}${{ "{:,.0f}".format(stated_requirements.max_price) }}{% else %}Any{% endif %}
-                            </div>
+
+                    <!-- Data Completeness Meter -->
+                    <div class="completeness-meter">
+                        <span style="font-size: 13px; color: var(--text-secondary);">Data Completeness</span>
+                        <div class="completeness-bar">
+                            <div class="completeness-fill" style="width: {{ (consolidated_reqs.data_completeness or 0) * 100 }}%;"></div>
                         </div>
-                        {% endif %}
-                        {% if stated_requirements.min_beds %}
-                        <div class="req-item">
-                            <div class="req-item-label">Bedrooms</div>
-                            <div class="req-item-value">{{ stated_requirements.min_beds }}+ beds</div>
-                        </div>
-                        {% endif %}
-                        {% if stated_requirements.min_baths %}
-                        <div class="req-item">
-                            <div class="req-item-label">Bathrooms</div>
-                            <div class="req-item-value">{{ stated_requirements.min_baths }}+ baths</div>
-                        </div>
-                        {% endif %}
-                        {% if stated_requirements.counties %}
-                        <div class="req-item">
-                            <div class="req-item-label">Counties</div>
-                            <div class="req-item-value">{{ stated_requirements.counties|join(', ') }}</div>
-                        </div>
-                        {% endif %}
+                        <span class="completeness-text">{{ ((consolidated_reqs.data_completeness or 0) * 100)|int }}%</span>
                     </div>
-                    <div style="margin-top: 16px;">
+
+                    <div class="consolidated-grid">
+                        <!-- Price Range -->
+                        <div class="consolidated-item {% if consolidated_reqs.price_min or consolidated_reqs.price_max %}has-data{% endif %}">
+                            <div class="consolidated-item-header">
+                                <div class="consolidated-item-label">Price Range</div>
+                                {% if consolidated_reqs.price_min_source %}
+                                <span class="source-badge source-{{ consolidated_reqs.price_min_source }}">{{ consolidated_reqs.price_min_source }}</span>
+                                {% endif %}
+                            </div>
+                            <div class="consolidated-item-value">
+                                {% if consolidated_reqs.price_min or consolidated_reqs.price_max %}
+                                    {% if consolidated_reqs.price_min %}${{ "{:,.0f}".format(consolidated_reqs.price_min) }}{% else %}Any{% endif %}
+                                    -
+                                    {% if consolidated_reqs.price_max %}${{ "{:,.0f}".format(consolidated_reqs.price_max) }}{% else %}Any{% endif %}
+                                {% else %}
+                                    <span style="color: var(--text-secondary); font-weight: 400;">Not specified</span>
+                                {% endif %}
+                            </div>
+                            {% if consolidated_reqs.price_min_confidence %}
+                            <div class="consolidated-item-meta">
+                                <div class="confidence-bar">
+                                    <div class="confidence-bar-fill {% if consolidated_reqs.price_min_confidence >= 0.7 %}high{% elif consolidated_reqs.price_min_confidence >= 0.4 %}medium{% else %}low{% endif %}" style="width: {{ consolidated_reqs.price_min_confidence * 100 }}%;"></div>
+                                </div>
+                                <span class="confidence-text">{{ (consolidated_reqs.price_min_confidence * 100)|int }}%</span>
+                                <button class="override-btn" onclick="showOverrideModal('price_min', '{{ consolidated_reqs.price_min or '' }}')">Override</button>
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Bedrooms -->
+                        <div class="consolidated-item {% if consolidated_reqs.beds_min %}has-data{% endif %}">
+                            <div class="consolidated-item-header">
+                                <div class="consolidated-item-label">Bedrooms</div>
+                                {% if consolidated_reqs.beds_min_source %}
+                                <span class="source-badge source-{{ consolidated_reqs.beds_min_source }}">{{ consolidated_reqs.beds_min_source }}</span>
+                                {% endif %}
+                            </div>
+                            <div class="consolidated-item-value">
+                                {% if consolidated_reqs.beds_min %}
+                                    {{ consolidated_reqs.beds_min }}+ beds
+                                {% else %}
+                                    <span style="color: var(--text-secondary); font-weight: 400;">Not specified</span>
+                                {% endif %}
+                            </div>
+                            {% if consolidated_reqs.beds_min_confidence %}
+                            <div class="consolidated-item-meta">
+                                <div class="confidence-bar">
+                                    <div class="confidence-bar-fill {% if consolidated_reqs.beds_min_confidence >= 0.7 %}high{% elif consolidated_reqs.beds_min_confidence >= 0.4 %}medium{% else %}low{% endif %}" style="width: {{ consolidated_reqs.beds_min_confidence * 100 }}%;"></div>
+                                </div>
+                                <span class="confidence-text">{{ (consolidated_reqs.beds_min_confidence * 100)|int }}%</span>
+                                <button class="override-btn" onclick="showOverrideModal('beds_min', '{{ consolidated_reqs.beds_min or '' }}')">Override</button>
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Bathrooms -->
+                        <div class="consolidated-item {% if consolidated_reqs.baths_min %}has-data{% endif %}">
+                            <div class="consolidated-item-header">
+                                <div class="consolidated-item-label">Bathrooms</div>
+                                {% if consolidated_reqs.baths_min_source %}
+                                <span class="source-badge source-{{ consolidated_reqs.baths_min_source }}">{{ consolidated_reqs.baths_min_source }}</span>
+                                {% endif %}
+                            </div>
+                            <div class="consolidated-item-value">
+                                {% if consolidated_reqs.baths_min %}
+                                    {{ consolidated_reqs.baths_min }}+ baths
+                                {% else %}
+                                    <span style="color: var(--text-secondary); font-weight: 400;">Not specified</span>
+                                {% endif %}
+                            </div>
+                            {% if consolidated_reqs.baths_min_confidence %}
+                            <div class="consolidated-item-meta">
+                                <div class="confidence-bar">
+                                    <div class="confidence-bar-fill {% if consolidated_reqs.baths_min_confidence >= 0.7 %}high{% elif consolidated_reqs.baths_min_confidence >= 0.4 %}medium{% else %}low{% endif %}" style="width: {{ consolidated_reqs.baths_min_confidence * 100 }}%;"></div>
+                                </div>
+                                <span class="confidence-text">{{ (consolidated_reqs.baths_min_confidence * 100)|int }}%</span>
+                                <button class="override-btn" onclick="showOverrideModal('baths_min', '{{ consolidated_reqs.baths_min or '' }}')">Override</button>
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Counties -->
+                        <div class="consolidated-item {% if consolidated_reqs.counties %}has-data{% endif %}">
+                            <div class="consolidated-item-header">
+                                <div class="consolidated-item-label">Counties</div>
+                                {% if consolidated_reqs.counties_source %}
+                                <span class="source-badge source-{{ consolidated_reqs.counties_source }}">{{ consolidated_reqs.counties_source }}</span>
+                                {% endif %}
+                            </div>
+                            <div class="consolidated-item-value">
+                                {% if consolidated_reqs.counties and consolidated_reqs.counties|length > 0 %}
+                                    {{ consolidated_reqs.counties|join(', ') }}
+                                {% else %}
+                                    <span style="color: var(--text-secondary); font-weight: 400;">Not specified</span>
+                                {% endif %}
+                            </div>
+                            {% if consolidated_reqs.counties_confidence %}
+                            <div class="consolidated-item-meta">
+                                <div class="confidence-bar">
+                                    <div class="confidence-bar-fill {% if consolidated_reqs.counties_confidence >= 0.7 %}high{% elif consolidated_reqs.counties_confidence >= 0.4 %}medium{% else %}low{% endif %}" style="width: {{ consolidated_reqs.counties_confidence * 100 }}%;"></div>
+                                </div>
+                                <span class="confidence-text">{{ (consolidated_reqs.counties_confidence * 100)|int }}%</span>
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Cities -->
+                        <div class="consolidated-item {% if consolidated_reqs.cities %}has-data{% endif %}">
+                            <div class="consolidated-item-header">
+                                <div class="consolidated-item-label">Cities</div>
+                                {% if consolidated_reqs.cities_source %}
+                                <span class="source-badge source-{{ consolidated_reqs.cities_source }}">{{ consolidated_reqs.cities_source }}</span>
+                                {% endif %}
+                            </div>
+                            <div class="consolidated-item-value">
+                                {% if consolidated_reqs.cities and consolidated_reqs.cities|length > 0 %}
+                                    {{ consolidated_reqs.cities|join(', ') }}
+                                {% else %}
+                                    <span style="color: var(--text-secondary); font-weight: 400;">Not specified</span>
+                                {% endif %}
+                            </div>
+                            {% if consolidated_reqs.cities_confidence %}
+                            <div class="consolidated-item-meta">
+                                <div class="confidence-bar">
+                                    <div class="confidence-bar-fill {% if consolidated_reqs.cities_confidence >= 0.7 %}high{% elif consolidated_reqs.cities_confidence >= 0.4 %}medium{% else %}low{% endif %}" style="width: {{ consolidated_reqs.cities_confidence * 100 }}%;"></div>
+                                </div>
+                                <span class="confidence-text">{{ (consolidated_reqs.cities_confidence * 100)|int }}%</span>
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Acreage -->
+                        <div class="consolidated-item {% if consolidated_reqs.acreage_min %}has-data{% endif %}">
+                            <div class="consolidated-item-header">
+                                <div class="consolidated-item-label">Acreage</div>
+                                {% if consolidated_reqs.acreage_min_source %}
+                                <span class="source-badge source-{{ consolidated_reqs.acreage_min_source }}">{{ consolidated_reqs.acreage_min_source }}</span>
+                                {% endif %}
+                            </div>
+                            <div class="consolidated-item-value">
+                                {% if consolidated_reqs.acreage_min %}
+                                    {{ consolidated_reqs.acreage_min }}+ acres
+                                {% else %}
+                                    <span style="color: var(--text-secondary); font-weight: 400;">Not specified</span>
+                                {% endif %}
+                            </div>
+                            {% if consolidated_reqs.acreage_min_confidence %}
+                            <div class="consolidated-item-meta">
+                                <div class="confidence-bar">
+                                    <div class="confidence-bar-fill {% if consolidated_reqs.acreage_min_confidence >= 0.7 %}high{% elif consolidated_reqs.acreage_min_confidence >= 0.4 %}medium{% else %}low{% endif %}" style="width: {{ consolidated_reqs.acreage_min_confidence * 100 }}%;"></div>
+                                </div>
+                                <span class="confidence-text">{{ (consolidated_reqs.acreage_min_confidence * 100)|int }}%</span>
+                                <button class="override-btn" onclick="showOverrideModal('acreage_min', '{{ consolidated_reqs.acreage_min or '' }}')">Override</button>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 20px; display: flex; gap: 12px; flex-wrap: wrap;">
                         <a href="/contacts/{{ contact.id }}/search" class="dreams-btn dreams-btn-primary">
-                            &#128269; Search Properties Matching These Requirements
+                            &#128269; Search Matching Properties
                         </a>
+                        <button onclick="refreshRequirements()" class="dreams-btn dreams-btn-secondary">
+                            &#8635; Refresh from Sources
+                        </button>
+                    </div>
+                </div>
+                {% else %}
+                <!-- No consolidated requirements yet - show call to action -->
+                <div class="section-card">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">&#128203;</div>
+                        <h3>No Requirements Data Yet</h3>
+                        <p>Create an intake form or wait for behavioral data to populate requirements.</p>
+                        <a href="?tab=requirements&new=1" class="dreams-btn dreams-btn-primary" style="margin-top: 16px;">+ Create Intake Form</a>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Source Comparison (Collapsible) -->
+                {% if requirements_sources %}
+                <div class="section-card">
+                    <div class="section-card-header" style="cursor: pointer;" onclick="toggleSourceComparison()">
+                        <h3 class="section-card-title">Source Comparison</h3>
+                        <span id="source-toggle-icon" style="font-size: 18px;">&#9660;</span>
+                    </div>
+                    <div id="source-comparison-content" style="display: none;">
+                        <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 16px;">
+                            Compare values from different sources. The consolidated view uses the highest-confidence value for each field.
+                        </p>
+                        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                            <thead>
+                                <tr style="border-bottom: 2px solid var(--border);">
+                                    <th style="text-align: left; padding: 8px;">Field</th>
+                                    <th style="text-align: left; padding: 8px;"><span class="source-badge source-intake">Intake</span></th>
+                                    <th style="text-align: left; padding: 8px;"><span class="source-badge source-behavioral">Behavioral</span></th>
+                                    <th style="text-align: left; padding: 8px;"><span class="source-badge source-notes">Notes</span></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr style="border-bottom: 1px solid var(--border);">
+                                    <td style="padding: 8px; font-weight: 500;">Price Min</td>
+                                    <td style="padding: 8px;">{% if requirements_sources.intake and requirements_sources.intake.min_price %}${{ "{:,.0f}".format(requirements_sources.intake.min_price) }}{% else %}-{% endif %}</td>
+                                    <td style="padding: 8px;">{% if requirements_sources.behavioral and requirements_sources.behavioral.price_range %}${{ "{:,.0f}".format(requirements_sources.behavioral.price_range[0]) }}{% else %}-{% endif %}</td>
+                                    <td style="padding: 8px;">{% if requirements_sources.notes and requirements_sources.notes.min_price %}${{ "{:,.0f}".format(requirements_sources.notes.min_price) }}{% else %}-{% endif %}</td>
+                                </tr>
+                                <tr style="border-bottom: 1px solid var(--border);">
+                                    <td style="padding: 8px; font-weight: 500;">Price Max</td>
+                                    <td style="padding: 8px;">{% if requirements_sources.intake and requirements_sources.intake.max_price %}${{ "{:,.0f}".format(requirements_sources.intake.max_price) }}{% else %}-{% endif %}</td>
+                                    <td style="padding: 8px;">{% if requirements_sources.behavioral and requirements_sources.behavioral.price_range %}${{ "{:,.0f}".format(requirements_sources.behavioral.price_range[1]) }}{% else %}-{% endif %}</td>
+                                    <td style="padding: 8px;">{% if requirements_sources.notes and requirements_sources.notes.max_price %}${{ "{:,.0f}".format(requirements_sources.notes.max_price) }}{% else %}-{% endif %}</td>
+                                </tr>
+                                <tr style="border-bottom: 1px solid var(--border);">
+                                    <td style="padding: 8px; font-weight: 500;">Beds</td>
+                                    <td style="padding: 8px;">{% if requirements_sources.intake and requirements_sources.intake.min_beds %}{{ requirements_sources.intake.min_beds }}+{% else %}-{% endif %}</td>
+                                    <td style="padding: 8px;">-</td>
+                                    <td style="padding: 8px;">{% if requirements_sources.notes and requirements_sources.notes.min_beds %}{{ requirements_sources.notes.min_beds }}+{% else %}-{% endif %}</td>
+                                </tr>
+                                <tr style="border-bottom: 1px solid var(--border);">
+                                    <td style="padding: 8px; font-weight: 500;">Counties</td>
+                                    <td style="padding: 8px;">{% if requirements_sources.intake and requirements_sources.intake.counties %}{{ requirements_sources.intake.counties|join(', ') }}{% else %}-{% endif %}</td>
+                                    <td style="padding: 8px;">-</td>
+                                    <td style="padding: 8px;">{% if requirements_sources.notes and requirements_sources.notes.counties %}{{ requirements_sources.notes.counties|join(', ') }}{% else %}-{% endif %}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 8px; font-weight: 500;">Cities</td>
+                                    <td style="padding: 8px;">-</td>
+                                    <td style="padding: 8px;">{% if requirements_sources.behavioral and requirements_sources.behavioral.cities %}{{ requirements_sources.behavioral.cities|join(', ') }}{% else %}-{% endif %}</td>
+                                    <td style="padding: 8px;">{% if requirements_sources.notes and requirements_sources.notes.cities %}{{ requirements_sources.notes.cities|join(', ') }}{% else %}-{% endif %}</td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
                 {% endif %}
@@ -1459,6 +1821,77 @@
         // Load matches on matches tab
         if (window.location.search.includes('tab=matches')) {
             document.addEventListener('DOMContentLoaded', loadPropertyMatches);
+        }
+
+        // Source Comparison Toggle
+        function toggleSourceComparison() {
+            const content = document.getElementById('source-comparison-content');
+            const icon = document.getElementById('source-toggle-icon');
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+                icon.innerHTML = '&#9650;';
+            } else {
+                content.style.display = 'none';
+                icon.innerHTML = '&#9660;';
+            }
+        }
+
+        // Requirements Override Modal
+        function showOverrideModal(fieldName, currentValue) {
+            const fieldLabels = {
+                'price_min': 'Minimum Price',
+                'price_max': 'Maximum Price',
+                'beds_min': 'Minimum Bedrooms',
+                'baths_min': 'Minimum Bathrooms',
+                'acreage_min': 'Minimum Acreage'
+            };
+            const label = fieldLabels[fieldName] || fieldName;
+            const newValue = prompt(`Override ${label}:\n\nCurrent value: ${currentValue || 'Not set'}\n\nEnter new value (or leave empty to clear):`, currentValue || '');
+
+            if (newValue !== null) {
+                submitOverride(fieldName, newValue);
+            }
+        }
+
+        async function submitOverride(fieldName, value) {
+            try {
+                const response = await fetch(`/api/contacts/${contactId}/requirements/override`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        field: fieldName,
+                        value: value === '' ? null : value
+                    })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    window.location.reload();
+                } else {
+                    alert('Error saving override: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error saving override. Please try again.');
+            }
+        }
+
+        // Refresh Requirements from All Sources
+        async function refreshRequirements() {
+            try {
+                const response = await fetch(`/api/contacts/${contactId}/requirements/refresh`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const result = await response.json();
+                if (result.success) {
+                    window.location.reload();
+                } else {
+                    alert('Error refreshing requirements: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error refreshing requirements. Please try again.');
+            }
         }
     </script>
 </body>

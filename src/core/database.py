@@ -513,6 +513,105 @@ class DREAMSDatabase:
             updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (contact_id) REFERENCES leads(id)
         );
+
+        -- Consolidated contact requirements (Phase 5: Requirements Consolidation)
+        -- Each field tracks its source and confidence level
+        CREATE TABLE IF NOT EXISTS contact_requirements (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            contact_id TEXT NOT NULL UNIQUE,
+
+            -- Price requirements
+            price_min INTEGER,
+            price_min_source TEXT,           -- 'intake', 'behavioral', 'notes', 'override'
+            price_min_confidence REAL DEFAULT 0,
+            price_max INTEGER,
+            price_max_source TEXT,
+            price_max_confidence REAL DEFAULT 0,
+
+            -- Size requirements
+            beds_min INTEGER,
+            beds_min_source TEXT,
+            beds_min_confidence REAL DEFAULT 0,
+            baths_min REAL,
+            baths_min_source TEXT,
+            baths_min_confidence REAL DEFAULT 0,
+            sqft_min INTEGER,
+            sqft_min_source TEXT,
+            sqft_min_confidence REAL DEFAULT 0,
+            acreage_min REAL,
+            acreage_min_source TEXT,
+            acreage_min_confidence REAL DEFAULT 0,
+
+            -- Location requirements (JSON arrays)
+            counties TEXT,                   -- JSON array of county names
+            counties_source TEXT,
+            counties_confidence REAL DEFAULT 0,
+            cities TEXT,                     -- JSON array of city names
+            cities_source TEXT,
+            cities_confidence REAL DEFAULT 0,
+
+            -- Property type requirements
+            property_types TEXT,             -- JSON array
+            property_types_source TEXT,
+            property_types_confidence REAL DEFAULT 0,
+
+            -- Feature requirements (JSON arrays)
+            must_have_features TEXT,         -- JSON array of required features
+            must_have_source TEXT,
+            must_have_confidence REAL DEFAULT 0,
+            nice_to_have_features TEXT,      -- JSON array of preferred features
+            deal_breakers TEXT,              -- JSON array of deal breakers
+            deal_breakers_source TEXT,
+            deal_breakers_confidence REAL DEFAULT 0,
+
+            -- Views and water (JSON arrays)
+            views_required TEXT,
+            views_source TEXT,
+            views_confidence REAL DEFAULT 0,
+            water_features TEXT,
+            water_source TEXT,
+            water_confidence REAL DEFAULT 0,
+
+            -- Timeline
+            urgency TEXT,
+            urgency_source TEXT,
+            urgency_confidence REAL DEFAULT 0,
+            move_in_date TEXT,
+
+            -- Financing
+            financing_status TEXT,
+            financing_source TEXT,
+            financing_confidence REAL DEFAULT 0,
+            pre_approval_amount INTEGER,
+
+            -- Agent overrides (JSON object of field -> value)
+            agent_overrides TEXT,
+
+            -- Metadata
+            overall_confidence REAL DEFAULT 0,   -- Weighted average of all field confidences
+            data_completeness REAL DEFAULT 0,    -- Percentage of fields populated
+            last_consolidated_at TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (contact_id) REFERENCES leads(id)
+        );
+
+        -- Requirements change audit trail
+        CREATE TABLE IF NOT EXISTS requirements_changes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            contact_id TEXT NOT NULL,
+            field_name TEXT NOT NULL,
+            old_value TEXT,
+            new_value TEXT,
+            old_source TEXT,
+            new_source TEXT,
+            old_confidence REAL,
+            new_confidence REAL,
+            change_reason TEXT,              -- 'consolidation', 'override', 'intake_update', 'behavioral_update'
+            changed_by TEXT,                 -- 'system' or agent name
+            changed_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (contact_id) REFERENCES leads(id)
+        );
         '''
 
     def _get_indexes_schema(self) -> str:
@@ -563,6 +662,10 @@ class DREAMSDatabase:
         CREATE INDEX IF NOT EXISTS idx_workflow_contact ON contact_workflow(contact_id);
         CREATE INDEX IF NOT EXISTS idx_workflow_stage ON contact_workflow(current_stage);
         CREATE INDEX IF NOT EXISTS idx_workflow_status ON contact_workflow(workflow_status);
+        -- Contact requirements indexes
+        CREATE INDEX IF NOT EXISTS idx_requirements_contact ON contact_requirements(contact_id);
+        CREATE INDEX IF NOT EXISTS idx_requirements_changes_contact ON requirements_changes(contact_id);
+        CREATE INDEX IF NOT EXISTS idx_requirements_changes_field ON requirements_changes(field_name);
         '''
     
     # ==========================================
@@ -3433,3 +3536,558 @@ class DREAMSDatabase:
                 return 'nurture'
             else:
                 return 'new_lead'
+
+    # ==========================================
+    # REQUIREMENTS CONSOLIDATION (Phase 5)
+    # ==========================================
+
+    # Source confidence levels
+    REQUIREMENT_SOURCES = {
+        'intake': 0.9,      # Explicit from intake forms
+        'behavioral': 0.7,  # Inferred from property views/favorites
+        'notes': 0.6,       # Parsed from agent notes
+        'override': 1.0,    # Manual agent override
+    }
+
+    def get_consolidated_requirements(self, contact_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get the consolidated requirements for a contact.
+
+        Args:
+            contact_id: Contact ID
+
+        Returns:
+            Consolidated requirements dict or None
+        """
+        with self._get_connection() as conn:
+            row = conn.execute('''
+                SELECT * FROM contact_requirements WHERE contact_id = ?
+            ''', (contact_id,)).fetchone()
+
+            if row:
+                result = dict(row)
+                # Parse JSON fields
+                json_fields = ['counties', 'cities', 'property_types', 'must_have_features',
+                              'nice_to_have_features', 'deal_breakers', 'views_required',
+                              'water_features', 'agent_overrides']
+                for field in json_fields:
+                    if result.get(field):
+                        try:
+                            result[field] = json.loads(result[field])
+                        except (json.JSONDecodeError, TypeError):
+                            result[field] = []
+                return result
+            return None
+
+    def consolidate_requirements(self, contact_id: str) -> Dict[str, Any]:
+        """
+        Consolidate requirements from all sources for a contact.
+        Creates or updates the contact_requirements record.
+
+        Sources (in priority order):
+        1. Agent overrides (confidence 1.0)
+        2. Intake forms (confidence 0.9)
+        3. Behavioral analysis (confidence 0.7)
+        4. Note parsing (confidence 0.6)
+
+        Args:
+            contact_id: Contact ID
+
+        Returns:
+            Consolidated requirements dict
+        """
+        # Gather data from all sources
+        intake_reqs = self.get_stated_requirements(contact_id)
+        behavioral_reqs = self.get_behavioral_preferences(contact_id)
+        note_reqs = self.parse_requirements_from_notes(contact_id)
+
+        # Get existing requirements for overrides
+        existing = self.get_consolidated_requirements(contact_id)
+        overrides = existing.get('agent_overrides', {}) if existing else {}
+
+        # Build consolidated requirements
+        consolidated = {
+            'contact_id': contact_id,
+        }
+
+        # Helper to select best value based on confidence
+        def select_best(field_name, sources):
+            """Select the value with highest confidence."""
+            best_value = None
+            best_source = None
+            best_confidence = 0
+
+            # Check override first
+            if field_name in overrides:
+                return overrides[field_name], 'override', 1.0
+
+            for source_name, source_data, base_confidence in sources:
+                if source_data and field_name in source_data:
+                    value = source_data[field_name]
+                    if value is not None and value != '' and value != []:
+                        # Adjust confidence based on data quality
+                        confidence = base_confidence
+                        if source_name == 'behavioral':
+                            # Scale by behavioral confidence
+                            confidence *= source_data.get('confidence', 0.5)
+                        if confidence > best_confidence:
+                            best_value = value
+                            best_source = source_name
+                            best_confidence = confidence
+
+            return best_value, best_source, best_confidence
+
+        # Sources list: (name, data, base_confidence)
+        sources = [
+            ('intake', intake_reqs, 0.9),
+            ('behavioral', behavioral_reqs, 0.7),
+            ('notes', note_reqs, 0.6),
+        ]
+
+        # Consolidate price
+        price_min, price_min_src, price_min_conf = select_best('min_price', sources)
+        price_max, price_max_src, price_max_conf = select_best('max_price', sources)
+
+        # For behavioral, use price_range tuple
+        if not price_min and behavioral_reqs and behavioral_reqs.get('price_range'):
+            price_min = int(behavioral_reqs['price_range'][0] * 0.9)  # 10% buffer
+            price_min_src = 'behavioral'
+            price_min_conf = 0.7 * behavioral_reqs.get('confidence', 0.5)
+        if not price_max and behavioral_reqs and behavioral_reqs.get('price_range'):
+            price_max = int(behavioral_reqs['price_range'][1] * 1.1)  # 10% buffer
+            price_max_src = 'behavioral'
+            price_max_conf = 0.7 * behavioral_reqs.get('confidence', 0.5)
+
+        consolidated['price_min'] = price_min
+        consolidated['price_min_source'] = price_min_src
+        consolidated['price_min_confidence'] = price_min_conf or 0
+        consolidated['price_max'] = price_max
+        consolidated['price_max_source'] = price_max_src
+        consolidated['price_max_confidence'] = price_max_conf or 0
+
+        # Consolidate size requirements
+        beds_min, beds_src, beds_conf = select_best('min_beds', sources)
+        consolidated['beds_min'] = beds_min
+        consolidated['beds_min_source'] = beds_src
+        consolidated['beds_min_confidence'] = beds_conf or 0
+
+        baths_min, baths_src, baths_conf = select_best('min_baths', sources)
+        consolidated['baths_min'] = baths_min
+        consolidated['baths_min_source'] = baths_src
+        consolidated['baths_min_confidence'] = baths_conf or 0
+
+        sqft_min, sqft_src, sqft_conf = select_best('min_sqft', sources)
+        consolidated['sqft_min'] = sqft_min
+        consolidated['sqft_min_source'] = sqft_src
+        consolidated['sqft_min_confidence'] = sqft_conf or 0
+
+        acreage_min, acreage_src, acreage_conf = select_best('min_acreage', sources)
+        consolidated['acreage_min'] = acreage_min
+        consolidated['acreage_min_source'] = acreage_src
+        consolidated['acreage_min_confidence'] = acreage_conf or 0
+
+        # Consolidate location
+        counties, counties_src, counties_conf = select_best('counties', sources)
+        consolidated['counties'] = json.dumps(counties) if counties else None
+        consolidated['counties_source'] = counties_src
+        consolidated['counties_confidence'] = counties_conf or 0
+
+        cities, cities_src, cities_conf = select_best('cities', sources)
+        # For behavioral, cities come directly
+        if not cities and behavioral_reqs and behavioral_reqs.get('cities'):
+            cities = behavioral_reqs['cities']
+            cities_src = 'behavioral'
+            cities_conf = 0.7 * behavioral_reqs.get('confidence', 0.5)
+        consolidated['cities'] = json.dumps(cities) if cities else None
+        consolidated['cities_source'] = cities_src
+        consolidated['cities_confidence'] = cities_conf or 0
+
+        # Property types
+        prop_types, prop_src, prop_conf = select_best('property_types', sources)
+        consolidated['property_types'] = json.dumps(prop_types) if prop_types else None
+        consolidated['property_types_source'] = prop_src
+        consolidated['property_types_confidence'] = prop_conf or 0
+
+        # Features
+        must_have, must_src, must_conf = select_best('must_have_features', sources)
+        consolidated['must_have_features'] = json.dumps(must_have) if must_have else None
+        consolidated['must_have_source'] = must_src
+        consolidated['must_have_confidence'] = must_conf or 0
+
+        deal_breakers, db_src, db_conf = select_best('deal_breakers', sources)
+        consolidated['deal_breakers'] = json.dumps(deal_breakers) if deal_breakers else None
+        consolidated['deal_breakers_source'] = db_src
+        consolidated['deal_breakers_confidence'] = db_conf or 0
+
+        # Views and water
+        views, views_src, views_conf = select_best('views_required', sources)
+        consolidated['views_required'] = json.dumps(views) if views else None
+        consolidated['views_source'] = views_src
+        consolidated['views_confidence'] = views_conf or 0
+
+        water, water_src, water_conf = select_best('water_features', sources)
+        consolidated['water_features'] = json.dumps(water) if water else None
+        consolidated['water_source'] = water_src
+        consolidated['water_confidence'] = water_conf or 0
+
+        # Timeline
+        urgency, urgency_src, urgency_conf = select_best('urgency', sources)
+        consolidated['urgency'] = urgency
+        consolidated['urgency_source'] = urgency_src
+        consolidated['urgency_confidence'] = urgency_conf or 0
+
+        move_in, _, _ = select_best('move_in_date', sources)
+        consolidated['move_in_date'] = move_in
+
+        # Financing
+        financing, fin_src, fin_conf = select_best('financing_status', sources)
+        consolidated['financing_status'] = financing
+        consolidated['financing_source'] = fin_src
+        consolidated['financing_confidence'] = fin_conf or 0
+
+        pre_approval, _, _ = select_best('pre_approval_amount', sources)
+        consolidated['pre_approval_amount'] = pre_approval
+
+        # Store overrides
+        consolidated['agent_overrides'] = json.dumps(overrides) if overrides else None
+
+        # Calculate overall confidence and completeness
+        confidence_fields = [
+            'price_min_confidence', 'price_max_confidence', 'beds_min_confidence',
+            'counties_confidence', 'cities_confidence'
+        ]
+        confidences = [consolidated.get(f, 0) or 0 for f in confidence_fields]
+        non_zero = [c for c in confidences if c > 0]
+        consolidated['overall_confidence'] = sum(non_zero) / len(non_zero) if non_zero else 0
+
+        # Data completeness
+        key_fields = ['price_min', 'price_max', 'beds_min', 'counties', 'cities']
+        populated = sum(1 for f in key_fields if consolidated.get(f))
+        consolidated['data_completeness'] = populated / len(key_fields)
+
+        consolidated['last_consolidated_at'] = datetime.now().isoformat()
+        consolidated['updated_at'] = datetime.now().isoformat()
+
+        # Upsert the record
+        self._upsert_requirements(consolidated)
+
+        return self.get_consolidated_requirements(contact_id)
+
+    def _upsert_requirements(self, data: Dict[str, Any]) -> None:
+        """Insert or update contact requirements."""
+        with self._get_connection() as conn:
+            # Check if exists
+            existing = conn.execute(
+                'SELECT id FROM contact_requirements WHERE contact_id = ?',
+                (data['contact_id'],)
+            ).fetchone()
+
+            if existing:
+                # Update
+                set_parts = []
+                values = []
+                for key, value in data.items():
+                    if key != 'contact_id':
+                        set_parts.append(f'{key} = ?')
+                        values.append(value)
+                values.append(data['contact_id'])
+
+                conn.execute(
+                    f"UPDATE contact_requirements SET {', '.join(set_parts)} WHERE contact_id = ?",
+                    values
+                )
+            else:
+                # Insert
+                data['created_at'] = datetime.now().isoformat()
+                columns = ', '.join(data.keys())
+                placeholders = ', '.join(['?' for _ in data])
+                conn.execute(
+                    f"INSERT INTO contact_requirements ({columns}) VALUES ({placeholders})",
+                    list(data.values())
+                )
+
+            conn.commit()
+
+    def override_requirement(
+        self,
+        contact_id: str,
+        field_name: str,
+        value: Any,
+        changed_by: str = 'agent'
+    ) -> Dict[str, Any]:
+        """
+        Override a specific requirement field.
+
+        Args:
+            contact_id: Contact ID
+            field_name: Field to override (e.g., 'price_min', 'beds_min')
+            value: New value
+            changed_by: Who made the change
+
+        Returns:
+            Updated consolidated requirements
+        """
+        # Get current requirements
+        current = self.get_consolidated_requirements(contact_id)
+        if not current:
+            # Consolidate first
+            current = self.consolidate_requirements(contact_id)
+
+        # Get current overrides
+        overrides = current.get('agent_overrides', {}) or {}
+
+        # Record old value for audit
+        old_value = current.get(field_name)
+        old_source = current.get(f'{field_name}_source')
+        old_confidence = current.get(f'{field_name}_confidence')
+
+        # Add override
+        overrides[field_name] = value
+
+        # Update the record
+        with self._get_connection() as conn:
+            conn.execute('''
+                UPDATE contact_requirements
+                SET agent_overrides = ?,
+                    updated_at = ?
+                WHERE contact_id = ?
+            ''', (json.dumps(overrides), datetime.now().isoformat(), contact_id))
+
+            # Record change in audit trail
+            conn.execute('''
+                INSERT INTO requirements_changes
+                (contact_id, field_name, old_value, new_value, old_source, new_source,
+                 old_confidence, new_confidence, change_reason, changed_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (contact_id, field_name, str(old_value), str(value),
+                  old_source, 'override', old_confidence, 1.0, 'override', changed_by))
+
+            conn.commit()
+
+        # Re-consolidate to apply override
+        return self.consolidate_requirements(contact_id)
+
+    def parse_requirements_from_notes(self, contact_id: str) -> Dict[str, Any]:
+        """
+        Parse buyer requirements from FUB notes and agent notes.
+
+        Uses regex patterns to extract:
+        - Price ranges ($XXX-$XXX, under $XXX, up to $XXX)
+        - Bedrooms (X bed, X BR, X bedroom)
+        - Bathrooms (X bath, X BA)
+        - Acreage (X acres, X+ acres)
+        - Location mentions (county names, city names)
+
+        Args:
+            contact_id: Contact ID
+
+        Returns:
+            Dict of parsed requirements with confidence
+        """
+        import re
+
+        parsed = {
+            'confidence': 0.6,  # Base confidence for note parsing
+        }
+
+        # Get contact notes
+        with self._get_connection() as conn:
+            # Get from leads table
+            contact = conn.execute(
+                'SELECT notes FROM leads WHERE id = ?',
+                (contact_id,)
+            ).fetchone()
+
+            # Get from intake forms (agent_notes field)
+            intake_notes = conn.execute('''
+                SELECT agent_notes, source_notes FROM intake_forms
+                WHERE lead_id = ? AND (agent_notes IS NOT NULL OR source_notes IS NOT NULL)
+            ''', (contact_id,)).fetchall()
+
+        # Combine all notes
+        all_notes = []
+        if contact and contact['notes']:
+            all_notes.append(contact['notes'])
+        for note in intake_notes:
+            if note['agent_notes']:
+                all_notes.append(note['agent_notes'])
+            if note['source_notes']:
+                all_notes.append(note['source_notes'])
+
+        if not all_notes:
+            return parsed
+
+        text = ' '.join(all_notes).lower()
+
+        # Price patterns
+        # "$300k-$500k", "$300,000 to $500,000", "under $400k", "up to 500k"
+        price_patterns = [
+            r'\$?([\d,]+)k?\s*[-–to]+\s*\$?([\d,]+)k?',  # Range
+            r'under\s*\$?([\d,]+)k?',                      # Under X
+            r'up\s*to\s*\$?([\d,]+)k?',                    # Up to X
+            r'max(?:imum)?\s*\$?([\d,]+)k?',               # Max X
+            r'budget[:\s]*\$?([\d,]+)k?',                  # Budget X
+        ]
+
+        for pattern in price_patterns[:1]:  # Range pattern
+            match = re.search(pattern, text)
+            if match:
+                try:
+                    min_val = int(match.group(1).replace(',', ''))
+                    max_val = int(match.group(2).replace(',', ''))
+                    # Handle "k" suffix
+                    if min_val < 10000:
+                        min_val *= 1000
+                    if max_val < 10000:
+                        max_val *= 1000
+                    parsed['min_price'] = min_val
+                    parsed['max_price'] = max_val
+                    break
+                except (ValueError, IndexError):
+                    pass
+
+        for pattern in price_patterns[1:]:  # Single value patterns
+            if 'max_price' not in parsed:
+                match = re.search(pattern, text)
+                if match:
+                    try:
+                        val = int(match.group(1).replace(',', ''))
+                        if val < 10000:
+                            val *= 1000
+                        parsed['max_price'] = val
+                    except (ValueError, IndexError):
+                        pass
+
+        # Bedroom patterns
+        bed_patterns = [
+            r'(\d+)\+?\s*(?:bed|br|bedroom)',
+            r'(\d+)\s*(?:bed|br|bedroom)',
+        ]
+        for pattern in bed_patterns:
+            match = re.search(pattern, text)
+            if match:
+                try:
+                    parsed['min_beds'] = int(match.group(1))
+                    break
+                except (ValueError, IndexError):
+                    pass
+
+        # Bathroom patterns
+        bath_patterns = [
+            r'(\d+(?:\.\d+)?)\+?\s*(?:bath|ba|bathroom)',
+        ]
+        for pattern in bath_patterns:
+            match = re.search(pattern, text)
+            if match:
+                try:
+                    parsed['min_baths'] = float(match.group(1))
+                    break
+                except (ValueError, IndexError):
+                    pass
+
+        # Acreage patterns
+        acre_patterns = [
+            r'(\d+(?:\.\d+)?)\+?\s*(?:acre|ac)',
+            r'at\s*least\s*(\d+(?:\.\d+)?)\s*acre',
+        ]
+        for pattern in acre_patterns:
+            match = re.search(pattern, text)
+            if match:
+                try:
+                    parsed['min_acreage'] = float(match.group(1))
+                    break
+                except (ValueError, IndexError):
+                    pass
+
+        # County mentions (WNC counties)
+        wnc_counties = ['macon', 'jackson', 'swain', 'cherokee', 'clay', 'graham',
+                        'haywood', 'transylvania', 'henderson', 'buncombe', 'madison',
+                        'yancey', 'mitchell', 'avery', 'watauga', 'ashe', 'alleghany']
+        found_counties = []
+        for county in wnc_counties:
+            if county in text:
+                found_counties.append(county.title())
+        if found_counties:
+            parsed['counties'] = found_counties
+
+        # Common city mentions
+        wnc_cities = ['franklin', 'highlands', 'cashiers', 'sylva', 'waynesville',
+                      'asheville', 'brevard', 'hendersonville', 'murphy', 'robbinsville',
+                      'bryson city', 'cherokee', 'maggie valley', 'canton', 'black mountain']
+        found_cities = []
+        for city in wnc_cities:
+            if city in text:
+                found_cities.append(city.title())
+        if found_cities:
+            parsed['cities'] = found_cities
+
+        # Feature keywords
+        must_have_keywords = ['must have', 'need', 'require', 'essential', 'important']
+        deal_breaker_keywords = ['no ', "can't", 'cannot', 'won\'t', 'deal breaker', 'avoid']
+
+        # Extract must-haves (simple approach)
+        must_have_features = []
+        common_features = ['garage', 'basement', 'view', 'mountain view', 'creek', 'river',
+                          'main level', 'one level', 'single story', 'workshop', 'barn']
+        for feature in common_features:
+            if feature in text:
+                # Check if it's a must-have context
+                for keyword in must_have_keywords:
+                    if keyword in text and feature in text[max(0, text.find(keyword)-50):text.find(keyword)+100]:
+                        must_have_features.append(feature.title())
+                        break
+
+        if must_have_features:
+            parsed['must_have_features'] = must_have_features
+
+        # Calculate confidence based on how much was found
+        found_count = len([k for k in parsed if k != 'confidence'])
+        if found_count >= 3:
+            parsed['confidence'] = 0.7
+        elif found_count >= 1:
+            parsed['confidence'] = 0.6
+        else:
+            parsed['confidence'] = 0
+
+        return parsed
+
+    def get_requirements_by_source(self, contact_id: str) -> Dict[str, Dict[str, Any]]:
+        """
+        Get requirements broken down by source for comparison.
+
+        Args:
+            contact_id: Contact ID
+
+        Returns:
+            Dict with 'intake', 'behavioral', 'notes', 'consolidated' keys
+        """
+        return {
+            'intake': self.get_stated_requirements(contact_id),
+            'behavioral': self.get_behavioral_preferences(contact_id),
+            'notes': self.parse_requirements_from_notes(contact_id),
+            'consolidated': self.get_consolidated_requirements(contact_id),
+        }
+
+    def get_requirements_changes(
+        self,
+        contact_id: str,
+        limit: int = 20
+    ) -> List[Dict[str, Any]]:
+        """
+        Get audit trail of requirement changes for a contact.
+
+        Args:
+            contact_id: Contact ID
+            limit: Max records to return
+
+        Returns:
+            List of change records
+        """
+        with self._get_connection() as conn:
+            rows = conn.execute('''
+                SELECT * FROM requirements_changes
+                WHERE contact_id = ?
+                ORDER BY changed_at DESC
+                LIMIT ?
+            ''', (contact_id, limit)).fetchall()
+            return [dict(row) for row in rows]
