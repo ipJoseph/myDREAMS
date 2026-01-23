@@ -207,19 +207,6 @@ def generate_pdf(package_id: str, output_path: Optional[str] = None) -> Optional
         html.write_pdf(output_path)
 
         logger.info(f"PDF generated: {output_path}")
-
-        # Update package record with PDF path
-        conn = get_db_connection()
-        try:
-            conn.execute('''
-                UPDATE packages
-                SET pdf_path = ?, updated_at = CURRENT_TIMESTAMP
-                WHERE id = ?
-            ''', [output_path, package_id])
-            conn.commit()
-        finally:
-            conn.close()
-
         return output_path
 
     except Exception as e:
