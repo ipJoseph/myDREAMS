@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pipeline | DREAMS</title>
+    <link rel="icon" type="image/svg+xml" href="{{ favicon }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='shared/css/dreams.css') }}">
+    <style>
+        body {
+            background: var(--bg-page);
+        }
+
+        /* Pipeline Header */
+        .pipeline-header {
+            background: white;
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .pipeline-header h1 {
+            font-size: 20px;
+            margin: 0;
+        }
+
+        .pipeline-stats {
+            display: flex;
+            gap: 24px;
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .pipeline-stats strong {
+            color: var(--text-primary);
+        }
+
+        /* Kanban Board */
+        .kanban-container {
+            display: flex;
+            gap: 16px;
+            padding: 20px;
+            overflow-x: auto;
+            min-height: calc(100vh - 120px);
+        }
+
+        /* Kanban Column */
+        .kanban-column {
+            flex: 0 0 280px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            max-height: calc(100vh - 160px);
+        }
+
+        .kanban-column-header {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            background: white;
+            border-radius: 8px 8px 0 0;
+            position: sticky;
+            top: 0;
+        }
+
+        .kanban-column-title {
+            font-weight: 600;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .kanban-column-count {
+            background: var(--primary);
+            color: white;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 12px;
+        }
+
+        .kanban-column-count.empty {
+            background: var(--bg-tertiary);
+            color: var(--text-tertiary);
+        }
+
+        .kanban-column-body {
+            padding: 12px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        /* Contact Card */
+        .contact-card {
+            background: white;
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 10px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            cursor: grab;
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+
+        .contact-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+
+        .contact-card.dragging {
+            opacity: 0.5;
+            transform: rotate(3deg);
+        }
+
+        .contact-card-name {
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 6px;
+            color: var(--text-primary);
+        }
+
+        .contact-card-name a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        .contact-card-name a:hover {
+            color: var(--primary);
+        }
+
+        .contact-card-meta {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .contact-card-scores {
+            display: flex;
+            gap: 8px;
+        }
+
+        .score-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .score-pill.priority {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .score-pill.heat {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .score-pill.heat.hot {
+            background: #ef4444;
+            color: white;
+        }
+
+        .contact-card-activity {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid var(--bg-tertiary);
+            font-size: 11px;
+            color: var(--text-tertiary);
+        }
+
+        /* Stage Colors */
+        .stage-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .stage-dot.new_lead { background: #6b7280; }
+        .stage-dot.requirements_discovery { background: #3b82f6; }
+        .stage-dot.active_search { background: #8b5cf6; }
+        .stage-dot.reviewing_options { background: #f59e0b; }
+        .stage-dot.showing_scheduled { background: #10b981; }
+        .stage-dot.post_showing { background: #06b6d4; }
+        .stage-dot.offer_pending { background: #ec4899; }
+        .stage-dot.under_contract { background: #14b8a6; }
+        .stage-dot.closed { background: #22c55e; }
+        .stage-dot.nurture { background: #94a3b8; }
+
+        /* Drop Zone Highlight */
+        .kanban-column-body.drag-over {
+            background: rgba(59, 130, 246, 0.1);
+            border: 2px dashed var(--primary);
+            border-radius: 6px;
+        }
+
+        /* Empty State */
+        .empty-column {
+            text-align: center;
+            padding: 24px 12px;
+            color: var(--text-tertiary);
+            font-size: 13px;
+        }
+
+        /* Loading State */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255,255,255,0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            display: none;
+        }
+
+        .loading-overlay.visible {
+            display: flex;
+        }
+
+        /* Collapsed Column (for mobile/narrow screens) */
+        @media (max-width: 1200px) {
+            .kanban-column {
+                flex: 0 0 240px;
+            }
+        }
+
+        /* Toast Notification */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #166534;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            display: none;
+            z-index: 1000;
+        }
+
+        .toast.visible {
+            display: block;
+        }
+
+        .toast.error {
+            background: #991b1b;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="dreams-header">
+        <div>
+            <h1>Pipeline</h1>
+            <div class="dreams-header-subtitle">
+                {{ total_contacts }} contacts in pipeline
+            </div>
+        </div>
+        <nav style="display: flex; gap: 16px; align-items: center;">
+            <button onclick="initializeWorkflows()" class="dreams-btn dreams-btn-secondary" title="Create workflow records for contacts without one">
+                Initialize All
+            </button>
+            <a href="/" class="dreams-btn dreams-btn-secondary">Home</a>
+            <a href="/contacts" class="dreams-btn dreams-btn-secondary">Contacts</a>
+        </nav>
+    </header>
+
+    <!-- Pipeline Header Stats -->
+    <div class="pipeline-header">
+        <div class="pipeline-stats">
+            {% for stage in stages %}
+            <span>
+                <span class="stage-dot {{ stage[0] }}"></span>
+                {{ stage[1] }}: <strong>{{ stage_counts.get(stage[0], 0) }}</strong>
+            </span>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Kanban Board -->
+    <div class="kanban-container">
+        {% for stage in stages %}
+        <div class="kanban-column" data-stage="{{ stage[0] }}">
+            <div class="kanban-column-header">
+                <div class="kanban-column-title">
+                    <span class="stage-dot {{ stage[0] }}"></span>
+                    {{ stage[1] }}
+                    <span class="kanban-column-count {% if pipeline[stage[0]]|length == 0 %}empty{% endif %}">
+                        {{ pipeline[stage[0]]|length }}
+                    </span>
+                </div>
+            </div>
+            <div class="kanban-column-body"
+                 ondrop="dropContact(event)"
+                 ondragover="allowDrop(event)"
+                 ondragleave="dragLeave(event)">
+                {% if pipeline[stage[0]] %}
+                    {% for contact in pipeline[stage[0]][:50] %}
+                    <div class="contact-card"
+                         draggable="true"
+                         ondragstart="dragStart(event)"
+                         ondragend="dragEnd(event)"
+                         data-contact-id="{{ contact.id }}">
+                        <div class="contact-card-name">
+                            <a href="/contacts/{{ contact.id }}/workspace">
+                                {{ contact.first_name or '' }} {{ contact.last_name or '' }}
+                            </a>
+                        </div>
+                        <div class="contact-card-meta">
+                            {% if contact.stage %}{{ contact.stage }}{% endif %}
+                            {% if contact.properties_viewed %} | {{ contact.properties_viewed }} views{% endif %}
+                        </div>
+                        <div class="contact-card-scores">
+                            <span class="score-pill priority">P{{ "%.0f"|format(contact.priority_score or 0) }}</span>
+                            <span class="score-pill heat {% if (contact.heat_score or 0) >= 70 %}hot{% endif %}">
+                                H{{ "%.0f"|format(contact.heat_score or 0) }}
+                            </span>
+                        </div>
+                        {% if contact.days_since_activity is not none and contact.days_since_activity < 999 %}
+                        <div class="contact-card-activity">
+                            {% if contact.days_since_activity == 0 %}Active today
+                            {% elif contact.days_since_activity == 1 %}Active yesterday
+                            {% else %}{{ contact.days_since_activity }} days ago{% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                    {% if pipeline[stage[0]]|length > 50 %}
+                    <div class="empty-column">
+                        +{{ pipeline[stage[0]]|length - 50 }} more contacts
+                    </div>
+                    {% endif %}
+                {% else %}
+                <div class="empty-column">
+                    No contacts in this stage
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay">
+        <div style="text-align: center;">
+            <div style="font-size: 24px; margin-bottom: 12px;">Updating...</div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="toast"></div>
+
+    <script>
+        let draggedCard = null;
+        let draggedContactId = null;
+
+        function dragStart(event) {
+            draggedCard = event.target;
+            draggedContactId = event.target.dataset.contactId;
+            event.target.classList.add('dragging');
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/plain', draggedContactId);
+        }
+
+        function dragEnd(event) {
+            event.target.classList.remove('dragging');
+            draggedCard = null;
+            draggedContactId = null;
+
+            // Remove all drag-over highlights
+            document.querySelectorAll('.kanban-column-body').forEach(el => {
+                el.classList.remove('drag-over');
+            });
+        }
+
+        function allowDrop(event) {
+            event.preventDefault();
+            event.currentTarget.classList.add('drag-over');
+        }
+
+        function dragLeave(event) {
+            event.currentTarget.classList.remove('drag-over');
+        }
+
+        async function dropContact(event) {
+            event.preventDefault();
+            event.currentTarget.classList.remove('drag-over');
+
+            const contactId = event.dataTransfer.getData('text/plain');
+            const newStage = event.currentTarget.closest('.kanban-column').dataset.stage;
+
+            if (!contactId || !newStage) return;
+
+            // Optimistically move the card
+            if (draggedCard) {
+                event.currentTarget.appendChild(draggedCard);
+            }
+
+            // Update on server
+            showLoading();
+            try {
+                const response = await fetch(`/api/contacts/${contactId}/workflow/stage`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ stage: newStage })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showToast(`Moved to ${newStage.replace(/_/g, ' ')}`);
+                    updateColumnCounts();
+                } else {
+                    showToast('Error: ' + (result.error || 'Failed to update'), true);
+                    // Reload to reset state
+                    setTimeout(() => window.location.reload(), 1500);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showToast('Error updating stage', true);
+                setTimeout(() => window.location.reload(), 1500);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function updateColumnCounts() {
+            document.querySelectorAll('.kanban-column').forEach(column => {
+                const count = column.querySelectorAll('.contact-card').length;
+                const countBadge = column.querySelector('.kanban-column-count');
+                if (countBadge) {
+                    countBadge.textContent = count;
+                    countBadge.classList.toggle('empty', count === 0);
+                }
+            });
+        }
+
+        async function initializeWorkflows() {
+            if (!confirm('Initialize workflow records for all contacts without one?')) return;
+
+            showLoading();
+            try {
+                const response = await fetch('/api/workflow/initialize', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showToast(`Initialized ${result.initialized} workflow records`);
+                    setTimeout(() => window.location.reload(), 1500);
+                } else {
+                    showToast('Error: ' + (result.error || 'Failed to initialize'), true);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showToast('Error initializing workflows', true);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function showLoading() {
+            document.getElementById('loading-overlay').classList.add('visible');
+        }
+
+        function hideLoading() {
+            document.getElementById('loading-overlay').classList.remove('visible');
+        }
+
+        function showToast(message, isError = false) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.toggle('error', isError);
+            toast.classList.add('visible');
+            setTimeout(() => {
+                toast.classList.remove('visible');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

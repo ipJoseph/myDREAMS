@@ -9,6 +9,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Workflow Pipeline (Phase 4)** - Kanban-style pipeline for contact workflow management
+  - **Pipeline View** (`/pipeline`) - Drag-and-drop Kanban board with 10 workflow stages:
+    - New Lead, Requirements Discovery, Active Search, Reviewing Options
+    - Showing Scheduled, Post-Showing, Offer Pending, Under Contract, Closed, Nurture
+  - **Workflow Database Table** - `contact_workflow` table tracking current stage, stage history, and transitions
+  - **Stage Transition API** - POST to `/api/contacts/<id>/workflow/stage` to move contacts between stages
+  - **Auto-Stage Inference** - Automatically infer appropriate stage based on contact activity
+  - **Bulk Initialize** - Initialize workflow records for all existing contacts
+  - Contact cards show priority score, heat score, and days since activity
+  - Pipeline link added to Contacts page navigation
 - **Unified Contact Workspace (Phase 1 - Hearth Integration)** - Central hub for buyer management
   - **Contact Workspace** (`/contacts/<id>/workspace`) - Tabbed interface with:
     - Info tab: Contact details, scores, intent signals, actions

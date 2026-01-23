@@ -2069,5 +2069,142 @@ def contact_package_remove_property(contact_id, package_id, property_id):
     return jsonify({'success': True})
 
 
+# =========================================================================
+# WORKFLOW PIPELINE ROUTES (Phase 4: Kanban Pipeline)
+# =========================================================================
+
+@app.route('/pipeline')
+@requires_auth
+def workflow_pipeline():
+    """
+    Kanban-style pipeline view showing contacts by workflow stage.
+    """
+    db = get_db()
+
+    # Get pipeline data (contacts grouped by stage)
+    pipeline = db.get_workflow_pipeline()
+
+    # Get stage counts
+    stage_counts = db.get_workflow_stage_counts()
+
+    # Stage definitions for display
+    stages = db.WORKFLOW_STAGES
+
+    return render_template('workflow_pipeline.html',
+        pipeline=pipeline,
+        stage_counts=stage_counts,
+        stages=stages,
+        total_contacts=sum(stage_counts.values()))
+
+
+@app.route('/api/workflow/pipeline')
+@requires_auth
+def api_workflow_pipeline():
+    """API endpoint for pipeline data."""
+    db = get_db()
+
+    pipeline = db.get_workflow_pipeline()
+    stage_counts = db.get_workflow_stage_counts()
+
+    return jsonify({
+        'success': True,
+        'pipeline': pipeline,
+        'stage_counts': stage_counts,
+        'stages': [{'id': s[0], 'name': s[1], 'description': s[2]} for s in db.WORKFLOW_STAGES]
+    })
+
+
+@app.route('/api/contacts/<contact_id>/workflow')
+@requires_auth
+def api_get_contact_workflow(contact_id):
+    """Get workflow state for a contact."""
+    db = get_db()
+
+    workflow = db.get_contact_workflow(contact_id)
+    if not workflow:
+        # Return default state if not initialized
+        workflow = {
+            'contact_id': contact_id,
+            'current_stage': 'new_lead',
+            'stage_history': [],
+            'workflow_status': 'active'
+        }
+
+    # Add inferred stage for comparison
+    inferred_stage = db.infer_workflow_stage(contact_id)
+
+    return jsonify({
+        'success': True,
+        'workflow': workflow,
+        'inferred_stage': inferred_stage
+    })
+
+
+@app.route('/api/contacts/<contact_id>/workflow/stage', methods=['POST'])
+@requires_auth
+def api_update_contact_workflow_stage(contact_id):
+    """Update workflow stage for a contact."""
+    db = get_db()
+
+    data = request.get_json() or {}
+    new_stage = data.get('stage')
+    notes = data.get('notes')
+
+    if not new_stage:
+        return jsonify({'success': False, 'error': 'Stage is required'}), 400
+
+    # Validate stage
+    valid_stages = [s[0] for s in db.WORKFLOW_STAGES]
+    if new_stage not in valid_stages:
+        return jsonify({'success': False, 'error': f'Invalid stage: {new_stage}'}), 400
+
+    try:
+        workflow = db.update_contact_workflow_stage(contact_id, new_stage, notes)
+        return jsonify({
+            'success': True,
+            'workflow': workflow
+        })
+    except Exception as e:
+        logger.error(f"Error updating workflow stage: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/workflow/initialize', methods=['POST'])
+@requires_auth
+def api_initialize_workflows():
+    """Initialize workflow records for all contacts."""
+    db = get_db()
+
+    try:
+        count = db.bulk_initialize_workflows()
+        return jsonify({
+            'success': True,
+            'initialized': count
+        })
+    except Exception as e:
+        logger.error(f"Error initializing workflows: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/contacts/<contact_id>/workflow/auto-stage', methods=['POST'])
+@requires_auth
+def api_auto_stage_contact(contact_id):
+    """Automatically set workflow stage based on contact activity."""
+    db = get_db()
+
+    try:
+        inferred_stage = db.infer_workflow_stage(contact_id)
+        workflow = db.update_contact_workflow_stage(contact_id, inferred_stage, 'Auto-staged based on activity')
+
+        return jsonify({
+            'success': True,
+            'workflow': workflow,
+            'inferred_stage': inferred_stage
+        })
+    except Exception as e:
+        logger.error(f"Error auto-staging contact: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001, debug=True)

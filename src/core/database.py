@@ -495,6 +495,24 @@ class DREAMSDatabase:
             error_message TEXT,
             notes TEXT
         );
+
+        -- Contact workflow tracking (Phase 4: Pipeline)
+        CREATE TABLE IF NOT EXISTS contact_workflow (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            contact_id TEXT NOT NULL UNIQUE,
+            current_stage TEXT NOT NULL DEFAULT 'new_lead',
+            stage_entered_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            stage_history TEXT,              -- JSON array of {stage, entered_at, exited_at, duration_days}
+            workflow_status TEXT DEFAULT 'active',  -- 'active', 'paused', 'completed', 'lost'
+            requirements_confidence REAL DEFAULT 0,
+            days_in_current_stage INTEGER DEFAULT 0,
+            last_stage_change_at TEXT,
+            auto_stage_enabled INTEGER DEFAULT 1,  -- Allow automatic stage transitions
+            notes TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (contact_id) REFERENCES leads(id)
+        );
         '''
 
     def _get_indexes_schema(self) -> str:
@@ -541,6 +559,10 @@ class DREAMSDatabase:
         -- Scoring runs indexes
         CREATE INDEX IF NOT EXISTS idx_scoring_runs_date ON scoring_runs(run_at DESC);
         CREATE INDEX IF NOT EXISTS idx_scoring_runs_status ON scoring_runs(status);
+        -- Contact workflow indexes
+        CREATE INDEX IF NOT EXISTS idx_workflow_contact ON contact_workflow(contact_id);
+        CREATE INDEX IF NOT EXISTS idx_workflow_stage ON contact_workflow(current_stage);
+        CREATE INDEX IF NOT EXISTS idx_workflow_status ON contact_workflow(workflow_status);
         '''
     
     # ==========================================
@@ -3132,3 +3154,282 @@ class DREAMSDatabase:
                 ORDER BY MIN(created_at) DESC
             ''', (cutoff,)).fetchall()
             return [dict(row) for row in rows]
+
+    # ==========================================
+    # WORKFLOW OPERATIONS (Phase 4: Pipeline)
+    # ==========================================
+
+    # Workflow stage definitions
+    WORKFLOW_STAGES = [
+        ('new_lead', 'New Lead', 'Lead just created, no engagement yet'),
+        ('requirements_discovery', 'Requirements Discovery', 'Gathering buyer requirements'),
+        ('active_search', 'Active Search', 'Actively searching for properties'),
+        ('reviewing_options', 'Reviewing Options', 'Reviewing property packages'),
+        ('showing_scheduled', 'Showing Scheduled', 'Has upcoming showings'),
+        ('post_showing', 'Post-Showing', 'Completed showings, awaiting feedback'),
+        ('offer_pending', 'Offer Pending', 'Offer submitted'),
+        ('under_contract', 'Under Contract', 'Contract accepted'),
+        ('closed', 'Closed', 'Transaction completed'),
+        ('nurture', 'Nurture', 'Long-term follow-up'),
+    ]
+
+    def get_contact_workflow(self, contact_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get workflow state for a contact.
+
+        Args:
+            contact_id: Contact ID
+
+        Returns:
+            Workflow record or None if not found
+        """
+        with self._get_connection() as conn:
+            row = conn.execute('''
+                SELECT * FROM contact_workflow WHERE contact_id = ?
+            ''', (contact_id,)).fetchone()
+
+            if row:
+                result = dict(row)
+                # Parse JSON stage history
+                if result.get('stage_history'):
+                    try:
+                        result['stage_history'] = json.loads(result['stage_history'])
+                    except (json.JSONDecodeError, TypeError):
+                        result['stage_history'] = []
+                return result
+            return None
+
+    def ensure_contact_workflow(self, contact_id: str) -> Dict[str, Any]:
+        """
+        Get or create workflow record for a contact.
+
+        Args:
+            contact_id: Contact ID
+
+        Returns:
+            Workflow record (existing or newly created)
+        """
+        existing = self.get_contact_workflow(contact_id)
+        if existing:
+            return existing
+
+        # Create new workflow record
+        with self._get_connection() as conn:
+            now = datetime.now().isoformat()
+            conn.execute('''
+                INSERT INTO contact_workflow (contact_id, current_stage, stage_entered_at, created_at, updated_at)
+                VALUES (?, 'new_lead', ?, ?, ?)
+            ''', (contact_id, now, now, now))
+            conn.commit()
+
+        return self.get_contact_workflow(contact_id)
+
+    def update_contact_workflow_stage(
+        self,
+        contact_id: str,
+        new_stage: str,
+        notes: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Transition a contact to a new workflow stage.
+
+        Args:
+            contact_id: Contact ID
+            new_stage: New stage name
+            notes: Optional notes about the transition
+
+        Returns:
+            Updated workflow record
+        """
+        # Ensure workflow exists
+        workflow = self.ensure_contact_workflow(contact_id)
+        old_stage = workflow.get('current_stage', 'new_lead')
+
+        if old_stage == new_stage:
+            return workflow  # No change needed
+
+        now = datetime.now().isoformat()
+        stage_entered = workflow.get('stage_entered_at', now)
+
+        # Calculate days in old stage
+        try:
+            entered_dt = datetime.fromisoformat(stage_entered)
+            days_in_stage = (datetime.now() - entered_dt).days
+        except (ValueError, TypeError):
+            days_in_stage = 0
+
+        # Build stage history
+        history = workflow.get('stage_history', []) or []
+        history.append({
+            'stage': old_stage,
+            'entered_at': stage_entered,
+            'exited_at': now,
+            'duration_days': days_in_stage
+        })
+
+        with self._get_connection() as conn:
+            conn.execute('''
+                UPDATE contact_workflow
+                SET current_stage = ?,
+                    stage_entered_at = ?,
+                    stage_history = ?,
+                    days_in_current_stage = 0,
+                    last_stage_change_at = ?,
+                    updated_at = ?,
+                    notes = COALESCE(?, notes)
+                WHERE contact_id = ?
+            ''', (new_stage, now, json.dumps(history), now, now, notes, contact_id))
+            conn.commit()
+
+        return self.get_contact_workflow(contact_id)
+
+    def get_workflow_pipeline(self) -> Dict[str, List[Dict[str, Any]]]:
+        """
+        Get all contacts grouped by workflow stage for pipeline view.
+
+        Returns:
+            Dict mapping stage names to lists of contacts
+        """
+        # Initialize all stages with empty lists
+        pipeline = {stage[0]: [] for stage in self.WORKFLOW_STAGES}
+
+        with self._get_connection() as conn:
+            # Get all contacts with their workflow state
+            rows = conn.execute('''
+                SELECT
+                    l.id, l.first_name, l.last_name, l.email, l.phone,
+                    l.stage, l.heat_score, l.priority_score, l.value_score,
+                    l.properties_viewed, l.properties_favorited,
+                    l.days_since_activity, l.last_activity_at,
+                    COALESCE(w.current_stage, 'new_lead') as workflow_stage,
+                    w.stage_entered_at, w.days_in_current_stage,
+                    w.workflow_status
+                FROM leads l
+                LEFT JOIN contact_workflow w ON l.id = w.contact_id
+                WHERE l.stage NOT IN ('Closed', 'closed', 'Trash', 'trash')
+                ORDER BY l.priority_score DESC
+            ''').fetchall()
+
+            for row in rows:
+                contact = dict(row)
+                stage = contact.get('workflow_stage', 'new_lead')
+                if stage in pipeline:
+                    pipeline[stage].append(contact)
+                else:
+                    # Unknown stage, put in new_lead
+                    pipeline['new_lead'].append(contact)
+
+        return pipeline
+
+    def get_workflow_stage_counts(self) -> Dict[str, int]:
+        """
+        Get count of contacts in each workflow stage.
+
+        Returns:
+            Dict mapping stage names to counts
+        """
+        counts = {stage[0]: 0 for stage in self.WORKFLOW_STAGES}
+
+        with self._get_connection() as conn:
+            rows = conn.execute('''
+                SELECT
+                    COALESCE(w.current_stage, 'new_lead') as stage,
+                    COUNT(*) as count
+                FROM leads l
+                LEFT JOIN contact_workflow w ON l.id = w.contact_id
+                WHERE l.stage NOT IN ('Closed', 'closed', 'Trash', 'trash')
+                GROUP BY COALESCE(w.current_stage, 'new_lead')
+            ''').fetchall()
+
+            for row in rows:
+                stage = row['stage']
+                if stage in counts:
+                    counts[stage] = row['count']
+
+        return counts
+
+    def bulk_initialize_workflows(self) -> int:
+        """
+        Create workflow records for all contacts that don't have one.
+        Useful for initial setup or migration.
+
+        Returns:
+            Number of workflow records created
+        """
+        with self._get_connection() as conn:
+            now = datetime.now().isoformat()
+
+            # Get contacts without workflow records
+            result = conn.execute('''
+                INSERT INTO contact_workflow (contact_id, current_stage, stage_entered_at, created_at, updated_at)
+                SELECT l.id, 'new_lead', ?, ?, ?
+                FROM leads l
+                LEFT JOIN contact_workflow w ON l.id = w.contact_id
+                WHERE w.contact_id IS NULL
+            ''', (now, now, now))
+            conn.commit()
+
+            return result.rowcount
+
+    def infer_workflow_stage(self, contact_id: str) -> str:
+        """
+        Infer the appropriate workflow stage based on contact activity.
+        Used for automatic stage transitions.
+
+        Args:
+            contact_id: Contact ID
+
+        Returns:
+            Inferred stage name
+        """
+        with self._get_connection() as conn:
+            # Get contact data
+            contact = conn.execute('''
+                SELECT * FROM leads WHERE id = ?
+            ''', (contact_id,)).fetchone()
+
+            if not contact:
+                return 'new_lead'
+
+            contact = dict(contact)
+
+            # Check for intake forms
+            intake = conn.execute('''
+                SELECT COUNT(*) as count FROM intake_forms
+                WHERE lead_id = ? AND status = 'active'
+            ''', (contact_id,)).fetchone()
+            has_intake = intake and intake['count'] > 0
+
+            # Check for packages
+            packages = conn.execute('''
+                SELECT COUNT(*) as count, MAX(status) as max_status
+                FROM property_packages WHERE lead_id = ?
+            ''', (contact_id,)).fetchone()
+            has_packages = packages and packages['count'] > 0
+            package_sent = packages and packages['max_status'] in ('sent', 'ready')
+
+            # Check for showings
+            showings = conn.execute('''
+                SELECT COUNT(*) as total,
+                       SUM(CASE WHEN status = 'scheduled' AND scheduled_date >= date('now') THEN 1 ELSE 0 END) as upcoming,
+                       SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed
+                FROM showings WHERE lead_id = ?
+            ''', (contact_id,)).fetchone()
+            has_upcoming_showing = showings and showings['upcoming'] > 0
+            has_completed_showing = showings and showings['completed'] > 0
+
+            # Inference logic based on plan
+            if has_upcoming_showing:
+                return 'showing_scheduled'
+            elif has_completed_showing:
+                return 'post_showing'
+            elif package_sent:
+                return 'reviewing_options'
+            elif has_packages or (contact.get('properties_viewed', 0) >= 5):
+                return 'active_search'
+            elif has_intake or (contact.get('properties_viewed', 0) >= 2):
+                return 'requirements_discovery'
+            elif contact.get('days_since_activity', 999) > 30:
+                return 'nurture'
+            else:
+                return 'new_lead'
