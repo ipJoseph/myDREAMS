@@ -926,7 +926,7 @@ class DREAMSDatabase:
             'urgency': form.get('urgency'),
             'financing_status': form.get('financing_status'),
             'pre_approval_amount': form.get('pre_approval_amount'),
-            'confidence': form.get('confidence_score', 50) / 100.0
+            'confidence': (form.get('confidence_score') or 50) / 100.0
         }
 
     # ==========================================
