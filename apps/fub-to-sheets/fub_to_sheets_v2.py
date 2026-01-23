@@ -164,6 +164,45 @@ class Config:
 
         return True
 
+    @classmethod
+    def get_scoring_config_snapshot(cls) -> dict:
+        """Get a snapshot of all scoring configuration for audit trail."""
+        return {
+            "heat_weights": {
+                "website_visit": cls.HEAT_WEIGHT_WEBSITE_VISIT,
+                "property_viewed": cls.HEAT_WEIGHT_PROPERTY_VIEWED,
+                "property_favorited": cls.HEAT_WEIGHT_PROPERTY_FAVORITED,
+                "property_shared": cls.HEAT_WEIGHT_PROPERTY_SHARED,
+                "call_inbound": cls.HEAT_WEIGHT_CALL_INBOUND,
+                "text_inbound": cls.HEAT_WEIGHT_TEXT_INBOUND,
+            },
+            "recency_bonuses": {
+                "0_3_days": cls.RECENCY_BONUS_0_3_DAYS,
+                "4_7_days": cls.RECENCY_BONUS_4_7_DAYS,
+                "8_14_days": cls.RECENCY_BONUS_8_14_DAYS,
+                "15_30_days": cls.RECENCY_BONUS_15_30_DAYS,
+            },
+            "priority_weights": {
+                "heat": cls.PRIORITY_WEIGHT_HEAT,
+                "value": cls.PRIORITY_WEIGHT_VALUE,
+                "relationship": cls.PRIORITY_WEIGHT_RELATIONSHIP,
+            },
+            "stage_multipliers": {
+                "hot_lead": cls.STAGE_MULTIPLIER_HOT_LEAD,
+                "active_buyer": cls.STAGE_MULTIPLIER_ACTIVE_BUYER,
+                "active_seller": cls.STAGE_MULTIPLIER_ACTIVE_SELLER,
+                "nurture": cls.STAGE_MULTIPLIER_NURTURE,
+                "new_lead": cls.STAGE_MULTIPLIER_NEW_LEAD,
+                "cold": cls.STAGE_MULTIPLIER_COLD,
+                "closed": cls.STAGE_MULTIPLIER_CLOSED,
+                "trash": cls.STAGE_MULTIPLIER_TRASH,
+            },
+            "call_list": {
+                "min_priority": cls.CALL_LIST_MIN_PRIORITY,
+                "max_rows": cls.CALL_LIST_MAX_ROWS,
+            }
+        }
+
 
 # =========================================================================
 # LOGGING SETUP
@@ -1747,6 +1786,233 @@ def sync_to_sqlite(contact_rows: List[List], person_stats: Dict[str, Dict]):
     logger.info(f"✓ SQLite sync complete: {success_count} synced, {error_count} errors")
 
 
+def evaluate_contact_trends(db, contact_rows: List[List]) -> Dict[str, str]:
+    """
+    Evaluate trends for all contacts by comparing current scores to historical averages.
+
+    Args:
+        db: DREAMSDatabase instance
+        contact_rows: List of contact rows with current scores
+
+    Returns:
+        Dict mapping contact_id to trend direction ('warming', 'cooling', 'stable')
+    """
+    idx = {name: i for i, name in enumerate(CONTACTS_HEADER)}
+    trends = {}
+    trend_alerts = []
+
+    for row in contact_rows:
+        try:
+            fub_id = str(row[idx["id"]]) if row[idx["id"]] else None
+            if not fub_id:
+                continue
+
+            current_heat = float(row[idx["heat_score"]] or 0)
+            current_priority = float(row[idx["priority_score"]] or 0)
+
+            # Get 7-day average from scoring history
+            history = db.get_scoring_history(fub_id, days=7)
+
+            if len(history) >= 2:
+                # Calculate average excluding most recent (which might be today)
+                past_scores = history[1:] if len(history) > 1 else history
+                avg_heat = sum(h.get('heat_score', 0) for h in past_scores) / len(past_scores)
+                avg_priority = sum(h.get('priority_score', 0) for h in past_scores) / len(past_scores)
+
+                # Determine trend based on heat score change
+                heat_delta = current_heat - avg_heat
+                heat_pct_change = (heat_delta / avg_heat * 100) if avg_heat > 0 else 0
+
+                if heat_pct_change >= 15:  # 15% increase = warming
+                    trends[fub_id] = 'warming'
+                    # Alert for significant warming
+                    if heat_delta >= 20:
+                        name = f"{row[idx['firstName']] or ''} {row[idx['lastName']] or ''}".strip()
+                        trend_alerts.append({
+                            'contact_id': fub_id,
+                            'name': name,
+                            'type': 'warming',
+                            'delta': heat_delta,
+                            'current': current_heat,
+                            'avg': avg_heat
+                        })
+                elif heat_pct_change <= -15:  # 15% decrease = cooling
+                    trends[fub_id] = 'cooling'
+                    # Alert for significant cooling of high-value contacts
+                    if heat_delta <= -20 and current_priority >= 60:
+                        name = f"{row[idx['firstName']] or ''} {row[idx['lastName']] or ''}".strip()
+                        trend_alerts.append({
+                            'contact_id': fub_id,
+                            'name': name,
+                            'type': 'cooling',
+                            'delta': heat_delta,
+                            'current': current_heat,
+                            'avg': avg_heat
+                        })
+                else:
+                    trends[fub_id] = 'stable'
+            else:
+                # Not enough history, mark as stable
+                trends[fub_id] = 'stable'
+
+        except Exception as e:
+            logger.debug(f"Error evaluating trend for {fub_id}: {e}")
+
+    # Log trend summary
+    warming_count = sum(1 for t in trends.values() if t == 'warming')
+    cooling_count = sum(1 for t in trends.values() if t == 'cooling')
+    stable_count = sum(1 for t in trends.values() if t == 'stable')
+
+    logger.info(f"✓ Trend evaluation: {warming_count} warming, {cooling_count} cooling, {stable_count} stable")
+
+    if trend_alerts:
+        logger.info(f"  Trend alerts ({len(trend_alerts)} significant changes):")
+        for alert in trend_alerts[:5]:  # Show top 5
+            direction = "↑" if alert['type'] == 'warming' else "↓"
+            logger.info(f"    {direction} {alert['name']}: heat {alert['avg']:.0f} → {alert['current']:.0f} ({alert['delta']:+.0f})")
+
+    return trends
+
+
+def update_contact_trends_in_db(db, trends: Dict[str, str]):
+    """
+    Update the score_trend field in leads table for all contacts.
+
+    Args:
+        db: DREAMSDatabase instance
+        trends: Dict mapping contact_id to trend direction
+    """
+    with db._get_connection() as conn:
+        for contact_id, trend in trends.items():
+            try:
+                conn.execute(
+                    'UPDATE leads SET score_trend = ?, updated_at = ? WHERE id = ?',
+                    (trend, datetime.now(timezone.utc).isoformat(), contact_id)
+                )
+            except Exception as e:
+                logger.debug(f"Error updating trend for {contact_id}: {e}")
+        conn.commit()
+
+    logger.info(f"✓ Updated score_trend for {len(trends)} contacts")
+
+
+def populate_daily_activity(db, contact_rows: List[List]):
+    """
+    Populate contact_daily_activity table with today's aggregated activity.
+
+    Args:
+        db: DREAMSDatabase instance
+        contact_rows: List of contact rows with current scores
+    """
+    idx = {name: i for i, name in enumerate(CONTACTS_HEADER)}
+    today = datetime.now().strftime('%Y-%m-%d')
+    records_created = 0
+
+    for row in contact_rows:
+        try:
+            fub_id = str(row[idx["id"]]) if row[idx["id"]] else None
+            if not fub_id:
+                continue
+
+            # Get today's activity from events/communications
+            activity = db.aggregate_daily_activity_from_events(fub_id, today)
+
+            # Skip if no activity today
+            total_activity = sum(activity.values())
+            if total_activity == 0:
+                continue
+
+            # Record with current scores as snapshot
+            db.record_daily_activity(
+                contact_id=fub_id,
+                activity_date=today,
+                website_visits=activity['website_visits'],
+                properties_viewed=activity['properties_viewed'],
+                properties_favorited=activity['properties_favorited'],
+                properties_shared=activity['properties_shared'],
+                calls_inbound=activity['calls_inbound'],
+                calls_outbound=activity['calls_outbound'],
+                texts_inbound=activity['texts_inbound'],
+                texts_outbound=activity['texts_outbound'],
+                emails_received=activity['emails_received'],
+                emails_sent=activity['emails_sent'],
+                heat_score=float(row[idx["heat_score"]] or 0),
+                value_score=float(row[idx["value_score"]] or 0),
+                relationship_score=float(row[idx["relationship_score"]] or 0),
+                priority_score=float(row[idx["priority_score"]] or 0)
+            )
+            records_created += 1
+
+        except Exception as e:
+            logger.debug(f"Error recording daily activity for {fub_id}: {e}")
+
+    logger.info(f"✓ Daily activity: {records_created} contact-day records for {today}")
+
+
+def migrate_next_actions_to_contact_actions(db, contact_rows: List[List]):
+    """
+    Migrate any existing next_action/next_action_date from leads table
+    to the new contact_actions table (one-time migration).
+
+    Only creates actions for contacts that don't already have pending actions.
+
+    Args:
+        db: DREAMSDatabase instance
+        contact_rows: List of contact rows
+    """
+    idx = {name: i for i, name in enumerate(CONTACTS_HEADER)}
+    migrated = 0
+
+    # Get contacts with existing pending actions
+    existing_actions = db.get_action_counts_by_contact()
+
+    for row in contact_rows:
+        try:
+            fub_id = str(row[idx["id"]]) if row[idx["id"]] else None
+            if not fub_id:
+                continue
+
+            # Skip if already has pending actions
+            if existing_actions.get(fub_id, 0) > 0:
+                continue
+
+            next_action = row[idx["next_action"]] if row[idx["next_action"]] else None
+            next_action_date = row[idx["next_action_date"]] if row[idx["next_action_date"]] else None
+
+            # Skip if no action to migrate
+            if not next_action:
+                continue
+
+            # Determine action type from description
+            action_lower = next_action.lower()
+            if 'call' in action_lower:
+                action_type = 'call'
+            elif 'email' in action_lower or 'send' in action_lower:
+                action_type = 'email'
+            elif 'text' in action_lower or 'sms' in action_lower:
+                action_type = 'text'
+            elif 'meeting' in action_lower or 'showing' in action_lower:
+                action_type = 'meeting'
+            else:
+                action_type = 'follow_up'
+
+            db.add_contact_action(
+                contact_id=fub_id,
+                action_type=action_type,
+                description=next_action,
+                due_date=next_action_date,
+                priority=3,
+                created_by='migration'
+            )
+            migrated += 1
+
+        except Exception as e:
+            logger.debug(f"Error migrating action for {fub_id}: {e}")
+
+    if migrated > 0:
+        logger.info(f"✓ Migrated {migrated} next_action entries to contact_actions table")
+
+
 # =========================================================================
 # MAIN EXECUTION
 # =========================================================================
@@ -1754,6 +2020,9 @@ def sync_to_sqlite(contact_rows: List[List], person_stats: Dict[str, Dict]):
 def main():
     """Main execution function"""
     start_time = time.time()
+    scoring_run_id = None
+    db = None
+    fub_api_calls = 0
 
     try:
         logger.info("=" * 70)
@@ -1763,6 +2032,19 @@ def main():
         # Validate configuration
         Config.validate()
         logger.info("✓ Configuration validated")
+
+        # Initialize database and start scoring run (for audit trail)
+        if Config.SQLITE_SYNC_ENABLED:
+            try:
+                from src.core.database import DREAMSDatabase
+                db = DREAMSDatabase(Config.DREAMS_DB_PATH)
+                scoring_run_id = db.start_scoring_run(
+                    source='scheduled',
+                    config_snapshot=Config.get_scoring_config_snapshot()
+                )
+                logger.info(f"✓ Started scoring run #{scoring_run_id}")
+            except Exception as e:
+                logger.warning(f"Could not start scoring run tracking: {e}")
 
         cache = DataCache(cache_dir=CACHE_DIR)
 
@@ -1894,11 +2176,16 @@ def main():
         # Sync to SQLite database (for unified DREAMS dashboard)
         sync_to_sqlite(contact_rows, person_stats)
 
-        # Enhanced FUB data sync: individual records and scoring history
+        # Enhanced FUB data sync: individual records, scoring, trends, and daily activity
+        contacts_new = 0
+        contacts_updated = len(contact_rows)
+
         if Config.SQLITE_SYNC_ENABLED:
             try:
-                from src.core.database import DREAMSDatabase
-                db = DREAMSDatabase(Config.DREAMS_DB_PATH)
+                # Ensure db is initialized
+                if db is None:
+                    from src.core.database import DREAMSDatabase
+                    db = DREAMSDatabase(Config.DREAMS_DB_PATH)
 
                 # Sync individual communications (calls/texts)
                 sync_communications_to_sqlite(calls, texts, db)
@@ -1909,8 +2196,37 @@ def main():
                 # Sync scoring history (once per day per contact)
                 sync_scoring_history_to_sqlite(contact_rows, person_stats, db)
 
+                # === NEW: Trend Evaluation ===
+                # Compare current scores to historical averages
+                trends = evaluate_contact_trends(db, contact_rows)
+                update_contact_trends_in_db(db, trends)
+
+                # === NEW: Daily Activity Aggregation ===
+                # Populate contact_daily_activity table for today
+                populate_daily_activity(db, contact_rows)
+
+                # === NEW: Migrate next_action to contact_actions (one-time) ===
+                # This preserves user-created actions across syncs
+                migrate_next_actions_to_contact_actions(db, contact_rows)
+
             except Exception as e:
                 logger.error(f"Enhanced FUB data sync failed: {e}")
+
+        # Complete scoring run with final stats
+        if scoring_run_id and db:
+            try:
+                db.complete_scoring_run(
+                    run_id=scoring_run_id,
+                    contacts_processed=len(people),
+                    contacts_scored=len(contact_rows),
+                    contacts_new=contacts_new,
+                    contacts_updated=contacts_updated,
+                    fub_api_calls=fub_api_calls,
+                    status='success'
+                )
+                logger.info(f"✓ Completed scoring run #{scoring_run_id}")
+            except Exception as e:
+                logger.warning(f"Could not complete scoring run tracking: {e}")
 
         # Summary
         elapsed = time.time() - start_time
@@ -1924,6 +2240,16 @@ def main():
 
     except KeyboardInterrupt:
         logger.warning("\n⚠️  Process interrupted by user")
+        # Mark scoring run as failed if interrupted
+        if scoring_run_id and db:
+            try:
+                db.complete_scoring_run(
+                    run_id=scoring_run_id,
+                    status='failed',
+                    error_message='Process interrupted by user'
+                )
+            except Exception:
+                pass
         sys.exit(1)
 
     except Exception as e:
@@ -1931,6 +2257,16 @@ def main():
         logger.error("FATAL ERROR")
         logger.error("=" * 70)
         logger.error(str(e), exc_info=True)
+        # Mark scoring run as failed
+        if scoring_run_id and db:
+            try:
+                db.complete_scoring_run(
+                    run_id=scoring_run_id,
+                    status='failed',
+                    error_message=str(e)
+                )
+            except Exception:
+                pass
         sys.exit(1)
 
 

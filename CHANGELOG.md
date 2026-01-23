@@ -26,6 +26,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Backfill script to populate historical daily activity from existing events (1800+ records)
   - Full database methods for all new tables (CRUD operations, aggregations, stats)
 
+- **Enhanced FUB Sync with Trend Evaluation** - Major refactor of fub_to_sheets_v2.py
+  - **Scoring Runs Audit Trail** - Every sync now tracked with timing, counts, config snapshot, and status
+  - **Trend Evaluation** - Compares current scores to 7-day average, detects warming/cooling/stable
+  - **Trend Alerts** - Logs significant score changes (>20 point heat delta)
+  - **Daily Activity Aggregation** - Auto-populates contact_daily_activity after each sync
+  - **Action Migration** - One-time migration of next_action fields to persistent contact_actions table
+  - **Config Snapshot** - Scoring weights captured with each run for debugging/auditing
+  - **Error Handling** - Failed runs properly recorded with error messages
+
 - **Buyer Workflow Search Results Enhancement** - Improved property selection for package creation
   - Selection checkboxes on each property card with Select All toggle
   - Address now links directly to Redfin listing (removed redundant Redfin button)
