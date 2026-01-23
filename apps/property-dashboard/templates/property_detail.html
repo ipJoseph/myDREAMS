@@ -563,8 +563,8 @@
                                 <a href="/contacts/{{ contact.id }}/workspace">{{ contact.first_name }} {{ contact.last_name }}</a>
                             </div>
                             <div class="contact-status">
-                                {{ contact.status or 'Viewed' }}
-                                {% if contact.is_favorited %}<span class="contact-favorite">&#9733;</span>{% endif %}
+                                {{ contact.relationship|title or 'Viewed' }}
+                                {% if contact.relationship == 'favorited' %}<span class="contact-favorite">&#9733;</span>{% endif %}
                             </div>
                         </div>
                     </div>

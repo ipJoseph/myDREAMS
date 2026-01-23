@@ -667,7 +667,7 @@ def property_detail(property_id):
         # Get contacts interested in this property
         interested = conn.execute('''
             SELECT l.id, l.first_name, l.last_name, l.email,
-                   cp.status, cp.notes, cp.is_favorited, cp.created_at
+                   cp.relationship, cp.notes, cp.created_at
             FROM contact_properties cp
             JOIN leads l ON l.id = cp.contact_id
             WHERE cp.property_id = ?
