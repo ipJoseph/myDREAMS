@@ -629,60 +629,56 @@ def api_properties():
 @requires_auth
 def property_detail(property_id):
     """Property detail page with price history chart."""
-    conn = get_db_connection()
+    with db._get_connection() as conn:
+        # Get property details
+        prop = conn.execute('''
+            SELECT p.*,
+                   (SELECT COUNT(*) FROM property_changes WHERE property_id = p.id) as change_count
+            FROM properties p
+            WHERE p.id = ?
+        ''', [property_id]).fetchone()
 
-    # Get property details
-    prop = conn.execute('''
-        SELECT p.*,
-               (SELECT COUNT(*) FROM property_changes WHERE property_id = p.id) as change_count
-        FROM properties p
-        WHERE p.id = ?
-    ''', [property_id]).fetchone()
+        if not prop:
+            return "Property not found", 404
 
-    if not prop:
-        conn.close()
-        return "Property not found", 404
+        prop_dict = dict(prop)
 
-    prop_dict = dict(prop)
-
-    # Parse photo URLs
-    if prop_dict.get('photo_urls'):
-        try:
-            prop_dict['photos'] = json.loads(prop_dict['photo_urls'])
-        except json.JSONDecodeError:
+        # Parse photo URLs
+        if prop_dict.get('photo_urls'):
+            try:
+                prop_dict['photos'] = json.loads(prop_dict['photo_urls'])
+            except json.JSONDecodeError:
+                prop_dict['photos'] = []
+        else:
             prop_dict['photos'] = []
-    else:
-        prop_dict['photos'] = []
 
-    # Get price history
-    price_history = db.get_property_price_history(property_id)
+        # Get price history
+        price_history = db.get_property_price_history(property_id)
 
-    # Get recent changes
-    changes = conn.execute('''
-        SELECT change_type, old_value, new_value, change_amount, detected_at
-        FROM property_changes
-        WHERE property_id = ?
-        ORDER BY detected_at DESC
-        LIMIT 10
-    ''', [property_id]).fetchall()
+        # Get recent changes
+        changes = conn.execute('''
+            SELECT change_type, old_value, new_value, change_amount, detected_at
+            FROM property_changes
+            WHERE property_id = ?
+            ORDER BY detected_at DESC
+            LIMIT 10
+        ''', [property_id]).fetchall()
 
-    # Get contacts interested in this property
-    interested = conn.execute('''
-        SELECT l.id, l.first_name, l.last_name, l.email,
-               cp.status, cp.notes, cp.is_favorited, cp.created_at
-        FROM contact_properties cp
-        JOIN leads l ON l.id = cp.contact_id
-        WHERE cp.property_id = ?
-        ORDER BY cp.created_at DESC
-    ''', [property_id]).fetchall()
+        # Get contacts interested in this property
+        interested = conn.execute('''
+            SELECT l.id, l.first_name, l.last_name, l.email,
+                   cp.status, cp.notes, cp.is_favorited, cp.created_at
+            FROM contact_properties cp
+            JOIN leads l ON l.id = cp.contact_id
+            WHERE cp.property_id = ?
+            ORDER BY cp.created_at DESC
+        ''', [property_id]).fetchall()
 
-    conn.close()
-
-    return render_template('property_detail.html',
-                         property=prop_dict,
-                         price_history=price_history,
-                         changes=[dict(c) for c in changes],
-                         interested_contacts=[dict(i) for i in interested])
+        return render_template('property_detail.html',
+                             property=prop_dict,
+                             price_history=price_history,
+                             changes=[dict(c) for c in changes],
+                             interested_contacts=[dict(i) for i in interested])
 
 
 @app.route('/api/properties/<property_id>/price-history')
