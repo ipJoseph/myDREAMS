@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "DREAMS Property Capture",
-  "version": "3.9.26",
+  "version": "3.9.27",
   "description": "Capture property listings from Zillow, Redfin, and Realtor.com to your DREAMS dashboard.",
   "permissions": [
     "storage",
@@ -24,10 +24,19 @@
   "content_scripts": [
     {
       "matches": [
-        "https://www.zillow.com/*",
-        "https://www.realtor.com/*"
+        "https://www.zillow.com/*"
       ],
       "js": ["content/index.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://www.realtor.com/*"
+      ],
+      "js": [
+        "content/scrapers/realtor/scraper.js",
+        "content/index.js"
+      ],
       "run_at": "document_idle"
     },
     {

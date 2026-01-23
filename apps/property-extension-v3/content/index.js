@@ -4,7 +4,7 @@
  * Designed for bulk operations and data export
  */
 
-const VERSION = '3.9.25';
+const VERSION = '3.9.27';
 console.log(`DREAMS Property Scraper v${VERSION}: Content script loaded`);
 
 // Detect which site we're on
@@ -199,7 +199,12 @@ function scrapeCurrentProperty() {
     return window.RedfinScraper.scrapeProperty();
   }
 
-  // Zillow/Realtor scraping
+  if (SITE === 'realtor' && window.RealtorScraper?.scrapeProperty) {
+    console.log('Using Realtor.com scraper');
+    return window.RealtorScraper.scrapeProperty();
+  }
+
+  // Zillow scraping (or fallback for other sites)
   let data = initPropertyData();
 
   // Get ZPID from URL (Zillow)
@@ -809,6 +814,12 @@ function scrapeSearchResults() {
   if (SITE === 'redfin' && window.RedfinScraper?.scrapeSearchResults) {
     console.log('Using Redfin search scraper');
     return window.RedfinScraper.scrapeSearchResults();
+  }
+
+  // Use Realtor.com scraper if available
+  if (SITE === 'realtor' && window.RealtorScraper?.scrapeSearchResults) {
+    console.log('Using Realtor.com search scraper');
+    return window.RealtorScraper.scrapeSearchResults();
   }
 
   // Zillow search scraping

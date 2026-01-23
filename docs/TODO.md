@@ -71,7 +71,7 @@ Last updated: January 23, 2026 (Admin Settings page added)
 |---|------|--------|----------|-------|
 | 21 | **Add test suite** | Pending | Tech Debt | `/tests/` directory is empty - no tests |
 | 22 | **Zillow scraper fix** | Pending | Tech Debt | Code exists but blocked by site |
-| 23 | **Realtor.com scraper** | Pending | Tech Debt | Falls back to Redfin, not native |
+| 23 | **Realtor.com scraper** | DONE | Tech Debt | Dedicated scraper with __NEXT_DATA__ + DOM extraction |
 | 24 | **Standardize error handling** | Pending | Tech Debt | Inconsistent patterns across apps |
 | 25 | **Review unused database methods** | Pending | Tech Debt | Some aggregation methods may be orphaned |
 
@@ -119,6 +119,7 @@ Last updated: January 23, 2026 (Admin Settings page added)
 | 14 | Admin settings page | Jan 23, 2026 | Toggle switches for alerts/reports, number inputs for thresholds |
 | 15 | Feature toggles UI | Jan 23, 2026 | Boolean toggles for all automation features |
 | 16 | Automatic note push on property matches | Jan 23, 2026 | FUB API integration to push notes |
+| 23 | Realtor.com scraper | Jan 23, 2026 | Dedicated scraper with __NEXT_DATA__ + DOM extraction |
 
 ---
 

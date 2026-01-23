@@ -9,6 +9,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Realtor.com Scraper** - Dedicated property scraper for Realtor.com (Chrome extension v3.9.27)
+  - Extracts from `__NEXT_DATA__` JSON embedded in page
+  - DOM fallback for robust data extraction
+  - Property detail and search results scraping
+  - Full field support: price, beds, baths, sqft, lot size, agent info, MLS, photos
+  - Integrated with existing extension architecture (`window.RealtorScraper`)
 - **Admin Settings Page** - Configurable alert thresholds and automation behavior at `/admin/settings`
   - **System Settings Database** - New `system_settings` table for persistent configuration
     - Key-value storage with type conversion (string, integer, float, boolean, json)
