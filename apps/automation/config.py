@@ -44,7 +44,9 @@ NEW_LISTING_MATCH_THRESHOLD = int(os.getenv('NEW_LISTING_MATCH_THRESHOLD', '60')
 ALERT_LOOKBACK_HOURS = int(os.getenv('ALERT_LOOKBACK_HOURS', '24'))
 
 # Counties to track (WNC focus)
-TRACKED_COUNTIES = [
+# Can be overridden via TRACKED_COUNTIES env var (comma-separated)
+_default_counties = [
+    # Original WNC counties
     'Buncombe',
     'Henderson',
     'Madison',
@@ -54,8 +56,26 @@ TRACKED_COUNTIES = [
     'Polk',
     'Rutherford',
     'Yancey',
-    'Mitchell'
+    'Mitchell',
+    # Additional counties from property data
+    'Macon',
+    'Macon County',
+    'Jackson',
+    'Jackson County',
+    'Cherokee',
+    'Cherokee County',
+    'Swain',
+    'Swain County',
+    'Clay',
+    'Clay County',
+    'Graham',
+    'Graham County',
+    'Towns',
+    'Towns County',
+    'Haywood County',
 ]
+_env_counties = os.getenv('TRACKED_COUNTIES', '')
+TRACKED_COUNTIES = [c.strip() for c in _env_counties.split(',') if c.strip()] if _env_counties else _default_counties
 
 # Logging
 LOG_LEVEL = os.getenv('AUTOMATION_LOG_LEVEL', 'INFO')
