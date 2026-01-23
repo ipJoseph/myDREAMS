@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Actions | DREAMS</title>
+    <link rel="icon" type="image/svg+xml" href="{{ favicon }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='shared/css/dreams.css') }}">
+    <style>
+        .actions-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 20px;
+        }
+
+        .actions-stats {
+            display: flex;
+            gap: 24px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 16px 24px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .stat-card.overdue { border-left: 4px solid #dc2626; }
+        .stat-card.today { border-left: 4px solid #d97706; }
+        .stat-card.upcoming { border-left: 4px solid #3b82f6; }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+        }
+
+        .stat-card.overdue .stat-value { color: #dc2626; }
+        .stat-card.today .stat-value { color: #d97706; }
+        .stat-card.upcoming .stat-value { color: #3b82f6; }
+
+        .stat-label {
+            font-size: 12px;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .actions-section {
+            margin: 0 20px 24px 20px;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .section-header h2 {
+            font-size: 18px;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .section-header.overdue h2 { color: #dc2626; }
+        .section-header.today h2 { color: #d97706; }
+        .section-header.upcoming h2 { color: #3b82f6; }
+
+        .count-badge {
+            background: var(--bg-tertiary);
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .section-header.overdue .count-badge { background: #fee2e2; color: #dc2626; }
+        .section-header.today .count-badge { background: #fef3c7; color: #d97706; }
+        .section-header.upcoming .count-badge { background: #dbeafe; color: #3b82f6; }
+
+        .actions-list {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .action-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            transition: background 0.2s;
+        }
+
+        .action-item:last-child {
+            border-bottom: none;
+        }
+
+        .action-item:hover {
+            background: var(--bg-secondary);
+        }
+
+        .action-complete-btn {
+            width: 28px;
+            height: 28px;
+            border: 2px solid var(--primary);
+            border-radius: 50%;
+            background: white;
+            cursor: pointer;
+            flex-shrink: 0;
+            margin-top: 2px;
+            transition: all 0.2s;
+        }
+
+        .action-complete-btn:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        .action-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .action-top-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 6px;
+            flex-wrap: wrap;
+        }
+
+        .action-type-badge {
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .action-type-badge.call { background: #dbeafe; color: #1e40af; }
+        .action-type-badge.email { background: #fef3c7; color: #92400e; }
+        .action-type-badge.text { background: #dcfce7; color: #166534; }
+        .action-type-badge.meeting { background: #d1fae5; color: #065f46; }
+        .action-type-badge.showing { background: #fae8ff; color: #86198f; }
+        .action-type-badge.follow_up { background: #e0e7ff; color: #4338ca; }
+        .action-type-badge.note { background: #f3f4f6; color: #374151; }
+
+        .action-contact {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .action-contact a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        .action-contact a:hover {
+            color: var(--primary);
+            text-decoration: underline;
+        }
+
+        .action-due {
+            font-size: 12px;
+        }
+
+        .action-due.overdue { color: #dc2626; font-weight: 600; }
+        .action-due.today { color: #d97706; }
+        .action-due.upcoming { color: var(--text-secondary); }
+
+        .action-priority {
+            font-size: 12px;
+            color: #dc2626;
+        }
+
+        .action-description {
+            color: var(--text-primary);
+            margin-bottom: 6px;
+        }
+
+        .action-meta {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            display: flex;
+            gap: 16px;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .action-btn {
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border: none;
+            cursor: pointer;
+        }
+
+        .action-btn:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .empty-section {
+            padding: 40px;
+            text-align: center;
+            color: var(--text-secondary);
+        }
+
+        .empty-section-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+    </style>
+</head>
+<body>
+    <header class="dreams-header">
+        <div>
+            <h1>My Actions</h1>
+            <div class="dreams-header-subtitle">
+                Tasks and follow-ups across all contacts
+            </div>
+        </div>
+        <nav style="display: flex; gap: 16px; align-items: center;">
+            <a href="/" class="dreams-btn dreams-btn-secondary">Main</a>
+            <a href="/contacts" class="dreams-btn dreams-btn-secondary">Contacts</a>
+        </nav>
+    </header>
+
+    <div class="actions-header">
+        <div class="actions-stats">
+            <div class="stat-card overdue">
+                <div class="stat-value">{{ overdue_actions|length }}</div>
+                <div class="stat-label">Overdue</div>
+            </div>
+            <div class="stat-card today">
+                <div class="stat-value">{{ today_actions|length }}</div>
+                <div class="stat-label">Due Today</div>
+            </div>
+            <div class="stat-card upcoming">
+                <div class="stat-value">{{ upcoming_actions|length }}</div>
+                <div class="stat-label">Upcoming</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Overdue Actions -->
+    {% if overdue_actions %}
+    <div class="actions-section">
+        <div class="section-header overdue">
+            <h2>Overdue</h2>
+            <span class="count-badge">{{ overdue_actions|length }}</span>
+        </div>
+        <div class="actions-list">
+            {% for action in overdue_actions %}
+            <div class="action-item" data-action-id="{{ action.id }}">
+                <button onclick="completeAction('{{ action.contact_id }}', {{ action.id }})" class="action-complete-btn" title="Mark complete"></button>
+                <div class="action-content">
+                    <div class="action-top-row">
+                        <span class="action-type-badge {{ action.action_type }}">{{ action.action_type }}</span>
+                        <span class="action-contact">
+                            <a href="/contacts/{{ action.contact_id }}">{{ action.first_name or '' }} {{ action.last_name or '' }}</a>
+                        </span>
+                        <span class="action-due overdue">Due {{ action.due_date }}</span>
+                        {% if action.priority and action.priority <= 2 %}
+                        <span class="action-priority">High Priority</span>
+                        {% endif %}
+                    </div>
+                    {% if action.description %}
+                    <div class="action-description">{{ action.description }}</div>
+                    {% endif %}
+                    <div class="action-meta">
+                        {% if action.email %}<span>{{ action.email }}</span>{% endif %}
+                        {% if action.phone %}<span>{{ action.phone }}</span>{% endif %}
+                        <span>Priority Score: {{ "%.0f"|format(action.priority_score or 0) }}</span>
+                    </div>
+                </div>
+                <div class="action-buttons">
+                    {% if action.phone %}
+                    <a href="tel:{{ action.phone }}" class="action-btn">Call</a>
+                    {% endif %}
+                    {% if action.email %}
+                    <a href="https://mail.google.com/mail/?authuser=Joseph@JonTharpHomes.com&view=cm&fs=1&to={{ action.email }}" target="_blank" class="action-btn">Email</a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Due Today -->
+    {% if today_actions %}
+    <div class="actions-section">
+        <div class="section-header today">
+            <h2>Due Today</h2>
+            <span class="count-badge">{{ today_actions|length }}</span>
+        </div>
+        <div class="actions-list">
+            {% for action in today_actions %}
+            <div class="action-item" data-action-id="{{ action.id }}">
+                <button onclick="completeAction('{{ action.contact_id }}', {{ action.id }})" class="action-complete-btn" title="Mark complete"></button>
+                <div class="action-content">
+                    <div class="action-top-row">
+                        <span class="action-type-badge {{ action.action_type }}">{{ action.action_type }}</span>
+                        <span class="action-contact">
+                            <a href="/contacts/{{ action.contact_id }}">{{ action.first_name or '' }} {{ action.last_name or '' }}</a>
+                        </span>
+                        <span class="action-due today">Due Today</span>
+                        {% if action.priority and action.priority <= 2 %}
+                        <span class="action-priority">High Priority</span>
+                        {% endif %}
+                    </div>
+                    {% if action.description %}
+                    <div class="action-description">{{ action.description }}</div>
+                    {% endif %}
+                    <div class="action-meta">
+                        {% if action.email %}<span>{{ action.email }}</span>{% endif %}
+                        {% if action.phone %}<span>{{ action.phone }}</span>{% endif %}
+                        <span>Priority Score: {{ "%.0f"|format(action.priority_score or 0) }}</span>
+                    </div>
+                </div>
+                <div class="action-buttons">
+                    {% if action.phone %}
+                    <a href="tel:{{ action.phone }}" class="action-btn">Call</a>
+                    {% endif %}
+                    {% if action.email %}
+                    <a href="https://mail.google.com/mail/?authuser=Joseph@JonTharpHomes.com&view=cm&fs=1&to={{ action.email }}" target="_blank" class="action-btn">Email</a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Upcoming Actions -->
+    {% if upcoming_actions %}
+    <div class="actions-section">
+        <div class="section-header upcoming">
+            <h2>Upcoming</h2>
+            <span class="count-badge">{{ upcoming_actions|length }}</span>
+        </div>
+        <div class="actions-list">
+            {% for action in upcoming_actions %}
+            <div class="action-item" data-action-id="{{ action.id }}">
+                <button onclick="completeAction('{{ action.contact_id }}', {{ action.id }})" class="action-complete-btn" title="Mark complete"></button>
+                <div class="action-content">
+                    <div class="action-top-row">
+                        <span class="action-type-badge {{ action.action_type }}">{{ action.action_type }}</span>
+                        <span class="action-contact">
+                            <a href="/contacts/{{ action.contact_id }}">{{ action.first_name or '' }} {{ action.last_name or '' }}</a>
+                        </span>
+                        <span class="action-due upcoming">Due {{ action.due_date }}</span>
+                        {% if action.priority and action.priority <= 2 %}
+                        <span class="action-priority">High Priority</span>
+                        {% endif %}
+                    </div>
+                    {% if action.description %}
+                    <div class="action-description">{{ action.description }}</div>
+                    {% endif %}
+                    <div class="action-meta">
+                        {% if action.email %}<span>{{ action.email }}</span>{% endif %}
+                        {% if action.phone %}<span>{{ action.phone }}</span>{% endif %}
+                        <span>Priority Score: {{ "%.0f"|format(action.priority_score or 0) }}</span>
+                    </div>
+                </div>
+                <div class="action-buttons">
+                    {% if action.phone %}
+                    <a href="tel:{{ action.phone }}" class="action-btn">Call</a>
+                    {% endif %}
+                    {% if action.email %}
+                    <a href="https://mail.google.com/mail/?authuser=Joseph@JonTharpHomes.com&view=cm&fs=1&to={{ action.email }}" target="_blank" class="action-btn">Email</a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- No Due Date -->
+    {% if no_date_actions %}
+    <div class="actions-section">
+        <div class="section-header">
+            <h2>No Due Date</h2>
+            <span class="count-badge">{{ no_date_actions|length }}</span>
+        </div>
+        <div class="actions-list">
+            {% for action in no_date_actions %}
+            <div class="action-item" data-action-id="{{ action.id }}">
+                <button onclick="completeAction('{{ action.contact_id }}', {{ action.id }})" class="action-complete-btn" title="Mark complete"></button>
+                <div class="action-content">
+                    <div class="action-top-row">
+                        <span class="action-type-badge {{ action.action_type }}">{{ action.action_type }}</span>
+                        <span class="action-contact">
+                            <a href="/contacts/{{ action.contact_id }}">{{ action.first_name or '' }} {{ action.last_name or '' }}</a>
+                        </span>
+                        {% if action.priority and action.priority <= 2 %}
+                        <span class="action-priority">High Priority</span>
+                        {% endif %}
+                    </div>
+                    {% if action.description %}
+                    <div class="action-description">{{ action.description }}</div>
+                    {% endif %}
+                    <div class="action-meta">
+                        {% if action.email %}<span>{{ action.email }}</span>{% endif %}
+                        {% if action.phone %}<span>{{ action.phone }}</span>{% endif %}
+                        <span>Priority Score: {{ "%.0f"|format(action.priority_score or 0) }}</span>
+                    </div>
+                </div>
+                <div class="action-buttons">
+                    {% if action.phone %}
+                    <a href="tel:{{ action.phone }}" class="action-btn">Call</a>
+                    {% endif %}
+                    {% if action.email %}
+                    <a href="https://mail.google.com/mail/?authuser=Joseph@JonTharpHomes.com&view=cm&fs=1&to={{ action.email }}" target="_blank" class="action-btn">Email</a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Empty State -->
+    {% if not overdue_actions and not today_actions and not upcoming_actions and not no_date_actions %}
+    <div class="actions-section">
+        <div class="actions-list">
+            <div class="empty-section">
+                <div class="empty-section-icon">&#10003;</div>
+                <h3>All caught up!</h3>
+                <p>No pending actions. Add actions from contact detail pages.</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <footer class="dreams-footer">
+        DREAMS - Desktop Real Estate Agent Management System
+    </footer>
+
+    <script>
+        async function completeAction(contactId, actionId) {
+            try {
+                const response = await fetch(`/api/contacts/${contactId}/actions/${actionId}/complete`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // Remove the action item from the DOM with animation
+                    const item = document.querySelector(`[data-action-id="${actionId}"]`);
+                    if (item) {
+                        item.style.opacity = '0';
+                        item.style.transform = 'translateX(20px)';
+                        item.style.transition = 'all 0.3s ease';
+                        setTimeout(() => {
+                            item.remove();
+                            // Reload to update counts
+                            window.location.reload();
+                        }, 300);
+                    }
+                } else {
+                    alert('Error completing action: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error completing action. Please try again.');
+            }
+        }
+    </script>
+</body>
+</html>

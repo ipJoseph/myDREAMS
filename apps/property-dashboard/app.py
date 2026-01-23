@@ -1027,6 +1027,56 @@ def contact_detail(contact_id):
 
 
 # =========================================================================
+# ACTIONS PAGE
+# =========================================================================
+
+@app.route('/actions')
+@requires_auth
+def actions_list():
+    """Actions list view - shows all pending actions across contacts."""
+    db = get_db()
+
+    # Get all pending actions
+    all_actions = db.get_pending_actions(limit=200)
+
+    # Get today's date for categorization
+    today = datetime.now().strftime('%Y-%m-%d')
+
+    # Categorize actions
+    overdue_actions = []
+    today_actions = []
+    upcoming_actions = []
+    no_date_actions = []
+
+    for action in all_actions:
+        due_date = action.get('due_date')
+        if not due_date:
+            no_date_actions.append(action)
+        elif due_date < today:
+            overdue_actions.append(action)
+        elif due_date == today:
+            today_actions.append(action)
+        else:
+            upcoming_actions.append(action)
+
+    # Sort each category by priority then due date
+    def sort_key(a):
+        return (a.get('priority', 5), a.get('due_date') or '9999-99-99')
+
+    overdue_actions.sort(key=sort_key)
+    today_actions.sort(key=sort_key)
+    upcoming_actions.sort(key=sort_key)
+    no_date_actions.sort(key=lambda a: a.get('priority', 5))
+
+    return render_template('actions.html',
+                         overdue_actions=overdue_actions,
+                         today_actions=today_actions,
+                         upcoming_actions=upcoming_actions,
+                         no_date_actions=no_date_actions,
+                         today=today)
+
+
+# =========================================================================
 # CONTACT ACTIONS API
 # =========================================================================
 
