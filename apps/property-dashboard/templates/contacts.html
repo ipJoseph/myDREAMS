@@ -8,7 +8,7 @@
     <link rel="icon" type="image/svg+xml" href="{{ favicon }}">
     <!-- Shared Design System -->
     <link rel="stylesheet" href="{{ url_for('static', filename='shared/css/dreams.css') }}">
-    <!-- Page-specific overrides (minimal) -->
+    <!-- Page-specific overrides -->
     <style>
         /* Score bar visualization */
         .score-bar {
@@ -69,7 +69,7 @@
 
         /* Table minimum width */
         .dreams-table {
-            min-width: 1400px;
+            min-width: 1500px;
         }
 
         /* Activity indicator */
@@ -99,6 +99,439 @@
         .trend-indicator.cooling { background: #fee2e2; color: #991b1b; }
         .trend-indicator.stable { background: #f3f4f6; color: #6b7280; }
         .trend-indicator.none { background: transparent; color: #d1d5db; }
+
+        /* Tabs */
+        .tabs-container {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+            padding: 8px;
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            overflow-x: auto;
+        }
+
+        .tab-btn {
+            padding: 10px 20px;
+            border: none;
+            background: transparent;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--text-secondary);
+            transition: all 0.2s;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .tab-btn:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .tab-btn.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        .tab-btn .badge {
+            background: rgba(255,255,255,0.2);
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+        }
+
+        .tab-btn.active .badge {
+            background: rgba(255,255,255,0.3);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Suggested action badge */
+        .suggested-action {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 10px;
+            border-radius: 16px;
+            font-size: 11px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .suggested-action.urgent {
+            background: #fef2f2;
+            color: #dc2626;
+            border: 1px solid #fecaca;
+        }
+
+        .suggested-action.high {
+            background: #fefce8;
+            color: #ca8a04;
+            border: 1px solid #fef08a;
+        }
+
+        .suggested-action.medium {
+            background: #eff6ff;
+            color: #2563eb;
+            border: 1px solid #bfdbfe;
+        }
+
+        .suggested-action.low {
+            background: #f0fdf4;
+            color: #16a34a;
+            border: 1px solid #bbf7d0;
+        }
+
+        /* Action Queue Cards */
+        .queue-section {
+            margin-bottom: 24px;
+        }
+
+        .queue-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            border-radius: 8px 8px 0 0;
+            color: white;
+            font-weight: 600;
+        }
+
+        .queue-header.priority-1 { background: linear-gradient(135deg, #dc2626, #ef4444); }
+        .queue-header.priority-2 { background: linear-gradient(135deg, #d97706, #f59e0b); }
+        .queue-header.priority-3 { background: linear-gradient(135deg, #059669, #10b981); }
+        .queue-header.priority-4 { background: linear-gradient(135deg, #4b5563, #6b7280); }
+
+        .queue-items {
+            border: 1px solid var(--border);
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+            background: var(--bg-primary);
+        }
+
+        .queue-item {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px;
+            border-bottom: 1px solid var(--border);
+            transition: background 0.2s;
+        }
+
+        .queue-item:last-child {
+            border-bottom: none;
+        }
+
+        .queue-item:hover {
+            background: var(--bg-secondary);
+        }
+
+        .queue-item-info {
+            flex: 1;
+        }
+
+        .queue-item-name {
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+
+        .queue-item-meta {
+            font-size: 12px;
+            color: var(--text-secondary);
+            display: flex;
+            gap: 16px;
+        }
+
+        .queue-item-scores {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .mini-score {
+            text-align: center;
+        }
+
+        .mini-score-label {
+            font-size: 10px;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+        }
+
+        .mini-score-value {
+            font-weight: 700;
+            font-size: 16px;
+        }
+
+        .mini-score-value.heat { color: #ef4444; }
+        .mini-score-value.value { color: #10b981; }
+        .mini-score-value.priority { color: var(--primary); }
+
+        .queue-item-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .action-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .action-btn.primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .action-btn.primary:hover {
+            background: var(--primary-dark);
+        }
+
+        .action-btn.secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .action-btn.secondary:hover {
+            background: var(--border);
+        }
+
+        /* Score Analysis */
+        .analysis-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+
+        .analysis-card {
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .analysis-card-title {
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: var(--text-primary);
+        }
+
+        .distribution-bar {
+            display: flex;
+            height: 32px;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 12px;
+        }
+
+        .dist-segment {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 12px;
+            transition: opacity 0.2s;
+        }
+
+        .dist-segment:hover {
+            opacity: 0.85;
+        }
+
+        .dist-segment.excellent { background: #22c55e; }
+        .dist-segment.good { background: #84cc16; }
+        .dist-segment.medium { background: #eab308; }
+        .dist-segment.low { background: #ef4444; }
+
+        .dist-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            font-size: 12px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+        }
+
+        /* Insights Cards */
+        .insights-grid {
+            display: grid;
+            gap: 16px;
+        }
+
+        .insight-card {
+            background: var(--bg-primary);
+            border-radius: 12px;
+            padding: 20px;
+            border-left: 4px solid;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .insight-card.opportunity {
+            border-left-color: #22c55e;
+            background: linear-gradient(90deg, #f0fdf4, var(--bg-primary));
+        }
+
+        .insight-card.warning {
+            border-left-color: #f59e0b;
+            background: linear-gradient(90deg, #fffbeb, var(--bg-primary));
+        }
+
+        .insight-card.success {
+            border-left-color: #3b82f6;
+            background: linear-gradient(90deg, #eff6ff, var(--bg-primary));
+        }
+
+        .insight-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+        }
+
+        .insight-title {
+            font-weight: 700;
+            font-size: 16px;
+            color: var(--text-primary);
+        }
+
+        .insight-count {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .insight-description {
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+            line-height: 1.5;
+        }
+
+        .insight-action {
+            background: var(--bg-secondary);
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 13px;
+        }
+
+        .insight-action strong {
+            color: var(--text-primary);
+        }
+
+        .insight-contacts {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border);
+        }
+
+        .insight-contacts-title {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            margin-bottom: 8px;
+        }
+
+        .insight-contact-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .insight-contact-chip {
+            background: var(--bg-tertiary);
+            padding: 4px 10px;
+            border-radius: 16px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        /* Trends */
+        .trends-card {
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            max-width: 600px;
+        }
+
+        .trend-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .trend-label {
+            width: 120px;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .trend-bar-container {
+            flex: 1;
+            background: var(--bg-tertiary);
+            height: 28px;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .trend-bar-fill {
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 10px;
+            color: white;
+            font-weight: 600;
+            font-size: 12px;
+            transition: width 0.5s ease;
+        }
+
+        .trend-bar-fill.active { background: linear-gradient(90deg, #22c55e, #4ade80); }
+        .trend-bar-fill.warm { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+        .trend-bar-fill.cold { background: linear-gradient(90deg, #6b7280, #9ca3af); }
+        .trend-bar-fill.stale { background: linear-gradient(90deg, #dc2626, #ef4444); }
+
+        .trend-value {
+            min-width: 50px;
+            text-align: right;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
 
         /* Clickable metric cards */
         .dreams-metric-card.clickable {
@@ -190,9 +623,7 @@
             border-radius: 3px;
             outline: none;
             cursor: pointer;
-            position: relative;
         }
-        /* Webkit (Chrome/Safari) - use gradient for filled portion */
         .threshold-slider.heat input[type="range"] {
             background: linear-gradient(to right,
                 #ef4444 0%,
@@ -217,44 +648,11 @@
             border: 2px solid white;
             box-shadow: 0 1px 3px rgba(0,0,0,0.3);
         }
-        .threshold-slider input[type="range"]::-webkit-slider-thumb:active {
-            cursor: grabbing;
-        }
         .threshold-slider.heat input[type="range"]::-webkit-slider-thumb {
             background: #ef4444;
         }
         .threshold-slider.value input[type="range"]::-webkit-slider-thumb {
             background: #10b981;
-        }
-        /* Firefox */
-        .threshold-slider input[type="range"]::-moz-range-track {
-            height: 6px;
-            background: #d1d5db;
-            border-radius: 3px;
-        }
-        .threshold-slider input[type="range"]::-moz-range-thumb {
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            border: 2px solid white;
-            cursor: grab;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-        }
-        .threshold-slider.heat input[type="range"]::-moz-range-thumb {
-            background: #ef4444;
-        }
-        .threshold-slider.value input[type="range"]::-moz-range-thumb {
-            background: #10b981;
-        }
-        .threshold-slider.heat input[type="range"]::-moz-range-progress {
-            background: #ef4444;
-            border-radius: 3px;
-            height: 6px;
-        }
-        .threshold-slider.value input[type="range"]::-moz-range-progress {
-            background: #10b981;
-            border-radius: 3px;
-            height: 6px;
         }
         .threshold-value {
             font-size: 11px;
@@ -264,6 +662,26 @@
         }
         .dreams-metric-card.with-slider {
             min-width: 140px;
+        }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 48px 24px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .empty-state-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--text-primary);
         }
     </style>
 </head>
@@ -281,44 +699,6 @@
             <span style="font-size: 13px; opacity: 0.8;">Last refreshed: {{ refresh_time }}</span>
         </nav>
     </header>
-
-    <!-- Filters -->
-    <div class="dreams-filters">
-        <div class="search-box">
-            <input type="text" id="searchInput" placeholder="Search by name, email, phone..." autocomplete="off">
-            <button class="clear-btn" id="clearSearch" onclick="clearSearch()">&times;</button>
-        </div>
-
-        <div class="dreams-filter-group">
-            <label>Stage:</label>
-            <select id="stageFilter" onchange="applyFilters()">
-                <option value="">All Stages</option>
-                {% for stage in stages %}
-                <option value="{{ stage }}" {% if selected_stage == stage %}selected{% endif %}>{{ stage }}</option>
-                {% endfor %}
-            </select>
-        </div>
-
-        <div class="dreams-filter-group">
-            <label>Min Heat:</label>
-            <select id="heatFilter" onchange="applyFilters()">
-                <option value="0" {% if selected_min_heat == 0 %}selected{% endif %}>All</option>
-                <option value="25" {% if selected_min_heat == 25 %}selected{% endif %}>25+</option>
-                <option value="50" {% if selected_min_heat == 50 %}selected{% endif %}>50+ (Warm)</option>
-                <option value="75" {% if selected_min_heat == 75 %}selected{% endif %}>75+ (Hot)</option>
-            </select>
-        </div>
-
-        <div class="dreams-filter-group">
-            <label>Sort By:</label>
-            <select id="sortFilter" onchange="applyFilters()">
-                <option value="priority" {% if selected_sort == 'priority' %}selected{% endif %}>Priority Score</option>
-                <option value="heat" {% if selected_sort == 'heat' %}selected{% endif %}>Heat Score</option>
-                <option value="value" {% if selected_sort == 'value' %}selected{% endif %}>Value Score</option>
-                <option value="name" {% if selected_sort == 'name' %}selected{% endif %}>Name (A-Z)</option>
-            </select>
-        </div>
-    </div>
 
     <!-- Metrics Cards -->
     <div class="dreams-metrics">
@@ -356,144 +736,389 @@
         </div>
     </div>
 
-    <!-- Results Bar -->
-    <div class="dreams-results-bar">
-        <div class="dreams-results-count">
-            <strong id="visibleCount">{{ contacts|length }}</strong> contacts shown
-            {% if selected_filter %}
-            <span class="filter-badge">
-                {% if selected_filter == 'hot_leads' %}Hot Leads{% elif selected_filter == 'high_value' %}High Value{% elif selected_filter == 'active_week' %}Active This Week{% endif %}
-                <a href="/contacts" title="Clear filter">&times;</a>
-            </span>
-            {% endif %}
+    <!-- Tabs -->
+    <div class="tabs-container">
+        <button class="tab-btn {% if active_tab == 'contacts' %}active{% endif %}" onclick="switchTab('contacts')">
+            📋 Contacts <span class="badge">{{ contacts|length }}</span>
+        </button>
+        <button class="tab-btn {% if active_tab == 'queue' %}active{% endif %}" onclick="switchTab('queue')">
+            🎯 Action Queue <span class="badge">{{ action_queue[1]|length + action_queue[2]|length + action_queue[3]|length + action_queue[4]|length }}</span>
+        </button>
+        <button class="tab-btn {% if active_tab == 'analysis' %}active{% endif %}" onclick="switchTab('analysis')">
+            📊 Score Analysis
+        </button>
+        <button class="tab-btn {% if active_tab == 'insights' %}active{% endif %}" onclick="switchTab('insights')">
+            💡 Insights <span class="badge">{{ strategic_insights|length }}</span>
+        </button>
+        <button class="tab-btn {% if active_tab == 'trends' %}active{% endif %}" onclick="switchTab('trends')">
+            📈 Trends
+        </button>
+    </div>
+
+    <!-- Tab: Contacts -->
+    <div id="tab-contacts" class="tab-content {% if active_tab == 'contacts' %}active{% endif %}">
+        <!-- Filters -->
+        <div class="dreams-filters">
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="Search by name, email, phone..." autocomplete="off">
+                <button class="clear-btn" id="clearSearch" onclick="clearSearch()">&times;</button>
+            </div>
+
+            <div class="dreams-filter-group">
+                <label>Stage:</label>
+                <select id="stageFilter" onchange="applyFilters()">
+                    <option value="">All Stages</option>
+                    {% for stage in stages %}
+                    <option value="{{ stage }}" {% if selected_stage == stage %}selected{% endif %}>{{ stage }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="dreams-filter-group">
+                <label>Min Heat:</label>
+                <select id="heatFilter" onchange="applyFilters()">
+                    <option value="0" {% if selected_min_heat == 0 %}selected{% endif %}>All</option>
+                    <option value="25" {% if selected_min_heat == 25 %}selected{% endif %}>25+</option>
+                    <option value="50" {% if selected_min_heat == 50 %}selected{% endif %}>50+ (Warm)</option>
+                    <option value="75" {% if selected_min_heat == 75 %}selected{% endif %}>75+ (Hot)</option>
+                </select>
+            </div>
+
+            <div class="dreams-filter-group">
+                <label>Sort By:</label>
+                <select id="sortFilter" onchange="applyFilters()">
+                    <option value="priority" {% if selected_sort == 'priority' %}selected{% endif %}>Priority Score</option>
+                    <option value="heat" {% if selected_sort == 'heat' %}selected{% endif %}>Heat Score</option>
+                    <option value="value" {% if selected_sort == 'value' %}selected{% endif %}>Value Score</option>
+                    <option value="name" {% if selected_sort == 'name' %}selected{% endif %}>Name (A-Z)</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Results Bar -->
+        <div class="dreams-results-bar">
+            <div class="dreams-results-count">
+                <strong id="visibleCount">{{ contacts|length }}</strong> contacts shown
+                {% if selected_filter %}
+                <span class="filter-badge">
+                    {% if selected_filter == 'hot_leads' %}Hot Leads{% elif selected_filter == 'high_value' %}High Value{% elif selected_filter == 'active_week' %}Active This Week{% endif %}
+                    <a href="/contacts" title="Clear filter">&times;</a>
+                </span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Contacts Table -->
+        <div class="dreams-table-container">
+            <table class="dreams-table" id="contactsTable">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th data-sort="name">Name</th>
+                        <th data-sort="stage">Stage</th>
+                        <th>Suggested Action</th>
+                        <th data-sort="views" data-type="number">Views</th>
+                        <th data-sort="fav" data-type="number">Fav</th>
+                        <th data-sort="trend">Trend</th>
+                        <th data-sort="priority" data-type="number">Priority</th>
+                        <th data-sort="heat" data-type="number">Heat</th>
+                        <th data-sort="value" data-type="number">Value</th>
+                        <th data-sort="relationship" data-type="number">Relationship</th>
+                        <th data-sort="activity" data-type="number">Activity</th>
+                        <th>Intent</th>
+                        <th>Phone</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for contact in contacts %}
+                    {% set days_inactive = contact.days_since_activity or 999 %}
+                    <tr data-heat="{{ contact.heat_score or 0 }}" data-value="{{ contact.value_score or 0 }}" data-days="{{ days_inactive }}">
+                        <td class="row-num">{{ loop.index }}</td>
+                        <td>
+                            <a href="/contacts/{{ contact.id }}" class="contact-name">
+                                {{ contact.first_name or '' }} {{ contact.last_name or '' }}
+                            </a>
+                            {% if contact.email %}
+                            <div class="contact-email">{{ contact.email }}</div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="dreams-badge dreams-badge-{{ (contact.stage or 'unknown')|lower|replace(' ', '-') }}">
+                                {{ contact.stage or 'Unknown' }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="suggested-action {{ contact.suggested_action.class }}">
+                                {{ contact.suggested_action.icon }} {{ contact.suggested_action.text }}
+                            </span>
+                        </td>
+                        <td style="text-align: center;">{{ contact.properties_viewed or 0 }}</td>
+                        <td style="text-align: center;">{{ contact.properties_favorited or 0 }}</td>
+                        <td>
+                            {% set trend = contact.score_trend or 'none' %}
+                            <span class="trend-indicator {{ trend }}" title="{{ trend|capitalize }}">
+                                {% if trend == 'warming' %}&#8593;{% elif trend == 'cooling' %}&#8595;{% elif trend == 'stable' %}&#8596;{% else %}&mdash;{% endif %}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="score-bar"><div class="score-bar-fill priority" style="width: {{ contact.priority_score or 0 }}%;"></div></div>
+                            <span>{{ "%.0f"|format(contact.priority_score or 0) }}</span>
+                        </td>
+                        <td>
+                            <div class="score-bar"><div class="score-bar-fill heat" style="width: {{ contact.heat_score or 0 }}%;"></div></div>
+                            <span>{{ "%.0f"|format(contact.heat_score or 0) }}</span>
+                        </td>
+                        <td>
+                            <div class="score-bar"><div class="score-bar-fill value" style="width: {{ contact.value_score or 0 }}%;"></div></div>
+                            <span>{{ "%.0f"|format(contact.value_score or 0) }}</span>
+                        </td>
+                        <td>
+                            <div class="score-bar"><div class="score-bar-fill relationship" style="width: {{ contact.relationship_score or 0 }}%;"></div></div>
+                            <span>{{ "%.0f"|format(contact.relationship_score or 0) }}</span>
+                        </td>
+                        <td>
+                            <span class="activity-indicator {% if days_inactive <= 7 %}recent{% elif days_inactive <= 30 %}moderate{% else %}cold{% endif %}"></span>
+                            {% if days_inactive < 999 %}{{ days_inactive }}d{% else %}--{% endif %}
+                        </td>
+                        <td>
+                            <div class="intent-signals">
+                                <span class="intent-signal {% if contact.intent_repeat_views %}active{% endif %}" title="Repeat Views">R</span>
+                                <span class="intent-signal {% if contact.intent_high_favorites %}active{% endif %}" title="High Favorites">F</span>
+                                <span class="intent-signal {% if contact.intent_activity_burst %}active{% endif %}" title="Activity Burst">B</span>
+                                <span class="intent-signal {% if contact.intent_sharing %}active{% endif %}" title="Sharing">S</span>
+                            </div>
+                        </td>
+                        <td>
+                            {% if contact.phone %}
+                            {% if contact.fub_id %}
+                            <a href="https://JonTharpTeam.followupboss.com/2/people/view/{{ contact.fub_id }}" target="_blank" style="color: #6366f1; text-decoration: none;">
+                                {{ contact.phone }}
+                            </a>
+                            {% else %}
+                            <a href="tel:{{ contact.phone }}" style="color: inherit;">{{ contact.phone }}</a>
+                            {% endif %}
+                            {% else %}-{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
 
-    <!-- Contacts Table -->
-    <div class="dreams-table-container">
-        <table class="dreams-table" id="contactsTable">
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th data-sort="name">Name</th>
-                    <th data-sort="stage">Stage</th>
-                    <th data-sort="views" data-type="number">Views</th>
-                    <th data-sort="fav" data-type="number">Fav</th>
-                    <th data-sort="share" data-type="number">Share</th>
-                    <th data-sort="trend">Trend</th>
-                    <th data-sort="priority" data-type="number">Priority</th>
-                    <th data-sort="heat" data-type="number">Heat</th>
-                    <th data-sort="value" data-type="number">Value</th>
-                    <th data-sort="relationship" data-type="number">Relationship</th>
-                    <th data-sort="activity" data-type="number">Activity</th>
-                    <th>Intent Signals</th>
-                    <th>Phone</th>
-                    <th>Next Action</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for contact in contacts %}
-                {% set days_inactive = contact.days_since_activity or 999 %}
-                <tr data-heat="{{ contact.heat_score or 0 }}" data-value="{{ contact.value_score or 0 }}" data-days="{{ days_inactive }}">
-                    <td class="row-num">{{ loop.index }}</td>
-                    <td>
-                        <a href="/contacts/{{ contact.id }}" class="contact-name">
-                            {{ contact.first_name or '' }} {{ contact.last_name or '' }}
-                        </a>
-                        {% if contact.email %}
-                        <div class="contact-email">{{ contact.email }}</div>
-                        {% endif %}
-                    </td>
-                    <td>
-                        <span class="dreams-badge dreams-badge-{{ (contact.stage or 'unknown')|lower|replace(' ', '-') }}">
-                            {{ contact.stage or 'Unknown' }}
-                        </span>
-                    </td>
-                    <td style="text-align: center;">{{ contact.properties_viewed or 0 }}</td>
-                    <td style="text-align: center;">{{ contact.properties_favorited or 0 }}</td>
-                    <td style="text-align: center;">{{ contact.properties_shared or 0 }}</td>
-                    <td>
-                        {% set trend = contact.score_trend or 'none' %}
-                        <span class="trend-indicator {{ trend }}" title="{{ trend|capitalize }}">
-                            {% if trend == 'warming' %}
-                            &#8593;
-                            {% elif trend == 'cooling' %}
-                            &#8595;
-                            {% elif trend == 'stable' %}
-                            &#8596;
-                            {% else %}
-                            &mdash;
-                            {% endif %}
-                        </span>
-                    </td>
-                    <td>
-                        <div class="score-bar"><div class="score-bar-fill priority" style="width: {{ contact.priority_score or 0 }}%;"></div></div>
-                        <span>{{ "%.0f"|format(contact.priority_score or 0) }}</span>
-                    </td>
-                    <td>
-                        <div class="score-bar"><div class="score-bar-fill heat" style="width: {{ contact.heat_score or 0 }}%;"></div></div>
-                        <span>{{ "%.0f"|format(contact.heat_score or 0) }}</span>
-                    </td>
-                    <td>
-                        <div class="score-bar"><div class="score-bar-fill value" style="width: {{ contact.value_score or 0 }}%;"></div></div>
-                        <span>{{ "%.0f"|format(contact.value_score or 0) }}</span>
-                    </td>
-                    <td>
-                        <div class="score-bar"><div class="score-bar-fill relationship" style="width: {{ contact.relationship_score or 0 }}%;"></div></div>
-                        <span>{{ "%.0f"|format(contact.relationship_score or 0) }}</span>
-                    </td>
-                    <td>
-                        <span class="activity-indicator {% if days_inactive <= 7 %}recent{% elif days_inactive <= 30 %}moderate{% else %}cold{% endif %}"></span>
-                        {% if days_inactive <= 7 %}
-                        {{ days_inactive }}d ago
-                        {% elif days_inactive <= 30 %}
-                        {{ days_inactive }}d ago
-                        {% elif days_inactive < 999 %}
-                        {{ days_inactive }}d ago
-                        {% else %}
-                        --
-                        {% endif %}
-                    </td>
-                    <td>
-                        <div class="intent-signals">
-                            <span class="intent-signal {% if contact.intent_repeat_views %}active{% endif %}" title="Repeat Property Views">R</span>
-                            <span class="intent-signal {% if contact.intent_high_favorites %}active{% endif %}" title="High Favorites">F</span>
-                            <span class="intent-signal {% if contact.intent_activity_burst %}active{% endif %}" title="Activity Burst">B</span>
-                            <span class="intent-signal {% if contact.intent_sharing %}active{% endif %}" title="Property Sharing">S</span>
+    <!-- Tab: Action Queue -->
+    <div id="tab-queue" class="tab-content {% if active_tab == 'queue' %}active{% endif %}">
+        <p style="color: var(--text-secondary); margin-bottom: 20px;">Prioritized list of leads requiring attention today, grouped by urgency.</p>
+
+        {% set priority_config = {
+            1: {'label': '🔥 Priority 1: Immediate Contact', 'desc': 'Hot leads with recent activity'},
+            2: {'label': '💎 Priority 2: High Value Warm', 'desc': 'High value prospects showing engagement'},
+            3: {'label': '🌱 Priority 3: Nurture Opportunities', 'desc': 'Good relationships needing attention'},
+            4: {'label': '⏰ Priority 4: Re-engagement', 'desc': 'Valuable leads gone quiet'}
+        } %}
+
+        {% for priority_level in [1, 2, 3, 4] %}
+        {% if action_queue[priority_level] %}
+        <div class="queue-section">
+            <div class="queue-header priority-{{ priority_level }}">
+                <div>
+                    <span style="font-size: 16px;">{{ priority_config[priority_level].label }}</span>
+                    <div style="font-size: 12px; opacity: 0.9;">{{ priority_config[priority_level].desc }}</div>
+                </div>
+                <span style="background: rgba(255,255,255,0.2); padding: 4px 12px; border-radius: 12px;">
+                    {{ action_queue[priority_level]|length }} leads
+                </span>
+            </div>
+            <div class="queue-items">
+                {% for contact in action_queue[priority_level][:10] %}
+                <div class="queue-item">
+                    <div class="queue-item-info">
+                        <div class="queue-item-name">
+                            <a href="/contacts/{{ contact.id }}" style="color: inherit; text-decoration: none;">
+                                {{ contact.first_name or '' }} {{ contact.last_name or '' }}
+                            </a>
                         </div>
-                    </td>
-                    <td>
+                        <div class="queue-item-meta">
+                            <span>{{ contact.stage or 'No stage' }}</span>
+                            <span>{{ contact.email or 'No email' }}</span>
+                            {% if contact.days_since_activity and contact.days_since_activity < 999 %}
+                            <span>{{ contact.days_since_activity }}d ago</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="queue-item-scores">
+                        <div class="mini-score">
+                            <div class="mini-score-label">Priority</div>
+                            <div class="mini-score-value priority">{{ "%.0f"|format(contact.priority_score or 0) }}</div>
+                        </div>
+                        <div class="mini-score">
+                            <div class="mini-score-label">Heat</div>
+                            <div class="mini-score-value heat">{{ "%.0f"|format(contact.heat_score or 0) }}</div>
+                        </div>
+                        <div class="mini-score">
+                            <div class="mini-score-label">Value</div>
+                            <div class="mini-score-value value">{{ "%.0f"|format(contact.value_score or 0) }}</div>
+                        </div>
+                    </div>
+                    <div class="queue-item-actions">
+                        <span class="suggested-action {{ contact.suggested_action.class }}">
+                            {{ contact.suggested_action.icon }} {{ contact.suggested_action.text }}
+                        </span>
                         {% if contact.phone %}
-                        {% if contact.fub_id %}
-                        <a href="https://JonTharpTeam.followupboss.com/2/people/view/{{ contact.fub_id }}" target="_blank" title="Open in FUB" style="color: #6366f1; text-decoration: none;">
-                            {{ contact.phone }}
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-left: 4px;">
-                                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                                <polyline points="15 3 21 3 21 9"></polyline>
-                                <line x1="10" y1="14" x2="21" y2="3"></line>
-                            </svg>
-                        </a>
-                        {% else %}
-                        <a href="tel:{{ contact.phone }}" style="color: inherit;">{{ contact.phone }}</a>
+                        <a href="tel:{{ contact.phone }}" class="action-btn secondary">📱 Call</a>
                         {% endif %}
-                        {% else %}
-                        -
+                        {% if contact.email %}
+                        <a href="mailto:{{ contact.email }}" class="action-btn secondary">📧 Email</a>
                         {% endif %}
-                    </td>
-                    <td>
-                        {% if contact.next_action %}
-                        <strong>{{ contact.next_action }}</strong>
-                        {% if contact.next_action_date %}
-                        <br><span style="font-size: 11px; color: var(--text-secondary);">{{ contact.next_action_date }}</span>
-                        {% endif %}
-                        {% else %}
-                        -
-                        {% endif %}
-                    </td>
-                </tr>
+                    </div>
+                </div>
                 {% endfor %}
-            </tbody>
-        </table>
+                {% if action_queue[priority_level]|length > 10 %}
+                <div style="padding: 12px 16px; text-align: center; color: var(--text-secondary); font-size: 13px;">
+                    + {{ action_queue[priority_level]|length - 10 }} more leads in this tier
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+        {% endfor %}
+
+        {% if not action_queue[1] and not action_queue[2] and not action_queue[3] and not action_queue[4] %}
+        <div class="empty-state">
+            <div class="empty-state-icon">✅</div>
+            <div class="empty-state-title">All caught up!</div>
+            <p>No pending actions at this time.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Tab: Score Analysis -->
+    <div id="tab-analysis" class="tab-content {% if active_tab == 'analysis' %}active{% endif %}">
+        <div class="analysis-grid">
+            {% for score_type in ['priority', 'heat', 'value', 'relationship'] %}
+            {% set dist = score_analysis.distribution[score_type] %}
+            {% set total = dist.excellent + dist.good + dist.medium + dist.low %}
+            <div class="analysis-card">
+                <div class="analysis-card-title">{{ score_type|capitalize }} Score Distribution</div>
+                {% if total > 0 %}
+                <div class="distribution-bar">
+                    {% if dist.excellent > 0 %}
+                    <div class="dist-segment excellent" style="width: {{ (dist.excellent / total * 100)|round(1) }}%;" title="Excellent (90+): {{ dist.excellent }}">
+                        {% if dist.excellent / total * 100 > 10 %}{{ dist.excellent }}{% endif %}
+                    </div>
+                    {% endif %}
+                    {% if dist.good > 0 %}
+                    <div class="dist-segment good" style="width: {{ (dist.good / total * 100)|round(1) }}%;" title="Good (70-89): {{ dist.good }}">
+                        {% if dist.good / total * 100 > 10 %}{{ dist.good }}{% endif %}
+                    </div>
+                    {% endif %}
+                    {% if dist.medium > 0 %}
+                    <div class="dist-segment medium" style="width: {{ (dist.medium / total * 100)|round(1) }}%;" title="Medium (50-69): {{ dist.medium }}">
+                        {% if dist.medium / total * 100 > 10 %}{{ dist.medium }}{% endif %}
+                    </div>
+                    {% endif %}
+                    {% if dist.low > 0 %}
+                    <div class="dist-segment low" style="width: {{ (dist.low / total * 100)|round(1) }}%;" title="Low (<50): {{ dist.low }}">
+                        {% if dist.low / total * 100 > 10 %}{{ dist.low }}{% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="dist-legend">
+                    <div class="legend-item"><div class="legend-color" style="background: #22c55e;"></div>Excellent {{ dist.excellent }}</div>
+                    <div class="legend-item"><div class="legend-color" style="background: #84cc16;"></div>Good {{ dist.good }}</div>
+                    <div class="legend-item"><div class="legend-color" style="background: #eab308;"></div>Medium {{ dist.medium }}</div>
+                    <div class="legend-item"><div class="legend-color" style="background: #ef4444;"></div>Low {{ dist.low }}</div>
+                </div>
+                {% else %}
+                <p style="color: var(--text-secondary);">No data available</p>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+
+        <h3 style="margin-bottom: 16px;">Score Insights</h3>
+        <div class="analysis-grid">
+            {% for insight in score_analysis.insights %}
+            <div class="analysis-card">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div class="analysis-card-title" style="margin-bottom: 4px;">{{ insight.category }}</div>
+                        <div style="font-size: 13px; color: var(--text-secondary);">{{ insight.description }}</div>
+                    </div>
+                    <div style="font-size: 32px; font-weight: 700; color: var(--primary);">{{ insight.count }}</div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Tab: Strategic Insights -->
+    <div id="tab-insights" class="tab-content {% if active_tab == 'insights' %}active{% endif %}">
+        {% if strategic_insights %}
+        <div class="insights-grid">
+            {% for insight in strategic_insights %}
+            <div class="insight-card {{ insight.type }}">
+                <div class="insight-header">
+                    <div class="insight-title">
+                        {% if insight.type == 'opportunity' %}🌟{% elif insight.type == 'warning' %}⚠️{% else %}🎯{% endif %}
+                        {{ insight.title }}
+                    </div>
+                    <div class="insight-count">{{ insight.contacts|length }}</div>
+                </div>
+                <div class="insight-description">{{ insight.description }}</div>
+                <div class="insight-action">
+                    <strong>Recommended Action:</strong> {{ insight.action }}
+                </div>
+                {% if insight.contacts %}
+                <div class="insight-contacts">
+                    <div class="insight-contacts-title">Top contacts in this segment:</div>
+                    <div class="insight-contact-list">
+                        {% for c in insight.contacts[:5] %}
+                        <a href="/contacts/{{ c.id }}" class="insight-contact-chip" style="text-decoration: none;">
+                            {{ c.first_name or '' }} {{ c.last_name or '' }}
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-state-icon">💡</div>
+            <div class="empty-state-title">No insights yet</div>
+            <p>Check back after more data is collected.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Tab: Trends -->
+    <div id="tab-trends" class="tab-content {% if active_tab == 'trends' %}active{% endif %}">
+        <div class="trends-card">
+            <h3 style="margin-bottom: 20px;">Activity Patterns</h3>
+            {% set pattern = trends.activity_pattern %}
+            {% set total = trends.total %}
+
+            {% set trend_classes = {'Active (< 7d)': 'active', 'Warm (7-30d)': 'warm', 'Cold (30-90d)': 'cold', 'Stale (> 90d)': 'stale'} %}
+
+            {% for label, count in pattern.items() %}
+            {% set pct = (count / total * 100) if total > 0 else 0 %}
+            <div class="trend-row">
+                <div class="trend-label">{{ label }}</div>
+                <div class="trend-bar-container">
+                    <div class="trend-bar-fill {{ trend_classes[label] }}" style="width: {{ pct }}%;">
+                        {% if pct > 10 %}{{ "%.1f"|format(pct) }}%{% endif %}
+                    </div>
+                </div>
+                <div class="trend-value">{{ count }}</div>
+            </div>
+            {% endfor %}
+
+            <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border); font-size: 13px; color: var(--text-secondary);">
+                Total contacts: {{ total }}
+            </div>
+        </div>
     </div>
 
     <!-- Footer -->
@@ -502,6 +1127,22 @@
     </footer>
 
     <script>
+        // Tab switching
+        function switchTab(tabName) {
+            // Update URL without reload
+            const url = new URL(window.location);
+            url.searchParams.set('tab', tabName);
+            window.history.pushState({}, '', url);
+
+            // Update tab buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.closest('.tab-btn').classList.add('active');
+
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            document.getElementById('tab-' + tabName).classList.add('active');
+        }
+
         function applyFilters() {
             const stage = document.getElementById('stageFilter').value;
             const heat = document.getElementById('heatFilter').value;
@@ -511,17 +1152,17 @@
             if (stage) params.set('stage', stage);
             if (heat && heat !== '0') params.set('min_heat', heat);
             if (sort && sort !== 'priority') params.set('sort', sort);
+            params.set('tab', 'contacts');
 
             window.location.search = params.toString();
         }
 
         function applyQuickFilter(filterType) {
-            // Toggle filter off if already active
             const currentFilter = '{{ selected_filter }}';
             if (currentFilter === filterType) {
-                window.location.href = '/contacts';
+                window.location.href = '/contacts?tab=contacts';
             } else {
-                window.location.href = '/contacts?filter=' + filterType;
+                window.location.href = '/contacts?filter=' + filterType + '&tab=contacts';
             }
         }
 
@@ -540,14 +1181,13 @@
             rows.forEach((row, index) => {
                 const name = row.querySelector('.contact-name')?.textContent.toLowerCase() || '';
                 const email = row.querySelector('.contact-email')?.textContent.toLowerCase() || '';
-                const phone = row.cells[13]?.textContent.toLowerCase() || '';  // Phone is now column 13 (0-indexed)
+                const phone = row.cells[13]?.textContent.toLowerCase() || '';
 
                 const matches = name.includes(query) || email.includes(query) || phone.includes(query);
                 row.style.display = matches ? '' : 'none';
 
                 if (matches) {
                     visibleCount++;
-                    // Update row number
                     row.querySelector('.row-num').textContent = visibleCount;
                 }
             });
@@ -566,17 +1206,11 @@
             searchInput.focus();
         }
 
-        // Real-time search as user types
         searchInput.addEventListener('input', doSearch);
-
-        // Allow Escape to clear search
         searchInput.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') {
-                clearSearch();
-            }
+            if (e.key === 'Escape') clearSearch();
         });
 
-        // Focus search on Ctrl+F or Cmd+F
         document.addEventListener('keydown', function(e) {
             if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
                 e.preventDefault();
@@ -585,7 +1219,7 @@
             }
         });
 
-        // Threshold slider functionality
+        // Threshold sliders
         let heatThreshold = 60;
         let valueThreshold = 50;
         const heatSlider = document.getElementById('heatSlider');
@@ -613,7 +1247,6 @@
             applyThresholdFilter();
         }
 
-        // Initialize slider tracks
         updateSliderTrack(heatSlider, heatSlider.value);
         updateSliderTrack(valueSlider, valueSlider.value);
 
@@ -634,13 +1267,12 @@
         }
 
         function applyThresholdFilter() {
-            // Check if either card is active
             const hotCard = document.getElementById('hotLeadsCard');
             const valueCard = document.getElementById('highValueCard');
             const hotActive = hotCard.classList.contains('active');
             const valueActive = valueCard.classList.contains('active');
 
-            if (!hotActive && !valueActive) return;  // No filter active
+            if (!hotActive && !valueActive) return;
 
             let visibleCount = 0;
             rows.forEach((row, index) => {
@@ -661,9 +1293,8 @@
             visibleCountEl.textContent = visibleCount;
         }
 
-        // Click handlers for threshold cards
         document.getElementById('hotLeadsCard').addEventListener('click', function(e) {
-            if (e.target.type === 'range') return;  // Don't toggle when clicking slider
+            if (e.target.type === 'range') return;
             this.classList.toggle('active');
             document.getElementById('highValueCard').classList.remove('active');
             applyThresholdFilter();
@@ -671,7 +1302,7 @@
         });
 
         document.getElementById('highValueCard').addEventListener('click', function(e) {
-            if (e.target.type === 'range') return;  // Don't toggle when clicking slider
+            if (e.target.type === 'range') return;
             this.classList.toggle('active');
             document.getElementById('hotLeadsCard').classList.remove('active');
             applyThresholdFilter();
@@ -688,10 +1319,9 @@
             visibleCountEl.textContent = visibleCount;
         }
 
-        // Initialize counts on page load
         updateCounts();
 
-        // Column sorting functionality (matches dashboard.html pattern)
+        // Column sorting
         let currentSort = { column: null, direction: null };
         let originalOrder = Array.from(rows);
 
@@ -705,7 +1335,6 @@
             const tbody = table.querySelector('tbody');
             let rowsArray = Array.from(rows);
 
-            // Cycle through: null -> asc -> desc -> null
             if (currentSort.column === column) {
                 if (currentSort.direction === 'asc') {
                     currentSort.direction = 'desc';
@@ -720,23 +1349,19 @@
                 currentSort.direction = 'asc';
             }
 
-            // Update header styling
             document.querySelectorAll('th').forEach(h => h.classList.remove('sorted-asc', 'sorted-desc'));
             if (currentSort.direction) {
                 th.classList.add(currentSort.direction === 'asc' ? 'sorted-asc' : 'sorted-desc');
             }
 
-            // If unsorted, restore original order
             if (!currentSort.direction) {
                 rowsArray = [...originalOrder];
             } else {
-                // Get column index
                 const colIndex = Array.from(th.parentElement.children).indexOf(th);
 
                 rowsArray.sort((a, b) => {
                     let valA, valB;
 
-                    // Special handling for specific columns
                     switch(column) {
                         case 'name':
                             valA = a.querySelector('.contact-name')?.textContent.trim().toLowerCase() || '';
@@ -764,7 +1389,6 @@
                             valB = trendOrder[b.querySelector('.trend-indicator')?.classList[1]] || 0;
                             break;
                         default:
-                            // Generic: get cell text by column index
                             valA = a.children[colIndex]?.textContent?.trim() || '';
                             valB = b.children[colIndex]?.textContent?.trim() || '';
                             if (isNumeric) {
@@ -773,7 +1397,6 @@
                             }
                     }
 
-                    // Compare
                     if (typeof valA === 'string') {
                         return currentSort.direction === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
                     } else {
@@ -782,7 +1405,6 @@
                 });
             }
 
-            // Rebuild table
             rowsArray.forEach((row, index) => {
                 row.querySelector('.row-num').textContent = index + 1;
                 tbody.appendChild(row);

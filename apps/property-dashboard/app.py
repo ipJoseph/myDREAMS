@@ -626,10 +626,216 @@ def api_properties():
 # CONTACTS ROUTES
 # =========================================================================
 
+def get_suggested_action(contact):
+    """Get suggested action for a contact based on scores and activity."""
+    priority = contact.get('priority_score') or 0
+    heat = contact.get('heat_score') or 0
+    value = contact.get('value_score') or 0
+    days = contact.get('days_since_activity') or 999
+    intent_count = sum([
+        1 if contact.get('intent_repeat_views') else 0,
+        1 if contact.get('intent_high_favorites') else 0,
+        1 if contact.get('intent_activity_burst') else 0,
+        1 if contact.get('intent_sharing') else 0
+    ])
+
+    if priority >= 90:
+        return {'icon': '🔥', 'text': 'Immediate Contact', 'class': 'urgent'}
+    elif intent_count >= 3:
+        return {'icon': '🎯', 'text': 'Schedule Showing', 'class': 'high'}
+    elif value >= 80 and heat >= 70:
+        return {'icon': '💎', 'text': 'Present Listing', 'class': 'high'}
+    elif days > 30 and value >= 60:
+        return {'icon': '📧', 'text': 'Re-engagement Email', 'class': 'medium'}
+    elif heat >= 70 and value < 50:
+        return {'icon': '📊', 'text': 'Send Market Analysis', 'class': 'medium'}
+    elif priority >= 75:
+        return {'icon': '📱', 'text': 'Follow Up Call', 'class': 'medium'}
+    else:
+        return {'icon': '🌱', 'text': 'Nurture', 'class': 'low'}
+
+
+def compute_action_queue(contacts):
+    """Compute action queue grouped by priority tier."""
+    queue = {
+        1: [],  # Immediate Contact: priority >= 80, days <= 7
+        2: [],  # High Value Warm: value >= 70, heat >= 50
+        3: [],  # Nurture Opportunities: relationship >= 60, priority 50-75
+        4: []   # Re-engagement: days > 30, value >= 50
+    }
+    seen = set()
+
+    for c in contacts:
+        cid = c.get('id')
+        priority = c.get('priority_score') or 0
+        heat = c.get('heat_score') or 0
+        value = c.get('value_score') or 0
+        relationship = c.get('relationship_score') or 0
+        days = c.get('days_since_activity') or 999
+
+        # Priority 1: Hot leads needing immediate contact
+        if priority >= 80 and days <= 7 and cid not in seen:
+            queue[1].append(c)
+            seen.add(cid)
+        # Priority 2: High value warm leads
+        elif value >= 70 and heat >= 50 and cid not in seen:
+            queue[2].append(c)
+            seen.add(cid)
+        # Priority 3: Nurturing opportunities
+        elif relationship >= 60 and 50 <= priority < 75 and cid not in seen:
+            queue[3].append(c)
+            seen.add(cid)
+        # Priority 4: Re-engagement needed
+        elif days > 30 and value >= 50 and cid not in seen:
+            queue[4].append(c)
+            seen.add(cid)
+
+    return queue
+
+
+def compute_score_analysis(contacts):
+    """Compute score distribution and insights."""
+    analysis = {
+        'distribution': {
+            'priority': {'excellent': 0, 'good': 0, 'medium': 0, 'low': 0},
+            'heat': {'excellent': 0, 'good': 0, 'medium': 0, 'low': 0},
+            'value': {'excellent': 0, 'good': 0, 'medium': 0, 'low': 0},
+            'relationship': {'excellent': 0, 'good': 0, 'medium': 0, 'low': 0}
+        },
+        'insights': []
+    }
+
+    for c in contacts:
+        for score_type in ['priority', 'heat', 'value', 'relationship']:
+            score = c.get(f'{score_type}_score') or 0
+            if score >= 90:
+                analysis['distribution'][score_type]['excellent'] += 1
+            elif score >= 70:
+                analysis['distribution'][score_type]['good'] += 1
+            elif score >= 50:
+                analysis['distribution'][score_type]['medium'] += 1
+            else:
+                analysis['distribution'][score_type]['low'] += 1
+
+    # Compute insights
+    high_heat_low_value = len([c for c in contacts
+                               if (c.get('heat_score') or 0) >= 70 and (c.get('value_score') or 0) < 40])
+    high_value_low_heat = len([c for c in contacts
+                               if (c.get('value_score') or 0) >= 70 and (c.get('heat_score') or 0) < 40])
+    perfect_prospects = len([c for c in contacts
+                             if (c.get('heat_score') or 0) >= 70
+                             and (c.get('value_score') or 0) >= 70
+                             and (c.get('relationship_score') or 0) >= 70])
+    high_intent_quiet = len([c for c in contacts
+                             if (c.get('intent_signal_count') or 0) >= 3
+                             and (c.get('days_since_activity') or 0) > 14])
+
+    analysis['insights'] = [
+        {'category': 'High Heat, Low Value', 'count': high_heat_low_value,
+         'description': 'Engaged but potentially price shopping or early stage'},
+        {'category': 'High Value, Low Heat', 'count': high_value_low_heat,
+         'description': 'Hidden gems - quality prospects needing nurturing'},
+        {'category': 'Perfect Prospects', 'count': perfect_prospects,
+         'description': 'All scores high - ready to close'},
+        {'category': 'High Intent, Quiet', 'count': high_intent_quiet,
+         'description': 'Strong intent signals despite lower recent activity'}
+    ]
+
+    return analysis
+
+
+def compute_strategic_insights(contacts):
+    """Compute strategic insights with actionable recommendations."""
+    insights = []
+
+    # High value cold leads
+    high_value_cold = [c for c in contacts
+                       if (c.get('value_score') or 0) >= 70 and (c.get('heat_score') or 0) < 40]
+    if high_value_cold:
+        insights.append({
+            'type': 'opportunity',
+            'title': f'{len(high_value_cold)} High-Value Cold Leads',
+            'description': 'Quality prospects who have gone quiet. A strategic re-engagement campaign could unlock significant opportunities.',
+            'action': 'Create a personalized re-engagement email sequence focusing on their specific interests.',
+            'contacts': high_value_cold[:5]
+        })
+
+    # Leads stuck in pipeline
+    stuck_leads = [c for c in contacts
+                   if (c.get('heat_score') or 0) >= 70 and (c.get('relationship_score') or 0) < 40]
+    if stuck_leads:
+        insights.append({
+            'type': 'warning',
+            'title': f'{len(stuck_leads)} Leads Stuck in Pipeline',
+            'description': 'Highly engaged but relationship scores are low, suggesting they may need more trust-building.',
+            'action': 'Schedule personal calls or video meetings to strengthen the relationship.',
+            'contacts': stuck_leads[:5]
+        })
+
+    # High intent quiet leads
+    high_intent_quiet = [c for c in contacts
+                         if (c.get('intent_signal_count') or 0) >= 3
+                         and (c.get('days_since_activity') or 0) > 14]
+    if high_intent_quiet:
+        insights.append({
+            'type': 'opportunity',
+            'title': f'{len(high_intent_quiet)} High-Intent Quiet Leads',
+            'description': "Leads showing strong buying signals but haven't been contacted recently.",
+            'action': "Prioritize these for contact today - they're showing buying signals.",
+            'contacts': high_intent_quiet[:5]
+        })
+
+    # Stale valuable leads
+    stale_valuable = [c for c in contacts
+                      if (c.get('days_since_activity') or 0) > 30 and (c.get('value_score') or 0) >= 60]
+    if len(stale_valuable) > 3:
+        insights.append({
+            'type': 'warning',
+            'title': f'{len(stale_valuable)} Valuable Leads Going Stale',
+            'description': "High-value prospects haven't been contacted in over 30 days.",
+            'action': 'Implement an automated re-engagement sequence or assign for immediate follow-up.',
+            'contacts': stale_valuable[:5]
+        })
+
+    # Perfect prospects
+    perfect = [c for c in contacts
+               if (c.get('heat_score') or 0) >= 70
+               and (c.get('value_score') or 0) >= 70
+               and (c.get('relationship_score') or 0) >= 70]
+    if perfect:
+        insights.append({
+            'type': 'success',
+            'title': f'{len(perfect)} Perfect Prospects Ready to Close',
+            'description': "All scores high - they're hot, valuable, and have strong relationships.",
+            'action': 'Focus on closing these first - schedule property showings or listing appointments.',
+            'contacts': perfect[:5]
+        })
+
+    return insights
+
+
+def compute_trends(contacts):
+    """Compute activity pattern trends."""
+    active = len([c for c in contacts if (c.get('days_since_activity') or 999) <= 7])
+    warm = len([c for c in contacts if 7 < (c.get('days_since_activity') or 999) <= 30])
+    cold = len([c for c in contacts if 30 < (c.get('days_since_activity') or 999) <= 90])
+    stale = len([c for c in contacts if (c.get('days_since_activity') or 999) > 90])
+
+    return {
+        'activity_pattern': {
+            'Active (< 7d)': active,
+            'Warm (7-30d)': warm,
+            'Cold (30-90d)': cold,
+            'Stale (> 90d)': stale
+        },
+        'total': len(contacts)
+    }
+
+
 @app.route('/contacts')
 @requires_auth
 def contacts_list():
-    """Contacts list view (requires authentication)"""
+    """Contacts list view with tabs (requires authentication)"""
     db = get_db()
 
     # Get filter parameters
@@ -638,9 +844,23 @@ def contacts_list():
     stage = request.args.get('stage', '')
     sort_by = request.args.get('sort', 'priority')  # priority, heat, value, name
     filter_type = request.args.get('filter', '')  # hot_leads, high_value, active_week
+    active_tab = request.args.get('tab', 'contacts')  # contacts, queue, analysis, insights, trends
 
     # Get all contacts (no artificial limit - let the database handle it)
-    contacts = db.get_contacts_by_priority(min_priority=0, limit=2000)
+    all_contacts = db.get_contacts_by_priority(min_priority=0, limit=2000)
+
+    # Add suggested action to each contact
+    for contact in all_contacts:
+        contact['suggested_action'] = get_suggested_action(contact)
+
+    # Compute data for all tabs (using full unfiltered list)
+    action_queue = compute_action_queue(all_contacts)
+    score_analysis = compute_score_analysis(all_contacts)
+    strategic_insights = compute_strategic_insights(all_contacts)
+    trends = compute_trends(all_contacts)
+
+    # Apply filters for the contacts tab
+    contacts = all_contacts.copy()
 
     # Apply quick filter from metric card clicks
     if filter_type == 'hot_leads':
@@ -671,8 +891,7 @@ def contacts_list():
         contacts.sort(key=lambda c: f"{c.get('first_name', '')} {c.get('last_name', '')}".lower())
     # Default: priority (already sorted)
 
-    # Get unique stages for filter dropdown (from full list)
-    all_contacts = db.get_contacts_by_priority(min_priority=0, limit=2000)
+    # Get unique stages for filter dropdown
     stages = sorted(set(c.get('stage') for c in all_contacts if c.get('stage')))
 
     # Get aggregate stats
@@ -680,12 +899,18 @@ def contacts_list():
 
     return render_template('contacts.html',
                          contacts=contacts,
+                         all_contacts=all_contacts,
                          stats=stats,
                          stages=stages,
                          selected_stage=stage,
                          selected_min_heat=min_heat,
                          selected_sort=sort_by,
                          selected_filter=filter_type,
+                         active_tab=active_tab,
+                         action_queue=action_queue,
+                         score_analysis=score_analysis,
+                         strategic_insights=strategic_insights,
+                         trends=trends,
                          refresh_time=datetime.now().strftime('%B %d, %Y %I:%M %p'))
 
 

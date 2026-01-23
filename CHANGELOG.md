@@ -9,6 +9,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Enhanced Contacts Dashboard** - Merged best features from Apps Script dashboard
+  - **Action Queue Tab** - Prioritized leads grouped by urgency tier (Immediate Contact, High Value Warm, Nurture Opportunities, Re-engagement)
+  - **Score Analysis Tab** - Distribution charts for Priority/Heat/Value/Relationship scores with visual breakdown
+  - **Strategic Insights Tab** - AI-style actionable recommendations (High-Value Cold Leads, Leads Stuck in Pipeline, High-Intent Quiet Leads, Perfect Prospects)
+  - **Trends Tab** - Activity pattern visualization (Active/Warm/Cold/Stale distribution)
+  - **Suggested Action per Contact** - Color-coded badges showing recommended next action based on scores
+  - Tabbed interface with counts for quick navigation
+  - Direct call/email buttons in Action Queue
+  - Contact chips linking to detail pages from Insights
+
 - **Buyer Workflow Search Results Enhancement** - Improved property selection for package creation
   - Selection checkboxes on each property card with Select All toggle
   - Address now links directly to Redfin listing (removed redundant Redfin button)
