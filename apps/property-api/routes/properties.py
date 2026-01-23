@@ -25,6 +25,23 @@ def get_db():
     return DREAMSDatabase(db_path)
 
 
+def normalize_status(status: str) -> str:
+    """Normalize property status to capitalized format (e.g., 'Active', 'Pending')."""
+    if not status:
+        return 'Active'
+    status = status.strip().lower()
+    status_map = {
+        'active': 'Active',
+        'for sale': 'Active',
+        'pending': 'Pending',
+        'contingent': 'Contingent',
+        'sold': 'Sold',
+        'off market': 'Off Market',
+        'coming soon': 'Coming Soon',
+    }
+    return status_map.get(status, status.title())
+
+
 @properties_bp.route('/properties', methods=['POST'])
 def create_property():
     """
@@ -126,7 +143,7 @@ def create_property():
             'year_built': data.get('year_built'),
             'property_type': data.get('property_type'),
             'style': data.get('style'),
-            'status': data.get('status', 'active'),
+            'status': normalize_status(data.get('status', 'Active')),
             'days_on_market': data.get('days_on_market'),
             'listing_agent_name': data.get('listing_agent_name'),
             'listing_agent_phone': data.get('listing_agent_phone'),

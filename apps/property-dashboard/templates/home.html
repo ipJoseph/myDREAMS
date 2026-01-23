@@ -514,6 +514,14 @@
                                 <span class="menu-desc">FUB sync audit trail</span>
                             </span>
                         </a>
+                        <div class="metrics-menu-divider"></div>
+                        <a href="/admin/settings">
+                            <span class="menu-icon">&#9881;</span>
+                            <span class="menu-text">
+                                <span class="menu-label">Admin Settings</span>
+                                <span class="menu-desc">Alert thresholds & toggles</span>
+                            </span>
+                        </a>
                     </div>
                 </div>
             </div>
@@ -600,9 +608,9 @@
                         <div class="priority-contact-row">
                             <span>📞</span>
                             {% if contact.fub_id %}
-                            <a href="https://JonTharpTeam.followupboss.com/2/people/view/{{ contact.fub_id }}" target="_blank" title="Call via FUB">{{ contact.phone }}</a>
+                            <a href="https://JonTharpTeam.followupboss.com/2/people/view/{{ contact.fub_id }}" target="_blank" title="Call via FUB">{{ contact.phone|phone }}</a>
                             {% else %}
-                            <a href="tel:{{ contact.phone }}">{{ contact.phone }}</a>
+                            <a href="tel:{{ contact.phone }}">{{ contact.phone|phone }}</a>
                             {% endif %}
                         </div>
                         {% endif %}

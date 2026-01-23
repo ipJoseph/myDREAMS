@@ -37,7 +37,60 @@ from dotenv import load_dotenv
 
 from fub_core import FUBClient, DataCache
 from fub_core import FUBError, FUBAPIError, RateLimitExceeded
+import re
 
+
+def normalize_phone(phone: str) -> Optional[str]:
+    """
+    Normalize phone number to 10 digits for database storage.
+
+    Args:
+        phone: Raw phone number in any format
+
+    Returns:
+        10-digit string or None if invalid
+    """
+    if not phone:
+        return None
+
+    # Remove all non-digit characters
+    digits = re.sub(r'\D', '', phone)
+
+    # Remove leading 1 if 11 digits
+    if len(digits) == 11 and digits[0] == '1':
+        digits = digits[1:]
+
+    # Must be exactly 10 digits
+    if len(digits) != 10:
+        return None
+
+    # First digit can't be 0 or 1 (not valid US area codes)
+    if digits[0] in ('0', '1'):
+        return None
+
+    return digits
+
+
+def format_phone_display(phone: str) -> str:
+    """
+    Format phone number for display as (XXX) XXX-XXXX.
+
+    Args:
+        phone: 10-digit phone number
+
+    Returns:
+        Formatted string or original if not 10 digits
+    """
+    if not phone:
+        return ''
+
+    # Remove any non-digits first
+    digits = re.sub(r'\D', '', phone)
+
+    if len(digits) == 10:
+        return f"({digits[:3]}) {digits[3:6]}-{digits[6:]}"
+
+    return phone
 
 
 # Load environment variables
@@ -1442,7 +1495,7 @@ def send_top_priority_email(
         priority = row[idx['priority_score']] or 0
         heat = row[idx['heat_score']] or 0
         value = row[idx['value_score']] or 0
-        phone = row[idx['primaryPhone']] or ""
+        phone = format_phone_display(row[idx['primaryPhone']] or "")
 
         body_lines.append(
             f"<tr>"
@@ -1799,7 +1852,7 @@ def sync_to_sqlite(contact_rows: List[List], person_stats: Dict[str, Dict]):
                 "first_name": row[idx["firstName"]] or None,
                 "last_name": row[idx["lastName"]] or None,
                 "email": row[idx["primaryEmail"]] or None,
-                "phone": row[idx["primaryPhone"]] or None,
+                "phone": normalize_phone(row[idx["primaryPhone"]]),
                 "stage": row[idx["stage"]] or None,
                 "source": row[idx["source"]] or None,
                 "lead_type_tags": row[idx["leadTypeTags"]] or None,

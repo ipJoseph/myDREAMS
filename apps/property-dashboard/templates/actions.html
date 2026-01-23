@@ -283,7 +283,7 @@
                     {% endif %}
                     <div class="action-meta">
                         {% if action.email %}<span>{{ action.email }}</span>{% endif %}
-                        {% if action.phone %}<span>{{ action.phone }}</span>{% endif %}
+                        {% if action.phone %}<span>{{ action.phone|phone }}</span>{% endif %}
                         <span>Priority Score: {{ "%.0f"|format(action.priority_score or 0) }}</span>
                     </div>
                 </div>
@@ -328,7 +328,7 @@
                     {% endif %}
                     <div class="action-meta">
                         {% if action.email %}<span>{{ action.email }}</span>{% endif %}
-                        {% if action.phone %}<span>{{ action.phone }}</span>{% endif %}
+                        {% if action.phone %}<span>{{ action.phone|phone }}</span>{% endif %}
                         <span>Priority Score: {{ "%.0f"|format(action.priority_score or 0) }}</span>
                     </div>
                 </div>
@@ -373,7 +373,7 @@
                     {% endif %}
                     <div class="action-meta">
                         {% if action.email %}<span>{{ action.email }}</span>{% endif %}
-                        {% if action.phone %}<span>{{ action.phone }}</span>{% endif %}
+                        {% if action.phone %}<span>{{ action.phone|phone }}</span>{% endif %}
                         <span>Priority Score: {{ "%.0f"|format(action.priority_score or 0) }}</span>
                     </div>
                 </div>
@@ -417,7 +417,7 @@
                     {% endif %}
                     <div class="action-meta">
                         {% if action.email %}<span>{{ action.email }}</span>{% endif %}
-                        {% if action.phone %}<span>{{ action.phone }}</span>{% endif %}
+                        {% if action.phone %}<span>{{ action.phone|phone }}</span>{% endif %}
                         <span>Priority Score: {{ "%.0f"|format(action.priority_score or 0) }}</span>
                     </div>
                 </div>

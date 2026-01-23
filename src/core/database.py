@@ -1053,6 +1053,24 @@ class DREAMSDatabase:
             ''', (lead_id, lead_id)).fetchall()
             return [dict(row) for row in rows]
 
+    def delete_intake_form(self, form_id: str) -> bool:
+        """
+        Delete an intake form by ID.
+
+        Args:
+            form_id: The intake form ID to delete
+
+        Returns:
+            True if deleted, False if not found
+        """
+        with self._get_connection() as conn:
+            cursor = conn.execute(
+                'DELETE FROM intake_forms WHERE id = ?',
+                (form_id,)
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+
     def get_stated_requirements(self, lead_id: str) -> Dict[str, Any]:
         """
         Get consolidated stated requirements from intake forms.

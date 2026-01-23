@@ -894,10 +894,10 @@
                             {% if contact.phone %}
                             {% if contact.fub_id %}
                             <a href="https://JonTharpTeam.followupboss.com/2/people/view/{{ contact.fub_id }}" target="_blank" style="color: #6366f1; text-decoration: none;">
-                                {{ contact.phone }}
+                                {{ contact.phone|phone }}
                             </a>
                             {% else %}
-                            <a href="tel:{{ contact.phone }}" style="color: inherit;">{{ contact.phone }}</a>
+                            <a href="tel:{{ contact.phone }}" style="color: inherit;">{{ contact.phone|phone }}</a>
                             {% endif %}
                             {% else %}-{% endif %}
                         </td>

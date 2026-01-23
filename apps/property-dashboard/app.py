@@ -50,6 +50,20 @@ load_env_file()
 
 app = Flask(__name__)
 
+
+# Custom Jinja2 filter for phone number formatting
+@app.template_filter('phone')
+def format_phone(value):
+    """Format phone number as (XXX) XXX-XXXX"""
+    if not value:
+        return ''
+    # Remove any non-digits
+    digits = re.sub(r'\D', '', str(value))
+    if len(digits) == 10:
+        return f"({digits[:3]}) {digits[3:6]}-{digits[6:]}"
+    return value
+
+
 # Basic Auth Configuration
 DASHBOARD_USERNAME = os.getenv('DASHBOARD_USERNAME')
 DASHBOARD_PASSWORD = os.getenv('DASHBOARD_PASSWORD')
@@ -1799,6 +1813,44 @@ def contact_intake_save(contact_id):
 
     # Redirect back to workspace requirements tab
     return redirect(url_for('contact_workspace', contact_id=contact_id, tab='requirements'))
+
+
+@app.route('/contacts/<contact_id>/intake/<form_id>/delete', methods=['POST'])
+@requires_auth
+def contact_intake_delete(contact_id, form_id):
+    """Delete an intake form."""
+    db = get_db()
+
+    try:
+        success = db.delete_intake_form(form_id)
+        if success:
+            logger.info(f"Deleted intake form {form_id} for contact {contact_id}")
+        else:
+            logger.warning(f"Intake form {form_id} not found")
+    except Exception as e:
+        logger.error(f"Error deleting intake form: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+    # Redirect back to workspace requirements tab
+    return redirect(url_for('contact_workspace', contact_id=contact_id, tab='requirements'))
+
+
+@app.route('/api/contacts/<contact_id>/intake/<form_id>', methods=['DELETE'])
+@requires_auth
+def api_intake_delete(contact_id, form_id):
+    """API endpoint to delete an intake form."""
+    db = get_db()
+
+    try:
+        success = db.delete_intake_form(form_id)
+        if success:
+            logger.info(f"Deleted intake form {form_id} for contact {contact_id}")
+            return jsonify({'success': True})
+        else:
+            return jsonify({'success': False, 'error': 'Form not found'}), 404
+    except Exception as e:
+        logger.error(f"Error deleting intake form: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @app.route('/contacts/<contact_id>/search')

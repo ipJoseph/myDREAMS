@@ -735,7 +735,7 @@
                 {% if contact.phone %}
                 <div class="contact-info-item">
                     <span class="contact-info-icon">&#9742;</span>
-                    <a href="tel:{{ contact.phone }}">{{ contact.phone }}</a>
+                    <a href="tel:{{ contact.phone }}">{{ contact.phone|phone }}</a>
                 </div>
                 {% endif %}
                 {% if contact.source %}
@@ -823,7 +823,7 @@
                         </div>
                         <div class="req-item">
                             <div class="req-item-label">Phone</div>
-                            <div class="req-item-value">{{ contact.phone or '--' }}</div>
+                            <div class="req-item-value">{{ contact.phone|phone or '--' }}</div>
                         </div>
                         <div class="req-item">
                             <div class="req-item-label">Stage</div>
@@ -1238,16 +1238,23 @@
 
                 <!-- Intake Forms List -->
                 <div class="section-card">
-                    <div class="section-card-header">
-                        <h3 class="section-card-title">Intake Forms</h3>
-                        <a href="?tab=requirements&new=1" class="dreams-btn dreams-btn-primary" style="padding: 6px 12px; font-size: 13px;">
+                    <div class="section-card-header" style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                        <h3 class="section-card-title" style="margin: 0;">Intake Forms</h3>
+                        <select id="intakeStatusFilter" onchange="filterIntakeForms(this.value)" style="padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); font-size: 13px;">
+                            <option value="all">All Statuses</option>
+                            <option value="active" selected>Active Only</option>
+                            <option value="paused">Paused</option>
+                            <option value="completed">Completed</option>
+                            <option value="cancelled">Cancelled</option>
+                        </select>
+                        <a href="?tab=requirements&new=1" class="dreams-btn dreams-btn-primary" style="padding: 6px 12px; font-size: 13px; margin-left: auto;">
                             + New Intake Form
                         </a>
                     </div>
 
                     {% if intake_forms %}
                         {% for form in intake_forms %}
-                        <div class="intake-form-card">
+                        <div class="intake-form-card" data-status="{{ form.status or 'active' }}">
                             <div class="intake-form-header">
                                 <div>
                                     <span class="intake-form-name">{{ form.form_name or 'Untitled Search' }}</span>
@@ -1282,16 +1289,26 @@
                                 </div>
                                 {% endif %}
                             </div>
-                            <div style="margin-top: 12px; display: flex; gap: 8px;">
+                            <div style="margin-top: 12px; display: flex; gap: 8px; align-items: center;">
                                 <a href="/contacts/{{ contact.id }}/search?form_id={{ form.id }}" class="dreams-btn dreams-btn-primary" style="padding: 6px 12px; font-size: 13px;">
                                     Search Properties
                                 </a>
                                 <a href="?tab=requirements&edit={{ form.id }}" class="dreams-btn dreams-btn-secondary" style="padding: 6px 12px; font-size: 13px;">
                                     Edit
                                 </a>
+                                <button type="button" onclick="deleteIntakeForm('{{ form.id }}', '{{ form.form_name or 'this search' }}')"
+                                        class="dreams-btn" style="padding: 6px 12px; font-size: 13px; background: transparent; color: #dc2626; border: 1px solid #dc2626; margin-left: auto;"
+                                        title="Delete this intake form">
+                                    Delete
+                                </button>
                             </div>
                         </div>
                         {% endfor %}
+                        <div id="intakeEmptyFilter" class="empty-state" style="display: none;">
+                            <div class="empty-state-icon">&#128269;</div>
+                            <h3>No Forms Match Filter</h3>
+                            <p>No intake forms match the selected status filter. Try "All Statuses".</p>
+                        </div>
                     {% else %}
                     <div class="empty-state">
                         <div class="empty-state-icon">&#128203;</div>
@@ -1719,6 +1736,48 @@
 
     <script>
         const contactId = '{{ contact.id }}';
+
+        // Delete Intake Form
+        function deleteIntakeForm(formId, formName) {
+            if (confirm(`Are you sure you want to delete "${formName}"?\n\nThis action cannot be undone.`)) {
+                // Create a form and submit it
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = `/contacts/${contactId}/intake/${formId}/delete`;
+                document.body.appendChild(form);
+                form.submit();
+            }
+        }
+
+        // Filter Intake Forms by Status
+        function filterIntakeForms(status) {
+            const cards = document.querySelectorAll('.intake-form-card');
+            let visibleCount = 0;
+
+            cards.forEach(card => {
+                const cardStatus = card.dataset.status || 'active';
+                if (status === 'all' || cardStatus === status) {
+                    card.style.display = '';
+                    visibleCount++;
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+
+            // Show/hide empty state message
+            const emptyMsg = document.getElementById('intakeEmptyFilter');
+            if (emptyMsg) {
+                emptyMsg.style.display = visibleCount === 0 ? 'block' : 'none';
+            }
+        }
+
+        // Initialize filter on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const filter = document.getElementById('intakeStatusFilter');
+            if (filter) {
+                filterIntakeForms(filter.value);
+            }
+        });
 
         // Action Modal
         function openAddActionModal() {

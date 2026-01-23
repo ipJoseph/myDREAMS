@@ -615,7 +615,7 @@
                 <div class="contact-meta-item">
                     <span>Phone:</span>
                     <strong>
-                        <a href="tel:{{ contact.phone }}" title="Call on device">{{ contact.phone }}</a>
+                        <a href="tel:{{ contact.phone }}" title="Call on device">{{ contact.phone|phone }}</a>
                         {% if contact.fub_id %}
                         <a href="https://JonTharpTeam.followupboss.com/2/people/view/{{ contact.fub_id }}" target="_blank" title="Open in FUB" style="margin-left: 8px; color: #6366f1;">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle;">
