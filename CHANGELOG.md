@@ -37,6 +37,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Database tables: `alert_log`, `market_snapshots`
   - Dashboard route: GET `/contacts/<id>/packages/<id>/pdf` for PDF download
   - Cron jobs: `weekly_market_summary.py`, `new_listing_alerts.py`, `monthly_lead_report.py`
+- **Historical Price Charts** - Property detail page with price history visualization:
+  - Chart.js line chart showing price changes over time
+  - Property detail page with photo gallery, stats, and details
+  - Recent changes sidebar (price drops, status changes)
+  - Interested contacts sidebar showing who has viewed/favorited
+  - Links to external listings (Redfin, Zillow, IDX)
+  - Database method: `get_property_price_history()` queries initial price, price changes
+  - Routes: GET `/properties/<id>` (detail page), GET `/api/properties/<id>/price-history`
+  - Dashboard links: Property addresses now link to detail page
 - **Requirements Consolidation (Phase 5)** - Multi-source requirements merging with confidence tracking
   - **Consolidated Requirements** - Merges data from multiple sources with per-field confidence:
     - Intake forms (0.9 base confidence)

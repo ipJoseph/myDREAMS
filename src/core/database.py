@@ -2740,6 +2740,92 @@ class DREAMSDatabase:
             conn.commit()
             return cursor.rowcount
 
+    def get_property_price_history(self, property_id: str) -> List[Dict[str, Any]]:
+        """
+        Get price history for a specific property.
+
+        Combines:
+        - Initial list price (list_date)
+        - All price changes from property_changes table
+        - Current price
+
+        Args:
+            property_id: The property ID
+
+        Returns:
+            List of price points sorted by date, each with:
+            - date: ISO date string
+            - price: Price at that point
+            - event: Description of the change
+        """
+        history = []
+
+        with self._get_connection() as conn:
+            # Get the property details
+            prop = conn.execute('''
+                SELECT id, address, price, initial_price, list_date, created_at
+                FROM properties WHERE id = ?
+            ''', [property_id]).fetchone()
+
+            if not prop:
+                return []
+
+            prop_dict = dict(prop)
+
+            # Add initial list price if available
+            if prop_dict.get('initial_price'):
+                list_date = prop_dict.get('list_date') or prop_dict.get('created_at', '')[:10]
+                history.append({
+                    'date': list_date,
+                    'price': prop_dict['initial_price'],
+                    'event': 'Listed'
+                })
+
+            # Get all price changes for this property
+            changes = conn.execute('''
+                SELECT old_value, new_value, change_amount, detected_at
+                FROM property_changes
+                WHERE property_id = ? AND change_type = 'price'
+                ORDER BY detected_at ASC
+            ''', [property_id]).fetchall()
+
+            for change in changes:
+                c = dict(change)
+                try:
+                    # Parse the price from old_value/new_value (might be formatted)
+                    new_price = int(c['new_value'].replace('$', '').replace(',', ''))
+                    change_amt = c.get('change_amount', 0)
+
+                    if change_amt and change_amt < 0:
+                        event = f'Price Reduced (${abs(change_amt):,})'
+                    elif change_amt and change_amt > 0:
+                        event = f'Price Increased (${change_amt:,})'
+                    else:
+                        event = 'Price Change'
+
+                    history.append({
+                        'date': c['detected_at'][:10],
+                        'price': new_price,
+                        'event': event
+                    })
+                except (ValueError, TypeError, AttributeError):
+                    continue
+
+            # Add current price if different from last history point
+            current_price = prop_dict.get('price')
+            if current_price:
+                if not history or history[-1]['price'] != current_price:
+                    history.append({
+                        'date': datetime.now().strftime('%Y-%m-%d'),
+                        'price': current_price,
+                        'event': 'Current'
+                    })
+
+            # Sort by date
+            history.sort(key=lambda x: x['date'])
+
+            return history
+
     def get_change_summary(self, hours: int = 24) -> Dict[str, Any]:
         """
         Get a summary of property changes for reporting.

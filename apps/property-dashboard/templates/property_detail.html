@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ property.address }} | DREAMS</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='shared/css/dreams.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .property-header {
+            display: flex;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        .property-photo {
+            width: 400px;
+            height: 300px;
+            object-fit: cover;
+            border-radius: 12px;
+            background: #f3f4f6;
+        }
+
+        .property-info {
+            flex: 1;
+        }
+
+        .property-info h1 {
+            margin: 0 0 8px 0;
+            font-size: 24px;
+            color: var(--primary-dark);
+        }
+
+        .property-location {
+            color: var(--text-secondary);
+            font-size: 16px;
+            margin-bottom: 16px;
+        }
+
+        .property-price {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 16px;
+        }
+
+        .property-price .original-price {
+            font-size: 18px;
+            color: var(--text-secondary);
+            text-decoration: line-through;
+            margin-left: 12px;
+            font-weight: 400;
+        }
+
+        .property-stats {
+            display: flex;
+            gap: 24px;
+            margin-bottom: 16px;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        .property-badges {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            padding: 4px 12px;
+            border-radius: 16px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .badge-status {
+            background: var(--idx-validated-bg);
+            color: var(--idx-validated-text);
+        }
+
+        .badge-type {
+            background: #e0e7ff;
+            color: #3730a3;
+        }
+
+        .badge-dom {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .content-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 24px;
+        }
+
+        .chart-container {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .chart-container h3 {
+            margin: 0 0 16px 0;
+            font-size: 16px;
+            color: var(--text-primary);
+        }
+
+        .chart-wrapper {
+            height: 300px;
+        }
+
+        .no-chart-data {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 200px;
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .sidebar-section {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            margin-bottom: 16px;
+        }
+
+        .sidebar-section h3 {
+            margin: 0 0 16px 0;
+            font-size: 14px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .change-item {
+            padding: 12px 0;
+            border-bottom: 1px solid #f3f4f6;
+        }
+
+        .change-item:last-child {
+            border-bottom: none;
+        }
+
+        .change-type {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+        }
+
+        .change-values {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 4px;
+        }
+
+        .change-old {
+            color: var(--text-secondary);
+            text-decoration: line-through;
+        }
+
+        .change-arrow {
+            color: var(--text-secondary);
+        }
+
+        .change-new {
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+        .change-amount {
+            font-size: 12px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: auto;
+        }
+
+        .change-amount.decrease {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .change-amount.increase {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .change-date {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .contact-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 0;
+            border-bottom: 1px solid #f3f4f6;
+        }
+
+        .contact-item:last-child {
+            border-bottom: none;
+        }
+
+        .contact-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .contact-info {
+            flex: 1;
+        }
+
+        .contact-name {
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .contact-name a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        .contact-name a:hover {
+            color: var(--primary);
+        }
+
+        .contact-status {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .contact-favorite {
+            color: #f59e0b;
+        }
+
+        .property-links {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .property-links a {
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .link-redfin {
+            background: #a61d2e;
+            color: white;
+        }
+
+        .link-zillow {
+            background: #006aff;
+            color: white;
+        }
+
+        .link-idx {
+            background: var(--primary);
+            color: white;
+        }
+
+        .breadcrumb {
+            margin-bottom: 16px;
+        }
+
+        .breadcrumb a {
+            color: var(--text-secondary);
+            text-decoration: none;
+        }
+
+        .breadcrumb a:hover {
+            color: var(--primary);
+        }
+
+        .breadcrumb span {
+            color: var(--text-secondary);
+            margin: 0 8px;
+        }
+
+        .photo-gallery {
+            display: flex;
+            gap: 8px;
+            margin-top: 16px;
+            overflow-x: auto;
+            padding-bottom: 8px;
+        }
+
+        .photo-thumb {
+            width: 80px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: 6px;
+            cursor: pointer;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+
+        .photo-thumb:hover,
+        .photo-thumb.active {
+            opacity: 1;
+        }
+
+        .details-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        .detail-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #f3f4f6;
+        }
+
+        .detail-label {
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+
+        .detail-value {
+            font-weight: 500;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <div class="dreams-container">
+        <!-- Header -->
+        <header class="dreams-header">
+            <div class="header-left">
+                <h1 class="header-title">DREAMS</h1>
+                <span class="header-subtitle">Property Details</span>
+            </div>
+            <nav class="header-nav">
+                <a href="/">Properties</a>
+                <a href="/contacts">Contacts</a>
+                <a href="/pipeline">Pipeline</a>
+            </nav>
+        </header>
+
+        <!-- Breadcrumb -->
+        <div class="breadcrumb">
+            <a href="/">Properties</a>
+            <span>&rarr;</span>
+            {{ property.address }}
+        </div>
+
+        <!-- Property Header -->
+        <div class="property-header">
+            {% if property.photos %}
+            <img src="{{ property.photos[0] }}" alt="{{ property.address }}" class="property-photo" id="mainPhoto">
+            {% else %}
+            <div class="property-photo" style="display: flex; align-items: center; justify-content: center; color: #9ca3af;">
+                No Photo Available
+            </div>
+            {% endif %}
+
+            <div class="property-info">
+                <h1>{{ property.address }}</h1>
+                <div class="property-location">
+                    {{ property.city }}, {{ property.state }} {{ property.zip }}
+                    {% if property.county %} &bull; {{ property.county }} County{% endif %}
+                </div>
+
+                <div class="property-price">
+                    ${{ "{:,.0f}".format(property.price) }}
+                    {% if property.initial_price and property.initial_price != property.price %}
+                    <span class="original-price">${{ "{:,.0f}".format(property.initial_price) }}</span>
+                    {% endif %}
+                </div>
+
+                <div class="property-stats">
+                    <div class="stat-item">
+                        <div class="stat-value">{{ property.beds or '-' }}</div>
+                        <div class="stat-label">Beds</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">{{ property.baths or '-' }}</div>
+                        <div class="stat-label">Baths</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">{{ "{:,.0f}".format(property.sqft) if property.sqft else '-' }}</div>
+                        <div class="stat-label">Sq Ft</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">{{ "{:,.2f}".format(property.acreage) if property.acreage else '-' }}</div>
+                        <div class="stat-label">Acres</div>
+                    </div>
+                </div>
+
+                <div class="property-badges">
+                    <span class="badge badge-status">{{ property.status or 'Active' }}</span>
+                    {% if property.property_type %}
+                    <span class="badge badge-type">{{ property.property_type }}</span>
+                    {% endif %}
+                    {% if property.days_on_market %}
+                    <span class="badge badge-dom">{{ property.days_on_market }} DOM</span>
+                    {% endif %}
+                </div>
+
+                <div class="property-links">
+                    {% if property.redfin_url %}
+                    <a href="{{ property.redfin_url }}" target="_blank" class="link-redfin">View on Redfin</a>
+                    {% endif %}
+                    {% if property.zillow_url %}
+                    <a href="{{ property.zillow_url }}" target="_blank" class="link-zillow">View on Zillow</a>
+                    {% endif %}
+                    {% if property.idx_url %}
+                    <a href="{{ property.idx_url }}" target="_blank" class="link-idx">View on IDX</a>
+                    {% endif %}
+                </div>
+
+                {% if property.photos and property.photos|length > 1 %}
+                <div class="photo-gallery">
+                    {% for photo in property.photos[:8] %}
+                    <img src="{{ photo }}" alt="Photo {{ loop.index }}" class="photo-thumb {% if loop.first %}active{% endif %}"
+                         onclick="document.getElementById('mainPhoto').src='{{ photo }}'; document.querySelectorAll('.photo-thumb').forEach(t => t.classList.remove('active')); this.classList.add('active');">
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Content Grid -->
+        <div class="content-grid">
+            <div class="main-content">
+                <!-- Price History Chart -->
+                <div class="chart-container">
+                    <h3>Price History</h3>
+                    {% if price_history and price_history|length > 1 %}
+                    <div class="chart-wrapper">
+                        <canvas id="priceChart"></canvas>
+                    </div>
+                    {% else %}
+                    <div class="no-chart-data">
+                        No price changes recorded for this property
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Property Details -->
+                <div class="chart-container" style="margin-top: 24px;">
+                    <h3>Property Details</h3>
+                    <div class="details-grid">
+                        <div class="detail-item">
+                            <span class="detail-label">MLS Number</span>
+                            <span class="detail-value">{{ property.mls_number or '-' }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Year Built</span>
+                            <span class="detail-value">{{ property.year_built or '-' }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Property Type</span>
+                            <span class="detail-value">{{ property.property_type or '-' }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Style</span>
+                            <span class="detail-value">{{ property.style or '-' }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Heating</span>
+                            <span class="detail-value">{{ property.heating or '-' }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Cooling</span>
+                            <span class="detail-value">{{ property.cooling or '-' }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Garage</span>
+                            <span class="detail-value">{{ property.garage or '-' }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Views</span>
+                            <span class="detail-value">{{ property.views or '-' }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Water Features</span>
+                            <span class="detail-value">{{ property.water_features or '-' }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">List Date</span>
+                            <span class="detail-value">{{ property.list_date or '-' }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar">
+                <!-- Price Changes -->
+                {% if changes %}
+                <div class="sidebar-section">
+                    <h3>Recent Changes</h3>
+                    {% for change in changes %}
+                    <div class="change-item">
+                        <div class="change-type">{{ change.change_type }}</div>
+                        <div class="change-values">
+                            {% if change.change_type == 'price' %}
+                            <span class="change-old">${{ "{:,.0f}".format(change.old_value|float) }}</span>
+                            <span class="change-arrow">&rarr;</span>
+                            <span class="change-new">${{ "{:,.0f}".format(change.new_value|float) }}</span>
+                            {% if change.change_amount %}
+                            <span class="change-amount {% if change.change_amount < 0 %}decrease{% else %}increase{% endif %}">
+                                {{ "{:+,.0f}".format(change.change_amount) }}
+                            </span>
+                            {% endif %}
+                            {% else %}
+                            <span class="change-old">{{ change.old_value }}</span>
+                            <span class="change-arrow">&rarr;</span>
+                            <span class="change-new">{{ change.new_value }}</span>
+                            {% endif %}
+                        </div>
+                        <div class="change-date">{{ change.detected_at[:10] }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <!-- Interested Contacts -->
+                <div class="sidebar-section">
+                    <h3>Interested Contacts ({{ interested_contacts|length }})</h3>
+                    {% if interested_contacts %}
+                    {% for contact in interested_contacts %}
+                    <div class="contact-item">
+                        <div class="contact-avatar">
+                            {{ contact.first_name[0] if contact.first_name else '?' }}{{ contact.last_name[0] if contact.last_name else '' }}
+                        </div>
+                        <div class="contact-info">
+                            <div class="contact-name">
+                                <a href="/contacts/{{ contact.id }}/workspace">{{ contact.first_name }} {{ contact.last_name }}</a>
+                            </div>
+                            <div class="contact-status">
+                                {{ contact.status or 'Viewed' }}
+                                {% if contact.is_favorited %}<span class="contact-favorite">&#9733;</span>{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    {% else %}
+                    <div style="color: var(--text-secondary); font-size: 13px; padding: 12px 0;">
+                        No contacts have viewed this property yet
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if price_history and price_history|length > 1 %}
+    <script>
+        const priceHistory = {{ price_history | tojson }};
+
+        const ctx = document.getElementById('priceChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: priceHistory.map(p => p.date),
+                datasets: [{
+                    label: 'Price',
+                    data: priceHistory.map(p => p.price),
+                    borderColor: '#2563eb',
+                    backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 6,
+                    pointBackgroundColor: '#2563eb',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const point = priceHistory[context.dataIndex];
+                                return [
+                                    '$' + context.raw.toLocaleString(),
+                                    point.event || ''
+                                ].filter(Boolean);
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        ticks: {
+                            callback: function(value) {
+                                return '$' + (value / 1000).toFixed(0) + 'k';
+                            }
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            maxTicksLimit: 6
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+    {% endif %}
+</body>
+</html>

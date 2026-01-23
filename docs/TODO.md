@@ -39,7 +39,7 @@ Last updated: January 23, 2026 (Contact Workspace feature added)
 | 9 | **Weekly market summary report** | DONE | Phase 3 | Monday 6:30 AM email with week-over-week stats |
 | 10 | **Monthly lead activity report** | DONE | Phase 3 | 1st of month email with trends, hot/cooling leads |
 | 11 | **New listing alerts for saved searches** | DONE | Phase 3 | Daily 8:00 AM digest to buyers with matching properties |
-| 12 | **Historical price chart generation** | Pending | Phase 3 | Price history visualization per property |
+| 12 | **Historical price chart generation** | DONE | Phase 3 | Chart.js visualization on property detail page |
 | 13 | **Customizable alert thresholds** | Pending | Phase 3 | User-configurable notification rules |
 
 ---
@@ -114,6 +114,7 @@ Last updated: January 23, 2026 (Contact Workspace feature added)
 | 10 | Monthly lead activity report | Jan 23, 2026 | 1st of month automated email |
 | 11 | New listing alerts | Jan 23, 2026 | Daily 8:00 AM buyer digest |
 | 26 | PDF property packages | Jan 23, 2026 | WeasyPrint generation with dashboard download |
+| 12 | Historical price charts | Jan 23, 2026 | Chart.js on property detail page with price history |
 
 ---
 
