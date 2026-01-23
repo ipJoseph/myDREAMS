@@ -1077,6 +1077,30 @@ def actions_list():
 
 
 # =========================================================================
+# SCORING RUNS PAGE
+# =========================================================================
+
+@app.route('/system/scoring-runs')
+@requires_auth
+def scoring_runs_list():
+    """Scoring runs history view - shows audit trail of FUB sync runs."""
+    db = get_db()
+
+    # Get recent scoring runs
+    runs = db.get_recent_scoring_runs(limit=50)
+
+    # Calculate summary stats
+    total_contacts_processed = sum(r.get('contacts_processed', 0) or 0 for r in runs)
+    successful_runs = sum(1 for r in runs if r.get('status') == 'success')
+    success_rate = int((successful_runs / len(runs) * 100)) if runs else 0
+
+    return render_template('scoring_runs.html',
+                         runs=runs,
+                         total_contacts_processed=total_contacts_processed,
+                         success_rate=success_rate)
+
+
+# =========================================================================
 # CONTACT ACTIONS API
 # =========================================================================
 

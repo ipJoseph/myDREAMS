@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scoring History | DREAMS</title>
+    <link rel="icon" type="image/svg+xml" href="{{ favicon }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='shared/css/dreams.css') }}">
+    <style>
+        .runs-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 20px;
+        }
+
+        .runs-stats {
+            display: flex;
+            gap: 24px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 16px 24px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .stat-label {
+            font-size: 12px;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .runs-section {
+            margin: 0 20px 24px 20px;
+        }
+
+        .runs-table-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .runs-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .runs-table th,
+        .runs-table td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .runs-table th {
+            background: var(--bg-secondary);
+            font-size: 12px;
+            text-transform: uppercase;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        .runs-table tbody tr:hover {
+            background: var(--bg-secondary);
+        }
+
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        .status-badge.success { background: #dcfce7; color: #166534; }
+        .status-badge.running { background: #dbeafe; color: #1d4ed8; }
+        .status-badge.failed { background: #fee2e2; color: #991b1b; }
+        .status-badge.partial { background: #fef3c7; color: #92400e; }
+
+        .source-badge {
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+        }
+
+        .run-stats {
+            display: flex;
+            gap: 16px;
+            font-size: 13px;
+        }
+
+        .run-stat {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .run-stat-value {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .run-stat-label {
+            color: var(--text-secondary);
+        }
+
+        .duration {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .datetime {
+            font-size: 13px;
+        }
+
+        .datetime-date {
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .datetime-time {
+            color: var(--text-secondary);
+        }
+
+        .error-message {
+            color: #dc2626;
+            font-size: 12px;
+            max-width: 300px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .config-toggle {
+            background: none;
+            border: 1px solid var(--border);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            color: var(--text-secondary);
+        }
+
+        .config-toggle:hover {
+            background: var(--bg-secondary);
+        }
+
+        .config-panel {
+            display: none;
+            background: var(--bg-secondary);
+            padding: 12px 16px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .config-panel.active {
+            display: block;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+    </style>
+</head>
+<body>
+    <header class="dreams-header">
+        <div>
+            <h1>Scoring History</h1>
+            <div class="dreams-header-subtitle">
+                FUB sync and scoring run audit trail
+            </div>
+        </div>
+        <nav style="display: flex; gap: 16px; align-items: center;">
+            <a href="/" class="dreams-btn dreams-btn-secondary">Main</a>
+            <a href="/contacts" class="dreams-btn dreams-btn-secondary">Contacts</a>
+            <a href="/actions" class="dreams-btn dreams-btn-secondary">Actions</a>
+        </nav>
+    </header>
+
+    <div class="runs-header">
+        <div class="runs-stats">
+            <div class="stat-card">
+                <div class="stat-value">{{ runs|length }}</div>
+                <div class="stat-label">Recent Runs</div>
+            </div>
+            {% if runs %}
+            <div class="stat-card">
+                <div class="stat-value">{{ total_contacts_processed }}</div>
+                <div class="stat-label">Contacts Processed</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ success_rate }}%</div>
+                <div class="stat-label">Success Rate</div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="runs-section">
+        {% if runs %}
+        <div class="runs-table-container">
+            <table class="runs-table">
+                <thead>
+                    <tr>
+                        <th>Run Time</th>
+                        <th>Status</th>
+                        <th>Source</th>
+                        <th>Stats</th>
+                        <th>Duration</th>
+                        <th>Config</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for run in runs %}
+                    <tr>
+                        <td>
+                            <div class="datetime">
+                                <span class="datetime-date">{{ run.run_at[:10] if run.run_at else '--' }}</span>
+                                <span class="datetime-time">{{ run.run_at[11:19] if run.run_at and run.run_at|length > 11 else '' }}</span>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="status-badge {{ run.status or 'running' }}">
+                                {{ run.status or 'running' }}
+                            </span>
+                            {% if run.error_message %}
+                            <div class="error-message" title="{{ run.error_message }}">{{ run.error_message }}</div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="source-badge">{{ run.source or 'unknown' }}</span>
+                        </td>
+                        <td>
+                            <div class="run-stats">
+                                <div class="run-stat">
+                                    <span class="run-stat-value">{{ run.contacts_processed or 0 }}</span>
+                                    <span class="run-stat-label">processed</span>
+                                </div>
+                                <div class="run-stat">
+                                    <span class="run-stat-value">{{ run.contacts_scored or 0 }}</span>
+                                    <span class="run-stat-label">scored</span>
+                                </div>
+                                {% if run.contacts_new %}
+                                <div class="run-stat">
+                                    <span class="run-stat-value" style="color: #10b981;">+{{ run.contacts_new }}</span>
+                                    <span class="run-stat-label">new</span>
+                                </div>
+                                {% endif %}
+                                {% if run.contacts_updated %}
+                                <div class="run-stat">
+                                    <span class="run-stat-value" style="color: #3b82f6;">{{ run.contacts_updated }}</span>
+                                    <span class="run-stat-label">updated</span>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td>
+                            <span class="duration">
+                                {% if run.run_duration_seconds %}
+                                {{ "%.1f"|format(run.run_duration_seconds) }}s
+                                {% else %}
+                                --
+                                {% endif %}
+                            </span>
+                        </td>
+                        <td>
+                            {% if run.config_snapshot %}
+                            <button class="config-toggle" onclick="toggleConfig({{ run.id }})">View Config</button>
+                            {% else %}
+                            <span style="color: var(--text-tertiary); font-size: 12px;">--</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% if run.config_snapshot %}
+                    <tr>
+                        <td colspan="6" style="padding: 0;">
+                            <div id="config-{{ run.id }}" class="config-panel">{{ run.config_snapshot }}</div>
+                        </td>
+                    </tr>
+                    {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="runs-table-container">
+            <div class="empty-state">
+                <div class="empty-state-icon">&#128202;</div>
+                <h3>No scoring runs yet</h3>
+                <p>Scoring runs will appear here after the FUB sync runs.</p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <footer class="dreams-footer">
+        DREAMS - Desktop Real Estate Agent Management System
+    </footer>
+
+    <script>
+        function toggleConfig(runId) {
+            const panel = document.getElementById(`config-${runId}`);
+            if (panel) {
+                panel.classList.toggle('active');
+            }
+        }
+    </script>
+</body>
+</html>
