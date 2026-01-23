@@ -1,0 +1,100 @@
+# myDREAMS Master To-Do List
+
+*Exhaustive prioritized task list - check off as completed*
+
+Last updated: January 23, 2026
+
+---
+
+## 🔴 PRIORITY 1: High Impact / Low Effort (Quick Wins)
+
+| # | Task | Status | Category | Notes |
+|---|------|--------|----------|-------|
+| 1 | **Score decay for inactive leads** | IN PROGRESS | Phase 2 | Leads go cold but scores don't reflect it |
+| 2 | **Click-to-Call FUB deep links** | Pending | Phase 4 | Make phone numbers link to FUB dialer - easy win |
+| 3 | **Remove unused `httpx` import** | Pending | Tech Debt | Dead import in `property-dashboard/app.py:19` |
+| 4 | **Complete or remove `ENABLE_STAGE_SYNC`** | Pending | Tech Debt | Feature flag exists but feature incomplete |
+
+---
+
+## 🟠 PRIORITY 2: Core Phase 2 Features (Lead Scoring & Matching)
+
+| # | Task | Status | Category | Notes |
+|---|------|--------|----------|-------|
+| 5 | **Weighted buyer-property matching algorithm** | Pending | Phase 2 | Match leads to properties based on criteria |
+| 6 | **Match score breakdown visualization** | Pending | Phase 2 | Show why a property matched a buyer |
+| 7 | **Lead requirements extraction from CRM notes** | Pending | Phase 2 | Parse buyer criteria from FUB notes |
+| 8 | **Stated requirements vs behavioral preferences** | Pending | Phase 2 | Compare what they say vs what they view |
+
+---
+
+## 🟡 PRIORITY 3: Automation & Reports (Phase 3)
+
+| # | Task | Status | Category | Notes |
+|---|------|--------|----------|-------|
+| 9 | **Weekly market summary report** | Pending | Phase 3 | Automated email with market stats |
+| 10 | **Monthly lead activity report** | Pending | Phase 3 | Engagement trends over time |
+| 11 | **New listing alerts for saved searches** | Pending | Phase 3 | Notify when matching properties hit market |
+| 12 | **Historical price chart generation** | Pending | Phase 3 | Price history visualization per property |
+| 13 | **Customizable alert thresholds** | Pending | Phase 3 | User-configurable notification rules |
+
+---
+
+## 🟢 PRIORITY 4: Admin & Configuration
+
+| # | Task | Status | Category | Notes |
+|---|------|--------|----------|-------|
+| 14 | **Admin settings page** | Pending | Phase 3 | Dashboard for sync intervals, API keys, preferences |
+| 15 | **Feature toggles UI** | Pending | Phase 3 | Enable/disable features from dashboard |
+| 16 | **Automatic note push on property matches** | Pending | Phase 2 | Push matched properties to FUB notes |
+
+---
+
+## 🔵 PRIORITY 5: Polish & UX (Phase 4)
+
+| # | Task | Status | Category | Notes |
+|---|------|--------|----------|-------|
+| 17 | **Mobile-responsive dashboard** | Pending | Phase 4 | Works on phone/tablet |
+| 18 | **Dark mode support** | Pending | Phase 4 | Eye comfort option |
+| 19 | **Keyboard shortcuts** | Pending | Phase 4 | Power user navigation |
+| 20 | **Bulk actions interface** | Pending | Phase 4 | Multi-select operations |
+
+---
+
+## ⚪ PRIORITY 6: Infrastructure & Tech Debt
+
+| # | Task | Status | Category | Notes |
+|---|------|--------|----------|-------|
+| 21 | **Add test suite** | Pending | Tech Debt | `/tests/` directory is empty - no tests |
+| 22 | **Zillow scraper fix** | Pending | Tech Debt | Code exists but blocked by site |
+| 23 | **Realtor.com scraper** | Pending | Tech Debt | Falls back to Redfin, not native |
+| 24 | **Standardize error handling** | Pending | Tech Debt | Inconsistent patterns across apps |
+| 25 | **Review unused database methods** | Pending | Tech Debt | Some aggregation methods may be orphaned |
+
+---
+
+## 📦 PRIORITY 7: Future / Package Generation
+
+| # | Task | Status | Category | Notes |
+|---|------|--------|----------|-------|
+| 26 | **PDF property packages** | Pending | Phase 3 | Printable property summaries |
+| 27 | **Branded property flyers** | Pending | Phase 3 | Marketing materials |
+| 28 | **Comparative market analysis** | Pending | Phase 3 | CMA generation |
+| 29 | **Client presentation decks** | Pending | Phase 3 | Slide generation |
+
+---
+
+## Completed Items
+
+| # | Task | Completed | Notes |
+|---|------|-----------|-------|
+| - | Action Management System | Jan 23, 2026 | Contact actions, My Actions page, Scoring History |
+| - | Enhanced Contacts Dashboard | Jan 22, 2026 | Action Queue, Score Analysis, Insights, Trends tabs |
+| - | Database Normalization | Jan 22, 2026 | contact_daily_activity, contact_actions, scoring_runs tables |
+| - | FUB Sync with Trend Evaluation | Jan 22, 2026 | Scoring runs audit, trend detection, daily aggregation |
+| - | Metrics dropdown | Jan 23, 2026 | Navigation menu on main dashboard |
+
+---
+
+*This file is checked into the repo and will persist across Claude sessions.*
+*Update status as tasks are completed.*

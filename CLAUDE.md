@@ -30,6 +30,7 @@ myDREAMS (Desktop Real Estate Agent Management System) is a local-first platform
 - [Roadmap](docs/ROADMAP.md) - Progress tracking
 - [Changelog](CHANGELOG.md) - Version history
 - [Project Index](docs/project-index.md) - All apps
+- **[TODO List](docs/TODO.md)** - Master task list (29 items, prioritized) - CHECK THIS AT SESSION START
 
 ## Conventions
 
