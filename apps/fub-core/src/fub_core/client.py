@@ -231,3 +231,57 @@ class FUBClient:
         except Exception as e:
             if self.logger:
                 self.logger.error(f"Failed to update stage for {person_id}: {e}")
+
+    def create_note(self, person_id: int, body: str, user_id: int = None) -> Optional[Dict]:
+        """
+        Create a note for a person in Follow Up Boss.
+
+        Args:
+            person_id: FUB person ID (integer)
+            body: Note content
+            user_id: Optional FUB user ID for attribution
+
+        Returns:
+            Created note dict on success, None on failure
+        """
+        url = f"{self.base_url}/notes"
+        payload = {
+            "personId": int(person_id),
+            "body": body
+        }
+
+        if user_id:
+            payload["userId"] = int(user_id)
+
+        try:
+            if self.logger:
+                self.logger.debug(f"Creating note for person {person_id}")
+
+            response = self.session.post(url, json=payload, timeout=30)
+
+            if response.status_code == 429:
+                retry_after = response.headers.get("Retry-After", "5")
+                if self.logger:
+                    self.logger.warning(f"Rate limited creating note. Retry after {retry_after}s")
+                return None
+
+            response.raise_for_status()
+            result = response.json()
+
+            if self.logger:
+                self.logger.info(f"Created note for person {person_id}")
+
+            return result
+
+        except requests.exceptions.HTTPError as e:
+            if self.logger:
+                self.logger.error(f"HTTP error creating note for {person_id}: {e}")
+            return None
+        except requests.exceptions.RequestException as e:
+            if self.logger:
+                self.logger.error(f"Request error creating note for {person_id}: {e}")
+            return None
+        except Exception as e:
+            if self.logger:
+                self.logger.error(f"Unexpected error creating note for {person_id}: {e}")
+            return None

@@ -387,6 +387,55 @@
             </div>
             {% endif %}
 
+            <!-- Integrations Section -->
+            {% if 'integrations' in settings_by_category %}
+            <div class="settings-section">
+                <div class="section-header">
+                    <h2><span class="category-icon">&#128279;</span> Integration Settings</h2>
+                    <p class="section-description">Configure CRM and external service integrations</p>
+                </div>
+                <div class="settings-list">
+                    {% for setting in settings_by_category['integrations'] %}
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <div class="setting-label">
+                                {% if setting.key == 'fub_note_push_enabled' %}
+                                    Push Matched Properties to FUB
+                                {% else %}
+                                    {{ setting.key | replace('_', ' ') | title }}
+                                {% endif %}
+                            </div>
+                            <div class="setting-key">{{ setting.key }}</div>
+                            <div class="setting-description">{{ setting.description }}</div>
+                            {% if setting.updated_at and setting.updated_by %}
+                            <div class="last-updated">
+                                Last updated: {{ setting.updated_at[:16] | replace('T', ' ') }} by {{ setting.updated_by }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="setting-control">
+                            {% if setting.value_type == 'boolean' %}
+                            <label class="toggle-switch">
+                                <input type="checkbox" name="{{ setting.key }}" {% if setting.converted_value %}checked{% endif %}>
+                                <span class="toggle-slider"></span>
+                            </label>
+                            {% elif setting.value_type == 'integer' %}
+                            <input type="number" name="{{ setting.key }}" value="{{ setting.converted_value }}"
+                                   class="number-input" min="0">
+                            {% elif setting.value_type == 'float' %}
+                            <input type="number" name="{{ setting.key }}" value="{{ setting.converted_value }}"
+                                   class="number-input" step="0.1" min="0">
+                            {% else %}
+                            <input type="text" name="{{ setting.key }}" value="{{ setting.value }}"
+                                   class="number-input" style="width: 200px; text-align: left;">
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
             <!-- General Section (if any) -->
             {% if 'general' in settings_by_category %}
             <div class="settings-section">

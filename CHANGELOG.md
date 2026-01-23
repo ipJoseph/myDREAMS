@@ -34,6 +34,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Routes: GET/POST `/admin/settings`, GET/PUT `/api/admin/settings`
   - Database methods: `get_setting()`, `set_setting()`, `get_all_settings()`
   - All automation scripts updated to check enabled flags before running
+- **FUB Note Push on Property Matches** - Automatic CRM integration when properties match buyers
+  - **FUBClient.create_note()** - New method to POST notes to FUB API `/notes` endpoint
+  - **Automatic Trigger** - When new listing alerts match a buyer, push note to their FUB contact
+  - **Note Content** - Formatted summary with property details, price, specs, match score, and URLs
+  - **Toggle Setting** - `fub_note_push_enabled` in admin settings (Integrations category)
+  - **Stats Tracking** - `notes_pushed` count in alert run statistics
+  - Graceful fallback if FUB_API_KEY not set or fub_core not installed
 - **Automation & Reports (Phase 3)** - Scheduled automation features for market intelligence and client engagement
   - **Weekly Market Summary** - Monday 6:30 AM email with week-over-week market statistics:
     - Market snapshots captured to `market_snapshots` table

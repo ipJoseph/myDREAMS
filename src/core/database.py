@@ -743,6 +743,9 @@ class DREAMSDatabase:
              'Enable/disable weekly market summary'),
             ('monthly_report_enabled', 'true', 'boolean', 'reports',
              'Enable/disable monthly lead report'),
+            # Integration settings
+            ('fub_note_push_enabled', 'true', 'boolean', 'integrations',
+             'Push matched properties as notes to FUB contacts'),
         ]
 
         for key, value, value_type, category, description in default_settings:

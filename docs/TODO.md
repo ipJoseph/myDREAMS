@@ -50,7 +50,7 @@ Last updated: January 23, 2026 (Admin Settings page added)
 |---|------|--------|----------|-------|
 | 14 | **Admin settings page** | DONE | Phase 3 | `/admin/settings` with alert thresholds and report toggles |
 | 15 | **Feature toggles UI** | DONE | Phase 3 | Toggle switches for alerts/reports in admin settings |
-| 16 | **Automatic note push on property matches** | Pending | Phase 2 | Push matched properties to FUB notes |
+| 16 | **Automatic note push on property matches** | DONE | Phase 2 | Push matched properties to FUB notes via API |
 
 ---
 
@@ -118,6 +118,7 @@ Last updated: January 23, 2026 (Admin Settings page added)
 | 13 | Customizable alert thresholds | Jan 23, 2026 | `/admin/settings` page with DB-stored settings |
 | 14 | Admin settings page | Jan 23, 2026 | Toggle switches for alerts/reports, number inputs for thresholds |
 | 15 | Feature toggles UI | Jan 23, 2026 | Boolean toggles for all automation features |
+| 16 | Automatic note push on property matches | Jan 23, 2026 | FUB API integration to push notes |
 
 ---
 
