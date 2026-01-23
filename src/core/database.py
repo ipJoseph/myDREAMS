@@ -2210,6 +2210,7 @@ class DREAMSDatabase:
                 l.last_name,
                 l.email,
                 l.phone,
+                l.fub_id,
                 l.priority_score
             FROM contact_actions a
             JOIN leads l ON a.contact_id = l.id

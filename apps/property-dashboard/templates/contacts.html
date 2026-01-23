@@ -966,7 +966,11 @@
                             {{ contact.suggested_action.icon }} {{ contact.suggested_action.text }}
                         </span>
                         {% if contact.phone %}
+                        {% if contact.fub_id %}
+                        <a href="https://JonTharpTeam.followupboss.com/2/people/view/{{ contact.fub_id }}" target="_blank" class="action-btn secondary" title="Call via FUB">📱 Call</a>
+                        {% else %}
                         <a href="tel:{{ contact.phone }}" class="action-btn secondary">📱 Call</a>
+                        {% endif %}
                         {% endif %}
                         {% if contact.email %}
                         <a href="mailto:{{ contact.email }}" class="action-btn secondary">📧 Email</a>

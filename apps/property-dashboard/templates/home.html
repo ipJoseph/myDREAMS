@@ -599,7 +599,11 @@
                         {% if contact.phone %}
                         <div class="priority-contact-row">
                             <span>📞</span>
+                            {% if contact.fub_id %}
+                            <a href="https://JonTharpTeam.followupboss.com/2/people/view/{{ contact.fub_id }}" target="_blank" title="Call via FUB">{{ contact.phone }}</a>
+                            {% else %}
                             <a href="tel:{{ contact.phone }}">{{ contact.phone }}</a>
+                            {% endif %}
                         </div>
                         {% endif %}
                         {% if contact.email %}
