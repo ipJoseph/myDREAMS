@@ -57,6 +57,10 @@ class DREAMSDatabase:
             conn.executescript(indexes_schema)
             conn.commit()
 
+            # Seed default system settings
+            self._seed_default_settings(conn)
+            conn.commit()
+
             logger.info(f"Database initialized at {self.db_path}")
 
     def _apply_migrations(self, conn) -> None:
@@ -643,6 +647,17 @@ class DREAMSDatabase:
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(snapshot_date, county)
         );
+
+        -- System settings (configurable thresholds and automation behavior)
+        CREATE TABLE IF NOT EXISTS system_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL,
+            value_type TEXT DEFAULT 'string',  -- 'string', 'integer', 'float', 'boolean', 'json'
+            description TEXT,
+            category TEXT DEFAULT 'general',
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_by TEXT
+        );
         '''
 
     def _get_indexes_schema(self) -> str:
@@ -705,8 +720,148 @@ class DREAMSDatabase:
         -- Market snapshots indexes
         CREATE INDEX IF NOT EXISTS idx_market_snapshots_date ON market_snapshots(snapshot_date DESC);
         CREATE INDEX IF NOT EXISTS idx_market_snapshots_county ON market_snapshots(county);
+        -- System settings indexes
+        CREATE INDEX IF NOT EXISTS idx_system_settings_category ON system_settings(category);
         '''
-    
+
+    def _seed_default_settings(self, conn) -> None:
+        """Insert default system settings if they don't exist."""
+        default_settings = [
+            # Alert settings
+            ('new_listing_match_threshold', '60', 'integer', 'alerts',
+             'Minimum match score (0-100) to trigger new listing alerts'),
+            ('alert_lookback_hours', '24', 'integer', 'alerts',
+             'Hours to look back for new listings'),
+            ('max_properties_per_alert', '10', 'integer', 'alerts',
+             'Maximum properties in a single alert email'),
+            ('new_listing_alerts_enabled', 'true', 'boolean', 'alerts',
+             'Enable/disable new listing alerts'),
+            ('alerts_global_enabled', 'true', 'boolean', 'alerts',
+             'Master switch for all alerts'),
+            # Report settings
+            ('weekly_summary_enabled', 'true', 'boolean', 'reports',
+             'Enable/disable weekly market summary'),
+            ('monthly_report_enabled', 'true', 'boolean', 'reports',
+             'Enable/disable monthly lead report'),
+        ]
+
+        for key, value, value_type, category, description in default_settings:
+            conn.execute('''
+                INSERT OR IGNORE INTO system_settings (key, value, value_type, category, description)
+                VALUES (?, ?, ?, ?, ?)
+            ''', [key, value, value_type, category, description])
+
+    # ==========================================
+    # SYSTEM SETTINGS OPERATIONS
+    # ==========================================
+
+    def get_setting(self, key: str, default: Any = None) -> Any:
+        """
+        Get a system setting value with automatic type conversion.
+
+        Args:
+            key: Setting key
+            default: Default value if setting doesn't exist
+
+        Returns:
+            Setting value converted to appropriate type
+        """
+        with self._get_connection() as conn:
+            row = conn.execute(
+                'SELECT value, value_type FROM system_settings WHERE key = ?',
+                (key,)
+            ).fetchone()
+
+            if not row:
+                return default
+
+            value = row['value']
+            value_type = row['value_type']
+
+            # Convert based on type
+            if value_type == 'integer':
+                return int(value)
+            elif value_type == 'float':
+                return float(value)
+            elif value_type == 'boolean':
+                return value.lower() in ('true', '1', 'yes')
+            elif value_type == 'json':
+                return json.loads(value)
+            else:
+                return value
+
+    def set_setting(self, key: str, value: Any, updated_by: str = None) -> bool:
+        """
+        Update a system setting value.
+
+        Args:
+            key: Setting key
+            value: New value (will be converted to string for storage)
+            updated_by: Who made the change
+
+        Returns:
+            True if successful
+        """
+        with self._get_connection() as conn:
+            # Convert value to string for storage
+            if isinstance(value, bool):
+                str_value = 'true' if value else 'false'
+            elif isinstance(value, (dict, list)):
+                str_value = json.dumps(value)
+            else:
+                str_value = str(value)
+
+            conn.execute('''
+                UPDATE system_settings
+                SET value = ?, updated_at = CURRENT_TIMESTAMP, updated_by = ?
+                WHERE key = ?
+            ''', [str_value, updated_by, key])
+            conn.commit()
+            return True
+
+    def get_all_settings(self, category: str = None) -> List[Dict[str, Any]]:
+        """
+        Get all system settings, optionally filtered by category.
+
+        Args:
+            category: Optional category filter
+
+        Returns:
+            List of setting dictionaries with converted values
+        """
+        with self._get_connection() as conn:
+            if category:
+                rows = conn.execute(
+                    'SELECT * FROM system_settings WHERE category = ? ORDER BY key',
+                    (category,)
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    'SELECT * FROM system_settings ORDER BY category, key'
+                ).fetchall()
+
+            settings = []
+            for row in rows:
+                setting = dict(row)
+                # Convert value based on type
+                value_type = setting['value_type']
+                raw_value = setting['value']
+
+                if value_type == 'integer':
+                    setting['converted_value'] = int(raw_value)
+                elif value_type == 'float':
+                    setting['converted_value'] = float(raw_value)
+                elif value_type == 'boolean':
+                    setting['converted_value'] = raw_value.lower() in ('true', '1', 'yes')
+                elif value_type == 'json':
+                    setting['converted_value'] = json.loads(raw_value)
+                else:
+                    setting['converted_value'] = raw_value
+
+                settings.append(setting)
+
+            return settings
+
     # ==========================================
     # LEAD OPERATIONS
     # ==========================================

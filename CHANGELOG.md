@@ -9,6 +9,31 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Admin Settings Page** - Configurable alert thresholds and automation behavior at `/admin/settings`
+  - **System Settings Database** - New `system_settings` table for persistent configuration
+    - Key-value storage with type conversion (string, integer, float, boolean, json)
+    - Category grouping (alerts, reports, general)
+    - Audit trail with updated_at and updated_by fields
+  - **Alert Settings** - Configurable parameters for new listing alerts:
+    - Match threshold (0-100%) - minimum score to trigger alerts
+    - Lookback hours - how far back to check for new listings
+    - Max properties per email - limit properties in single alert
+    - New listing alerts enabled toggle
+    - Global alerts master switch
+  - **Report Settings** - Toggle switches for scheduled reports:
+    - Weekly market summary (Monday 6:30 AM)
+    - Monthly lead report (1st of month 7:00 AM)
+  - **Admin UI** - Clean settings interface with:
+    - Toggle switches for boolean settings
+    - Number inputs for thresholds with validation
+    - Category grouping (Alerts, Reports)
+    - Success/error feedback on save
+  - **Database Helper** - `get_db_setting()` function in automation config
+    - Reads from database with fallback to environment variables
+    - Automatic type conversion based on setting type
+  - Routes: GET/POST `/admin/settings`, GET/PUT `/api/admin/settings`
+  - Database methods: `get_setting()`, `set_setting()`, `get_all_settings()`
+  - All automation scripts updated to check enabled flags before running
 - **Automation & Reports (Phase 3)** - Scheduled automation features for market intelligence and client engagement
   - **Weekly Market Summary** - Monday 6:30 AM email with week-over-week market statistics:
     - Market snapshots captured to `market_snapshots` table

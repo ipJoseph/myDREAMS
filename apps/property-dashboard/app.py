@@ -2445,5 +2445,113 @@ def api_refresh_requirements(contact_id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+# ==========================================
+# Admin Settings Routes
+# ==========================================
+
+@app.route('/admin/settings')
+@requires_auth
+def admin_settings():
+    """Admin settings page for configuring alert thresholds and automation."""
+    db = get_db()
+
+    # Get all settings grouped by category
+    all_settings = db.get_all_settings()
+
+    # Group settings by category
+    settings_by_category = {}
+    for setting in all_settings:
+        category = setting['category']
+        if category not in settings_by_category:
+            settings_by_category[category] = []
+        settings_by_category[category].append(setting)
+
+    return render_template('admin_settings.html',
+                           settings_by_category=settings_by_category,
+                           all_settings=all_settings)
+
+
+@app.route('/admin/settings', methods=['POST'])
+@requires_auth
+def admin_settings_save():
+    """Save admin settings."""
+    db = get_db()
+
+    try:
+        # Get all current settings to know what keys to update
+        all_settings = db.get_all_settings()
+
+        for setting in all_settings:
+            key = setting['key']
+            value_type = setting['value_type']
+
+            # Handle boolean settings (checkboxes)
+            if value_type == 'boolean':
+                # Checkbox: present = true, absent = false
+                new_value = key in request.form
+            else:
+                # Get the value from form
+                new_value = request.form.get(key)
+                if new_value is None:
+                    continue
+
+                # Convert to appropriate type
+                if value_type == 'integer':
+                    new_value = int(new_value)
+                elif value_type == 'float':
+                    new_value = float(new_value)
+
+            # Update the setting
+            db.set_setting(key, new_value, updated_by='admin')
+
+        return redirect(url_for('admin_settings') + '?saved=1')
+
+    except Exception as e:
+        logger.error(f"Error saving settings: {e}")
+        return redirect(url_for('admin_settings') + '?error=' + str(e))
+
+
+@app.route('/api/admin/settings', methods=['GET'])
+@requires_auth
+def api_get_settings():
+    """API endpoint to get all settings."""
+    db = get_db()
+
+    try:
+        settings = db.get_all_settings()
+        return jsonify({
+            'success': True,
+            'settings': settings
+        })
+    except Exception as e:
+        logger.error(f"Error getting settings: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/admin/settings/<key>', methods=['PUT'])
+@requires_auth
+def api_update_setting(key):
+    """API endpoint to update a single setting."""
+    db = get_db()
+
+    try:
+        data = request.get_json()
+        value = data.get('value')
+
+        if value is None:
+            return jsonify({'success': False, 'error': 'Value is required'}), 400
+
+        db.set_setting(key, value, updated_by='admin')
+
+        return jsonify({
+            'success': True,
+            'key': key,
+            'value': value
+        })
+    except Exception as e:
+        logger.error(f"Error updating setting: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001, debug=True)

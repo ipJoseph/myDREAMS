@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Settings | DREAMS</title>
+    <link rel="icon" type="image/svg+xml" href="{{ favicon }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='shared/css/dreams.css') }}">
+    <style>
+        .settings-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .settings-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .alert {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .alert-success {
+            background: #dcfce7;
+            color: #166534;
+            border: 1px solid #86efac;
+        }
+
+        .alert-error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fca5a5;
+        }
+
+        .settings-section {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            margin-bottom: 24px;
+            overflow: hidden;
+        }
+
+        .section-header {
+            background: var(--bg-secondary);
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .section-header h2 {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            text-transform: capitalize;
+        }
+
+        .section-description {
+            margin: 4px 0 0 0;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .settings-list {
+            padding: 0;
+        }
+
+        .setting-item {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            gap: 24px;
+        }
+
+        .setting-item:last-child {
+            border-bottom: none;
+        }
+
+        .setting-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .setting-label {
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+
+        .setting-key {
+            font-family: monospace;
+            font-size: 11px;
+            color: var(--text-tertiary);
+            margin-bottom: 4px;
+        }
+
+        .setting-description {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .setting-control {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Toggle switch for booleans */
+        .toggle-switch {
+            position: relative;
+            width: 52px;
+            height: 28px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #cbd5e1;
+            transition: 0.3s;
+            border-radius: 28px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 22px;
+            width: 22px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .toggle-switch input:checked + .toggle-slider {
+            background-color: var(--primary);
+        }
+
+        .toggle-switch input:checked + .toggle-slider:before {
+            transform: translateX(24px);
+        }
+
+        /* Number inputs */
+        .number-input {
+            width: 100px;
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 14px;
+            text-align: right;
+        }
+
+        .number-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(30, 64, 175, 0.1);
+        }
+
+        .input-suffix {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        /* Submit button */
+        .settings-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            padding: 20px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .btn-save {
+            padding: 12px 32px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn-save:hover {
+            background: #1e3a5f;
+        }
+
+        .master-switch {
+            background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
+            color: white;
+        }
+
+        .master-switch .setting-label,
+        .master-switch .setting-description {
+            color: white;
+        }
+
+        .master-switch .setting-key {
+            color: rgba(255,255,255,0.6);
+        }
+
+        .last-updated {
+            font-size: 11px;
+            color: var(--text-tertiary);
+            margin-top: 4px;
+        }
+
+        /* Category icons */
+        .category-icon {
+            margin-right: 8px;
+        }
+    </style>
+</head>
+<body>
+    <header class="dreams-header">
+        <div>
+            <h1>Admin Settings</h1>
+            <div class="dreams-header-subtitle">
+                Configure alert thresholds and automation behavior
+            </div>
+        </div>
+        <nav style="display: flex; gap: 16px; align-items: center;">
+            <a href="/" class="dreams-btn dreams-btn-secondary">Main</a>
+            <a href="/contacts" class="dreams-btn dreams-btn-secondary">Contacts</a>
+            <a href="/pipeline" class="dreams-btn dreams-btn-secondary">Pipeline</a>
+        </nav>
+    </header>
+
+    <div class="settings-container">
+        {% if request.args.get('saved') %}
+        <div class="alert alert-success">
+            Settings saved successfully!
+        </div>
+        {% endif %}
+
+        {% if request.args.get('error') %}
+        <div class="alert alert-error">
+            Error saving settings: {{ request.args.get('error') }}
+        </div>
+        {% endif %}
+
+        <form method="POST" action="{{ url_for('admin_settings_save') }}">
+
+            <!-- Alerts Section -->
+            {% if 'alerts' in settings_by_category %}
+            <div class="settings-section">
+                <div class="section-header">
+                    <h2><span class="category-icon">&#128276;</span> Alert Settings</h2>
+                    <p class="section-description">Configure new listing alerts and notifications</p>
+                </div>
+                <div class="settings-list">
+                    {% for setting in settings_by_category['alerts'] %}
+                    <div class="setting-item {% if setting.key == 'alerts_global_enabled' %}master-switch{% endif %}">
+                        <div class="setting-info">
+                            <div class="setting-label">
+                                {% if setting.key == 'alerts_global_enabled' %}
+                                    Enable All Alerts (Master Switch)
+                                {% elif setting.key == 'new_listing_alerts_enabled' %}
+                                    New Listing Alerts
+                                {% elif setting.key == 'new_listing_match_threshold' %}
+                                    Match Threshold
+                                {% elif setting.key == 'alert_lookback_hours' %}
+                                    Lookback Period
+                                {% elif setting.key == 'max_properties_per_alert' %}
+                                    Max Properties Per Email
+                                {% else %}
+                                    {{ setting.key | replace('_', ' ') | title }}
+                                {% endif %}
+                            </div>
+                            <div class="setting-key">{{ setting.key }}</div>
+                            <div class="setting-description">{{ setting.description }}</div>
+                            {% if setting.updated_at and setting.updated_by %}
+                            <div class="last-updated">
+                                Last updated: {{ setting.updated_at[:16] | replace('T', ' ') }} by {{ setting.updated_by }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="setting-control">
+                            {% if setting.value_type == 'boolean' %}
+                            <label class="toggle-switch">
+                                <input type="checkbox" name="{{ setting.key }}" {% if setting.converted_value %}checked{% endif %}>
+                                <span class="toggle-slider"></span>
+                            </label>
+                            {% elif setting.value_type == 'integer' %}
+                            <input type="number" name="{{ setting.key }}" value="{{ setting.converted_value }}"
+                                   class="number-input" min="0"
+                                   {% if 'threshold' in setting.key %}max="100"{% endif %}>
+                            {% if 'threshold' in setting.key %}
+                            <span class="input-suffix">%</span>
+                            {% elif 'hours' in setting.key %}
+                            <span class="input-suffix">hours</span>
+                            {% endif %}
+                            {% elif setting.value_type == 'float' %}
+                            <input type="number" name="{{ setting.key }}" value="{{ setting.converted_value }}"
+                                   class="number-input" step="0.1" min="0">
+                            {% else %}
+                            <input type="text" name="{{ setting.key }}" value="{{ setting.value }}"
+                                   class="number-input" style="width: 200px; text-align: left;">
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Reports Section -->
+            {% if 'reports' in settings_by_category %}
+            <div class="settings-section">
+                <div class="section-header">
+                    <h2><span class="category-icon">&#128200;</span> Report Settings</h2>
+                    <p class="section-description">Configure automated report generation</p>
+                </div>
+                <div class="settings-list">
+                    {% for setting in settings_by_category['reports'] %}
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <div class="setting-label">
+                                {% if setting.key == 'weekly_summary_enabled' %}
+                                    Weekly Market Summary
+                                {% elif setting.key == 'monthly_report_enabled' %}
+                                    Monthly Lead Report
+                                {% else %}
+                                    {{ setting.key | replace('_', ' ') | title }}
+                                {% endif %}
+                            </div>
+                            <div class="setting-key">{{ setting.key }}</div>
+                            <div class="setting-description">
+                                {{ setting.description }}
+                                {% if setting.key == 'weekly_summary_enabled' %}
+                                    (Runs Monday 6:30 AM)
+                                {% elif setting.key == 'monthly_report_enabled' %}
+                                    (Runs 1st of month 7:00 AM)
+                                {% endif %}
+                            </div>
+                            {% if setting.updated_at and setting.updated_by %}
+                            <div class="last-updated">
+                                Last updated: {{ setting.updated_at[:16] | replace('T', ' ') }} by {{ setting.updated_by }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="setting-control">
+                            {% if setting.value_type == 'boolean' %}
+                            <label class="toggle-switch">
+                                <input type="checkbox" name="{{ setting.key }}" {% if setting.converted_value %}checked{% endif %}>
+                                <span class="toggle-slider"></span>
+                            </label>
+                            {% elif setting.value_type == 'integer' %}
+                            <input type="number" name="{{ setting.key }}" value="{{ setting.converted_value }}"
+                                   class="number-input" min="0">
+                            {% elif setting.value_type == 'float' %}
+                            <input type="number" name="{{ setting.key }}" value="{{ setting.converted_value }}"
+                                   class="number-input" step="0.1" min="0">
+                            {% else %}
+                            <input type="text" name="{{ setting.key }}" value="{{ setting.value }}"
+                                   class="number-input" style="width: 200px; text-align: left;">
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- General Section (if any) -->
+            {% if 'general' in settings_by_category %}
+            <div class="settings-section">
+                <div class="section-header">
+                    <h2><span class="category-icon">&#9881;</span> General Settings</h2>
+                    <p class="section-description">Other system settings</p>
+                </div>
+                <div class="settings-list">
+                    {% for setting in settings_by_category['general'] %}
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <div class="setting-label">{{ setting.key | replace('_', ' ') | title }}</div>
+                            <div class="setting-key">{{ setting.key }}</div>
+                            <div class="setting-description">{{ setting.description }}</div>
+                        </div>
+                        <div class="setting-control">
+                            {% if setting.value_type == 'boolean' %}
+                            <label class="toggle-switch">
+                                <input type="checkbox" name="{{ setting.key }}" {% if setting.converted_value %}checked{% endif %}>
+                                <span class="toggle-slider"></span>
+                            </label>
+                            {% elif setting.value_type == 'integer' %}
+                            <input type="number" name="{{ setting.key }}" value="{{ setting.converted_value }}"
+                                   class="number-input" min="0">
+                            {% elif setting.value_type == 'float' %}
+                            <input type="number" name="{{ setting.key }}" value="{{ setting.converted_value }}"
+                                   class="number-input" step="0.1" min="0">
+                            {% else %}
+                            <input type="text" name="{{ setting.key }}" value="{{ setting.value }}"
+                                   class="number-input" style="width: 200px; text-align: left;">
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="settings-actions">
+                <button type="submit" class="btn-save">Save Settings</button>
+            </div>
+        </form>
+    </div>
+
+    <footer class="dreams-footer">
+        DREAMS - Desktop Real Estate Agent Management System
+    </footer>
+
+    <script>
+        // Auto-hide success message after 3 seconds
+        const alert = document.querySelector('.alert-success');
+        if (alert) {
+            setTimeout(() => {
+                alert.style.opacity = '0';
+                alert.style.transition = 'opacity 0.3s ease';
+                setTimeout(() => alert.remove(), 300);
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

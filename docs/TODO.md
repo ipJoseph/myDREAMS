@@ -2,7 +2,7 @@
 
 *Exhaustive prioritized task list - check off as completed*
 
-Last updated: January 23, 2026 (Contact Workspace feature added)
+Last updated: January 23, 2026 (Admin Settings page added)
 
 ---
 
@@ -40,7 +40,7 @@ Last updated: January 23, 2026 (Contact Workspace feature added)
 | 10 | **Monthly lead activity report** | DONE | Phase 3 | 1st of month email with trends, hot/cooling leads |
 | 11 | **New listing alerts for saved searches** | DONE | Phase 3 | Daily 8:00 AM digest to buyers with matching properties |
 | 12 | **Historical price chart generation** | DONE | Phase 3 | Chart.js visualization on property detail page |
-| 13 | **Customizable alert thresholds** | Pending | Phase 3 | User-configurable notification rules |
+| 13 | **Customizable alert thresholds** | DONE | Phase 3 | `/admin/settings` page with DB-stored thresholds |
 
 ---
 
@@ -48,8 +48,8 @@ Last updated: January 23, 2026 (Contact Workspace feature added)
 
 | # | Task | Status | Category | Notes |
 |---|------|--------|----------|-------|
-| 14 | **Admin settings page** | Pending | Phase 3 | Dashboard for sync intervals, API keys, preferences |
-| 15 | **Feature toggles UI** | Pending | Phase 3 | Enable/disable features from dashboard |
+| 14 | **Admin settings page** | DONE | Phase 3 | `/admin/settings` with alert thresholds and report toggles |
+| 15 | **Feature toggles UI** | DONE | Phase 3 | Toggle switches for alerts/reports in admin settings |
 | 16 | **Automatic note push on property matches** | Pending | Phase 2 | Push matched properties to FUB notes |
 
 ---
@@ -115,6 +115,9 @@ Last updated: January 23, 2026 (Contact Workspace feature added)
 | 11 | New listing alerts | Jan 23, 2026 | Daily 8:00 AM buyer digest |
 | 26 | PDF property packages | Jan 23, 2026 | WeasyPrint generation with dashboard download |
 | 12 | Historical price charts | Jan 23, 2026 | Chart.js on property detail page with price history |
+| 13 | Customizable alert thresholds | Jan 23, 2026 | `/admin/settings` page with DB-stored settings |
+| 14 | Admin settings page | Jan 23, 2026 | Toggle switches for alerts/reports, number inputs for thresholds |
+| 15 | Feature toggles UI | Jan 23, 2026 | Boolean toggles for all automation features |
 
 ---
 

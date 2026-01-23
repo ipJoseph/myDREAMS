@@ -2,10 +2,16 @@
 Automation Configuration
 
 Centralized settings for all automation features.
+Settings can be configured via:
+1. Database (system_settings table) - preferred for runtime changes
+2. Environment variables - fallback
+3. Defaults - hardcoded fallback
 """
 
 import os
+import sqlite3
 from pathlib import Path
+from typing import Any
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -18,6 +24,66 @@ TEMPLATES_DIR = Path(__file__).parent / 'templates'
 
 # Database
 DATABASE_PATH = os.getenv('DREAMS_DB_PATH', str(DATA_DIR / 'dreams.db'))
+
+
+def get_db_setting(key: str, default: Any = None) -> Any:
+    """
+    Get a setting from the database with fallback to environment variable and default.
+
+    Priority order:
+    1. Database system_settings table
+    2. Environment variable (uppercase key with underscores)
+    3. Provided default value
+
+    Args:
+        key: Setting key (e.g., 'new_listing_match_threshold')
+        default: Default value if not found anywhere
+
+    Returns:
+        Setting value converted to appropriate type
+    """
+    try:
+        conn = sqlite3.connect(DATABASE_PATH)
+        conn.row_factory = sqlite3.Row
+        row = conn.execute(
+            'SELECT value, value_type FROM system_settings WHERE key = ?',
+            (key,)
+        ).fetchone()
+        conn.close()
+
+        if row:
+            value = row['value']
+            value_type = row['value_type']
+
+            # Convert based on type
+            if value_type == 'integer':
+                return int(value)
+            elif value_type == 'float':
+                return float(value)
+            elif value_type == 'boolean':
+                return value.lower() in ('true', '1', 'yes')
+            elif value_type == 'json':
+                import json
+                return json.loads(value)
+            else:
+                return value
+    except Exception:
+        pass  # Fall through to env var / default
+
+    # Try environment variable
+    env_key = key.upper()
+    env_value = os.getenv(env_key)
+    if env_value is not None:
+        # Try to convert based on default type
+        if isinstance(default, bool):
+            return env_value.lower() in ('true', '1', 'yes')
+        elif isinstance(default, int):
+            return int(env_value)
+        elif isinstance(default, float):
+            return float(env_value)
+        return env_value
+
+    return default
 
 # SMTP Configuration
 SMTP_ENABLED = os.getenv('SMTP_ENABLED', 'true').lower() == 'true'

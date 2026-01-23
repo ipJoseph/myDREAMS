@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional, Tuple
 
 from apps.automation import config
+from apps.automation.config import get_db_setting
 from apps.automation.email_service import send_template_email
 
 logging.basicConfig(level=getattr(logging, config.LOG_LEVEL))
@@ -306,6 +307,10 @@ def match_listings_to_buyers(listings: List[Dict], buyers: List[Dict]) -> Dict[s
     """
     matches = {}
 
+    # Get threshold from database settings
+    match_threshold = get_db_setting('new_listing_match_threshold', 60)
+    logger.info(f"Using match threshold: {match_threshold}")
+
     for buyer in buyers:
         buyer_matches = []
 
@@ -316,7 +321,7 @@ def match_listings_to_buyers(listings: List[Dict], buyers: List[Dict]) -> Dict[s
 
             score, criteria = calculate_match_score(listing, buyer)
 
-            if score >= config.NEW_LISTING_MATCH_THRESHOLD:
+            if score >= match_threshold:
                 match = listing.copy()
                 match['match_score'] = score
                 match['matching_features'] = ', '.join(criteria)
@@ -366,8 +371,21 @@ def send_listing_alerts() -> Dict[str, int]:
 
     stats = {'sent': 0, 'skipped': 0, 'failed': 0, 'properties_matched': 0}
 
+    # Check if alerts are enabled
+    if not get_db_setting('alerts_global_enabled', True):
+        logger.info("Global alerts are disabled - exiting")
+        return stats
+
+    if not get_db_setting('new_listing_alerts_enabled', True):
+        logger.info("New listing alerts are disabled - exiting")
+        return stats
+
+    # Get lookback hours from settings
+    lookback_hours = get_db_setting('alert_lookback_hours', 24)
+    logger.info(f"Looking back {lookback_hours} hours for new listings")
+
     # Get new listings
-    listings = get_new_listings(config.ALERT_LOOKBACK_HOURS)
+    listings = get_new_listings(lookback_hours)
 
     if not listings:
         logger.info("No new listings found")
@@ -394,11 +412,14 @@ def send_listing_alerts() -> Dict[str, int]:
             stats['skipped'] += 1
             continue
 
+        # Get max properties per alert from settings
+        max_properties = get_db_setting('max_properties_per_alert', 10)
+
         # Prepare template context
         context = {
             'contact_name': f"{buyer['first_name']}",
             'property_count': len(properties),
-            'properties': properties[:10],  # Limit to 10 per email
+            'properties': properties[:max_properties],  # Limit per settings
             'criteria_summary': build_criteria_summary(buyer),
             'alert_date': datetime.now().strftime('%B %d, %Y'),
             'agent_name': config.AGENT_NAME,

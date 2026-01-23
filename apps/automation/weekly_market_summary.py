@@ -14,6 +14,7 @@ from typing import Dict, List, Any, Optional
 from statistics import median
 
 from apps.automation import config
+from apps.automation.config import get_db_setting
 from apps.automation.email_service import send_template_email
 
 logging.basicConfig(level=getattr(logging, config.LOG_LEVEL))
@@ -341,6 +342,15 @@ def send_weekly_summary() -> bool:
         True if sent successfully, False otherwise
     """
     logger.info("Generating weekly market summary...")
+
+    # Check if alerts are enabled
+    if not get_db_setting('alerts_global_enabled', True):
+        logger.info("Global alerts are disabled - exiting")
+        return True  # Return True so cron doesn't error
+
+    if not get_db_setting('weekly_summary_enabled', True):
+        logger.info("Weekly summary is disabled - exiting")
+        return True
 
     try:
         summary_data = generate_weekly_summary()

@@ -15,6 +15,7 @@ from typing import Dict, List, Any, Optional
 from calendar import monthrange
 
 from apps.automation import config
+from apps.automation.config import get_db_setting
 from apps.automation.email_service import send_template_email
 
 logging.basicConfig(level=getattr(logging, config.LOG_LEVEL))
@@ -500,6 +501,15 @@ def send_monthly_report(year: Optional[int] = None, month: Optional[int] = None)
         True if sent successfully, False otherwise
     """
     logger.info("Generating monthly lead report...")
+
+    # Check if alerts are enabled
+    if not get_db_setting('alerts_global_enabled', True):
+        logger.info("Global alerts are disabled - exiting")
+        return True  # Return True so cron doesn't error
+
+    if not get_db_setting('monthly_report_enabled', True):
+        logger.info("Monthly report is disabled - exiting")
+        return True
 
     try:
         report_data = generate_monthly_report(year, month)
