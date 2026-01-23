@@ -104,6 +104,18 @@
 | Trend mini-chart | Done | 7-day heat score visualization |
 | Trend indicators | Done | Column on contacts list |
 
+### Action Management System (New - January 2026)
+| Task | Status | Notes |
+|------|--------|-------|
+| contact_actions table | Done | Persistent actions that survive FUB syncs |
+| contact_daily_activity table | Done | Aggregated daily stats for trend queries |
+| scoring_runs table | Done | Audit trail for sync runs |
+| Actions UI on contact detail | Done | Add/complete actions with modal |
+| My Actions page (`/actions`) | Done | Dashboard of all pending actions |
+| Scoring History page | Done | `/system/scoring-runs` audit view |
+| Metrics dropdown | Done | Navigation menu on main dashboard |
+| Backfill script | Done | Historical daily activity from events |
+
 ### CRM Integration Enhancements
 - [x] Follow Up Boss activity sync to SQLite (fub-to-sheets)
 - [x] Intent signals: repeat views, high favorites, activity burst, sharing
@@ -244,4 +256,4 @@ The tension between personal workflow optimization vs. building a configurable p
 ---
 
 *Roadmap maintained by Joseph & Claude*
-*Last updated: January 19, 2026 - Properties Viewed, Property Changes tracking, VPS monitor setup*
+*Last updated: January 23, 2026 - Action Management System, Metrics dropdown, Scoring History view*
