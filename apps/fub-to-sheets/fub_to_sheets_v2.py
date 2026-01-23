@@ -878,6 +878,17 @@ def compute_daily_activity_stats(
 
     stats["unique_visitors_today"] = len(stats["unique_visitors_today"])
 
+    # Get new contacts from the last 3 days (from SQLite)
+    try:
+        from src.core.database import DREAMSDatabase
+        db = DREAMSDatabase(Config.SQLITE_DB_PATH)
+        new_contacts = db.get_recent_contacts(days=3)
+        stats["new_contacts"] = new_contacts
+        logger.info(f"✓ Found {len(new_contacts)} new contacts in last 3 days")
+    except Exception as e:
+        logger.warning(f"Could not fetch new contacts: {e}")
+        stats["new_contacts"] = []
+
     logger.info(f"✓ Daily stats: {stats['total_events_today']} events, {stats['unique_visitors_today']} unique visitors")
     return stats
 
@@ -1384,6 +1395,29 @@ def send_top_priority_email(
         for lead in daily_stats['top_active_leads']:
             body_lines.append(f"<li>{lead['name']} - {lead['activity_count']} activities</li>")
         body_lines.append("</ol>")
+
+    # New contacts in the last 3 days
+    if daily_stats.get('new_contacts'):
+        body_lines.extend([
+            "<h3>🆕 New Contacts (Last 3 Days)</h3>",
+            "<ul style='list-style: none; padding-left: 0;'>",
+        ])
+        for contact in daily_stats['new_contacts']:
+            name = f"{contact.get('first_name', '')} {contact.get('last_name', '')}".strip() or "Unknown"
+            days_ago = contact.get('days_ago', 0)
+            source = contact.get('source', '')
+            source_str = f" <span style='color: #666; font-size: 12px;'>({source})</span>" if source else ""
+
+            # Format the time indicator
+            if days_ago == 0:
+                time_str = "<strong style='color: #10b981;'>Today</strong>"
+            elif days_ago == 1:
+                time_str = "<span style='color: #3b82f6;'>Yesterday</span>"
+            else:
+                time_str = f"<span style='color: #6b7280;'>{days_ago} days ago</span>"
+
+            body_lines.append(f"<li style='padding: 4px 0;'>{name} - {time_str}{source_str}</li>")
+        body_lines.append("</ul>")
 
     # Top priority contacts
     idx = {name: i for i, name in enumerate(CONTACTS_HEADER)}

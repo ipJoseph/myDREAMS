@@ -2399,3 +2399,34 @@ class DREAMSDatabase:
                 LIMIT 1
             ''').fetchone()
             return dict(row) if row else None
+
+    def get_recent_contacts(self, days: int = 3) -> List[Dict[str, Any]]:
+        """
+        Get contacts created in the last N days.
+
+        Args:
+            days: Number of days to look back (default 3)
+
+        Returns:
+            List of contacts with name, created_at, and days_ago
+        """
+        cutoff = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
+
+        with self._get_connection() as conn:
+            rows = conn.execute('''
+                SELECT
+                    id,
+                    first_name,
+                    last_name,
+                    email,
+                    phone,
+                    stage,
+                    source,
+                    created_at,
+                    DATE(created_at) as created_date,
+                    CAST(julianday('now') - julianday(DATE(created_at)) AS INTEGER) as days_ago
+                FROM leads
+                WHERE DATE(created_at) >= ?
+                ORDER BY created_at DESC
+            ''', (cutoff,)).fetchall()
+            return [dict(row) for row in rows]
