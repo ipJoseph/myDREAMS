@@ -16,12 +16,17 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from flask import Flask, render_template, render_template_string, request, jsonify, Response, redirect, url_for
+from dotenv import load_dotenv
+
 # Module logger
 logger = logging.getLogger(__name__)
 
 # Add project root to path for imports
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
+
+# Load environment variables from .env file
+load_dotenv(PROJECT_ROOT / '.env')
 
 from src.core.database import DREAMSDatabase
 
