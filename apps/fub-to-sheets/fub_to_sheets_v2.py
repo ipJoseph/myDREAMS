@@ -100,6 +100,15 @@ class Config:
     RECENCY_BONUS_8_14_DAYS = int(os.getenv("RECENCY_BONUS_8_14_DAYS", "10"))
     RECENCY_BONUS_15_30_DAYS = int(os.getenv("RECENCY_BONUS_15_30_DAYS", "5"))
 
+    # Scoring Weights - Inactivity Decay Multipliers
+    # These reduce scores for leads that have gone quiet
+    DECAY_MULTIPLIER_0_7_DAYS = float(os.getenv("DECAY_MULTIPLIER_0_7_DAYS", "1.0"))      # No decay
+    DECAY_MULTIPLIER_8_14_DAYS = float(os.getenv("DECAY_MULTIPLIER_8_14_DAYS", "0.95"))   # 5% decay
+    DECAY_MULTIPLIER_15_30_DAYS = float(os.getenv("DECAY_MULTIPLIER_15_30_DAYS", "0.85")) # 15% decay
+    DECAY_MULTIPLIER_31_60_DAYS = float(os.getenv("DECAY_MULTIPLIER_31_60_DAYS", "0.70")) # 30% decay
+    DECAY_MULTIPLIER_61_90_DAYS = float(os.getenv("DECAY_MULTIPLIER_61_90_DAYS", "0.50")) # 50% decay
+    DECAY_MULTIPLIER_90_PLUS_DAYS = float(os.getenv("DECAY_MULTIPLIER_90_PLUS_DAYS", "0.30")) # 70% decay
+
     # Scoring Weights - Priority Composite
     PRIORITY_WEIGHT_HEAT = float(os.getenv("PRIORITY_WEIGHT_HEAT", "0.50"))
     PRIORITY_WEIGHT_VALUE = float(os.getenv("PRIORITY_WEIGHT_VALUE", "0.20"))
@@ -181,6 +190,14 @@ class Config:
                 "4_7_days": cls.RECENCY_BONUS_4_7_DAYS,
                 "8_14_days": cls.RECENCY_BONUS_8_14_DAYS,
                 "15_30_days": cls.RECENCY_BONUS_15_30_DAYS,
+            },
+            "decay_multipliers": {
+                "0_7_days": cls.DECAY_MULTIPLIER_0_7_DAYS,
+                "8_14_days": cls.DECAY_MULTIPLIER_8_14_DAYS,
+                "15_30_days": cls.DECAY_MULTIPLIER_15_30_DAYS,
+                "31_60_days": cls.DECAY_MULTIPLIER_31_60_DAYS,
+                "61_90_days": cls.DECAY_MULTIPLIER_61_90_DAYS,
+                "90_plus_days": cls.DECAY_MULTIPLIER_90_PLUS_DAYS,
             },
             "priority_weights": {
                 "heat": cls.PRIORITY_WEIGHT_HEAT,
@@ -288,6 +305,17 @@ class ScoringConfig:
         (float('inf'), 0)
     ]
 
+    # Inactivity Decay (days -> multiplier) - loaded from Config
+    # Reduces scores for leads that have gone quiet
+    DECAY_TIERS = [
+        (7, Config.DECAY_MULTIPLIER_0_7_DAYS),      # 0-7 days: no decay
+        (14, Config.DECAY_MULTIPLIER_8_14_DAYS),    # 8-14 days: 5% decay
+        (30, Config.DECAY_MULTIPLIER_15_30_DAYS),   # 15-30 days: 15% decay
+        (60, Config.DECAY_MULTIPLIER_31_60_DAYS),   # 31-60 days: 30% decay
+        (90, Config.DECAY_MULTIPLIER_61_90_DAYS),   # 61-90 days: 50% decay
+        (float('inf'), Config.DECAY_MULTIPLIER_90_PLUS_DAYS)  # 90+ days: 70% decay
+    ]
+
     # Priority Composite Weights - loaded from Config
     PRIORITY_WEIGHTS = {
         "heat": Config.PRIORITY_WEIGHT_HEAT,
@@ -365,7 +393,14 @@ class LeadScorer:
                 intent_multiplier *= 1.05
                 intent_flags.append("sharing")
 
-        raw_score = (engagement + recency_bonus) * intent_multiplier
+        # Inactivity decay - reduces scores for leads that have gone quiet
+        decay_multiplier = 1.0
+        for threshold, multiplier in self.config.DECAY_TIERS:
+            if days_since_last_touch <= threshold:
+                decay_multiplier = multiplier
+                break
+
+        raw_score = (engagement + recency_bonus) * intent_multiplier * decay_multiplier
         final_score = max(0, min(100, round(raw_score, 1)))
 
         breakdown = {
@@ -373,6 +408,8 @@ class LeadScorer:
             "recency_bonus": recency_bonus,
             "intent_multiplier": round(intent_multiplier, 2),
             "intent_signals": intent_flags,
+            "decay_multiplier": round(decay_multiplier, 2),
+            "days_inactive": days_since_last_touch,
             "final_score": final_score
         }
 
