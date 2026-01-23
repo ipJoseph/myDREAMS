@@ -434,6 +434,67 @@ class DREAMSDatabase:
             source TEXT,                  -- 'redfin', 'zillow', 'realtor'
             notion_url TEXT               -- Link to Notion page for quick access
         );
+
+        -- Contact daily activity (aggregated stats per contact per day)
+        CREATE TABLE IF NOT EXISTS contact_daily_activity (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            contact_id TEXT NOT NULL,
+            activity_date TEXT NOT NULL,  -- YYYY-MM-DD format
+            -- Daily activity counts
+            website_visits INTEGER DEFAULT 0,
+            properties_viewed INTEGER DEFAULT 0,
+            properties_favorited INTEGER DEFAULT 0,
+            properties_shared INTEGER DEFAULT 0,
+            calls_inbound INTEGER DEFAULT 0,
+            calls_outbound INTEGER DEFAULT 0,
+            texts_inbound INTEGER DEFAULT 0,
+            texts_outbound INTEGER DEFAULT 0,
+            emails_received INTEGER DEFAULT 0,
+            emails_sent INTEGER DEFAULT 0,
+            -- Score snapshot at end of day
+            heat_score_snapshot REAL,
+            value_score_snapshot REAL,
+            relationship_score_snapshot REAL,
+            priority_score_snapshot REAL,
+            -- Metadata
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(contact_id, activity_date),
+            FOREIGN KEY (contact_id) REFERENCES leads(id)
+        );
+
+        -- Contact actions (persistent action tracking across syncs)
+        CREATE TABLE IF NOT EXISTS contact_actions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            contact_id TEXT NOT NULL,
+            action_type TEXT NOT NULL,    -- 'call', 'email', 'text', 'meeting', 'follow_up', 'showing', 'note'
+            description TEXT,
+            due_date TEXT,                -- YYYY-MM-DD format
+            priority INTEGER DEFAULT 3,   -- 1 (highest) to 5 (lowest)
+            completed_at TEXT,
+            completed_by TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            created_by TEXT DEFAULT 'user',  -- 'user', 'system', 'sync'
+            FOREIGN KEY (contact_id) REFERENCES leads(id)
+        );
+
+        -- Scoring runs (audit trail for scoring operations)
+        CREATE TABLE IF NOT EXISTS scoring_runs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            run_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            completed_at TEXT,
+            contacts_processed INTEGER DEFAULT 0,
+            contacts_scored INTEGER DEFAULT 0,
+            contacts_new INTEGER DEFAULT 0,
+            contacts_updated INTEGER DEFAULT 0,
+            run_duration_seconds REAL,
+            fub_api_calls INTEGER DEFAULT 0,
+            config_snapshot TEXT,         -- JSON of scoring weights used
+            source TEXT DEFAULT 'scheduled',  -- 'scheduled', 'manual', 'api'
+            status TEXT DEFAULT 'running',    -- 'running', 'success', 'partial', 'failed'
+            error_message TEXT,
+            notes TEXT
+        );
         '''
 
     def _get_indexes_schema(self) -> str:
@@ -470,6 +531,16 @@ class DREAMSDatabase:
         CREATE INDEX IF NOT EXISTS idx_property_changes_detected ON property_changes(detected_at DESC);
         CREATE INDEX IF NOT EXISTS idx_property_changes_type ON property_changes(change_type);
         CREATE INDEX IF NOT EXISTS idx_property_changes_notified ON property_changes(notified);
+        -- Contact daily activity indexes
+        CREATE INDEX IF NOT EXISTS idx_daily_activity_contact ON contact_daily_activity(contact_id, activity_date DESC);
+        CREATE INDEX IF NOT EXISTS idx_daily_activity_date ON contact_daily_activity(activity_date DESC);
+        -- Contact actions indexes
+        CREATE INDEX IF NOT EXISTS idx_actions_contact ON contact_actions(contact_id);
+        CREATE INDEX IF NOT EXISTS idx_actions_due ON contact_actions(due_date) WHERE completed_at IS NULL;
+        CREATE INDEX IF NOT EXISTS idx_actions_pending ON contact_actions(completed_at) WHERE completed_at IS NULL;
+        -- Scoring runs indexes
+        CREATE INDEX IF NOT EXISTS idx_scoring_runs_date ON scoring_runs(run_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_scoring_runs_status ON scoring_runs(status);
         '''
     
     # ==========================================
@@ -1840,3 +1911,490 @@ class DREAMSDatabase:
             'price_decrease_count': len(price_decreases),
             'status_change_count': len(status_changes)
         }
+
+    # ==========================================
+    # CONTACT DAILY ACTIVITY OPERATIONS
+    # ==========================================
+
+    def record_daily_activity(
+        self,
+        contact_id: str,
+        activity_date: str,
+        website_visits: int = 0,
+        properties_viewed: int = 0,
+        properties_favorited: int = 0,
+        properties_shared: int = 0,
+        calls_inbound: int = 0,
+        calls_outbound: int = 0,
+        texts_inbound: int = 0,
+        texts_outbound: int = 0,
+        emails_received: int = 0,
+        emails_sent: int = 0,
+        heat_score: float = None,
+        value_score: float = None,
+        relationship_score: float = None,
+        priority_score: float = None
+    ) -> bool:
+        """
+        Record or update daily activity for a contact.
+        Uses upsert to handle both new and existing records.
+
+        Args:
+            contact_id: The contact's ID
+            activity_date: Date in YYYY-MM-DD format
+            *_counts: Activity counts for the day
+            *_score: Score snapshots (optional)
+
+        Returns:
+            True if successful
+        """
+        with self._get_connection() as conn:
+            conn.execute('''
+                INSERT INTO contact_daily_activity
+                (contact_id, activity_date, website_visits, properties_viewed,
+                 properties_favorited, properties_shared, calls_inbound, calls_outbound,
+                 texts_inbound, texts_outbound, emails_received, emails_sent,
+                 heat_score_snapshot, value_score_snapshot, relationship_score_snapshot,
+                 priority_score_snapshot, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(contact_id, activity_date) DO UPDATE SET
+                    website_visits = excluded.website_visits,
+                    properties_viewed = excluded.properties_viewed,
+                    properties_favorited = excluded.properties_favorited,
+                    properties_shared = excluded.properties_shared,
+                    calls_inbound = excluded.calls_inbound,
+                    calls_outbound = excluded.calls_outbound,
+                    texts_inbound = excluded.texts_inbound,
+                    texts_outbound = excluded.texts_outbound,
+                    emails_received = excluded.emails_received,
+                    emails_sent = excluded.emails_sent,
+                    heat_score_snapshot = COALESCE(excluded.heat_score_snapshot, heat_score_snapshot),
+                    value_score_snapshot = COALESCE(excluded.value_score_snapshot, value_score_snapshot),
+                    relationship_score_snapshot = COALESCE(excluded.relationship_score_snapshot, relationship_score_snapshot),
+                    priority_score_snapshot = COALESCE(excluded.priority_score_snapshot, priority_score_snapshot),
+                    updated_at = excluded.updated_at
+            ''', (
+                contact_id, activity_date, website_visits, properties_viewed,
+                properties_favorited, properties_shared, calls_inbound, calls_outbound,
+                texts_inbound, texts_outbound, emails_received, emails_sent,
+                heat_score, value_score, relationship_score, priority_score,
+                datetime.now().isoformat()
+            ))
+            conn.commit()
+            return True
+
+    def get_contact_daily_activity(
+        self,
+        contact_id: str,
+        days: int = 30
+    ) -> List[Dict[str, Any]]:
+        """
+        Get daily activity records for a contact.
+
+        Args:
+            contact_id: The contact's ID
+            days: Number of days to look back
+
+        Returns:
+            List of daily activity records, most recent first
+        """
+        cutoff = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
+
+        with self._get_connection() as conn:
+            rows = conn.execute('''
+                SELECT * FROM contact_daily_activity
+                WHERE contact_id = ? AND activity_date >= ?
+                ORDER BY activity_date DESC
+            ''', (contact_id, cutoff)).fetchall()
+            return [dict(row) for row in rows]
+
+    def aggregate_daily_activity_from_events(
+        self,
+        contact_id: str,
+        activity_date: str
+    ) -> Dict[str, int]:
+        """
+        Aggregate activity counts from contact_events and contact_communications
+        for a specific contact and date.
+
+        Args:
+            contact_id: The contact's ID
+            activity_date: Date in YYYY-MM-DD format
+
+        Returns:
+            Dict with aggregated counts
+        """
+        date_start = f"{activity_date}T00:00:00"
+        date_end = f"{activity_date}T23:59:59"
+
+        with self._get_connection() as conn:
+            # Aggregate events
+            events = conn.execute('''
+                SELECT event_type, COUNT(*) as count
+                FROM contact_events
+                WHERE contact_id = ? AND occurred_at >= ? AND occurred_at <= ?
+                GROUP BY event_type
+            ''', (contact_id, date_start, date_end)).fetchall()
+
+            event_counts = {row['event_type']: row['count'] for row in events}
+
+            # Aggregate communications
+            comms = conn.execute('''
+                SELECT comm_type, direction, COUNT(*) as count
+                FROM contact_communications
+                WHERE contact_id = ? AND occurred_at >= ? AND occurred_at <= ?
+                GROUP BY comm_type, direction
+            ''', (contact_id, date_start, date_end)).fetchall()
+
+            comm_counts = {}
+            for row in comms:
+                key = f"{row['comm_type']}_{row['direction']}"
+                comm_counts[key] = row['count']
+
+        return {
+            'website_visits': event_counts.get('website_visit', 0),
+            'properties_viewed': event_counts.get('property_view', 0),
+            'properties_favorited': event_counts.get('property_favorite', 0),
+            'properties_shared': event_counts.get('property_share', 0),
+            'calls_inbound': comm_counts.get('call_inbound', 0),
+            'calls_outbound': comm_counts.get('call_outbound', 0),
+            'texts_inbound': comm_counts.get('text_inbound', 0),
+            'texts_outbound': comm_counts.get('text_outbound', 0),
+            'emails_received': comm_counts.get('email_inbound', 0),
+            'emails_sent': comm_counts.get('email_outbound', 0)
+        }
+
+    def get_activity_summary_by_date(
+        self,
+        days: int = 7
+    ) -> List[Dict[str, Any]]:
+        """
+        Get aggregated activity across all contacts grouped by date.
+        Useful for daily reports and trend analysis.
+
+        Args:
+            days: Number of days to look back
+
+        Returns:
+            List of daily summaries
+        """
+        cutoff = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
+
+        with self._get_connection() as conn:
+            rows = conn.execute('''
+                SELECT
+                    activity_date,
+                    COUNT(DISTINCT contact_id) as active_contacts,
+                    SUM(website_visits) as total_website_visits,
+                    SUM(properties_viewed) as total_properties_viewed,
+                    SUM(properties_favorited) as total_favorited,
+                    SUM(calls_inbound + calls_outbound) as total_calls,
+                    SUM(texts_inbound + texts_outbound) as total_texts,
+                    SUM(emails_received + emails_sent) as total_emails
+                FROM contact_daily_activity
+                WHERE activity_date >= ?
+                GROUP BY activity_date
+                ORDER BY activity_date DESC
+            ''', (cutoff,)).fetchall()
+            return [dict(row) for row in rows]
+
+    # ==========================================
+    # CONTACT ACTIONS OPERATIONS
+    # ==========================================
+
+    def add_contact_action(
+        self,
+        contact_id: str,
+        action_type: str,
+        description: str = None,
+        due_date: str = None,
+        priority: int = 3,
+        created_by: str = 'user'
+    ) -> int:
+        """
+        Add a new action for a contact.
+
+        Args:
+            contact_id: The contact's ID
+            action_type: Type of action (call, email, text, meeting, follow_up, showing, note)
+            description: Optional description
+            due_date: Optional due date in YYYY-MM-DD format
+            priority: Priority 1-5 (1 highest)
+            created_by: Who created the action (user, system, sync)
+
+        Returns:
+            The ID of the created action
+        """
+        with self._get_connection() as conn:
+            cursor = conn.execute('''
+                INSERT INTO contact_actions
+                (contact_id, action_type, description, due_date, priority, created_by)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (contact_id, action_type, description, due_date, priority, created_by))
+            conn.commit()
+            return cursor.lastrowid
+
+    def get_contact_actions(
+        self,
+        contact_id: str,
+        include_completed: bool = False,
+        limit: int = 50
+    ) -> List[Dict[str, Any]]:
+        """
+        Get actions for a contact.
+
+        Args:
+            contact_id: The contact's ID
+            include_completed: Whether to include completed actions
+            limit: Maximum number of records
+
+        Returns:
+            List of action records
+        """
+        query = 'SELECT * FROM contact_actions WHERE contact_id = ?'
+        params = [contact_id]
+
+        if not include_completed:
+            query += ' AND completed_at IS NULL'
+
+        query += ' ORDER BY COALESCE(due_date, "9999-12-31"), priority, created_at LIMIT ?'
+        params.append(limit)
+
+        with self._get_connection() as conn:
+            rows = conn.execute(query, params).fetchall()
+            return [dict(row) for row in rows]
+
+    def complete_contact_action(
+        self,
+        action_id: int,
+        completed_by: str = 'user'
+    ) -> bool:
+        """
+        Mark an action as completed.
+
+        Args:
+            action_id: The action's ID
+            completed_by: Who completed the action
+
+        Returns:
+            True if action was updated
+        """
+        with self._get_connection() as conn:
+            cursor = conn.execute('''
+                UPDATE contact_actions
+                SET completed_at = ?, completed_by = ?
+                WHERE id = ? AND completed_at IS NULL
+            ''', (datetime.now().isoformat(), completed_by, action_id))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def get_pending_actions(
+        self,
+        due_before: str = None,
+        limit: int = 100
+    ) -> List[Dict[str, Any]]:
+        """
+        Get all pending (uncompleted) actions, optionally filtered by due date.
+
+        Args:
+            due_before: Optional date filter (YYYY-MM-DD) - get actions due on or before
+            limit: Maximum number of records
+
+        Returns:
+            List of pending actions with contact info
+        """
+        query = '''
+            SELECT
+                a.*,
+                l.first_name,
+                l.last_name,
+                l.email,
+                l.phone,
+                l.priority_score
+            FROM contact_actions a
+            JOIN leads l ON a.contact_id = l.id
+            WHERE a.completed_at IS NULL
+        '''
+        params = []
+
+        if due_before:
+            query += ' AND (a.due_date IS NULL OR a.due_date <= ?)'
+            params.append(due_before)
+
+        query += ' ORDER BY COALESCE(a.due_date, "9999-12-31"), a.priority, l.priority_score DESC LIMIT ?'
+        params.append(limit)
+
+        with self._get_connection() as conn:
+            rows = conn.execute(query, params).fetchall()
+            return [dict(row) for row in rows]
+
+    def get_action_counts_by_contact(self) -> Dict[str, int]:
+        """
+        Get count of pending actions per contact.
+
+        Returns:
+            Dict mapping contact_id to pending action count
+        """
+        with self._get_connection() as conn:
+            rows = conn.execute('''
+                SELECT contact_id, COUNT(*) as count
+                FROM contact_actions
+                WHERE completed_at IS NULL
+                GROUP BY contact_id
+            ''').fetchall()
+            return {row['contact_id']: row['count'] for row in rows}
+
+    # ==========================================
+    # SCORING RUNS OPERATIONS
+    # ==========================================
+
+    def start_scoring_run(
+        self,
+        source: str = 'scheduled',
+        config_snapshot: dict = None
+    ) -> int:
+        """
+        Start a new scoring run and return its ID.
+
+        Args:
+            source: What triggered the run (scheduled, manual, api)
+            config_snapshot: Dict of scoring configuration/weights used
+
+        Returns:
+            The ID of the new scoring run
+        """
+        config_json = json.dumps(config_snapshot) if config_snapshot else None
+
+        with self._get_connection() as conn:
+            cursor = conn.execute('''
+                INSERT INTO scoring_runs (source, config_snapshot, status)
+                VALUES (?, ?, 'running')
+            ''', (source, config_json))
+            conn.commit()
+            return cursor.lastrowid
+
+    def complete_scoring_run(
+        self,
+        run_id: int,
+        contacts_processed: int = 0,
+        contacts_scored: int = 0,
+        contacts_new: int = 0,
+        contacts_updated: int = 0,
+        fub_api_calls: int = 0,
+        status: str = 'success',
+        error_message: str = None,
+        notes: str = None
+    ) -> bool:
+        """
+        Complete a scoring run with final stats.
+
+        Args:
+            run_id: The scoring run ID
+            contacts_*: Various counts
+            fub_api_calls: Number of FUB API calls made
+            status: Final status (success, partial, failed)
+            error_message: Error message if failed
+            notes: Any additional notes
+
+        Returns:
+            True if updated
+        """
+        with self._get_connection() as conn:
+            # Get start time to calculate duration
+            row = conn.execute(
+                'SELECT run_at FROM scoring_runs WHERE id = ?',
+                (run_id,)
+            ).fetchone()
+
+            duration = None
+            if row:
+                start_time = datetime.fromisoformat(row['run_at'])
+                duration = (datetime.now() - start_time).total_seconds()
+
+            cursor = conn.execute('''
+                UPDATE scoring_runs SET
+                    completed_at = ?,
+                    contacts_processed = ?,
+                    contacts_scored = ?,
+                    contacts_new = ?,
+                    contacts_updated = ?,
+                    run_duration_seconds = ?,
+                    fub_api_calls = ?,
+                    status = ?,
+                    error_message = ?,
+                    notes = ?
+                WHERE id = ?
+            ''', (
+                datetime.now().isoformat(),
+                contacts_processed, contacts_scored, contacts_new, contacts_updated,
+                duration, fub_api_calls, status, error_message, notes, run_id
+            ))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def get_recent_scoring_runs(
+        self,
+        limit: int = 10
+    ) -> List[Dict[str, Any]]:
+        """
+        Get recent scoring runs.
+
+        Args:
+            limit: Maximum number of runs to return
+
+        Returns:
+            List of scoring run records
+        """
+        with self._get_connection() as conn:
+            rows = conn.execute('''
+                SELECT * FROM scoring_runs
+                ORDER BY run_at DESC
+                LIMIT ?
+            ''', (limit,)).fetchall()
+            return [dict(row) for row in rows]
+
+    def get_scoring_run_stats(
+        self,
+        days: int = 7
+    ) -> Dict[str, Any]:
+        """
+        Get aggregate stats about scoring runs.
+
+        Args:
+            days: Number of days to analyze
+
+        Returns:
+            Dict with stats about scoring runs
+        """
+        cutoff = (datetime.now() - timedelta(days=days)).isoformat()
+
+        with self._get_connection() as conn:
+            stats = conn.execute('''
+                SELECT
+                    COUNT(*) as total_runs,
+                    SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as successful_runs,
+                    SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed_runs,
+                    AVG(run_duration_seconds) as avg_duration_seconds,
+                    SUM(contacts_processed) as total_contacts_processed,
+                    SUM(fub_api_calls) as total_api_calls
+                FROM scoring_runs
+                WHERE run_at >= ?
+            ''', (cutoff,)).fetchone()
+
+            return dict(stats) if stats else {}
+
+    def get_last_successful_run(self) -> Optional[Dict[str, Any]]:
+        """
+        Get the most recent successful scoring run.
+
+        Returns:
+            The scoring run record or None
+        """
+        with self._get_connection() as conn:
+            row = conn.execute('''
+                SELECT * FROM scoring_runs
+                WHERE status = 'success'
+                ORDER BY run_at DESC
+                LIMIT 1
+            ''').fetchone()
+            return dict(row) if row else None

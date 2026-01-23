@@ -19,6 +19,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Direct call/email buttons in Action Queue
   - Contact chips linking to detail pages from Insights
 
+- **Database Normalization** - New tables for improved data architecture
+  - **contact_daily_activity** - Aggregated daily stats per contact for efficient trend queries
+  - **contact_actions** - Persistent action tracking that survives FUB syncs (replaces overwritten next_action fields)
+  - **scoring_runs** - Audit trail for when/how scoring runs occurred
+  - Backfill script to populate historical daily activity from existing events (1800+ records)
+  - Full database methods for all new tables (CRUD operations, aggregations, stats)
+
 - **Buyer Workflow Search Results Enhancement** - Improved property selection for package creation
   - Selection checkboxes on each property card with Select All toggle
   - Address now links directly to Redfin listing (removed redundant Redfin button)
