@@ -2513,88 +2513,84 @@ def property_changes():
     days = int(request.args.get('days', 7))
 
     db = get_db()
-    conn = db.conn
 
     # Calculate cutoff date
     cutoff = (datetime.now() - timedelta(days=days)).isoformat()
 
-    # Build query
-    query = '''
-        SELECT
-            pc.id,
-            pc.property_id,
-            pc.property_address,
-            pc.change_type,
-            pc.old_value,
-            pc.new_value,
-            pc.change_amount,
-            pc.detected_at,
-            pc.source,
-            pc.notified,
-            p.city,
-            p.county,
-            p.beds,
-            p.baths,
-            p.sqft,
-            p.price as current_price,
-            p.status as current_status,
-            p.redfin_url
-        FROM property_changes pc
-        LEFT JOIN properties p ON pc.property_id = p.id
-        WHERE pc.detected_at >= ?
-    '''
-    params = [cutoff]
+    with db._get_connection() as conn:
+        # Build query
+        query = '''
+            SELECT
+                pc.id,
+                pc.property_id,
+                pc.property_address,
+                pc.change_type,
+                pc.old_value,
+                pc.new_value,
+                pc.change_amount,
+                pc.detected_at,
+                pc.source,
+                pc.notified,
+                p.city,
+                p.county,
+                p.beds,
+                p.baths,
+                p.sqft,
+                p.price as current_price,
+                p.status as current_status,
+                p.redfin_url
+            FROM property_changes pc
+            LEFT JOIN properties p ON pc.property_id = p.id
+            WHERE pc.detected_at >= ?
+        '''
+        params = [cutoff]
 
-    if change_type:
-        query += ' AND pc.change_type = ?'
-        params.append(change_type)
+        if change_type:
+            query += ' AND pc.change_type = ?'
+            params.append(change_type)
 
-    if county:
-        query += ' AND p.county = ?'
-        params.append(county)
+        if county:
+            query += ' AND p.county = ?'
+            params.append(county)
 
-    query += ' ORDER BY pc.detected_at DESC LIMIT 200'
+        query += ' ORDER BY pc.detected_at DESC LIMIT 200'
 
-    cursor = conn.cursor()
-    cursor.execute(query, params)
-    changes = [dict(row) for row in cursor.fetchall()]
+        changes = [dict(row) for row in conn.execute(query, params).fetchall()]
 
-    # Process changes for display
-    for change in changes:
-        # Calculate percentage for price changes
-        if change['change_type'] == 'price_change' and change['old_value'] and change['new_value']:
-            try:
-                old_price = int(change['old_value'])
-                new_price = int(change['new_value'])
-                if old_price > 0:
-                    change['change_pct'] = round((new_price - old_price) / old_price * 100, 1)
-                else:
+        # Process changes for display
+        for change in changes:
+            # Calculate percentage for price changes
+            if change['change_type'] == 'price_change' and change['old_value'] and change['new_value']:
+                try:
+                    old_price = int(change['old_value'])
+                    new_price = int(change['new_value'])
+                    if old_price > 0:
+                        change['change_pct'] = round((new_price - old_price) / old_price * 100, 1)
+                    else:
+                        change['change_pct'] = 0
+                except (ValueError, TypeError):
                     change['change_pct'] = 0
-            except (ValueError, TypeError):
+            else:
                 change['change_pct'] = 0
-        else:
-            change['change_pct'] = 0
 
-    # Get summary counts
-    summary_query = '''
-        SELECT change_type, COUNT(*) as count
-        FROM property_changes
-        WHERE detected_at >= ?
-        GROUP BY change_type
-    '''
-    cursor.execute(summary_query, [cutoff])
-    summary = {row['change_type']: row['count'] for row in cursor.fetchall()}
+        # Get summary counts
+        summary_query = '''
+            SELECT change_type, COUNT(*) as count
+            FROM property_changes
+            WHERE detected_at >= ?
+            GROUP BY change_type
+        '''
+        summary = {row['change_type']: row['count'] for row in conn.execute(summary_query, [cutoff]).fetchall()}
 
-    # Get counties for filter dropdown
-    cursor.execute('''
-        SELECT DISTINCT p.county
-        FROM property_changes pc
-        JOIN properties p ON pc.property_id = p.id
-        WHERE pc.detected_at >= ?
-        AND p.county IS NOT NULL
-        ORDER BY p.county
-    ''', [cutoff])
-    counties = [row['county'] for row in cursor.fetchall()]
+        # Get counties for filter dropdown
+        counties = [row['county'] for row in conn.execute('''
+            SELECT DISTINCT p.county
+            FROM property_changes pc
+            JOIN properties p ON pc.property_id = p.id
+            WHERE pc.detected_at >= ?
+            AND p.county IS NOT NULL
+            ORDER BY p.county
+        ''', [cutoff]).fetchall()]
 
     # Separate changes by type for easier rendering
     price_drops = [c for c in changes if c['change_type'] == 'price_change' and (c['change_amount'] or 0) < 0]
