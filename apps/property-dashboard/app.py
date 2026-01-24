@@ -2654,10 +2654,23 @@ def property_changes():
     # DOM changes are no longer tracked (DOM is calculated from list_date)
     all_price_changes = [c for c in changes if c['change_type'] in ('price_change', 'price')]
     new_listings = [c for c in changes if c['change_type'] == 'new_listing']
-    status_changes = [c for c in changes if c['change_type'] in ('status_change', 'status')]
 
-    # Filter out DOM changes from the all changes list (legacy data)
-    filtered_changes = [c for c in changes if c['change_type'] not in ('dom_update', 'dom')]
+    # Filter status changes - exclude case-only changes (e.g., "contingent" -> "Contingent")
+    status_changes = [
+        c for c in changes
+        if c['change_type'] in ('status_change', 'status')
+        and (c.get('old_value') or '').lower() != (c.get('new_value') or '').lower()
+    ]
+
+    # Filter out DOM changes and case-only status changes from the all changes list
+    filtered_changes = [
+        c for c in changes
+        if c['change_type'] not in ('dom_update', 'dom')
+        and not (
+            c['change_type'] in ('status_change', 'status')
+            and (c.get('old_value') or '').lower() == (c.get('new_value') or '').lower()
+        )
+    ]
 
     # Deduplicate price changes by address (keep only the most recent per address)
     seen_addresses = set()
@@ -2668,11 +2681,11 @@ def property_changes():
             seen_addresses.add(addr)
             price_changes.append(c)
 
-    # Normalize summary (DOM no longer tracked)
+    # Normalize summary (DOM no longer tracked, use filtered counts)
     normalized_summary = {
         'price_changes': len(price_changes),
-        'new_listings': summary.get('new_listing', 0),
-        'status_changes': summary.get('status', 0) + summary.get('status_change', 0),
+        'new_listings': len(new_listings),
+        'status_changes': len(status_changes),  # Use filtered count
     }
 
     return render_template('property_changes.html',
