@@ -38,7 +38,20 @@ PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from redfin_csv_importer import RedfinCSVImporter
-from propstream_importer import PropStreamImporter
+
+# Lazy import for PropStream (requires pandas)
+PropStreamImporter = None
+
+def get_propstream_importer():
+    global PropStreamImporter
+    if PropStreamImporter is None:
+        try:
+            from propstream_importer import PropStreamImporter as PSI
+            PropStreamImporter = PSI
+        except ImportError:
+            print("Error: pandas required for PropStream imports. Install with: pip install pandas openpyxl")
+            sys.exit(1)
+    return PropStreamImporter
 
 logging.basicConfig(
     level=logging.INFO,
@@ -77,7 +90,8 @@ def import_propstream(files: List[str], db_path: str, dry_run: bool = False) -> 
     """Import PropStream Excel files."""
     logger.info(f"Importing {len(files)} PropStream Excel file(s)...")
 
-    importer = PropStreamImporter(db_path=db_path, dry_run=dry_run)
+    PSImporter = get_propstream_importer()
+    importer = PSImporter(db_path=db_path, dry_run=dry_run)
     stats = importer.import_multiple(files)
 
     return stats
