@@ -86,7 +86,6 @@ class RedfinCSVImporter:
             'changes_detected': {
                 'price_change': 0,
                 'status_change': 0,
-                'dom_update': 0,
                 'new_listing': 0,
             },
             'dreams_matched': 0,
@@ -413,19 +412,8 @@ class RedfinCSVImporter:
             })
             logger.info(f"Status change detected: {existing.get('status')} -> {new_data.get('status')}")
 
-        # Days on market update
-        old_dom = existing.get('days_on_market')
-        new_dom = new_data.get('days_on_market')
-        if old_dom is not None and new_dom is not None and old_dom != new_dom:
-            # Only log significant DOM changes (> 7 days difference)
-            if abs(new_dom - old_dom) >= 7:
-                changes.append({
-                    'change_type': 'dom_update',
-                    'field_name': 'days_on_market',
-                    'old_value': str(old_dom),
-                    'new_value': str(new_dom),
-                    'change_amount': new_dom - old_dom,
-                })
+        # DOM is now calculated from list_date, not tracked as changes
+        # (DOM increments daily, so tracking it adds noise without value)
 
         return changes
 
@@ -639,7 +627,6 @@ def main():
         print(f"New listings:    {changes.get('new_listing', 0)}")
         print(f"Price changes:   {changes.get('price_change', 0)}")
         print(f"Status changes:  {changes.get('status_change', 0)}")
-        print(f"DOM updates:     {changes.get('dom_update', 0)}")
         print(f"Matched to DREAMS: {stats.get('dreams_matched', 0)}")
 
     print("=" * 50)

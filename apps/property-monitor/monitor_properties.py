@@ -277,12 +277,8 @@ class PropertyMonitor:
                 'new': new_data['status']
             }
 
-        # DOM change
-        if new_data.get('dom') and new_data['dom'] != property_data['current_dom']:
-            changes['dom'] = {
-                'old': property_data['current_dom'],
-                'new': new_data['dom']
-            }
+        # DOM is now calculated from list_date, not tracked as changes
+        # (DOM increments daily by definition, so tracking it adds noise)
 
         # Views change (if available for this source)
         if new_data.get('views') and new_data['views'] != property_data['current_views']:

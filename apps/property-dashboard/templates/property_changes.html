@@ -472,8 +472,6 @@
                     <span class="change-badge new-listing">New</span>
                     {% elif change.change_type in ['status_change', 'status'] %}
                     <span class="change-badge status-change">Status</span>
-                    {% elif change.change_type in ['dom_update', 'dom'] %}
-                    <span class="change-badge">DOM</span>
                     {% else %}
                     <span class="change-badge">{{ change.change_type }}</span>
                     {% endif %}
@@ -494,8 +492,6 @@
                             ${{ "{:,}".format(change.old_value|int) }} → ${{ "{:,}".format(change.new_value|int) }}
                         {% elif change.change_type in ['status_change', 'status'] %}
                             {{ change.old_value }} → {{ change.new_value }}
-                        {% elif change.change_type in ['dom_update', 'dom'] %}
-                            {{ change.old_value }} → {{ change.new_value }} days
                         {% elif change.change_type == 'new_listing' and change.new_value %}
                             ${{ "{:,}".format(change.new_value|int) }}
                         {% endif %}

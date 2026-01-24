@@ -359,6 +359,60 @@ def extract_property(prop: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     }
 
 
+def _calculate_dom(prop: Dict) -> Optional[int]:
+    """
+    Calculate Days on Market from list_date.
+
+    Priority:
+    1. Calculate from list_date if available
+    2. Fall back to stored days_on_market
+    3. Calculate from created_at as last resort
+
+    For non-active statuses (Sold, Withdrawn, etc.), use stored DOM as final value.
+    """
+    from datetime import datetime
+
+    status = (prop.get('status') or '').lower()
+    stored_dom = prop.get('days_on_market')
+
+    # For sold/withdrawn/terminated properties, use the stored DOM (final value)
+    if status in ('sold', 'withdrawn', 'terminated', 'expired', 'off market'):
+        return stored_dom
+
+    # For active listings, calculate DOM
+    list_date_str = prop.get('list_date')
+    if list_date_str:
+        try:
+            # Parse the list date (handle various formats)
+            if 'T' in str(list_date_str):
+                list_date = datetime.fromisoformat(list_date_str.replace('Z', '+00:00'))
+            else:
+                list_date = datetime.strptime(str(list_date_str)[:10], '%Y-%m-%d')
+            dom = (datetime.now() - list_date.replace(tzinfo=None)).days
+            return max(0, dom)  # Ensure non-negative
+        except (ValueError, TypeError):
+            pass
+
+    # Fall back to stored DOM
+    if stored_dom is not None:
+        return stored_dom
+
+    # Last resort: calculate from created_at
+    created_at_str = prop.get('created_at')
+    if created_at_str:
+        try:
+            if 'T' in str(created_at_str):
+                created_at = datetime.fromisoformat(created_at_str.replace('Z', '+00:00'))
+            else:
+                created_at = datetime.strptime(str(created_at_str)[:10], '%Y-%m-%d')
+            dom = (datetime.now() - created_at.replace(tzinfo=None)).days
+            return max(0, dom)
+        except (ValueError, TypeError):
+            pass
+
+    return None
+
+
 def fetch_properties(added_for: Optional[str] = None, status: Optional[str] = None,
                       city: Optional[str] = None, county: Optional[str] = None) -> List[Dict[str, Any]]:
     """Fetch properties from SQLite with optional filters"""
@@ -399,7 +453,10 @@ def fetch_properties(added_for: Optional[str] = None, status: Optional[str] = No
             prop['beds'] = prop.get('beds')
             prop['baths'] = prop.get('baths')
             prop['lot_acres'] = prop.get('acreage')
-            prop['dom'] = prop.get('days_on_market')
+
+            # Calculate DOM from list_date (preferred) or fall back to stored days_on_market
+            prop['dom'] = _calculate_dom(prop)
+
             prop['tax_annual'] = prop.get('tax_annual_amount')
             prop['hoa'] = prop.get('hoa_fee')
             prop['date_saved'] = prop.get('created_at')
@@ -2593,11 +2650,14 @@ def property_changes():
         ''', [cutoff]).fetchall()]
 
     # Separate changes by type for easier rendering
-    # Handle both old format (price, status, dom) and new format (price_change, status_change, etc.)
+    # Handle both old format (price, status) and new format (price_change, status_change)
+    # DOM changes are no longer tracked (DOM is calculated from list_date)
     all_price_changes = [c for c in changes if c['change_type'] in ('price_change', 'price')]
     new_listings = [c for c in changes if c['change_type'] == 'new_listing']
     status_changes = [c for c in changes if c['change_type'] in ('status_change', 'status')]
-    dom_updates = [c for c in changes if c['change_type'] in ('dom_update', 'dom')]
+
+    # Filter out DOM changes from the all changes list (legacy data)
+    filtered_changes = [c for c in changes if c['change_type'] not in ('dom_update', 'dom')]
 
     # Deduplicate price changes by address (keep only the most recent per address)
     seen_addresses = set()
@@ -2608,20 +2668,18 @@ def property_changes():
             seen_addresses.add(addr)
             price_changes.append(c)
 
-    # Normalize summary to combine old and new formats
+    # Normalize summary (DOM no longer tracked)
     normalized_summary = {
         'price_changes': len(price_changes),
         'new_listings': summary.get('new_listing', 0),
         'status_changes': summary.get('status', 0) + summary.get('status_change', 0),
-        'dom_updates': summary.get('dom', 0) + summary.get('dom_update', 0),
     }
 
     return render_template('property_changes.html',
-                           changes=changes,
+                           changes=filtered_changes,
                            price_changes=price_changes,
                            new_listings=new_listings,
                            status_changes=status_changes,
-                           dom_updates=dom_updates,
                            summary=normalized_summary,
                            counties=counties,
                            selected_type=change_type,
