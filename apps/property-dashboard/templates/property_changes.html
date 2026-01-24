@@ -64,6 +64,15 @@
             padding: 20px;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
             text-align: center;
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.15s;
+            text-decoration: none;
+            display: block;
+        }
+
+        .summary-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
         }
 
         .summary-card h3 {
@@ -78,10 +87,10 @@
             font-size: 13px;
         }
 
-        .summary-card.price-drops h3 { color: #dc2626; }
+        .summary-card.price-changes h3 { color: var(--primary-dark); }
         .summary-card.new-listings h3 { color: #2563eb; }
         .summary-card.status-changes h3 { color: #ca8a04; }
-        .summary-card.total h3 { color: var(--primary-dark); }
+        .summary-card.total h3 { color: var(--text-secondary); }
 
         /* Tabs */
         .tabs {
@@ -283,48 +292,52 @@
             </select>
         </div>
 
-        <!-- Summary Cards -->
+        <!-- Summary Cards (clickable) -->
         <div class="summary-grid">
-            <div class="summary-card price-drops">
-                <h3>{{ price_drops|length }}</h3>
-                <p>Price Drops</p>
-            </div>
-            <div class="summary-card new-listings">
+            <a href="javascript:void(0)" class="summary-card price-changes" onclick="showTabDirect('price-changes')">
+                <h3>{{ price_changes|length }}</h3>
+                <p>Price Changes</p>
+            </a>
+            <a href="javascript:void(0)" class="summary-card new-listings" onclick="showTabDirect('new-listings')">
                 <h3>{{ new_listings|length }}</h3>
                 <p>New Listings</p>
-            </div>
-            <div class="summary-card status-changes">
+            </a>
+            <a href="javascript:void(0)" class="summary-card status-changes" onclick="showTabDirect('status-changes')">
                 <h3>{{ status_changes|length }}</h3>
                 <p>Status Changes</p>
-            </div>
-            <div class="summary-card total">
+            </a>
+            <a href="javascript:void(0)" class="summary-card total" onclick="showTabDirect('all-changes')">
                 <h3>{{ changes|length }}</h3>
-                <p>Total Changes</p>
-            </div>
+                <p>All Changes</p>
+            </a>
         </div>
 
         <!-- Tabs -->
         <div class="tabs">
-            <button class="tab active" onclick="showTab('price-drops')">
-                Price Drops <span class="count">{{ price_drops|length }}</span>
+            <button class="tab active" onclick="showTab('price-changes')" id="tab-price-changes">
+                Price Changes <span class="count">{{ price_changes|length }}</span>
             </button>
-            <button class="tab" onclick="showTab('new-listings')">
+            <button class="tab" onclick="showTab('new-listings')" id="tab-new-listings">
                 New Listings <span class="count">{{ new_listings|length }}</span>
             </button>
-            <button class="tab" onclick="showTab('status-changes')">
+            <button class="tab" onclick="showTab('status-changes')" id="tab-status-changes">
                 Status Changes <span class="count">{{ status_changes|length }}</span>
             </button>
-            <button class="tab" onclick="showTab('all-changes')">
+            <button class="tab" onclick="showTab('all-changes')" id="tab-all-changes">
                 All Changes <span class="count">{{ changes|length }}</span>
             </button>
         </div>
 
-        <!-- Price Drops Tab -->
-        <div id="price-drops" class="tab-content active">
-            {% if price_drops %}
-                {% for change in price_drops %}
+        <!-- Price Changes Tab -->
+        <div id="price-changes" class="tab-content active">
+            {% if price_changes %}
+                {% for change in price_changes %}
                 <div class="change-row">
-                    <span class="change-badge price-drop">Price Drop</span>
+                    {% if change.change_amount and change.change_amount < 0 %}
+                    <span class="change-badge price-drop">Drop</span>
+                    {% else %}
+                    <span class="change-badge price-increase">Increase</span>
+                    {% endif %}
                     <div class="address">
                         <h4>
                             {% if change.redfin_url %}
@@ -342,9 +355,15 @@
                     <div class="price-info">
                         <div class="old-price">${{ "{:,}".format(change.old_value|int) }}</div>
                         <div class="new-price">${{ "{:,}".format(change.new_value|int) }}</div>
-                        <div class="change-amount price-change negative">
+                        {% if change.change_amount and change.change_amount < 0 %}
+                        <div class="change-amount price-change positive">
                             -${{ "{:,}".format(change.change_amount|abs) }} ({{ change.change_pct }}%)
                         </div>
+                        {% else %}
+                        <div class="change-amount price-change negative">
+                            +${{ "{:,}".format(change.change_amount|abs) }} ({{ change.change_pct }}%)
+                        </div>
+                        {% endif %}
                     </div>
                     <div class="detected-time">
                         {{ change.detected_at[:10] }}
@@ -353,8 +372,8 @@
                 {% endfor %}
             {% else %}
                 <div class="empty-state">
-                    <h3>No Price Drops</h3>
-                    <p>No price reductions detected in the selected period.</p>
+                    <h3>No Price Changes</h3>
+                    <p>No price changes detected in the selected period.</p>
                 </div>
             {% endif %}
         </div>
@@ -508,7 +527,12 @@
 
             // Show selected tab
             document.getElementById(tabId).classList.add('active');
-            event.currentTarget.classList.add('active');
+            document.getElementById('tab-' + tabId).classList.add('active');
+        }
+
+        // Called from summary cards
+        function showTabDirect(tabId) {
+            showTab(tabId);
         }
 
         function applyFilters() {
