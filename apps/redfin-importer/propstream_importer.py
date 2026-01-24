@@ -44,8 +44,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Database path
-DB_PATH = os.getenv('REDFIN_DB_PATH', str(PROJECT_ROOT / 'data' / 'redfin_imports.db'))
+# Database path - unified to dreams.db
+DB_PATH = os.getenv('DREAMS_DB_PATH', str(PROJECT_ROOT / 'data' / 'dreams.db'))
 
 # PropStream column mapping to our schema
 PROPSTREAM_MAP = {
@@ -281,25 +281,27 @@ class PropStreamImporter:
         return data
 
     def _find_existing_property(self, conn, data: Dict) -> Optional[Dict]:
-        """Find existing property by address or APN."""
+        """Find existing property by APN or address (smart merge logic)."""
         cursor = conn.cursor()
 
-        # Try to find by APN first (most reliable)
+        # 1. Try APN first (most reliable, permanent identifier)
         if data.get('parcel_id'):
             cursor.execute('''
-                SELECT * FROM properties WHERE parcel_id = ? LIMIT 1
+                SELECT id, parcel_id, address, mls_number, sources_json
+                FROM properties WHERE parcel_id = ? LIMIT 1
             ''', (data['parcel_id'],))
             row = cursor.fetchone()
             if row:
                 return dict(row)
 
-        # Try to find by normalized address
+        # 2. Try to find by normalized address
         street_addr = str(data.get('address', '')).strip()
         city = str(data.get('city', '')).strip()
 
-        if street_addr:
+        if street_addr and len(street_addr) > 5:
             cursor.execute('''
-                SELECT * FROM properties
+                SELECT id, parcel_id, address, mls_number, sources_json
+                FROM properties
                 WHERE UPPER(address) LIKE UPPER(?)
                 AND UPPER(city) = UPPER(?)
                 LIMIT 1
@@ -312,6 +314,7 @@ class PropStreamImporter:
 
     def _insert_property(self, conn, data: Dict) -> str:
         """Insert new property from PropStream."""
+        import json
         prop_id = str(uuid.uuid4())
         now = datetime.utcnow().isoformat()
 
@@ -320,7 +323,6 @@ class PropStreamImporter:
         # Build full address
         full_addr = f"{data.get('address', '')}, {data.get('city', '')}, {data.get('state', 'NC')} {data.get('zip', '')}"
 
-        # 55 columns, 55 values (includes new PropStream fields)
         cursor.execute('''
             INSERT INTO properties (
                 id, address, city, state, zip, county, parcel_id,
@@ -336,8 +338,8 @@ class PropStreamImporter:
                 foreclosure_factor, lien_type, lien_date, lien_amount,
                 listing_agent_name, listing_agent_phone, listing_agent_email, listing_brokerage,
                 stories, has_hoa, status,
-                source, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                source, sources_json, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             prop_id, full_addr, data.get('city'), data.get('state', 'NC'), data.get('zip'),
             data.get('county'), data.get('parcel_id'),
@@ -360,10 +362,21 @@ class PropStreamImporter:
             data.get('listing_agent_name'), data.get('listing_agent_phone'),
             data.get('listing_agent_email'), data.get('listing_brokerage'),
             data.get('stories'), data.get('has_hoa'), data.get('mls_status'),
-            'propstream', now
+            'propstream', json.dumps(['propstream']), now
         ))
 
         return prop_id
+
+    def _update_sources_json(self, existing_json: Optional[str], new_source: str) -> str:
+        """Update sources_json to include new source."""
+        import json
+        try:
+            sources = json.loads(existing_json) if existing_json else []
+        except (json.JSONDecodeError, TypeError):
+            sources = []
+        if new_source and new_source not in sources:
+            sources.append(new_source)
+        return json.dumps(sources)
 
     def _update_property(self, conn, existing: Dict, data: Dict):
         """Update existing property with PropStream data."""
@@ -444,6 +457,10 @@ class PropStreamImporter:
         if updates:
             updates.append("propstream_source = ?")
             params.append('propstream_excel')
+            # Update sources_json
+            new_sources_json = self._update_sources_json(existing.get('sources_json'), 'propstream')
+            updates.append("sources_json = ?")
+            params.append(new_sources_json)
             updates.append("updated_at = ?")
             params.append(now)
             params.append(existing['id'])

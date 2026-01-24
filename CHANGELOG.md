@@ -9,6 +9,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Unified Property Database Architecture** - Consolidated property data into single dreams.db
+  - Migrated 1,858 properties from redfin_imports.db into dreams.db (103 merged, 1,755 new)
+  - Smart merge logic: matches by MLS# first, then normalized address
+  - Source tracking with `sources_json` column (e.g., `["redfin_csv", "propstream"]`)
+  - Updated importers (redfin_csv_importer.py, propstream_importer.py) to write directly to dreams.db
+  - Added 45+ new columns for PropStream data (owner info, financials, condition, liens)
+  - One-time migration script: `scripts/migrate_redfin_to_dreams.py`
+  - Benefits: No cross-database JOINs, consistent property matching, unified change tracking
 - **Enhanced Property Data Ingest System** - Hybrid property data system using PropStream and Redfin
   - **PropStream Importer Expansion** - 8 new column mappings for comprehensive property data:
     - Prior sale history (date, amount)
