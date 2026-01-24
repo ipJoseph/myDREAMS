@@ -443,7 +443,7 @@
             {% if changes %}
                 {% for change in changes %}
                 <div class="change-row">
-                    {% if change.change_type == 'price_change' %}
+                    {% if change.change_type in ['price_change', 'price'] %}
                         {% if change.change_amount and change.change_amount < 0 %}
                         <span class="change-badge price-drop">Price Drop</span>
                         {% else %}
@@ -451,8 +451,10 @@
                         {% endif %}
                     {% elif change.change_type == 'new_listing' %}
                     <span class="change-badge new-listing">New</span>
-                    {% elif change.change_type == 'status_change' %}
+                    {% elif change.change_type in ['status_change', 'status'] %}
                     <span class="change-badge status-change">Status</span>
+                    {% elif change.change_type in ['dom_update', 'dom'] %}
+                    <span class="change-badge">DOM</span>
                     {% else %}
                     <span class="change-badge">{{ change.change_type }}</span>
                     {% endif %}
@@ -469,10 +471,12 @@
                     </div>
 
                     <div class="specs">
-                        {% if change.change_type == 'price_change' %}
+                        {% if change.change_type in ['price_change', 'price'] %}
                             ${{ "{:,}".format(change.old_value|int) }} → ${{ "{:,}".format(change.new_value|int) }}
-                        {% elif change.change_type == 'status_change' %}
+                        {% elif change.change_type in ['status_change', 'status'] %}
                             {{ change.old_value }} → {{ change.new_value }}
+                        {% elif change.change_type in ['dom_update', 'dom'] %}
+                            {{ change.old_value }} → {{ change.new_value }} days
                         {% elif change.change_type == 'new_listing' and change.new_value %}
                             ${{ "{:,}".format(change.new_value|int) }}
                         {% endif %}

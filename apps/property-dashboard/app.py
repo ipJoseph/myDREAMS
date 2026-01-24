@@ -2593,10 +2593,20 @@ def property_changes():
         ''', [cutoff]).fetchall()]
 
     # Separate changes by type for easier rendering
-    price_drops = [c for c in changes if c['change_type'] == 'price_change' and (c['change_amount'] or 0) < 0]
-    price_increases = [c for c in changes if c['change_type'] == 'price_change' and (c['change_amount'] or 0) > 0]
+    # Handle both old format (price, status, dom) and new format (price_change, status_change, etc.)
+    price_drops = [c for c in changes if c['change_type'] in ('price_change', 'price') and (c['change_amount'] or 0) < 0]
+    price_increases = [c for c in changes if c['change_type'] in ('price_change', 'price') and (c['change_amount'] or 0) > 0]
     new_listings = [c for c in changes if c['change_type'] == 'new_listing']
-    status_changes = [c for c in changes if c['change_type'] == 'status_change']
+    status_changes = [c for c in changes if c['change_type'] in ('status_change', 'status')]
+    dom_updates = [c for c in changes if c['change_type'] in ('dom_update', 'dom')]
+
+    # Normalize summary to combine old and new formats
+    normalized_summary = {
+        'price_drops': summary.get('price', 0) + summary.get('price_change', 0),
+        'new_listings': summary.get('new_listing', 0),
+        'status_changes': summary.get('status', 0) + summary.get('status_change', 0),
+        'dom_updates': summary.get('dom', 0) + summary.get('dom_update', 0),
+    }
 
     return render_template('property_changes.html',
                            changes=changes,
@@ -2604,7 +2614,8 @@ def property_changes():
                            price_increases=price_increases,
                            new_listings=new_listings,
                            status_changes=status_changes,
-                           summary=summary,
+                           dom_updates=dom_updates,
+                           summary=normalized_summary,
                            counties=counties,
                            selected_type=change_type,
                            selected_county=county,
