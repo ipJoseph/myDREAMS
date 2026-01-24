@@ -736,6 +736,12 @@ class DREAMSDatabase:
              'Maximum properties in a single alert email'),
             ('new_listing_alerts_enabled', 'true', 'boolean', 'alerts',
              'Enable/disable new listing alerts'),
+            ('price_drop_alerts_enabled', 'true', 'boolean', 'alerts',
+             'Enable/disable price drop alerts'),
+            ('price_drop_match_threshold', '50', 'integer', 'alerts',
+             'Minimum match score (0-100) to trigger price drop alerts'),
+            ('min_price_drop_pct', '5.0', 'float', 'alerts',
+             'Minimum price drop percentage to trigger alert'),
             ('alerts_global_enabled', 'true', 'boolean', 'alerts',
              'Master switch for all alerts'),
             # Report settings

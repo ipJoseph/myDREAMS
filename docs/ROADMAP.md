@@ -23,6 +23,7 @@
 
 | Feature | Commit | Description |
 |---------|--------|-------------|
+| Enhanced Property Ingest | - | PropStream expansion, Redfin change detection, daily CLI, changes dashboard, price drop alerts |
 | IDX MLS Validation | `f157fb0` | Automatic validation with address fallback |
 | On-Demand Validation | `016271b` | Validates properties when creating IDX portfolio |
 | Redfin Scraper Fix | `f157fb0` | Fixed incorrect "Sold" status extraction |

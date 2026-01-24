@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Property Changes | DREAMS</title>
+    <link rel="icon" type="image/svg+xml" href="{{ favicon }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='shared/css/dreams.css') }}">
+    <style>
+        /* Change type badges */
+        .change-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .change-badge.price-drop {
+            background: #fef2f2;
+            color: #dc2626;
+        }
+
+        .change-badge.price-increase {
+            background: #f0fdf4;
+            color: #16a34a;
+        }
+
+        .change-badge.new-listing {
+            background: #eff6ff;
+            color: #2563eb;
+        }
+
+        .change-badge.status-change {
+            background: #fefce8;
+            color: #ca8a04;
+        }
+
+        /* Price change styling */
+        .price-change {
+            font-weight: 600;
+        }
+
+        .price-change.negative {
+            color: #dc2626;
+        }
+
+        .price-change.positive {
+            color: #16a34a;
+        }
+
+        /* Summary cards */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .summary-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .summary-card h3 {
+            margin: 0 0 8px 0;
+            font-size: 32px;
+            font-weight: 700;
+        }
+
+        .summary-card p {
+            margin: 0;
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+
+        .summary-card.price-drops h3 { color: #dc2626; }
+        .summary-card.new-listings h3 { color: #2563eb; }
+        .summary-card.status-changes h3 { color: #ca8a04; }
+        .summary-card.total h3 { color: var(--primary-dark); }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e5e7eb;
+            padding-bottom: 0;
+        }
+
+        .tab {
+            padding: 12px 20px;
+            background: none;
+            border: none;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            cursor: pointer;
+            position: relative;
+            bottom: -2px;
+            border-bottom: 2px solid transparent;
+        }
+
+        .tab:hover {
+            color: var(--primary-dark);
+        }
+
+        .tab.active {
+            color: var(--primary-dark);
+            border-bottom-color: var(--primary-dark);
+        }
+
+        .tab .count {
+            background: #e5e7eb;
+            color: var(--text-secondary);
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            margin-left: 6px;
+        }
+
+        .tab.active .count {
+            background: var(--primary-dark);
+            color: white;
+        }
+
+        /* Tab content */
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Property row in changes */
+        .change-row {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px;
+            background: white;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+
+        .change-row:hover {
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .change-row .address {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .change-row .address h4 {
+            margin: 0 0 4px 0;
+            font-size: 14px;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .change-row .address .location {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .change-row .specs {
+            font-size: 12px;
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }
+
+        .change-row .price-info {
+            text-align: right;
+            min-width: 160px;
+        }
+
+        .change-row .old-price {
+            font-size: 12px;
+            color: var(--text-secondary);
+            text-decoration: line-through;
+        }
+
+        .change-row .new-price {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .change-row .change-amount {
+            font-size: 12px;
+        }
+
+        .change-row .detected-time {
+            font-size: 11px;
+            color: var(--text-secondary);
+            min-width: 100px;
+            text-align: right;
+        }
+
+        /* Status arrow */
+        .status-arrow {
+            color: var(--text-secondary);
+            margin: 0 8px;
+        }
+
+        /* Filter bar */
+        .filter-bar {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .filter-bar select {
+            padding: 8px 12px;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            font-size: 13px;
+            background: white;
+        }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state h3 {
+            margin: 0 0 8px 0;
+            color: var(--text-primary);
+        }
+    </style>
+</head>
+<body>
+    <!-- Admin Navigation -->
+    <nav class="admin-nav">
+        <a href="/">Home</a>
+        <a href="/properties">Properties</a>
+        <a href="/properties/changes" class="active">Changes</a>
+        <a href="/contacts">Contacts</a>
+        <a href="/pipeline">Pipeline</a>
+        <a href="/actions">Actions</a>
+        <a href="/admin/settings">Settings</a>
+    </nav>
+
+    <div class="container">
+        <header class="page-header">
+            <div class="header-left">
+                <h1>Property Changes</h1>
+                <p class="subtitle">Track price drops, new listings, and status changes</p>
+            </div>
+            <div class="header-right">
+                <span class="refresh-time">Updated: {{ refresh_time }}</span>
+            </div>
+        </header>
+
+        <!-- Filter Bar -->
+        <div class="filter-bar">
+            <select id="daysFilter" onchange="applyFilters()">
+                <option value="1" {% if selected_days == 1 %}selected{% endif %}>Last 24 hours</option>
+                <option value="3" {% if selected_days == 3 %}selected{% endif %}>Last 3 days</option>
+                <option value="7" {% if selected_days == 7 %}selected{% endif %}>Last 7 days</option>
+                <option value="14" {% if selected_days == 14 %}selected{% endif %}>Last 14 days</option>
+                <option value="30" {% if selected_days == 30 %}selected{% endif %}>Last 30 days</option>
+            </select>
+
+            <select id="countyFilter" onchange="applyFilters()">
+                <option value="">All Counties</option>
+                {% for c in counties %}
+                <option value="{{ c }}" {% if selected_county == c %}selected{% endif %}>{{ c }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="summary-grid">
+            <div class="summary-card price-drops">
+                <h3>{{ price_drops|length }}</h3>
+                <p>Price Drops</p>
+            </div>
+            <div class="summary-card new-listings">
+                <h3>{{ new_listings|length }}</h3>
+                <p>New Listings</p>
+            </div>
+            <div class="summary-card status-changes">
+                <h3>{{ status_changes|length }}</h3>
+                <p>Status Changes</p>
+            </div>
+            <div class="summary-card total">
+                <h3>{{ changes|length }}</h3>
+                <p>Total Changes</p>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('price-drops')">
+                Price Drops <span class="count">{{ price_drops|length }}</span>
+            </button>
+            <button class="tab" onclick="showTab('new-listings')">
+                New Listings <span class="count">{{ new_listings|length }}</span>
+            </button>
+            <button class="tab" onclick="showTab('status-changes')">
+                Status Changes <span class="count">{{ status_changes|length }}</span>
+            </button>
+            <button class="tab" onclick="showTab('all-changes')">
+                All Changes <span class="count">{{ changes|length }}</span>
+            </button>
+        </div>
+
+        <!-- Price Drops Tab -->
+        <div id="price-drops" class="tab-content active">
+            {% if price_drops %}
+                {% for change in price_drops %}
+                <div class="change-row">
+                    <span class="change-badge price-drop">Price Drop</span>
+                    <div class="address">
+                        <h4>
+                            {% if change.redfin_url %}
+                            <a href="{{ change.redfin_url }}" target="_blank">{{ change.property_address }}</a>
+                            {% else %}
+                            {{ change.property_address }}
+                            {% endif %}
+                        </h4>
+                        <span class="location">{{ change.city }}{% if change.county %}, {{ change.county }}{% endif %}</span>
+                    </div>
+                    <div class="specs">
+                        {% if change.beds %}{{ change.beds }}bd{% endif %}{% if change.baths %}/{{ change.baths }}ba{% endif %}
+                        {% if change.sqft %}| {{ "{:,}".format(change.sqft) }} sqft{% endif %}
+                    </div>
+                    <div class="price-info">
+                        <div class="old-price">${{ "{:,}".format(change.old_value|int) }}</div>
+                        <div class="new-price">${{ "{:,}".format(change.new_value|int) }}</div>
+                        <div class="change-amount price-change negative">
+                            -${{ "{:,}".format(change.change_amount|abs) }} ({{ change.change_pct }}%)
+                        </div>
+                    </div>
+                    <div class="detected-time">
+                        {{ change.detected_at[:10] }}
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <h3>No Price Drops</h3>
+                    <p>No price reductions detected in the selected period.</p>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- New Listings Tab -->
+        <div id="new-listings" class="tab-content">
+            {% if new_listings %}
+                {% for change in new_listings %}
+                <div class="change-row">
+                    <span class="change-badge new-listing">New</span>
+                    <div class="address">
+                        <h4>
+                            {% if change.redfin_url %}
+                            <a href="{{ change.redfin_url }}" target="_blank">{{ change.property_address }}</a>
+                            {% else %}
+                            {{ change.property_address }}
+                            {% endif %}
+                        </h4>
+                        <span class="location">{{ change.city }}{% if change.county %}, {{ change.county }}{% endif %}</span>
+                    </div>
+                    <div class="specs">
+                        {% if change.beds %}{{ change.beds }}bd{% endif %}{% if change.baths %}/{{ change.baths }}ba{% endif %}
+                        {% if change.sqft %}| {{ "{:,}".format(change.sqft) }} sqft{% endif %}
+                    </div>
+                    <div class="price-info">
+                        {% if change.new_value %}
+                        <div class="new-price">${{ "{:,}".format(change.new_value|int) }}</div>
+                        {% else %}
+                        <div class="new-price">Price N/A</div>
+                        {% endif %}
+                    </div>
+                    <div class="detected-time">
+                        {{ change.detected_at[:10] }}
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <h3>No New Listings</h3>
+                    <p>No new listings detected in the selected period.</p>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Status Changes Tab -->
+        <div id="status-changes" class="tab-content">
+            {% if status_changes %}
+                {% for change in status_changes %}
+                <div class="change-row">
+                    <span class="change-badge status-change">Status</span>
+                    <div class="address">
+                        <h4>
+                            {% if change.redfin_url %}
+                            <a href="{{ change.redfin_url }}" target="_blank">{{ change.property_address }}</a>
+                            {% else %}
+                            {{ change.property_address }}
+                            {% endif %}
+                        </h4>
+                        <span class="location">{{ change.city }}{% if change.county %}, {{ change.county }}{% endif %}</span>
+                    </div>
+                    <div class="specs">
+                        <span>{{ change.old_value }}</span>
+                        <span class="status-arrow">→</span>
+                        <span><strong>{{ change.new_value }}</strong></span>
+                    </div>
+                    <div class="price-info">
+                        {% if change.current_price %}
+                        <div class="new-price">${{ "{:,}".format(change.current_price) }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="detected-time">
+                        {{ change.detected_at[:10] }}
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <h3>No Status Changes</h3>
+                    <p>No status changes detected in the selected period.</p>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- All Changes Tab -->
+        <div id="all-changes" class="tab-content">
+            {% if changes %}
+                {% for change in changes %}
+                <div class="change-row">
+                    {% if change.change_type == 'price_change' %}
+                        {% if change.change_amount and change.change_amount < 0 %}
+                        <span class="change-badge price-drop">Price Drop</span>
+                        {% else %}
+                        <span class="change-badge price-increase">Price Up</span>
+                        {% endif %}
+                    {% elif change.change_type == 'new_listing' %}
+                    <span class="change-badge new-listing">New</span>
+                    {% elif change.change_type == 'status_change' %}
+                    <span class="change-badge status-change">Status</span>
+                    {% else %}
+                    <span class="change-badge">{{ change.change_type }}</span>
+                    {% endif %}
+
+                    <div class="address">
+                        <h4>
+                            {% if change.redfin_url %}
+                            <a href="{{ change.redfin_url }}" target="_blank">{{ change.property_address }}</a>
+                            {% else %}
+                            {{ change.property_address }}
+                            {% endif %}
+                        </h4>
+                        <span class="location">{{ change.city }}{% if change.county %}, {{ change.county }}{% endif %}</span>
+                    </div>
+
+                    <div class="specs">
+                        {% if change.change_type == 'price_change' %}
+                            ${{ "{:,}".format(change.old_value|int) }} → ${{ "{:,}".format(change.new_value|int) }}
+                        {% elif change.change_type == 'status_change' %}
+                            {{ change.old_value }} → {{ change.new_value }}
+                        {% elif change.change_type == 'new_listing' and change.new_value %}
+                            ${{ "{:,}".format(change.new_value|int) }}
+                        {% endif %}
+                    </div>
+
+                    <div class="detected-time">
+                        {{ change.detected_at[:10] }}
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <h3>No Changes</h3>
+                    <p>No property changes detected in the selected period.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        function showTab(tabId) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(el => {
+                el.classList.remove('active');
+            });
+            document.querySelectorAll('.tab').forEach(el => {
+                el.classList.remove('active');
+            });
+
+            // Show selected tab
+            document.getElementById(tabId).classList.add('active');
+            event.currentTarget.classList.add('active');
+        }
+
+        function applyFilters() {
+            const days = document.getElementById('daysFilter').value;
+            const county = document.getElementById('countyFilter').value;
+
+            let url = '/properties/changes?days=' + days;
+            if (county) {
+                url += '&county=' + encodeURIComponent(county);
+            }
+
+            window.location.href = url;
+        }
+    </script>
+</body>
+</html>

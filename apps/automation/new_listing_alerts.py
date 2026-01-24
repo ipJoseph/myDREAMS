@@ -573,14 +573,295 @@ def send_listing_alerts() -> Dict[str, int]:
     return stats
 
 
+# ==========================================
+# Price Drop Alerts
+# ==========================================
+
+def get_price_drops(hours: int = 24, min_drop_pct: float = 5.0) -> List[Dict[str, Any]]:
+    """
+    Get significant price drops from the property_changes table.
+
+    Args:
+        hours: Look back period in hours
+        min_drop_pct: Minimum percentage drop to include (default 5%)
+
+    Returns:
+        List of property dictionaries with price drop info
+    """
+    cutoff = (datetime.now() - timedelta(hours=hours)).isoformat()
+    conn = get_db_connection()
+
+    try:
+        # Get price drops from property_changes table
+        drops = conn.execute('''
+            SELECT
+                pc.id as change_id,
+                pc.property_id,
+                pc.property_address as address,
+                pc.old_value,
+                pc.new_value,
+                pc.change_amount,
+                pc.detected_at,
+                p.city,
+                p.state,
+                p.zip,
+                p.county,
+                p.beds,
+                p.baths,
+                p.sqft,
+                p.acreage,
+                p.property_type,
+                p.redfin_url,
+                p.idx_url,
+                p.photo_urls
+            FROM property_changes pc
+            JOIN properties p ON pc.property_id = p.id
+            WHERE pc.change_type = 'price_change'
+            AND pc.change_amount < 0
+            AND pc.detected_at >= ?
+            AND pc.notified = 0
+            AND p.county IN ({})
+            ORDER BY pc.change_amount ASC
+        '''.format(','.join(['?' for _ in config.TRACKED_COUNTIES])),
+            [cutoff] + config.TRACKED_COUNTIES
+        ).fetchall()
+
+        results = []
+        for drop in drops:
+            prop = dict(drop)
+
+            # Calculate drop percentage
+            old_price = int(prop['old_value']) if prop['old_value'] else 0
+            new_price = int(prop['new_value']) if prop['new_value'] else 0
+
+            if old_price > 0:
+                drop_pct = abs((new_price - old_price) / old_price * 100)
+            else:
+                drop_pct = 0
+
+            # Skip if below threshold
+            if drop_pct < min_drop_pct:
+                continue
+
+            prop['id'] = prop['property_id']
+            prop['price'] = new_price
+            prop['old_price'] = old_price
+            prop['drop_amount'] = abs(prop['change_amount'])
+            prop['drop_pct'] = round(drop_pct, 1)
+
+            # Parse photo_urls JSON
+            if prop.get('photo_urls'):
+                try:
+                    photos = json.loads(prop['photo_urls'])
+                    prop['photo_url'] = photos[0] if photos else None
+                except json.JSONDecodeError:
+                    prop['photo_url'] = None
+            else:
+                prop['photo_url'] = None
+
+            # Determine best listing URL
+            prop['listing_url'] = prop.get('idx_url') or prop.get('redfin_url')
+
+            results.append(prop)
+
+        logger.info(f"Found {len(results)} significant price drops (>={min_drop_pct}%) in last {hours} hours")
+        return results
+
+    finally:
+        conn.close()
+
+
+def match_price_drops_to_buyers(drops: List[Dict], buyers: List[Dict]) -> Dict[str, Dict]:
+    """
+    Match price drops to buyers based on their requirements.
+
+    Returns:
+        Dictionary mapping contact_id to dict with buyer and matched price drops
+    """
+    matches = {}
+
+    # Get threshold from database settings (lower threshold for price drops)
+    match_threshold = get_db_setting('price_drop_match_threshold', 50)
+    logger.info(f"Using price drop match threshold: {match_threshold}")
+
+    for buyer in buyers:
+        buyer_matches = []
+
+        for drop in drops:
+            # Check if already alerted for this property (any alert type)
+            if check_already_alerted(buyer['id'], drop['id']):
+                continue
+
+            score, criteria = calculate_match_score(drop, buyer)
+
+            if score >= match_threshold:
+                match = drop.copy()
+                match['match_score'] = score
+                match['matching_features'] = ', '.join(criteria)
+                match['is_price_drop'] = True
+                buyer_matches.append(match)
+
+        if buyer_matches:
+            # Sort by drop percentage descending (biggest drops first)
+            buyer_matches.sort(key=lambda x: x['drop_pct'], reverse=True)
+            matches[buyer['id']] = {
+                'buyer': buyer,
+                'properties': buyer_matches
+            }
+
+    return matches
+
+
+def send_price_drop_alerts() -> Dict[str, int]:
+    """
+    Send price drop alerts to matching buyers.
+
+    Returns:
+        Dictionary with counts of emails sent, skipped, failed
+    """
+    logger.info("Starting price drop alerts...")
+
+    stats = {'sent': 0, 'skipped': 0, 'failed': 0, 'properties_matched': 0, 'notes_pushed': 0}
+
+    # Check if alerts are enabled
+    if not get_db_setting('alerts_global_enabled', True):
+        logger.info("Global alerts are disabled - exiting")
+        return stats
+
+    if not get_db_setting('price_drop_alerts_enabled', True):
+        logger.info("Price drop alerts are disabled - exiting")
+        return stats
+
+    # Get lookback hours and minimum drop percentage from settings
+    lookback_hours = get_db_setting('alert_lookback_hours', 24)
+    min_drop_pct = get_db_setting('min_price_drop_pct', 5.0)
+
+    logger.info(f"Looking for price drops >= {min_drop_pct}% in last {lookback_hours} hours")
+
+    # Get price drops
+    drops = get_price_drops(lookback_hours, min_drop_pct)
+
+    if not drops:
+        logger.info("No significant price drops found")
+        return stats
+
+    # Get active buyers
+    buyers = get_active_buyers()
+
+    if not buyers:
+        logger.info("No active buyers found")
+        return stats
+
+    # Match drops to buyers
+    matches = match_price_drops_to_buyers(drops, buyers)
+
+    logger.info(f"Found price drop matches for {len(matches)} buyers")
+
+    # Send emails to each buyer with matches
+    for contact_id, match_data in matches.items():
+        buyer = match_data['buyer']
+        properties = match_data['properties']
+
+        if not buyer.get('email'):
+            stats['skipped'] += 1
+            continue
+
+        # Get max properties per alert from settings
+        max_properties = get_db_setting('max_properties_per_alert', 10)
+
+        # Prepare template context
+        context = {
+            'contact_name': f"{buyer['first_name']}",
+            'property_count': len(properties),
+            'properties': properties[:max_properties],
+            'criteria_summary': build_criteria_summary(buyer),
+            'alert_date': datetime.now().strftime('%B %d, %Y'),
+            'agent_name': config.AGENT_NAME,
+            'agent_email': config.AGENT_EMAIL,
+            'agent_phone': config.AGENT_PHONE,
+            'agent_headshot': config.AGENT_HEADSHOT_URL,
+            'brokerage_name': config.BROKERAGE_NAME,
+            'is_price_drop_alert': True
+        }
+
+        # Build subject line
+        if len(properties) == 1:
+            prop = properties[0]
+            subject = f"Price Drop Alert: {prop['address']} - Now ${prop['price']:,} (-{prop['drop_pct']}%)"
+        else:
+            subject = f"Price Drop Alert: {len(properties)} properties reduced"
+
+        # Send email (use same template, it handles price drops)
+        success = send_template_email(
+            to=buyer['email'],
+            subject=subject,
+            template_name='listing_alert.html',
+            context=context,
+            from_name=config.AGENT_NAME
+        )
+
+        if success:
+            stats['sent'] += 1
+            stats['properties_matched'] += len(properties)
+
+            # Log alerts and mark as notified
+            conn = get_db_connection()
+            try:
+                for prop in properties:
+                    log_alert('price_drop', contact_id, prop['id'], buyer['email'])
+
+                    # Mark the price change as notified
+                    conn.execute('''
+                        UPDATE property_changes SET notified = 1
+                        WHERE id = ?
+                    ''', [prop.get('change_id')])
+                conn.commit()
+            finally:
+                conn.close()
+
+            logger.info(f"Sent {len(properties)} price drop alerts to {buyer['email']}")
+
+            # Push to FUB
+            if push_matches_to_fub(buyer, properties):
+                stats['notes_pushed'] += 1
+        else:
+            stats['failed'] += 1
+
+            for prop in properties:
+                log_alert('price_drop', contact_id, prop['id'], buyer['email'],
+                         status='failed', error_message='Email send failed')
+
+            logger.error(f"Failed to send price drop alerts to {buyer['email']}")
+
+    logger.info(f"Price drop alerts complete: {stats}")
+    return stats
+
+
 def main():
-    """Entry point for cron job."""
+    """Entry point for cron job - runs both new listing and price drop alerts."""
     import sys
 
+    all_stats = {
+        'new_listing': {'sent': 0, 'failed': 0},
+        'price_drop': {'sent': 0, 'failed': 0}
+    }
+
+    # Run new listing alerts
     stats = send_listing_alerts()
+    all_stats['new_listing'] = stats
+
+    # Run price drop alerts
+    stats = send_price_drop_alerts()
+    all_stats['price_drop'] = stats
+
+    # Log combined stats
+    total_sent = all_stats['new_listing']['sent'] + all_stats['price_drop']['sent']
+    total_failed = all_stats['new_listing']['failed'] + all_stats['price_drop']['failed']
+
+    logger.info(f"All alerts complete - Total sent: {total_sent}, Total failed: {total_failed}")
 
     # Exit with error if all sends failed
-    if stats['failed'] > 0 and stats['sent'] == 0:
+    if total_failed > 0 and total_sent == 0:
         sys.exit(1)
 
     sys.exit(0)

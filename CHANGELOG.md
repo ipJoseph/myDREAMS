@@ -9,6 +9,34 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Enhanced Property Data Ingest System** - Hybrid property data system using PropStream and Redfin
+  - **PropStream Importer Expansion** - 8 new column mappings for comprehensive property data:
+    - Prior sale history (date, amount)
+    - Condition ratings (bathroom, kitchen)
+    - Foreclosure factor
+    - Lien details (type, date, amount)
+  - **Change Detection for Redfin CSV** - Automatic tracking of property changes:
+    - Price changes with percentage calculation
+    - Status changes (Active, Pending, Sold)
+    - Days on market updates
+    - New listing detection
+    - All changes logged to `property_changes` table
+  - **Daily Import CLI** (`apps/redfin-importer/daily_import.py`) - Unified command for daily operations:
+    - `--redfin` flag for CSV imports with change detection
+    - `--propstream` flag for bulk Excel imports
+    - `--report` flag for change summaries
+    - `--since` parameter for flexible date ranges
+  - **Property Changes Dashboard** (`/properties/changes`) - Visual change tracking:
+    - Summary cards for price drops, new listings, status changes
+    - Tabbed view by change type
+    - Filter by county and time period (1-30 days)
+    - Direct links to Redfin listings
+  - **Price Drop Alerts** - Enhanced automation for buyer notifications:
+    - `send_price_drop_alerts()` function in `new_listing_alerts.py`
+    - Configurable minimum drop percentage (default 5%)
+    - Lower match threshold for price drops (default 50 vs 60 for new listings)
+    - FUB note push for matched price drops
+    - New settings: `price_drop_alerts_enabled`, `price_drop_match_threshold`, `min_price_drop_pct`
 - **Realtor.com Scraper** - Dedicated property scraper for Realtor.com (Chrome extension v3.9.27)
   - Extracts from `__NEXT_DATA__` JSON embedded in page
   - DOM fallback for robust data extraction

@@ -68,9 +68,10 @@ class RedfinCSVImporter:
         '$/SQUARE FEET': 'price_per_sqft',
     }
 
-    def __init__(self, db_path: str = DB_PATH, dry_run: bool = False):
+    def __init__(self, db_path: str = DB_PATH, dry_run: bool = False, track_changes: bool = True):
         self.db_path = db_path
         self.dry_run = dry_run
+        self.track_changes = track_changes
         self.stats = {
             'rows_processed': 0,
             'rows_imported': 0,
@@ -78,6 +79,12 @@ class RedfinCSVImporter:
             'rows_skipped': 0,
             'mls_merged': 0,
             'errors': 0,
+            'changes_detected': {
+                'price_change': 0,
+                'status_change': 0,
+                'dom_update': 0,
+                'new_listing': 0,
+            },
         }
 
     def _get_connection(self):
@@ -239,11 +246,22 @@ class RedfinCSVImporter:
 
         return prop_id
 
-    def _update_property(self, conn, existing: Dict, data: Dict) -> bool:
-        """Update existing property with new data. Returns True if MLS was merged."""
+    def _update_property(self, conn, existing: Dict, data: Dict) -> Tuple[bool, List[Dict]]:
+        """Update existing property with new data.
+
+        Returns:
+            Tuple of (mls_merged: bool, changes: List[Dict])
+        """
         cursor = conn.cursor()
         now = datetime.utcnow().isoformat()
         mls_merged = False
+
+        # Detect changes BEFORE updating
+        changes = self._detect_changes(existing, data)
+
+        # Log changes to property_changes table
+        if changes:
+            self._log_changes(conn, existing['id'], existing.get('address', data['full_address']), changes)
 
         # Check if we need to merge MLS numbers
         existing_mls = existing.get('mls_number', '')
@@ -281,7 +299,7 @@ class RedfinCSVImporter:
             now, existing['id']
         ))
 
-        return mls_merged
+        return mls_merged, changes
 
     def _queue_for_scraping(self, conn, prop_id: str, url: str):
         """Queue URL for page scraping (agent info, engagement)."""
@@ -305,6 +323,128 @@ class RedfinCSVImporter:
             INSERT OR IGNORE INTO redfin_scrape_queue (id, property_id, url, status, created_at)
             VALUES (?, ?, ?, 'pending', ?)
         ''', (str(uuid.uuid4()), prop_id, url, datetime.utcnow().isoformat()))
+
+    def _detect_changes(self, existing: Dict, new_data: Dict) -> List[Dict]:
+        """
+        Compare existing property with new data and detect changes.
+
+        Returns list of change dictionaries with:
+        - change_type: 'price_change', 'status_change', 'dom_update'
+        - field_name: The field that changed
+        - old_value: Previous value
+        - new_value: New value
+        - change_amount: For price changes, the delta
+        """
+        changes = []
+
+        # Price change detection
+        old_price = existing.get('price')
+        new_price = new_data.get('price')
+        if old_price and new_price and old_price != new_price:
+            change_amount = new_price - old_price
+            change_pct = (change_amount / old_price) * 100 if old_price else 0
+            changes.append({
+                'change_type': 'price_change',
+                'field_name': 'price',
+                'old_value': str(old_price),
+                'new_value': str(new_price),
+                'change_amount': change_amount,
+                'change_pct': round(change_pct, 1),
+            })
+            logger.info(f"Price change detected: ${old_price:,} -> ${new_price:,} ({change_pct:+.1f}%)")
+
+        # Status change detection
+        old_status = existing.get('status', '').lower()
+        new_status = new_data.get('status', '').lower()
+        if old_status and new_status and old_status != new_status:
+            changes.append({
+                'change_type': 'status_change',
+                'field_name': 'status',
+                'old_value': existing.get('status'),
+                'new_value': new_data.get('status'),
+                'change_amount': None,
+            })
+            logger.info(f"Status change detected: {existing.get('status')} -> {new_data.get('status')}")
+
+        # Days on market update
+        old_dom = existing.get('days_on_market')
+        new_dom = new_data.get('days_on_market')
+        if old_dom is not None and new_dom is not None and old_dom != new_dom:
+            # Only log significant DOM changes (> 7 days difference)
+            if abs(new_dom - old_dom) >= 7:
+                changes.append({
+                    'change_type': 'dom_update',
+                    'field_name': 'days_on_market',
+                    'old_value': str(old_dom),
+                    'new_value': str(new_dom),
+                    'change_amount': new_dom - old_dom,
+                })
+
+        return changes
+
+    def _log_changes(self, conn, property_id: str, property_address: str, changes: List[Dict]):
+        """Log detected changes to the property_changes table."""
+        if not changes or not self.track_changes:
+            return
+
+        cursor = conn.cursor()
+        now = datetime.utcnow().isoformat()
+
+        for change in changes:
+            change_id = str(uuid.uuid4())
+            try:
+                cursor.execute('''
+                    INSERT INTO property_changes (
+                        id, property_id, property_address, change_type,
+                        old_value, new_value, change_amount, detected_at, source
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    change_id,
+                    property_id,
+                    property_address,
+                    change.get('change_type'),
+                    change.get('old_value'),
+                    change.get('new_value'),
+                    change.get('change_amount'),
+                    now,
+                    'redfin'
+                ))
+                # Update stats
+                change_type = change.get('change_type')
+                if change_type in self.stats['changes_detected']:
+                    self.stats['changes_detected'][change_type] += 1
+            except Exception as e:
+                logger.error(f"Error logging change: {e}")
+
+    def _log_new_listing(self, conn, property_id: str, property_address: str, price: int):
+        """Log a new listing to the property_changes table."""
+        if not self.track_changes:
+            return
+
+        cursor = conn.cursor()
+        change_id = str(uuid.uuid4())
+        now = datetime.utcnow().isoformat()
+
+        try:
+            cursor.execute('''
+                INSERT INTO property_changes (
+                    id, property_id, property_address, change_type,
+                    old_value, new_value, change_amount, detected_at, source
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                change_id,
+                property_id,
+                property_address,
+                'new_listing',
+                None,
+                str(price) if price else None,
+                price,
+                now,
+                'redfin'
+            ))
+            self.stats['changes_detected']['new_listing'] += 1
+        except Exception as e:
+            logger.error(f"Error logging new listing: {e}")
 
     def import_csv(self, csv_path: str) -> Dict:
         """Import a single CSV file."""
@@ -338,15 +478,17 @@ class RedfinCSVImporter:
                         existing = self._find_existing_property(conn, data)
 
                         if existing:
-                            mls_merged = self._update_property(conn, existing, data)
+                            mls_merged, changes = self._update_property(conn, existing, data)
                             self.stats['rows_updated'] += 1
                             if mls_merged:
                                 self.stats['mls_merged'] += 1
                             prop_id = existing['id']
-                            logger.debug(f"Updated: {data['full_address']}")
+                            logger.debug(f"Updated: {data['full_address']} (changes: {len(changes)})")
                         else:
                             prop_id = self._insert_property(conn, data)
                             self.stats['rows_imported'] += 1
+                            # Log as new listing
+                            self._log_new_listing(conn, prop_id, data['full_address'], data.get('price'))
                             logger.debug(f"Inserted: {data['full_address']}")
 
                         # Queue for scraping if we have a URL
@@ -378,6 +520,7 @@ def main():
     parser = argparse.ArgumentParser(description='Import Redfin CSV files into DREAMS database')
     parser.add_argument('files', nargs='+', help='CSV file(s) to import')
     parser.add_argument('--dry-run', action='store_true', help='Parse but do not import')
+    parser.add_argument('--no-track-changes', action='store_true', help='Disable change tracking')
     parser.add_argument('--db', default=DB_PATH, help='Database path')
     parser.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
 
@@ -386,7 +529,11 @@ def main():
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
 
-    importer = RedfinCSVImporter(db_path=args.db, dry_run=args.dry_run)
+    importer = RedfinCSVImporter(
+        db_path=args.db,
+        dry_run=args.dry_run,
+        track_changes=not args.no_track_changes
+    )
 
     # Handle glob patterns
     import glob
@@ -401,7 +548,7 @@ def main():
     stats = importer.import_multiple(all_files)
 
     print("\n" + "=" * 50)
-    print("IMPORT SUMMARY")
+    print("REDFIN IMPORT SUMMARY")
     print("=" * 50)
     print(f"Rows processed:  {stats['rows_processed']}")
     print(f"Rows imported:   {stats['rows_imported']}")
@@ -409,6 +556,17 @@ def main():
     print(f"Rows skipped:    {stats['rows_skipped']}")
     print(f"MLS merged:      {stats['mls_merged']}")
     print(f"Errors:          {stats['errors']}")
+
+    if not args.no_track_changes:
+        print("-" * 50)
+        print("CHANGES DETECTED")
+        print("-" * 50)
+        changes = stats.get('changes_detected', {})
+        print(f"New listings:    {changes.get('new_listing', 0)}")
+        print(f"Price changes:   {changes.get('price_change', 0)}")
+        print(f"Status changes:  {changes.get('status_change', 0)}")
+        print(f"DOM updates:     {changes.get('dom_update', 0)}")
+
     print("=" * 50)
 
     if args.dry_run:

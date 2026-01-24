@@ -2498,6 +2498,126 @@ def api_refresh_requirements(contact_id):
 
 
 # ==========================================
+# Property Changes Routes
+# ==========================================
+
+@app.route('/properties/changes')
+@requires_auth
+def property_changes():
+    """View recent property changes (price drops, status changes, new listings)."""
+    from datetime import timedelta
+
+    # Get filter parameters
+    change_type = request.args.get('type', '')
+    county = request.args.get('county', '')
+    days = int(request.args.get('days', 7))
+
+    db = get_db()
+    conn = db.conn
+
+    # Calculate cutoff date
+    cutoff = (datetime.now() - timedelta(days=days)).isoformat()
+
+    # Build query
+    query = '''
+        SELECT
+            pc.id,
+            pc.property_id,
+            pc.property_address,
+            pc.change_type,
+            pc.old_value,
+            pc.new_value,
+            pc.change_amount,
+            pc.detected_at,
+            pc.source,
+            pc.notified,
+            p.city,
+            p.county,
+            p.beds,
+            p.baths,
+            p.sqft,
+            p.price as current_price,
+            p.status as current_status,
+            p.redfin_url
+        FROM property_changes pc
+        LEFT JOIN properties p ON pc.property_id = p.id
+        WHERE pc.detected_at >= ?
+    '''
+    params = [cutoff]
+
+    if change_type:
+        query += ' AND pc.change_type = ?'
+        params.append(change_type)
+
+    if county:
+        query += ' AND p.county = ?'
+        params.append(county)
+
+    query += ' ORDER BY pc.detected_at DESC LIMIT 200'
+
+    cursor = conn.cursor()
+    cursor.execute(query, params)
+    changes = [dict(row) for row in cursor.fetchall()]
+
+    # Process changes for display
+    for change in changes:
+        # Calculate percentage for price changes
+        if change['change_type'] == 'price_change' and change['old_value'] and change['new_value']:
+            try:
+                old_price = int(change['old_value'])
+                new_price = int(change['new_value'])
+                if old_price > 0:
+                    change['change_pct'] = round((new_price - old_price) / old_price * 100, 1)
+                else:
+                    change['change_pct'] = 0
+            except (ValueError, TypeError):
+                change['change_pct'] = 0
+        else:
+            change['change_pct'] = 0
+
+    # Get summary counts
+    summary_query = '''
+        SELECT change_type, COUNT(*) as count
+        FROM property_changes
+        WHERE detected_at >= ?
+        GROUP BY change_type
+    '''
+    cursor.execute(summary_query, [cutoff])
+    summary = {row['change_type']: row['count'] for row in cursor.fetchall()}
+
+    # Get counties for filter dropdown
+    cursor.execute('''
+        SELECT DISTINCT p.county
+        FROM property_changes pc
+        JOIN properties p ON pc.property_id = p.id
+        WHERE pc.detected_at >= ?
+        AND p.county IS NOT NULL
+        ORDER BY p.county
+    ''', [cutoff])
+    counties = [row['county'] for row in cursor.fetchall()]
+
+    # Separate changes by type for easier rendering
+    price_drops = [c for c in changes if c['change_type'] == 'price_change' and (c['change_amount'] or 0) < 0]
+    price_increases = [c for c in changes if c['change_type'] == 'price_change' and (c['change_amount'] or 0) > 0]
+    new_listings = [c for c in changes if c['change_type'] == 'new_listing']
+    status_changes = [c for c in changes if c['change_type'] == 'status_change']
+
+    return render_template('property_changes.html',
+                           changes=changes,
+                           price_drops=price_drops,
+                           price_increases=price_increases,
+                           new_listings=new_listings,
+                           status_changes=status_changes,
+                           summary=summary,
+                           counties=counties,
+                           selected_type=change_type,
+                           selected_county=county,
+                           selected_days=days,
+                           cutoff_date=cutoff,
+                           refresh_time=datetime.now().strftime('%B %d, %Y %I:%M %p'))
+
+
+# ==========================================
 # Admin Settings Routes
 # ==========================================
 

@@ -102,6 +102,15 @@ PROPSTREAM_MAP = {
     'MLS Agent Phone': 'listing_agent_phone',
     'MLS Agent E-Mail': 'listing_agent_email',
     'MLS Brokerage Name': 'listing_brokerage',
+    # Additional fields (expanded mapping)
+    'Prior Sale Date': 'prior_sale_date',
+    'Prior Sale Amount': 'prior_sale_amount',
+    'Bathroom Condition': 'condition_bathroom',
+    'Kitchen Condition': 'condition_kitchen',
+    'Foreclosure Factor': 'foreclosure_factor',
+    'Lien Type': 'lien_type',
+    'Lien Date': 'lien_date',
+    'Lien Amount': 'lien_amount',
 }
 
 
@@ -162,6 +171,15 @@ class PropStreamImporter:
             ('stories', 'INTEGER'),
             ('has_hoa', 'TEXT'),
             ('propstream_source', 'TEXT'),
+            # Additional PropStream fields
+            ('prior_sale_date', 'TEXT'),
+            ('prior_sale_amount', 'INTEGER'),
+            ('condition_bathroom', 'TEXT'),
+            ('condition_kitchen', 'TEXT'),
+            ('foreclosure_factor', 'TEXT'),
+            ('lien_type', 'TEXT'),
+            ('lien_date', 'TEXT'),
+            ('lien_amount', 'INTEGER'),
         ]
 
         # Get existing columns
@@ -240,7 +258,7 @@ class PropStreamImporter:
         )
 
         # Format dates
-        for date_field in ['last_sale_date', 'mls_date']:
+        for date_field in ['last_sale_date', 'mls_date', 'prior_sale_date', 'lien_date']:
             if data.get(date_field):
                 try:
                     if isinstance(data[date_field], str):
@@ -251,6 +269,14 @@ class PropStreamImporter:
                         data[date_field] = pd.to_datetime(data[date_field]).strftime('%Y-%m-%d')
                 except:
                     pass
+
+        # Parse numeric fields
+        for int_field in ['prior_sale_amount', 'lien_amount']:
+            if data.get(int_field):
+                try:
+                    data[int_field] = int(float(data[int_field]))
+                except (ValueError, TypeError):
+                    data[int_field] = None
 
         return data
 
@@ -294,7 +320,7 @@ class PropStreamImporter:
         # Build full address
         full_addr = f"{data.get('address', '')}, {data.get('city', '')}, {data.get('state', 'NC')} {data.get('zip', '')}"
 
-        # 47 columns, 47 values
+        # 55 columns, 55 values (includes new PropStream fields)
         cursor.execute('''
             INSERT INTO properties (
                 id, address, city, state, zip, county, parcel_id,
@@ -305,10 +331,13 @@ class PropStreamImporter:
                 assessed_value, last_sale_date, last_sale_amount,
                 est_value, est_equity, est_ltv, open_loans, loan_balance,
                 condition_total, condition_interior, condition_exterior,
+                condition_bathroom, condition_kitchen,
+                prior_sale_date, prior_sale_amount,
+                foreclosure_factor, lien_type, lien_date, lien_amount,
                 listing_agent_name, listing_agent_phone, listing_agent_email, listing_brokerage,
                 stories, has_hoa, status,
                 source, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             prop_id, full_addr, data.get('city'), data.get('state', 'NC'), data.get('zip'),
             data.get('county'), data.get('parcel_id'),
@@ -324,6 +353,10 @@ class PropStreamImporter:
             data.get('est_value'), data.get('est_equity'), data.get('est_ltv'),
             data.get('open_loans'), data.get('loan_balance'),
             data.get('condition_total'), data.get('condition_interior'), data.get('condition_exterior'),
+            data.get('condition_bathroom'), data.get('condition_kitchen'),
+            data.get('prior_sale_date'), data.get('prior_sale_amount'),
+            data.get('foreclosure_factor'), data.get('lien_type'),
+            data.get('lien_date'), data.get('lien_amount'),
             data.get('listing_agent_name'), data.get('listing_agent_phone'),
             data.get('listing_agent_email'), data.get('listing_brokerage'),
             data.get('stories'), data.get('has_hoa'), data.get('mls_status'),
@@ -364,6 +397,14 @@ class PropStreamImporter:
             ('condition_total', 'condition_total'),
             ('condition_interior', 'condition_interior'),
             ('condition_exterior', 'condition_exterior'),
+            ('condition_bathroom', 'condition_bathroom'),
+            ('condition_kitchen', 'condition_kitchen'),
+            ('prior_sale_date', 'prior_sale_date'),
+            ('prior_sale_amount', 'prior_sale_amount'),
+            ('foreclosure_factor', 'foreclosure_factor'),
+            ('lien_type', 'lien_type'),
+            ('lien_date', 'lien_date'),
+            ('lien_amount', 'lien_amount'),
             ('stories', 'stories'),
             ('has_hoa', 'has_hoa'),
         ]
