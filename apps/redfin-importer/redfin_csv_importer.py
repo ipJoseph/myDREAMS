@@ -20,7 +20,7 @@ import logging
 import os
 import sys
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -36,8 +36,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Database path
+# Database paths
 DB_PATH = os.getenv('REDFIN_DB_PATH', str(PROJECT_ROOT / 'data' / 'redfin_imports.db'))
+DREAMS_DB_PATH = os.getenv('DREAMS_DB_PATH', str(PROJECT_ROOT / 'data' / 'dreams.db'))
 
 
 class RedfinCSVImporter:
@@ -68,10 +69,13 @@ class RedfinCSVImporter:
         '$/SQUARE FEET': 'price_per_sqft',
     }
 
-    def __init__(self, db_path: str = DB_PATH, dry_run: bool = False, track_changes: bool = True):
+    def __init__(self, db_path: str = DB_PATH, dreams_db_path: str = DREAMS_DB_PATH,
+                 dry_run: bool = False, track_changes: bool = True):
         self.db_path = db_path
+        self.dreams_db_path = dreams_db_path
         self.dry_run = dry_run
         self.track_changes = track_changes
+        self._dreams_conn = None  # Lazy connection to dreams.db
         self.stats = {
             'rows_processed': 0,
             'rows_imported': 0,
@@ -85,14 +89,57 @@ class RedfinCSVImporter:
                 'dom_update': 0,
                 'new_listing': 0,
             },
+            'dreams_matched': 0,
         }
 
     def _get_connection(self):
-        """Get database connection."""
+        """Get redfin_imports database connection."""
         import sqlite3
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         return conn
+
+    def _get_dreams_connection(self):
+        """Get dreams.db connection for change tracking."""
+        import sqlite3
+        if self._dreams_conn is None:
+            self._dreams_conn = sqlite3.connect(self.dreams_db_path)
+            self._dreams_conn.row_factory = sqlite3.Row
+        return self._dreams_conn
+
+    def _find_dreams_property(self, data: Dict) -> Optional[Dict]:
+        """Find matching property in dreams.db by address or MLS."""
+        conn = self._get_dreams_connection()
+        cursor = conn.cursor()
+
+        # Try to find by MLS number first (most reliable)
+        if data.get('mls_number'):
+            cursor.execute('''
+                SELECT id, address, city, county, price, status, days_on_market
+                FROM properties
+                WHERE mls_number = ?
+                LIMIT 1
+            ''', (data['mls_number'],))
+            row = cursor.fetchone()
+            if row:
+                return dict(row)
+
+        # Try to find by normalized address
+        street_addr = data.get('address', '').strip()
+        city = data.get('city', '').strip()
+
+        if street_addr and city:
+            cursor.execute('''
+                SELECT id, address, city, county, price, status, days_on_market
+                FROM properties
+                WHERE address LIKE ? AND city = ?
+                LIMIT 1
+            ''', (f"%{street_addr}%", city))
+            row = cursor.fetchone()
+            if row:
+                return dict(row)
+
+        return None
 
     def _normalize_address(self, address: str, city: str, state: str, zip_code: str) -> str:
         """Create normalized full address for deduplication."""
@@ -224,7 +271,7 @@ class RedfinCSVImporter:
     def _insert_property(self, conn, data: Dict) -> str:
         """Insert new property, return ID."""
         prop_id = str(uuid.uuid4())
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
 
         cursor = conn.cursor()
         cursor.execute('''
@@ -253,15 +300,15 @@ class RedfinCSVImporter:
             Tuple of (mls_merged: bool, changes: List[Dict])
         """
         cursor = conn.cursor()
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         mls_merged = False
 
         # Detect changes BEFORE updating
         changes = self._detect_changes(existing, data)
 
-        # Log changes to property_changes table
+        # Log changes to dreams.db property_changes table
         if changes:
-            self._log_changes(conn, existing['id'], existing.get('address', data['full_address']), changes)
+            self._log_changes_to_dreams(existing.get('address', data['full_address']), changes, data)
 
         # Check if we need to merge MLS numbers
         existing_mls = existing.get('mls_number', '')
@@ -322,7 +369,7 @@ class RedfinCSVImporter:
         cursor.execute('''
             INSERT OR IGNORE INTO redfin_scrape_queue (id, property_id, url, status, created_at)
             VALUES (?, ?, ?, 'pending', ?)
-        ''', (str(uuid.uuid4()), prop_id, url, datetime.utcnow().isoformat()))
+        ''', (str(uuid.uuid4()), prop_id, url, datetime.now(timezone.utc).isoformat()))
 
     def _detect_changes(self, existing: Dict, new_data: Dict) -> List[Dict]:
         """
@@ -382,13 +429,23 @@ class RedfinCSVImporter:
 
         return changes
 
-    def _log_changes(self, conn, property_id: str, property_address: str, changes: List[Dict]):
-        """Log detected changes to the property_changes table."""
+    def _log_changes_to_dreams(self, property_address: str, changes: List[Dict], data: Dict):
+        """Log detected changes to dreams.db property_changes table."""
         if not changes or not self.track_changes:
             return
 
-        cursor = conn.cursor()
-        now = datetime.utcnow().isoformat()
+        # Find matching property in dreams.db
+        dreams_property = self._find_dreams_property(data)
+        if dreams_property:
+            property_id = dreams_property['id']
+            self.stats['dreams_matched'] += 1
+        else:
+            # No match in dreams.db - use a placeholder ID
+            property_id = f"redfin:{data.get('mls_number', 'unknown')}"
+
+        dreams_conn = self._get_dreams_connection()
+        cursor = dreams_conn.cursor()
+        now = datetime.now(timezone.utc).isoformat()
 
         for change in changes:
             change_id = str(uuid.uuid4())
@@ -407,23 +464,35 @@ class RedfinCSVImporter:
                     change.get('new_value'),
                     change.get('change_amount'),
                     now,
-                    'redfin'
+                    'redfin_csv'
                 ))
                 # Update stats
                 change_type = change.get('change_type')
                 if change_type in self.stats['changes_detected']:
                     self.stats['changes_detected'][change_type] += 1
             except Exception as e:
-                logger.error(f"Error logging change: {e}")
+                logger.error(f"Error logging change to dreams.db: {e}")
 
-    def _log_new_listing(self, conn, property_id: str, property_address: str, price: int):
-        """Log a new listing to the property_changes table."""
+        dreams_conn.commit()
+
+    def _log_new_listing_to_dreams(self, property_address: str, price: int, data: Dict):
+        """Log a new listing to dreams.db property_changes table."""
         if not self.track_changes:
             return
 
-        cursor = conn.cursor()
+        # Find matching property in dreams.db
+        dreams_property = self._find_dreams_property(data)
+        if dreams_property:
+            property_id = dreams_property['id']
+            self.stats['dreams_matched'] += 1
+        else:
+            # No match in dreams.db - use a placeholder ID
+            property_id = f"redfin:{data.get('mls_number', 'unknown')}"
+
+        dreams_conn = self._get_dreams_connection()
+        cursor = dreams_conn.cursor()
         change_id = str(uuid.uuid4())
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
 
         try:
             cursor.execute('''
@@ -440,11 +509,12 @@ class RedfinCSVImporter:
                 str(price) if price else None,
                 price,
                 now,
-                'redfin'
+                'redfin_csv'
             ))
             self.stats['changes_detected']['new_listing'] += 1
+            dreams_conn.commit()
         except Exception as e:
-            logger.error(f"Error logging new listing: {e}")
+            logger.error(f"Error logging new listing to dreams.db: {e}")
 
     def import_csv(self, csv_path: str) -> Dict:
         """Import a single CSV file."""
@@ -487,8 +557,8 @@ class RedfinCSVImporter:
                         else:
                             prop_id = self._insert_property(conn, data)
                             self.stats['rows_imported'] += 1
-                            # Log as new listing
-                            self._log_new_listing(conn, prop_id, data['full_address'], data.get('price'))
+                            # Log as new listing to dreams.db
+                            self._log_new_listing_to_dreams(data['full_address'], data.get('price'), data)
                             logger.debug(f"Inserted: {data['full_address']}")
 
                         # Queue for scraping if we have a URL
@@ -506,6 +576,10 @@ class RedfinCSVImporter:
 
             finally:
                 conn.close()
+                # Close dreams.db connection if open
+                if self._dreams_conn:
+                    self._dreams_conn.close()
+                    self._dreams_conn = None
 
         return self.stats
 
@@ -559,13 +633,14 @@ def main():
 
     if not args.no_track_changes:
         print("-" * 50)
-        print("CHANGES DETECTED")
+        print("CHANGES DETECTED (logged to dreams.db)")
         print("-" * 50)
         changes = stats.get('changes_detected', {})
         print(f"New listings:    {changes.get('new_listing', 0)}")
         print(f"Price changes:   {changes.get('price_change', 0)}")
         print(f"Status changes:  {changes.get('status_change', 0)}")
         print(f"DOM updates:     {changes.get('dom_update', 0)}")
+        print(f"Matched to DREAMS: {stats.get('dreams_matched', 0)}")
 
     print("=" * 50)
 
