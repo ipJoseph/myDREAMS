@@ -1807,19 +1807,21 @@ def sync_scoring_history_to_sqlite(
     return scores_recorded
 
 
-def sync_to_sqlite(contact_rows: List[List], person_stats: Dict[str, Dict]):
+def sync_to_sqlite(contact_rows: List[List], person_stats: Dict[str, Dict], user_lookup: Dict[int, str] = None):
     """
     Sync contacts to SQLite database for unified DREAMS dashboard.
 
     Args:
         contact_rows: List of contact rows (same format as Google Sheets)
         person_stats: Dictionary of person stats keyed by person ID
+        user_lookup: Dictionary mapping FUB user IDs to user names (for assignment tracking)
     """
     if not Config.SQLITE_SYNC_ENABLED:
         logger.info("SQLite sync disabled, skipping")
         return
 
     logger.info("Syncing contacts to SQLite database...")
+    user_lookup = user_lookup or {}
 
     try:
         from src.core.database import DREAMSDatabase
@@ -1833,6 +1835,7 @@ def sync_to_sqlite(contact_rows: List[List], person_stats: Dict[str, Dict]):
 
     success_count = 0
     error_count = 0
+    assignment_changes = 0
 
     for row in contact_rows:
         try:
@@ -1842,6 +1845,11 @@ def sync_to_sqlite(contact_rows: List[List], person_stats: Dict[str, Dict]):
 
             # Get person stats for this contact
             stats = person_stats.get(fub_id, {})
+
+            # Get owner/assignment info
+            owner_id = row[idx["ownerId"]]
+            owner_id_int = int(owner_id) if owner_id else None
+            owner_name = user_lookup.get(owner_id_int) if owner_id_int else None
 
             # Build contact dict for database
             contact_data = {
@@ -1856,6 +1864,9 @@ def sync_to_sqlite(contact_rows: List[List], person_stats: Dict[str, Dict]):
                 "stage": row[idx["stage"]] or None,
                 "source": row[idx["source"]] or None,
                 "lead_type_tags": row[idx["leadTypeTags"]] or None,
+                # Assignment fields
+                "assigned_user_id": owner_id_int,
+                "assigned_user_name": owner_name,
                 # Scoring fields
                 "heat_score": float(row[idx["heat_score"]] or 0),
                 "value_score": float(row[idx["value_score"]] or 0),
@@ -1903,11 +1914,22 @@ def sync_to_sqlite(contact_rows: List[List], person_stats: Dict[str, Dict]):
             db.upsert_contact_dict(contact_data)
             success_count += 1
 
+            # Track assignment changes (after upsert to ensure contact exists)
+            if owner_id_int and owner_name:
+                changed = db.update_contact_assignment(
+                    contact_id=fub_id,
+                    new_user_id=owner_id_int,
+                    new_user_name=owner_name,
+                    source='sync'
+                )
+                if changed:
+                    assignment_changes += 1
+
         except Exception as e:
             error_count += 1
             logger.debug(f"Error syncing contact: {e}")
 
-    logger.info(f"✓ SQLite sync complete: {success_count} synced, {error_count} errors")
+    logger.info(f"✓ SQLite sync complete: {success_count} synced, {error_count} errors, {assignment_changes} assignment changes")
 
 
 def evaluate_contact_trends(db, contact_rows: List[List]) -> Dict[str, str]:
@@ -2187,7 +2209,19 @@ def main():
 
         # Fetch data from FUB
         people = fub.fetch_people()
-        
+
+        # Fetch users and build lookup for assignment tracking
+        users = fub.fetch_users()
+        user_lookup = {u['id']: u['name'] for u in users if u.get('id') and u.get('name')}
+        logger.info(f"✓ Fetched {len(users)} team members")
+
+        # Sync users to database cache
+        if db:
+            try:
+                db.sync_fub_users(users)
+            except Exception as e:
+                logger.warning(f"Could not sync FUB users to database: {e}")
+
         # Apply exclusion filters
         excluded_ids = Config.get_excluded_ids()
         excluded_emails = Config.get_excluded_emails()
@@ -2298,7 +2332,7 @@ def main():
         send_top_priority_email(contact_rows, top_priority, daily_stats)
 
         # Sync to SQLite database (for unified DREAMS dashboard)
-        sync_to_sqlite(contact_rows, person_stats)
+        sync_to_sqlite(contact_rows, person_stats, user_lookup)
 
         # Enhanced FUB data sync: individual records, scoring, trends, and daily activity
         contacts_new = 0

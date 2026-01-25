@@ -1239,6 +1239,61 @@ def scoring_runs_list():
 
 
 # =========================================================================
+# MY LEADS PAGE
+# =========================================================================
+
+@app.route('/my-leads')
+@requires_auth
+def my_leads():
+    """My Leads view - shows leads assigned to the current user with assignment history."""
+    db = get_db()
+
+    # Get user ID from environment (set in .env)
+    user_id = int(os.getenv('FUB_MY_USER_ID', 8))
+
+    # Get user name from cached users
+    user = db.get_fub_user(user_id)
+    user_name = user.get('name') if user else f"User {user_id}"
+
+    # Get filter parameter
+    filter_type = request.args.get('filter', 'current')
+
+    # Get assignment stats
+    stats = db.get_user_assignment_stats(user_id)
+
+    # Get leads based on filter
+    if filter_type == 'current':
+        leads = db.get_contacts_assigned_to_user(user_id, include_history=True)
+    elif filter_type == 'past':
+        leads = db.get_contacts_with_assignment_to_user(
+            user_id, include_current=False, include_past=True
+        )
+    else:  # all
+        leads = db.get_contacts_with_assignment_to_user(
+            user_id, include_current=True, include_past=True
+        )
+
+    # Get counts for filter tabs
+    current_leads = db.get_contacts_assigned_to_user(user_id, include_history=False)
+    all_leads = db.get_contacts_with_assignment_to_user(
+        user_id, include_current=True, include_past=True
+    )
+    past_leads = db.get_contacts_with_assignment_to_user(
+        user_id, include_current=False, include_past=True
+    )
+
+    return render_template('my_leads.html',
+                         leads=leads,
+                         user_id=user_id,
+                         user_name=user_name,
+                         stats=stats,
+                         filter=filter_type,
+                         current_count=len(current_leads),
+                         all_count=len(all_leads),
+                         past_count=len(past_leads))
+
+
+# =========================================================================
 # CONTACT ACTIONS API
 # =========================================================================
 

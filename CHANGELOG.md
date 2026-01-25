@@ -9,6 +9,18 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **My Leads Assignment Tracking** - Track lead assignments with full history
+  - **Database tables**: `fub_users` (team member cache), `assignment_history` (assignment changes)
+  - **FUB client extension**: `fetch_users()`, `fetch_current_user()` methods
+  - **Assignment sync in FUB sync**: Tracks `ownerId` changes and logs to history
+  - **My Leads page** (`/my-leads`) - Dashboard view of leads assigned to you:
+    - Stats cards: Currently assigned, received (30d), transferred out (30d)
+    - Filter tabs: Current, All History, Previously Mine
+    - Assignment history per lead with expand/collapse
+    - Links to contact detail and FUB
+  - **Initial sync script**: `scripts/sync_assignments.py` - Backfill existing assignments
+  - **Navigation**: Added to Metrics dropdown menu on home dashboard
+  - Config: `FUB_MY_USER_ID` in `.env` sets your user ID (default: 8 for Joseph Williams)
 - **Unified Property Database Architecture** - Consolidated property data into single dreams.db
   - Migrated 1,858 properties from redfin_imports.db into dreams.db (103 merged, 1,755 new)
   - Smart merge logic: matches by MLS# first, then normalized address

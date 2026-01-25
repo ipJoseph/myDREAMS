@@ -102,6 +102,10 @@ class DREAMSDatabase:
             ("properties_shared", "INTEGER DEFAULT 0"),  # Properties shared count
             ("emails_received", "INTEGER DEFAULT 0"),   # Emails received
             ("emails_sent", "INTEGER DEFAULT 0"),       # Emails sent
+            # Assignment tracking columns
+            ("assigned_user_id", "INTEGER"),            # FUB user ID
+            ("assigned_user_name", "TEXT"),             # Cached user name for display
+            ("assigned_at", "TEXT"),                    # When assigned to current user
         ]
 
         for col_name, col_type in new_lead_columns:
@@ -658,6 +662,33 @@ class DREAMSDatabase:
             updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
             updated_by TEXT
         );
+
+        -- FUB Users (cache of team members for assignment display)
+        CREATE TABLE IF NOT EXISTS fub_users (
+            id INTEGER PRIMARY KEY,           -- FUB user ID
+            name TEXT NOT NULL,
+            email TEXT,
+            role TEXT,
+            phone TEXT,
+            picture_url TEXT,
+            is_active INTEGER DEFAULT 1,
+            last_synced_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+
+        -- Assignment History (track lead assignment changes)
+        CREATE TABLE IF NOT EXISTS assignment_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            contact_id TEXT NOT NULL,
+            assigned_from_user_id INTEGER,    -- NULL if new assignment
+            assigned_from_user_name TEXT,
+            assigned_to_user_id INTEGER NOT NULL,
+            assigned_to_user_name TEXT NOT NULL,
+            assigned_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            detected_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            source TEXT DEFAULT 'sync',       -- 'sync', 'manual', 'round_robin', 'transfer'
+            notes TEXT,
+            FOREIGN KEY (contact_id) REFERENCES leads(id)
+        );
         '''
 
     def _get_indexes_schema(self) -> str:
@@ -722,6 +753,12 @@ class DREAMSDatabase:
         CREATE INDEX IF NOT EXISTS idx_market_snapshots_county ON market_snapshots(county);
         -- System settings indexes
         CREATE INDEX IF NOT EXISTS idx_system_settings_category ON system_settings(category);
+        -- Assignment tracking indexes
+        CREATE INDEX IF NOT EXISTS idx_leads_assigned_user ON leads(assigned_user_id);
+        CREATE INDEX IF NOT EXISTS idx_leads_assigned_at ON leads(assigned_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_assignment_history_contact ON assignment_history(contact_id, assigned_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_assignment_history_to_user ON assignment_history(assigned_to_user_id, assigned_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_assignment_history_from_user ON assignment_history(assigned_from_user_id);
         '''
 
     def _seed_default_settings(self, conn) -> None:
@@ -4398,3 +4435,328 @@ class DREAMSDatabase:
                 LIMIT ?
             ''', (contact_id, limit)).fetchall()
             return [dict(row) for row in rows]
+
+    # ==========================================
+    # FUB USERS OPERATIONS
+    # ==========================================
+
+    def sync_fub_users(self, users: List[Dict[str, Any]]) -> int:
+        """
+        Sync FUB users to local cache.
+
+        Args:
+            users: List of user dicts from FUB API
+
+        Returns:
+            Number of users synced
+        """
+        with self._get_connection() as conn:
+            now = datetime.now().isoformat()
+            count = 0
+
+            for user in users:
+                conn.execute('''
+                    INSERT INTO fub_users (id, name, email, role, phone, picture_url, is_active, last_synced_at)
+                    VALUES (?, ?, ?, ?, ?, ?, 1, ?)
+                    ON CONFLICT(id) DO UPDATE SET
+                        name = excluded.name,
+                        email = excluded.email,
+                        role = excluded.role,
+                        phone = excluded.phone,
+                        picture_url = excluded.picture_url,
+                        is_active = 1,
+                        last_synced_at = excluded.last_synced_at
+                ''', (
+                    user.get('id'),
+                    user.get('name'),
+                    user.get('email'),
+                    user.get('role'),
+                    user.get('phone'),
+                    user.get('picture', {}).get('60x60') if isinstance(user.get('picture'), dict) else None,
+                    now
+                ))
+                count += 1
+
+            conn.commit()
+            return count
+
+    def get_fub_user(self, user_id: int) -> Optional[Dict[str, Any]]:
+        """Get a FUB user by ID."""
+        with self._get_connection() as conn:
+            row = conn.execute(
+                'SELECT * FROM fub_users WHERE id = ?',
+                (user_id,)
+            ).fetchone()
+            return dict(row) if row else None
+
+    def get_all_fub_users(self, active_only: bool = True) -> List[Dict[str, Any]]:
+        """Get all FUB users."""
+        with self._get_connection() as conn:
+            if active_only:
+                rows = conn.execute(
+                    'SELECT * FROM fub_users WHERE is_active = 1 ORDER BY name'
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    'SELECT * FROM fub_users ORDER BY name'
+                ).fetchall()
+            return [dict(row) for row in rows]
+
+    # ==========================================
+    # ASSIGNMENT TRACKING OPERATIONS
+    # ==========================================
+
+    def update_contact_assignment(
+        self,
+        contact_id: str,
+        new_user_id: int,
+        new_user_name: str,
+        source: str = 'sync'
+    ) -> bool:
+        """
+        Update contact assignment and record in history if changed.
+
+        Args:
+            contact_id: Contact ID
+            new_user_id: New FUB user ID
+            new_user_name: New user's name
+            source: Source of change ('sync', 'manual', 'round_robin', 'transfer')
+
+        Returns:
+            True if assignment changed, False if unchanged
+        """
+        with self._get_connection() as conn:
+            now = datetime.now().isoformat()
+
+            # Get current assignment
+            row = conn.execute(
+                'SELECT assigned_user_id, assigned_user_name FROM leads WHERE id = ?',
+                (contact_id,)
+            ).fetchone()
+
+            if not row:
+                return False
+
+            old_user_id = row['assigned_user_id']
+            old_user_name = row['assigned_user_name']
+
+            # Check if assignment changed
+            if old_user_id == new_user_id:
+                return False
+
+            # Update leads table
+            conn.execute('''
+                UPDATE leads SET
+                    assigned_user_id = ?,
+                    assigned_user_name = ?,
+                    assigned_at = ?,
+                    updated_at = ?
+                WHERE id = ?
+            ''', (new_user_id, new_user_name, now, now, contact_id))
+
+            # Record in assignment history
+            conn.execute('''
+                INSERT INTO assignment_history
+                (contact_id, assigned_from_user_id, assigned_from_user_name,
+                 assigned_to_user_id, assigned_to_user_name, assigned_at, source)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                contact_id, old_user_id, old_user_name,
+                new_user_id, new_user_name, now, source
+            ))
+
+            conn.commit()
+            return True
+
+    def get_contacts_assigned_to_user(
+        self,
+        user_id: int,
+        include_history: bool = True,
+        limit: int = 200
+    ) -> List[Dict[str, Any]]:
+        """
+        Get all contacts currently assigned to a user.
+
+        Args:
+            user_id: FUB user ID
+            include_history: Include assignment history for each contact
+            limit: Maximum contacts to return
+
+        Returns:
+            List of contacts with optional assignment history
+        """
+        with self._get_connection() as conn:
+            rows = conn.execute('''
+                SELECT l.*,
+                       (SELECT COUNT(*) FROM assignment_history ah
+                        WHERE ah.contact_id = l.id) as assignment_count
+                FROM leads l
+                WHERE l.assigned_user_id = ?
+                ORDER BY l.assigned_at DESC NULLS LAST, l.priority_score DESC
+                LIMIT ?
+            ''', (user_id, limit)).fetchall()
+
+            contacts = [dict(row) for row in rows]
+
+            if include_history:
+                for contact in contacts:
+                    contact['assignment_history'] = self.get_assignment_history(
+                        contact['id'], limit=10
+                    )
+
+            return contacts
+
+    def get_assignment_history(
+        self,
+        contact_id: str,
+        limit: int = 20
+    ) -> List[Dict[str, Any]]:
+        """
+        Get assignment history for a contact.
+
+        Args:
+            contact_id: Contact ID
+            limit: Max records to return
+
+        Returns:
+            List of assignment changes, newest first
+        """
+        with self._get_connection() as conn:
+            rows = conn.execute('''
+                SELECT * FROM assignment_history
+                WHERE contact_id = ?
+                ORDER BY assigned_at DESC
+                LIMIT ?
+            ''', (contact_id, limit)).fetchall()
+            return [dict(row) for row in rows]
+
+    def get_user_assignment_stats(self, user_id: int) -> Dict[str, Any]:
+        """
+        Get assignment statistics for a user.
+
+        Args:
+            user_id: FUB user ID
+
+        Returns:
+            Stats dict with counts, dates, etc.
+        """
+        with self._get_connection() as conn:
+            # Current assignments
+            current = conn.execute('''
+                SELECT COUNT(*) as count
+                FROM leads
+                WHERE assigned_user_id = ?
+            ''', (user_id,)).fetchone()
+
+            # Assignments received in last 30 days
+            cutoff_30d = (datetime.now() - timedelta(days=30)).isoformat()
+            received_30d = conn.execute('''
+                SELECT COUNT(*) as count
+                FROM assignment_history
+                WHERE assigned_to_user_id = ? AND assigned_at >= ?
+            ''', (user_id, cutoff_30d)).fetchone()
+
+            # Assignments transferred out in last 30 days
+            transferred_30d = conn.execute('''
+                SELECT COUNT(*) as count
+                FROM assignment_history
+                WHERE assigned_from_user_id = ? AND assigned_at >= ?
+            ''', (user_id, cutoff_30d)).fetchone()
+
+            # Most recent assignment
+            recent = conn.execute('''
+                SELECT assigned_at, contact_id
+                FROM assignment_history
+                WHERE assigned_to_user_id = ?
+                ORDER BY assigned_at DESC
+                LIMIT 1
+            ''', (user_id,)).fetchone()
+
+            return {
+                'current_count': current['count'] if current else 0,
+                'received_30d': received_30d['count'] if received_30d else 0,
+                'transferred_30d': transferred_30d['count'] if transferred_30d else 0,
+                'most_recent_at': recent['assigned_at'] if recent else None,
+                'most_recent_contact_id': recent['contact_id'] if recent else None,
+            }
+
+    def get_contacts_with_assignment_to_user(
+        self,
+        user_id: int,
+        include_current: bool = True,
+        include_past: bool = True,
+        limit: int = 200
+    ) -> List[Dict[str, Any]]:
+        """
+        Get contacts that have ever been assigned to a user, with assignment history.
+        Shows most recent assignment date for sorting.
+
+        Args:
+            user_id: FUB user ID
+            include_current: Include currently assigned contacts
+            include_past: Include previously assigned contacts
+            limit: Maximum contacts to return
+
+        Returns:
+            List of contacts with assignment info, ordered by most recent assignment
+        """
+        with self._get_connection() as conn:
+            # Build conditions
+            conditions = []
+            params = []
+
+            if include_current and include_past:
+                # Get all contacts that have ever been assigned to this user
+                conditions.append('''
+                    l.id IN (
+                        SELECT DISTINCT contact_id FROM assignment_history
+                        WHERE assigned_to_user_id = ?
+                    )
+                ''')
+                params.append(user_id)
+
+                # Also include currently assigned (might not have history yet)
+                conditions.append('l.assigned_user_id = ?')
+                params.append(user_id)
+
+                where_clause = '(' + ' OR '.join(conditions) + ')'
+            elif include_current:
+                where_clause = 'l.assigned_user_id = ?'
+                params.append(user_id)
+            elif include_past:
+                where_clause = '''
+                    l.id IN (
+                        SELECT DISTINCT contact_id FROM assignment_history
+                        WHERE assigned_to_user_id = ?
+                    ) AND l.assigned_user_id != ?
+                '''
+                params.extend([user_id, user_id])
+            else:
+                return []
+
+            # Get most recent assignment date to this user for each contact
+            rows = conn.execute(f'''
+                SELECT l.*,
+                       l.assigned_user_id = ? as is_currently_assigned,
+                       (SELECT MAX(assigned_at) FROM assignment_history ah
+                        WHERE ah.contact_id = l.id AND ah.assigned_to_user_id = ?) as last_assigned_to_me,
+                       (SELECT COUNT(*) FROM assignment_history ah
+                        WHERE ah.contact_id = l.id AND ah.assigned_to_user_id = ?) as times_assigned_to_me
+                FROM leads l
+                WHERE {where_clause}
+                ORDER BY
+                    CASE WHEN l.assigned_user_id = ? THEN 0 ELSE 1 END,
+                    (SELECT MAX(assigned_at) FROM assignment_history ah
+                     WHERE ah.contact_id = l.id AND ah.assigned_to_user_id = ?) DESC NULLS LAST
+                LIMIT ?
+            ''', [user_id, user_id, user_id] + params + [user_id, user_id, limit]).fetchall()
+
+            contacts = []
+            for row in rows:
+                contact = dict(row)
+                contact['assignment_history'] = self.get_assignment_history(
+                    contact['id'], limit=10
+                )
+                contacts.append(contact)
+
+            return contacts

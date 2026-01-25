@@ -285,3 +285,28 @@ class FUBClient:
             if self.logger:
                 self.logger.error(f"Unexpected error creating note for {person_id}: {e}")
             return None
+
+    def fetch_users(self) -> List[Dict]:
+        """
+        Fetch all users (team members) from Follow Up Boss.
+
+        Returns:
+            List of user dicts with id, name, email, role, etc.
+        """
+        return self.fetch_collection("/users", "users", use_cache=False)
+
+    def fetch_current_user(self) -> Optional[Dict]:
+        """
+        Fetch the currently authenticated user (me).
+
+        Returns:
+            User dict with id, name, email, role, etc.
+        """
+        url = f"{self.base_url}/me"
+        try:
+            data = self._fetch_with_retry(url)
+            return data
+        except Exception as e:
+            if self.logger:
+                self.logger.error(f"Failed to fetch current user: {e}")
+            return None

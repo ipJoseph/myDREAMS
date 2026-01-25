@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Leads | DREAMS</title>
+    <link rel="icon" type="image/svg+xml" href="{{ favicon }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='shared/css/dreams.css') }}">
+    <style>
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 20px;
+        }
+
+        .page-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .page-subtitle {
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 12px;
+        }
+
+        .nav-links a {
+            padding: 8px 16px;
+            background: white;
+            border-radius: 6px;
+            text-decoration: none;
+            color: var(--text-primary);
+            font-weight: 500;
+            transition: all 0.2s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .nav-links a:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        /* Stats Cards */
+        .stats-row {
+            display: flex;
+            gap: 20px;
+            margin: 0 20px 24px 20px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px 24px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            flex: 1;
+            text-align: center;
+        }
+
+        .stat-card.current { border-top: 4px solid var(--primary); }
+        .stat-card.received { border-top: 4px solid #10b981; }
+        .stat-card.transferred { border-top: 4px solid #f59e0b; }
+
+        .stat-value {
+            font-size: 36px;
+            font-weight: 700;
+        }
+
+        .stat-card.current .stat-value { color: var(--primary); }
+        .stat-card.received .stat-value { color: #10b981; }
+        .stat-card.transferred .stat-value { color: #f59e0b; }
+
+        .stat-label {
+            font-size: 13px;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            margin-top: 4px;
+            letter-spacing: 0.5px;
+        }
+
+        /* Filter tabs */
+        .filter-tabs {
+            display: flex;
+            gap: 8px;
+            margin: 0 20px 16px 20px;
+        }
+
+        .filter-tab {
+            padding: 8px 16px;
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .filter-tab:hover {
+            background: var(--bg-secondary);
+        }
+
+        .filter-tab.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        /* Leads Table */
+        .leads-container {
+            margin: 0 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .leads-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .leads-table th {
+            text-align: left;
+            padding: 14px 16px;
+            background: var(--bg-secondary);
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            letter-spacing: 0.5px;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .leads-table td {
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border);
+            vertical-align: top;
+        }
+
+        .leads-table tr:hover {
+            background: var(--bg-secondary);
+        }
+
+        .lead-name {
+            font-weight: 600;
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        .lead-name:hover {
+            text-decoration: underline;
+        }
+
+        .lead-contact {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .lead-contact a {
+            color: var(--text-secondary);
+            text-decoration: none;
+        }
+
+        .lead-contact a:hover {
+            color: var(--primary);
+        }
+
+        /* Stage badges */
+        .stage-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .stage-badge.hot-lead { background: #fee2e2; color: #dc2626; }
+        .stage-badge.active-buyer { background: #dbeafe; color: #1d4ed8; }
+        .stage-badge.active-seller { background: #d1fae5; color: #059669; }
+        .stage-badge.nurture { background: #fef3c7; color: #d97706; }
+        .stage-badge.new-lead { background: #e0e7ff; color: #4338ca; }
+        .stage-badge.cold { background: #f3f4f6; color: #6b7280; }
+
+        /* Score pill */
+        .score-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .score-pill.high { background: #dcfce7; color: #166534; }
+        .score-pill.medium { background: #fef3c7; color: #92400e; }
+        .score-pill.low { background: #f3f4f6; color: #6b7280; }
+
+        /* Assignment info */
+        .assignment-info {
+            font-size: 12px;
+        }
+
+        .assigned-date {
+            color: var(--text-secondary);
+        }
+
+        .assignment-count {
+            color: var(--text-tertiary);
+            margin-top: 2px;
+        }
+
+        .is-current {
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+        .was-mine {
+            color: #f59e0b;
+        }
+
+        /* History toggle */
+        .history-toggle {
+            font-size: 12px;
+            color: var(--primary);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .history-toggle:hover {
+            text-decoration: underline;
+        }
+
+        .assignment-history {
+            display: none;
+            margin-top: 10px;
+            padding: 10px;
+            background: var(--bg-secondary);
+            border-radius: 6px;
+            font-size: 12px;
+        }
+
+        .assignment-history.visible {
+            display: block;
+        }
+
+        .history-item {
+            padding: 6px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .history-item:last-child {
+            border-bottom: none;
+        }
+
+        .history-date {
+            color: var(--text-secondary);
+        }
+
+        .history-from, .history-to {
+            font-weight: 500;
+        }
+
+        .history-to.is-me {
+            color: var(--primary);
+        }
+
+        .history-arrow {
+            color: var(--text-tertiary);
+            margin: 0 4px;
+        }
+
+        /* FUB link */
+        .fub-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            color: #1a73e8;
+            font-size: 12px;
+            text-decoration: none;
+        }
+
+        .fub-link:hover {
+            text-decoration: underline;
+        }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state h3 {
+            font-size: 18px;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+        }
+    </style>
+</head>
+<body style="background: var(--bg-secondary);">
+    <div class="page-header">
+        <div>
+            <div class="page-title">My Leads</div>
+            <div class="page-subtitle">Leads assigned to {{ user_name }} (ID: {{ user_id }})</div>
+        </div>
+        <div class="nav-links">
+            <a href="/">Dashboard</a>
+            <a href="/contacts">All Contacts</a>
+            <a href="/actions">My Actions</a>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="stats-row">
+        <div class="stat-card current">
+            <div class="stat-value">{{ stats.current_count }}</div>
+            <div class="stat-label">Currently Assigned</div>
+        </div>
+        <div class="stat-card received">
+            <div class="stat-value">{{ stats.received_30d }}</div>
+            <div class="stat-label">Received (30 days)</div>
+        </div>
+        <div class="stat-card transferred">
+            <div class="stat-value">{{ stats.transferred_30d }}</div>
+            <div class="stat-label">Transferred Out (30 days)</div>
+        </div>
+    </div>
+
+    <!-- Filter Tabs -->
+    <div class="filter-tabs">
+        <button class="filter-tab {% if filter == 'current' %}active{% endif %}" data-filter="current">
+            Current ({{ current_count }})
+        </button>
+        <button class="filter-tab {% if filter == 'all' %}active{% endif %}" data-filter="all">
+            All History ({{ all_count }})
+        </button>
+        <button class="filter-tab {% if filter == 'past' %}active{% endif %}" data-filter="past">
+            Previously Mine ({{ past_count }})
+        </button>
+    </div>
+
+    <!-- Leads Table -->
+    <div class="leads-container">
+        {% if leads %}
+        <table class="leads-table">
+            <thead>
+                <tr>
+                    <th>Contact</th>
+                    <th>Stage</th>
+                    <th>Priority</th>
+                    <th>Heat</th>
+                    <th>Last Activity</th>
+                    <th>Assignment</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for lead in leads %}
+                <tr>
+                    <td>
+                        <a href="/contacts/{{ lead.id }}" class="lead-name">
+                            {{ lead.first_name or '' }} {{ lead.last_name or '' }}
+                        </a>
+                        <div class="lead-contact">
+                            {% if lead.phone %}
+                            <a href="tel:{{ lead.phone }}">{{ lead.phone }}</a>
+                            {% endif %}
+                            {% if lead.email %}
+                            {% if lead.phone %} | {% endif %}
+                            <a href="mailto:{{ lead.email }}">{{ lead.email }}</a>
+                            {% endif %}
+                        </div>
+                        {% if lead.fub_id %}
+                        <a href="https://JonTharpTeam.followupboss.com/2/people/view/{{ lead.fub_id }}" target="_blank" class="fub-link">
+                            Open in FUB
+                        </a>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% set stage_class = lead.stage|lower|replace(' ', '-') if lead.stage else 'new-lead' %}
+                        <span class="stage-badge {{ stage_class }}">{{ lead.stage or 'New Lead' }}</span>
+                    </td>
+                    <td>
+                        {% set p_score = lead.priority_score|default(0)|int %}
+                        {% if p_score >= 70 %}
+                        <span class="score-pill high">{{ p_score }}</span>
+                        {% elif p_score >= 40 %}
+                        <span class="score-pill medium">{{ p_score }}</span>
+                        {% else %}
+                        <span class="score-pill low">{{ p_score }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% set h_score = lead.heat_score|default(0)|int %}
+                        {% if h_score >= 70 %}
+                        <span class="score-pill high">{{ h_score }}</span>
+                        {% elif h_score >= 40 %}
+                        <span class="score-pill medium">{{ h_score }}</span>
+                        {% else %}
+                        <span class="score-pill low">{{ h_score }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if lead.days_since_activity is not none %}
+                            {% if lead.days_since_activity == 0 %}
+                                Today
+                            {% elif lead.days_since_activity == 1 %}
+                                Yesterday
+                            {% else %}
+                                {{ lead.days_since_activity }} days ago
+                            {% endif %}
+                        {% else %}
+                            --
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="assignment-info">
+                            {% if lead.is_currently_assigned %}
+                                <span class="is-current">Currently Mine</span>
+                            {% else %}
+                                <span class="was-mine">Was Mine</span>
+                                {% if lead.assigned_user_name %}
+                                    <br>Now: {{ lead.assigned_user_name }}
+                                {% endif %}
+                            {% endif %}
+
+                            {% if lead.assigned_at %}
+                                <div class="assigned-date">
+                                    Since {{ lead.assigned_at[:10] }}
+                                </div>
+                            {% endif %}
+
+                            {% if lead.times_assigned_to_me and lead.times_assigned_to_me > 1 %}
+                                <div class="assignment-count">
+                                    Assigned to me {{ lead.times_assigned_to_me }}x
+                                </div>
+                            {% endif %}
+
+                            {% if lead.assignment_history %}
+                            <div class="history-toggle" onclick="toggleHistory(this)">
+                                Show history ({{ lead.assignment_history|length }})
+                            </div>
+                            <div class="assignment-history">
+                                {% for h in lead.assignment_history %}
+                                <div class="history-item">
+                                    <span class="history-date">{{ h.assigned_at[:10] }}</span>:
+                                    {% if h.assigned_from_user_name %}
+                                    <span class="history-from">{{ h.assigned_from_user_name }}</span>
+                                    {% else %}
+                                    <span class="history-from">(new)</span>
+                                    {% endif %}
+                                    <span class="history-arrow">→</span>
+                                    <span class="history-to {% if h.assigned_to_user_id == user_id %}is-me{% endif %}">
+                                        {{ h.assigned_to_user_name }}
+                                    </span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state">
+            <h3>No leads found</h3>
+            <p>No leads match the current filter. Try switching to a different view.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <script>
+        // Filter tabs
+        document.querySelectorAll('.filter-tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                const filter = this.dataset.filter;
+                window.location.href = '/my-leads?filter=' + filter;
+            });
+        });
+
+        // Toggle assignment history
+        function toggleHistory(el) {
+            const history = el.nextElementSibling;
+            history.classList.toggle('visible');
+            if (history.classList.contains('visible')) {
+                el.textContent = 'Hide history';
+            } else {
+                el.textContent = 'Show history (' + history.querySelectorAll('.history-item').length + ')';
+            }
+        }
+    </script>
+</body>
+</html>
