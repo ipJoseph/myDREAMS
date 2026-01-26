@@ -111,6 +111,22 @@ PROPSTREAM_MAP = {
     'Lien Type': 'lien_type',
     'Lien Date': 'lien_date',
     'Lien Amount': 'lien_amount',
+    # New fields from 11county.xlsx
+    'FIPS': 'fips',
+    'Property Class': 'property_class',
+    'Monthly Rent': 'monthly_rent',
+    'MLS Brokerage Phone': 'listing_brokerage_phone',
+    'Effective Year Built': 'effective_year_built',
+    'Mailing Care of Name': 'mailing_care_of',
+    'Mailing Unit #': 'mailing_unit',
+    # Loan details
+    'Loan 1 Date': 'loan1_date',
+    'Loan 1 Balance': 'loan1_balance',
+    'Loan 1 Type': 'loan1_type',
+    'Loan 1 Lender': 'loan1_lender',
+    'Loan 1 Rate': 'loan1_rate',
+    'Loan 1 Rate Type': 'loan1_rate_type',
+    'Est. Total Monthly Payments': 'est_monthly_payment',
 }
 
 
@@ -180,6 +196,21 @@ class PropStreamImporter:
             ('lien_type', 'TEXT'),
             ('lien_date', 'TEXT'),
             ('lien_amount', 'INTEGER'),
+            # New fields from 11county.xlsx
+            ('fips', 'TEXT'),
+            ('property_class', 'TEXT'),
+            ('monthly_rent', 'REAL'),
+            ('listing_brokerage_phone', 'TEXT'),
+            ('effective_year_built', 'INTEGER'),
+            ('mailing_care_of', 'TEXT'),
+            ('mailing_unit', 'TEXT'),
+            ('loan1_date', 'TEXT'),
+            ('loan1_balance', 'INTEGER'),
+            ('loan1_type', 'TEXT'),
+            ('loan1_lender', 'TEXT'),
+            ('loan1_rate', 'REAL'),
+            ('loan1_rate_type', 'TEXT'),
+            ('est_monthly_payment', 'REAL'),
         ]
 
         # Get existing columns
@@ -237,7 +268,8 @@ class PropStreamImporter:
                     # Convert numeric columns appropriately
                     if our_col in ['beds', 'baths', 'sqft', 'lot_sqft', 'year_built',
                                    'assessed_value', 'last_sale_amount', 'est_value',
-                                   'est_equity', 'loan_balance', 'open_loans', 'stories']:
+                                   'est_equity', 'loan_balance', 'open_loans', 'stories',
+                                   'effective_year_built', 'loan1_balance']:
                         value = int(value) if not pd.isna(value) else None
                 data[our_col] = value
 
@@ -281,31 +313,19 @@ class PropStreamImporter:
         return data
 
     def _find_existing_property(self, conn, data: Dict) -> Optional[Dict]:
-        """Find existing property by APN or address (smart merge logic)."""
+        """Find existing property by APN only (most reliable, permanent identifier).
+
+        Note: We only match by APN because multiple properties can share the same
+        street name (e.g., different lots on 'Kimberly Ln' each have unique APNs).
+        """
         cursor = conn.cursor()
 
-        # 1. Try APN first (most reliable, permanent identifier)
+        # Match ONLY by APN - each parcel is unique
         if data.get('parcel_id'):
             cursor.execute('''
                 SELECT id, parcel_id, address, mls_number, sources_json
                 FROM properties WHERE parcel_id = ? LIMIT 1
             ''', (data['parcel_id'],))
-            row = cursor.fetchone()
-            if row:
-                return dict(row)
-
-        # 2. Try to find by normalized address
-        street_addr = str(data.get('address', '')).strip()
-        city = str(data.get('city', '')).strip()
-
-        if street_addr and len(street_addr) > 5:
-            cursor.execute('''
-                SELECT id, parcel_id, address, mls_number, sources_json
-                FROM properties
-                WHERE UPPER(address) LIKE UPPER(?)
-                AND UPPER(city) = UPPER(?)
-                LIMIT 1
-            ''', (f"%{street_addr}%", city))
             row = cursor.fetchone()
             if row:
                 return dict(row)
@@ -326,34 +346,45 @@ class PropStreamImporter:
         cursor.execute('''
             INSERT INTO properties (
                 id, address, city, state, zip, county, parcel_id,
-                property_type, beds, baths, sqft, acreage, year_built,
+                property_type, property_class, beds, baths, sqft, acreage, year_built,
+                effective_year_built, fips,
                 owner_first_name, owner_last_name, owner2_first_name, owner2_last_name,
                 owner_occupied, vacant, owner_mobile, owner_landline, owner_email,
-                mailing_address, mailing_city, mailing_state, mailing_zip, do_not_mail,
+                mailing_address, mailing_unit, mailing_city, mailing_state, mailing_zip,
+                mailing_care_of, do_not_mail,
                 assessed_value, last_sale_date, last_sale_amount,
                 est_value, est_equity, est_ltv, open_loans, loan_balance,
+                monthly_rent, est_monthly_payment,
+                loan1_date, loan1_balance, loan1_type, loan1_lender, loan1_rate, loan1_rate_type,
                 condition_total, condition_interior, condition_exterior,
                 condition_bathroom, condition_kitchen,
                 prior_sale_date, prior_sale_amount,
                 foreclosure_factor, lien_type, lien_date, lien_amount,
-                listing_agent_name, listing_agent_phone, listing_agent_email, listing_brokerage,
-                stories, has_hoa, status,
+                listing_agent_name, listing_agent_phone, listing_agent_email,
+                listing_brokerage, listing_brokerage_phone,
+                stories, has_hoa, status, price,
                 source, sources_json, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             prop_id, full_addr, data.get('city'), data.get('state', 'NC'), data.get('zip'),
             data.get('county'), data.get('parcel_id'),
-            data.get('property_type'), data.get('beds'), data.get('baths'),
+            data.get('property_type'), data.get('property_class'),
+            data.get('beds'), data.get('baths'),
             data.get('sqft'), data.get('acreage'), data.get('year_built'),
+            data.get('effective_year_built'), data.get('fips'),
             data.get('owner_first_name'), data.get('owner_last_name'),
             data.get('owner2_first_name'), data.get('owner2_last_name'),
             data.get('owner_occupied'), data.get('vacant'),
             data.get('owner_mobile'), data.get('owner_landline'), data.get('owner_email'),
-            data.get('mailing_address'), data.get('mailing_city'),
-            data.get('mailing_state'), data.get('mailing_zip'), data.get('do_not_mail'),
+            data.get('mailing_address'), data.get('mailing_unit'), data.get('mailing_city'),
+            data.get('mailing_state'), data.get('mailing_zip'),
+            data.get('mailing_care_of'), data.get('do_not_mail'),
             data.get('assessed_value'), data.get('last_sale_date'), data.get('last_sale_amount'),
             data.get('est_value'), data.get('est_equity'), data.get('est_ltv'),
             data.get('open_loans'), data.get('loan_balance'),
+            data.get('monthly_rent'), data.get('est_monthly_payment'),
+            data.get('loan1_date'), data.get('loan1_balance'), data.get('loan1_type'),
+            data.get('loan1_lender'), data.get('loan1_rate'), data.get('loan1_rate_type'),
             data.get('condition_total'), data.get('condition_interior'), data.get('condition_exterior'),
             data.get('condition_bathroom'), data.get('condition_kitchen'),
             data.get('prior_sale_date'), data.get('prior_sale_amount'),
@@ -361,7 +392,9 @@ class PropStreamImporter:
             data.get('lien_date'), data.get('lien_amount'),
             data.get('listing_agent_name'), data.get('listing_agent_phone'),
             data.get('listing_agent_email'), data.get('listing_brokerage'),
+            data.get('listing_brokerage_phone'),
             data.get('stories'), data.get('has_hoa'), data.get('mls_status'),
+            data.get('mls_amount'),  # Use MLS Amount as price
             'propstream', json.dumps(['propstream']), now
         ))
 
@@ -420,6 +453,20 @@ class PropStreamImporter:
             ('lien_amount', 'lien_amount'),
             ('stories', 'stories'),
             ('has_hoa', 'has_hoa'),
+            # New fields
+            ('fips', 'fips'),
+            ('property_class', 'property_class'),
+            ('monthly_rent', 'monthly_rent'),
+            ('effective_year_built', 'effective_year_built'),
+            ('mailing_care_of', 'mailing_care_of'),
+            ('mailing_unit', 'mailing_unit'),
+            ('loan1_date', 'loan1_date'),
+            ('loan1_balance', 'loan1_balance'),
+            ('loan1_type', 'loan1_type'),
+            ('loan1_lender', 'loan1_lender'),
+            ('loan1_rate', 'loan1_rate'),
+            ('loan1_rate_type', 'loan1_rate_type'),
+            ('est_monthly_payment', 'est_monthly_payment'),
         ]
 
         for db_field, data_field in merge_fields:
@@ -442,6 +489,7 @@ class PropStreamImporter:
             ('listing_agent_phone', 'listing_agent_phone'),
             ('listing_agent_email', 'listing_agent_email'),
             ('listing_brokerage', 'listing_brokerage'),
+            ('listing_brokerage_phone', 'listing_brokerage_phone'),
         ]
 
         for db_field, data_field in agent_fields:
