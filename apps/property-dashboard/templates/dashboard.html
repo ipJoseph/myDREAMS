@@ -238,15 +238,27 @@
     <!-- Results Bar -->
     <div class="dreams-results-bar">
         <div class="dreams-results-count">
-            <strong>{{ properties|length }}</strong> properties found
-            {% if metrics.status_counts %}
-                ({% for status, count in metrics.status_counts.items() %}{{ status }}: {{ count }}{% if not loop.last %}, {% endif %}{% endfor %})
+            <strong>{{ total_count }}</strong> properties total
+            {% if total_pages > 1 %}
+            &nbsp;|&nbsp; Page {{ page }} of {{ total_pages }}
             {% endif %}
             {% if not show_all and selected_status == 'Active' and not selected_client %}
             <br><a href="?show_all=1" style="font-size: 13px; color: var(--accent-blue);">Show All Statuses</a>
             {% endif %}
-            <br><span id="selectedCount" style="font-size: 13px; color: var(--text-secondary);"><strong>{{ properties|length }}</strong> properties selected</span>
+            <br><span id="selectedCount" style="font-size: 13px; color: var(--text-secondary);"><strong>{{ properties|length }}</strong> selected on this page</span>
         </div>
+        <!-- Pagination -->
+        {% if total_pages > 1 %}
+        <div style="display: flex; gap: 8px; align-items: center;">
+            {% if page > 1 %}
+            <a href="?{{ 'client=' ~ selected_client ~ '&' if selected_client }}{{ 'status=' ~ selected_status ~ '&' if selected_status }}{{ 'city=' ~ selected_city ~ '&' if selected_city }}{{ 'county=' ~ selected_county ~ '&' if selected_county }}{{ 'show_all=1&' if show_all }}sort={{ sort_by }}&order={{ sort_order }}&page={{ page - 1 }}" class="dreams-btn dreams-btn-secondary">Prev</a>
+            {% endif %}
+            <span style="font-size: 13px;">{{ page }} / {{ total_pages }}</span>
+            {% if page < total_pages %}
+            <a href="?{{ 'client=' ~ selected_client ~ '&' if selected_client }}{{ 'status=' ~ selected_status ~ '&' if selected_status }}{{ 'city=' ~ selected_city ~ '&' if selected_city }}{{ 'county=' ~ selected_county ~ '&' if selected_county }}{{ 'show_all=1&' if show_all }}sort={{ sort_by }}&order={{ sort_order }}&page={{ page + 1 }}" class="dreams-btn dreams-btn-secondary">Next</a>
+            {% endif %}
+        </div>
+        {% endif %}
         <div class="dreams-results-actions">
             {% if selected_client %}
             <button class="dreams-btn dreams-btn-success" onclick="copyClientLink()" title="Copy shareable client link">

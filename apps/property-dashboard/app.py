@@ -433,11 +433,34 @@ def get_filter_options() -> Dict[str, List[str]]:
         return options
 
 
+def count_properties(added_for: Optional[str] = None, status: Optional[str] = None,
+                     city: Optional[str] = None, county: Optional[str] = None) -> int:
+    """Count properties matching filters (for pagination)"""
+    with db._get_connection() as conn:
+        query = 'SELECT COUNT(*) FROM properties WHERE 1=1'
+        params = []
+
+        if added_for:
+            query += ' AND added_for LIKE ?'
+            params.append(f'%{added_for}%')
+        if status:
+            query += ' AND LOWER(status) = LOWER(?)'
+            params.append(status)
+        if city:
+            query += ' AND LOWER(city) = LOWER(?)'
+            params.append(city)
+        if county:
+            query += ' AND county LIKE ?'
+            params.append(f'%{county}%')
+
+        return conn.execute(query, params).fetchone()[0]
+
+
 def fetch_properties(added_for: Optional[str] = None, status: Optional[str] = None,
                       city: Optional[str] = None, county: Optional[str] = None,
                       sort_by: str = 'price', sort_order: str = 'desc',
-                      limit: Optional[int] = None) -> List[Dict[str, Any]]:
-    """Fetch properties from SQLite with optional filters and server-side sorting"""
+                      limit: Optional[int] = None, offset: int = 0) -> List[Dict[str, Any]]:
+    """Fetch properties from SQLite with optional filters, sorting, and pagination"""
     # Whitelist of allowed sort columns (prevents SQL injection)
     ALLOWED_SORTS = {
         'price': 'price', 'address': 'address', 'city': 'city', 'county': 'county',
@@ -471,8 +494,9 @@ def fetch_properties(added_for: Optional[str] = None, status: Optional[str] = No
         # Server-side sorting with NULLS LAST behavior
         query += f' ORDER BY {sort_column} IS NULL, {sort_column} {sort_dir}'
 
+        # Pagination
         if limit:
-            query += f' LIMIT {int(limit)}'
+            query += f' LIMIT {int(limit)} OFFSET {int(offset)}'
 
         rows = conn.execute(query, params).fetchall()
 
@@ -606,6 +630,10 @@ def properties_list():
     county = request.args.get('county', '')
     show_all = request.args.get('show_all', '')
 
+    # Pagination (100 per page for fast rendering)
+    page = max(1, int(request.args.get('page', 1)))
+    per_page = 100
+
     # Sort parameters (server-side sorting for performance)
     sort_by = request.args.get('sort', 'price')
     sort_order = request.args.get('order', 'desc')
@@ -621,22 +649,35 @@ def properties_list():
     counties = filter_options['counties']
     statuses = filter_options['statuses']
 
-    # Fetch filtered and sorted properties (server-side)
+    # Get total count for pagination
+    total_count = count_properties(
+        added_for=added_for if added_for else None,
+        status=status if status else None,
+        city=city if city else None,
+        county=county if county else None
+    )
+    total_pages = max(1, (total_count + per_page - 1) // per_page)
+    page = min(page, total_pages)
+    offset = (page - 1) * per_page
+
+    # Fetch filtered, sorted, paginated properties
     properties = fetch_properties(
         added_for=added_for if added_for else None,
         status=status if status else None,
         city=city if city else None,
         county=county if county else None,
         sort_by=sort_by,
-        sort_order=sort_order
+        sort_order=sort_order,
+        limit=per_page,
+        offset=offset
     )
 
     # Enrich with IDX photos for properties without Notion photos
     properties = enrich_properties_with_idx_photos(properties)
 
-    # Calculate metrics
+    # Calculate metrics on current page
     metrics = calculate_metrics(properties)
-    metrics['status_counts'] = calculate_status_counts(properties)
+    metrics['status_counts'] = {}
 
     return render_template('dashboard.html',
                          properties=properties,
@@ -652,6 +693,10 @@ def properties_list():
                          show_all=show_all,
                          sort_by=sort_by,
                          sort_order=sort_order,
+                         page=page,
+                         total_pages=total_pages,
+                         total_count=total_count,
+                         per_page=per_page,
                          refresh_time=datetime.now().strftime('%B %d, %Y %I:%M %p'))
 
 
