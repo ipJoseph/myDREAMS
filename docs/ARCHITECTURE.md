@@ -816,6 +816,204 @@ All DREAMS apps should include the shared stylesheet:
 
 ---
 
+## Table Filtering and Sorting
+
+### Database Indexes
+
+For performant filtering and sorting, tables must have indexes on commonly filtered/sorted columns:
+
+```sql
+-- Properties table indexes (required for dashboard performance)
+CREATE INDEX idx_properties_status ON properties(status);
+CREATE INDEX idx_properties_city ON properties(city);
+CREATE INDEX idx_properties_county ON properties(county);
+CREATE INDEX idx_properties_price ON properties(price);
+CREATE INDEX idx_properties_added_for ON properties(added_for);  -- Client filter
+CREATE INDEX idx_properties_created_at ON properties(created_at);  -- Default sort
+
+-- Leads table indexes
+CREATE INDEX idx_leads_stage ON leads(stage);
+CREATE INDEX idx_leads_type ON leads(type);
+CREATE INDEX idx_leads_priority ON leads(priority_score DESC);
+```
+
+**Rule:** When adding a new filter or sort option, always add a corresponding index.
+
+### Server-Side Filtering (Flask Pattern)
+
+Filtering uses URL query parameters and server-side SQL queries. This approach is preferred for large datasets (1000+ rows) as it reduces data transfer.
+
+```python
+# Flask route example
+@app.route('/properties')
+def properties_list():
+    # Get filter parameters from URL
+    status = request.args.get('status', '')
+    city = request.args.get('city', '')
+
+    # Build parameterized query
+    query = 'SELECT * FROM properties WHERE 1=1'
+    params = []
+
+    if status:
+        query += ' AND LOWER(status) = LOWER(?)'
+        params.append(status)
+
+    if city:
+        query += ' AND LOWER(city) = LOWER(?)'
+        params.append(city)
+
+    # Use indexed column for default sort
+    query += ' ORDER BY created_at DESC'
+
+    rows = conn.execute(query, params).fetchall()
+```
+
+**JavaScript filter trigger:**
+```javascript
+function applyFilters() {
+    const status = document.getElementById('statusFilter').value;
+    const city = document.getElementById('cityFilter').value;
+    const params = new URLSearchParams();
+
+    if (status) params.set('status', status);
+    if (city) params.set('city', city);
+
+    window.location.search = params.toString();  // Triggers page reload
+}
+```
+
+### Filter Dropdown Options (Efficient Loading)
+
+**Never fetch all records to populate dropdowns.** Use DISTINCT queries:
+
+```python
+def get_filter_options() -> Dict[str, List[str]]:
+    """Get distinct values for filter dropdowns efficiently."""
+    options = {}
+    options['cities'] = sorted([r[0] for r in conn.execute(
+        "SELECT DISTINCT city FROM properties WHERE city IS NOT NULL AND city != ''"
+    ).fetchall()])
+    options['statuses'] = sorted([r[0] for r in conn.execute(
+        "SELECT DISTINCT status FROM properties WHERE status IS NOT NULL AND status != ''"
+    ).fetchall()])
+    return options
+```
+
+**Anti-pattern (slow with 10K+ records):**
+```python
+# DON'T DO THIS - fetches all records twice
+all_properties = fetch_properties()  # First fetch: all records
+cities = get_unique_values(all_properties, 'city')  # Process in Python
+properties = fetch_properties(city=city_filter)  # Second fetch
+```
+
+### Client-Side Sorting (JavaScript Pattern)
+
+Sorting is done client-side for instant response after initial page load.
+
+**HTML table headers:**
+```html
+<th data-sort="address">Address</th>
+<th data-sort="price" data-type="number">Price</th>
+<th data-sort="beds" data-type="number">Beds</th>
+```
+
+**JavaScript sort implementation:**
+```javascript
+let currentSort = { column: null, direction: null };
+let originalOrder = [];
+
+// Save original order on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const tbody = document.querySelector('table tbody');
+    originalOrder = Array.from(tbody.querySelectorAll('tr'));
+
+    // Add click handlers to sortable headers
+    document.querySelectorAll('th[data-sort]').forEach(th => {
+        th.addEventListener('click', () => sortTable(th));
+    });
+});
+
+function sortTable(th) {
+    const column = th.dataset.sort;
+    const isNumeric = th.dataset.type === 'number';
+    const tbody = document.querySelector('table tbody');
+    let rows = Array.from(tbody.querySelectorAll('tr'));
+
+    // Cycle: null -> asc -> desc -> null
+    if (currentSort.column === column) {
+        currentSort.direction =
+            currentSort.direction === 'asc' ? 'desc' :
+            currentSort.direction === 'desc' ? null : 'asc';
+        if (!currentSort.direction) currentSort.column = null;
+    } else {
+        currentSort.column = column;
+        currentSort.direction = 'asc';
+    }
+
+    // Update header styling
+    document.querySelectorAll('th').forEach(h =>
+        h.classList.remove('sorted-asc', 'sorted-desc'));
+    if (currentSort.direction) {
+        th.classList.add(currentSort.direction === 'asc' ?
+            'sorted-asc' : 'sorted-desc');
+    }
+
+    // Sort or restore original order
+    if (!currentSort.direction) {
+        rows = [...originalOrder];
+    } else {
+        const colIndex = Array.from(th.parentElement.children).indexOf(th);
+        rows.sort((a, b) => {
+            let aVal = a.children[colIndex]?.textContent?.trim() || '';
+            let bVal = b.children[colIndex]?.textContent?.trim() || '';
+
+            if (isNumeric) {
+                aVal = parseFloat(aVal.replace(/[$,]/g, '')) || 0;
+                bVal = parseFloat(bVal.replace(/[$,]/g, '')) || 0;
+                return currentSort.direction === 'asc' ? aVal - bVal : bVal - aVal;
+            }
+            return currentSort.direction === 'asc' ?
+                aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+        });
+    }
+
+    // Rebuild table
+    rows.forEach((row, i) => {
+        row.querySelector('.row-num').textContent = i + 1;
+        tbody.appendChild(row);
+    });
+}
+```
+
+### CSS for Sortable Headers
+
+Already included in `shared/css/dreams.css`:
+
+```css
+.dreams-table th {
+    cursor: pointer;
+    user-select: none;
+}
+
+.dreams-table th:hover {
+    background: var(--color-primary-light);
+}
+
+.dreams-table th.sorted-asc::after {
+    content: ' \25B2';  /* Up arrow */
+    font-size: 10px;
+}
+
+.dreams-table th.sorted-desc::after {
+    content: ' \25BC';  /* Down arrow */
+    font-size: 10px;
+}
+```
+
+---
+
 ## Error Handling
 
 ### Standard Error Response
@@ -874,4 +1072,4 @@ def api_call_with_retry(func, *args, **kwargs):
 ---
 
 *Architecture document maintained by Joseph & Claude*
-*Last updated: January 17, 2026*
+*Last updated: January 26, 2026*

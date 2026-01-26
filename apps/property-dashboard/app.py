@@ -413,6 +413,26 @@ def _calculate_dom(prop: Dict) -> Optional[int]:
     return None
 
 
+def get_filter_options() -> Dict[str, List[str]]:
+    """Get distinct values for filter dropdowns - efficient single query approach"""
+    with db._get_connection() as conn:
+        options = {}
+        # Use indexed columns with DISTINCT for fast retrieval
+        options['clients'] = sorted([r[0] for r in conn.execute(
+            "SELECT DISTINCT added_for FROM properties WHERE added_for IS NOT NULL AND added_for != ''"
+        ).fetchall()])
+        options['cities'] = sorted([r[0] for r in conn.execute(
+            "SELECT DISTINCT city FROM properties WHERE city IS NOT NULL AND city != ''"
+        ).fetchall()])
+        options['counties'] = sorted([r[0] for r in conn.execute(
+            "SELECT DISTINCT county FROM properties WHERE county IS NOT NULL AND county != ''"
+        ).fetchall()])
+        options['statuses'] = sorted([r[0] for r in conn.execute(
+            "SELECT DISTINCT status FROM properties WHERE status IS NOT NULL AND status != ''"
+        ).fetchall()])
+        return options
+
+
 def fetch_properties(added_for: Optional[str] = None, status: Optional[str] = None,
                       city: Optional[str] = None, county: Optional[str] = None) -> List[Dict[str, Any]]:
     """Fetch properties from SQLite with optional filters"""
@@ -569,14 +589,14 @@ def properties_list():
     city = request.args.get('city', '')
     county = request.args.get('county', '')
 
-    # Fetch all properties first to get dropdown options
-    all_properties = fetch_properties()
-    clients = get_unique_values(all_properties, 'added_for')
-    cities = get_unique_values(all_properties, 'city')
-    counties = get_unique_values(all_properties, 'county')
-    statuses = get_unique_values(all_properties, 'status')
+    # Get dropdown options efficiently (uses indexed DISTINCT queries)
+    filter_options = get_filter_options()
+    clients = filter_options['clients']
+    cities = filter_options['cities']
+    counties = filter_options['counties']
+    statuses = filter_options['statuses']
 
-    # Apply filters
+    # Fetch filtered properties
     properties = fetch_properties(
         added_for=added_for if added_for else None,
         status=status if status else None,
