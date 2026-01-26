@@ -4,10 +4,18 @@
 
 set -e  # Exit on error
 
-# Project paths
-PROJECT_ROOT="/home/bigeug/myDREAMS"
+# Auto-detect environment based on hostname or path
+if [ -d "/opt/mydreams" ]; then
+    # PRD environment
+    PROJECT_ROOT="/opt/mydreams"
+    VENV_PYTHON="$PROJECT_ROOT/venv/bin/python"
+else
+    # DEV environment
+    PROJECT_ROOT="/home/bigeug/myDREAMS"
+    VENV_PYTHON="$PROJECT_ROOT/.venv/bin/python"
+fi
+
 SCRIPT_DIR="$PROJECT_ROOT/apps/fub-to-sheets"
-VENV_PYTHON="$PROJECT_ROOT/.venv/bin/python"
 CRON_LOG_DIR="$SCRIPT_DIR/cron_logs"
 
 # Create log directory if it doesn't exist
