@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "dreams-db": {
+      "command": "bash",
+      "args": ["/home/bigeug/myDREAMS/mcp-servers/dreams-db/run.sh"],
+      "env": {
+        "DREAMS_DB_PATH": "/home/bigeug/myDREAMS/data/dreams.db"
+      }
+    },
+    "fub": {
+      "command": "bash",
+      "args": ["/home/bigeug/myDREAMS/mcp-servers/fub/run.sh"]
+    }
+  }
+}

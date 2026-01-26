@@ -14,5 +14,7 @@
       "Bash(git merge*)",
       "Bash(git stash*)"
     ]
-  }
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": ["dreams-db", "fub"]
 }
