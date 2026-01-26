@@ -434,8 +434,20 @@ def get_filter_options() -> Dict[str, List[str]]:
 
 
 def fetch_properties(added_for: Optional[str] = None, status: Optional[str] = None,
-                      city: Optional[str] = None, county: Optional[str] = None) -> List[Dict[str, Any]]:
-    """Fetch properties from SQLite with optional filters"""
+                      city: Optional[str] = None, county: Optional[str] = None,
+                      sort_by: str = 'price', sort_order: str = 'desc',
+                      limit: Optional[int] = None) -> List[Dict[str, Any]]:
+    """Fetch properties from SQLite with optional filters and server-side sorting"""
+    # Whitelist of allowed sort columns (prevents SQL injection)
+    ALLOWED_SORTS = {
+        'price': 'price', 'address': 'address', 'city': 'city', 'county': 'county',
+        'beds': 'beds', 'baths': 'baths', 'sqft': 'sqft', 'acreage': 'acreage',
+        'status': 'status', 'dom': 'days_on_market', 'year_built': 'year_built',
+        'created_at': 'created_at', 'mls_number': 'mls_number'
+    }
+    sort_column = ALLOWED_SORTS.get(sort_by, 'price')
+    sort_dir = 'ASC' if sort_order == 'asc' else 'DESC'
+
     with db._get_connection() as conn:
         query = 'SELECT * FROM properties WHERE 1=1'
         params = []
@@ -456,7 +468,11 @@ def fetch_properties(added_for: Optional[str] = None, status: Optional[str] = No
             query += ' AND county LIKE ?'
             params.append(f'%{county}%')
 
-        query += ' ORDER BY created_at DESC'
+        # Server-side sorting with NULLS LAST behavior
+        query += f' ORDER BY {sort_column} IS NULL, {sort_column} {sort_dir}'
+
+        if limit:
+            query += f' LIMIT {int(limit)}'
 
         rows = conn.execute(query, params).fetchall()
 
@@ -588,6 +604,15 @@ def properties_list():
     status = request.args.get('status', '')
     city = request.args.get('city', '')
     county = request.args.get('county', '')
+    show_all = request.args.get('show_all', '')
+
+    # Sort parameters (server-side sorting for performance)
+    sort_by = request.args.get('sort', 'price')
+    sort_order = request.args.get('order', 'desc')
+
+    # Default to Active status for nimble loading (unless show_all or other filter set)
+    if not status and not show_all and not added_for:
+        status = 'Active'
 
     # Get dropdown options efficiently (uses indexed DISTINCT queries)
     filter_options = get_filter_options()
@@ -596,12 +621,14 @@ def properties_list():
     counties = filter_options['counties']
     statuses = filter_options['statuses']
 
-    # Fetch filtered properties
+    # Fetch filtered and sorted properties (server-side)
     properties = fetch_properties(
         added_for=added_for if added_for else None,
         status=status if status else None,
         city=city if city else None,
-        county=county if county else None
+        county=county if county else None,
+        sort_by=sort_by,
+        sort_order=sort_order
     )
 
     # Enrich with IDX photos for properties without Notion photos
@@ -610,9 +637,6 @@ def properties_list():
     # Calculate metrics
     metrics = calculate_metrics(properties)
     metrics['status_counts'] = calculate_status_counts(properties)
-
-    # Sort by price descending
-    properties.sort(key=lambda x: x['price'] or 0, reverse=True)
 
     return render_template('dashboard.html',
                          properties=properties,
@@ -625,6 +649,9 @@ def properties_list():
                          selected_status=status,
                          selected_city=city,
                          selected_county=county,
+                         show_all=show_all,
+                         sort_by=sort_by,
+                         sort_order=sort_order,
                          refresh_time=datetime.now().strftime('%B %d, %Y %I:%M %p'))
 
 

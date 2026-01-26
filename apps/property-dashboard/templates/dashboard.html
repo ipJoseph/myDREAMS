@@ -125,6 +125,23 @@
         .progress-modal.error .progress-bar {
             background: var(--alert-red);
         }
+
+        /* Sortable headers */
+        th.sortable {
+            cursor: pointer;
+            user-select: none;
+        }
+        th.sortable:hover {
+            background: var(--color-primary-light);
+        }
+        th.sorted-desc::after {
+            content: ' \25BC';
+            font-size: 10px;
+        }
+        th.sorted-asc::after {
+            content: ' \25B2';
+            font-size: 10px;
+        }
     </style>
 </head>
 <body>
@@ -225,6 +242,9 @@
             {% if metrics.status_counts %}
                 ({% for status, count in metrics.status_counts.items() %}{{ status }}: {{ count }}{% if not loop.last %}, {% endif %}{% endfor %})
             {% endif %}
+            {% if not show_all and selected_status == 'Active' and not selected_client %}
+            <br><a href="?show_all=1" style="font-size: 13px; color: var(--accent-blue);">Show All Statuses</a>
+            {% endif %}
             <br><span id="selectedCount" style="font-size: 13px; color: var(--text-secondary);"><strong>{{ properties|length }}</strong> properties selected</span>
         </div>
         <div class="dreams-results-actions">
@@ -256,23 +276,23 @@
                     <th class="checkbox-col"><input type="checkbox" id="selectAll" checked onchange="toggleSelectAll(this)"></th>
                     <th>#</th>
                     <th>Image</th>
-                    <th data-sort="address">Address</th>
-                    <th data-sort="mls_number">MLS #</th>
+                    <th onclick="sortBy('address')" class="sortable {% if sort_by == 'address' %}sorted-{{ sort_order }}{% endif %}">Address</th>
+                    <th onclick="sortBy('mls_number')" class="sortable {% if sort_by == 'mls_number' %}sorted-{{ sort_order }}{% endif %}">MLS #</th>
                     <th>IDX</th>
-                    <th class="num-col" data-sort="price" data-type="number">Price</th>
-                    <th class="num-col" data-sort="dom" data-type="number">DOM</th>
-                    <th class="num-col" data-sort="beds" data-type="number">Beds</th>
-                    <th class="num-col" data-sort="baths" data-type="number">Baths</th>
-                    <th class="num-col" data-sort="sqft" data-type="number">SqFt</th>
-                    <th class="num-col" data-sort="lot_acres" data-type="number">Lot</th>
-                    <th class="num-col" data-sort="price_per_sqft" data-type="number">$/SqFt</th>
-                    <th data-sort="property_type">Type</th>
-                    <th class="num-col" data-sort="year_built" data-type="number">Year</th>
-                    <th data-sort="county">County</th>
-                    <th data-sort="added_for">Client</th>
-                    <th data-sort="status">Status</th>
-                    <th data-sort="source">Source</th>
-                    <th data-sort="city">City</th>
+                    <th onclick="sortBy('price')" class="num-col sortable {% if sort_by == 'price' %}sorted-{{ sort_order }}{% endif %}">Price</th>
+                    <th onclick="sortBy('dom')" class="num-col sortable {% if sort_by == 'dom' %}sorted-{{ sort_order }}{% endif %}">DOM</th>
+                    <th onclick="sortBy('beds')" class="num-col sortable {% if sort_by == 'beds' %}sorted-{{ sort_order }}{% endif %}">Beds</th>
+                    <th onclick="sortBy('baths')" class="num-col sortable {% if sort_by == 'baths' %}sorted-{{ sort_order }}{% endif %}">Baths</th>
+                    <th onclick="sortBy('sqft')" class="num-col sortable {% if sort_by == 'sqft' %}sorted-{{ sort_order }}{% endif %}">SqFt</th>
+                    <th onclick="sortBy('acreage')" class="num-col sortable {% if sort_by == 'acreage' %}sorted-{{ sort_order }}{% endif %}">Lot</th>
+                    <th class="num-col">$/SqFt</th>
+                    <th>Type</th>
+                    <th onclick="sortBy('year_built')" class="num-col sortable {% if sort_by == 'year_built' %}sorted-{{ sort_order }}{% endif %}">Year</th>
+                    <th onclick="sortBy('county')" class="sortable {% if sort_by == 'county' %}sorted-{{ sort_order }}{% endif %}">County</th>
+                    <th>Client</th>
+                    <th onclick="sortBy('status')" class="sortable {% if sort_by == 'status' %}sorted-{{ sort_order }}{% endif %}">Status</th>
+                    <th>Source</th>
+                    <th onclick="sortBy('city')" class="sortable {% if sort_by == 'city' %}sorted-{{ sort_order }}{% endif %}">City</th>
                 </tr>
             </thead>
             <tbody>
@@ -349,33 +369,45 @@
     </footer>
 
     <script>
+        // Server-side sorting - preserves current filters
+        function sortBy(column) {
+            const params = new URLSearchParams(window.location.search);
+            const currentSort = params.get('sort');
+            const currentOrder = params.get('order') || 'desc';
+
+            // Toggle order if same column, otherwise default desc
+            if (currentSort === column) {
+                params.set('order', currentOrder === 'desc' ? 'asc' : 'desc');
+            } else {
+                params.set('sort', column);
+                params.set('order', 'desc');
+            }
+
+            window.location.search = params.toString();
+        }
+
         function applyFilters() {
             const client = document.getElementById('clientFilter').value;
             const status = document.getElementById('statusFilter').value;
             const city = document.getElementById('cityFilter').value;
             const county = document.getElementById('countyFilter').value;
-            const params = new URLSearchParams();
-
-            if (client) params.set('client', client);
-            if (status) params.set('status', status);
-            if (city) params.set('city', city);
-            if (county) params.set('county', county);
-
-            // Always set a marker param to ensure data loads
-            params.set('_', '1');
-
-            window.location.search = params.toString();
-        }
-
-        // Auto-trigger on initial load if no params (except our marker)
-        document.addEventListener('DOMContentLoaded', function() {
             const params = new URLSearchParams(window.location.search);
-            if (!params.has('_')) {
-                // First visit - trigger a reload with marker
-                params.set('_', '1');
-                window.location.search = params.toString();
-            }
-        });
+
+            // Preserve sort params
+            const sort = params.get('sort');
+            const order = params.get('order');
+
+            // Build new params
+            const newParams = new URLSearchParams();
+            if (client) newParams.set('client', client);
+            if (status) newParams.set('status', status);
+            if (city) newParams.set('city', city);
+            if (county) newParams.set('county', county);
+            if (sort) newParams.set('sort', sort);
+            if (order) newParams.set('order', order);
+
+            window.location.search = newParams.toString();
+        }
 
         // Get MLS numbers from checked rows only
         function getMLSNumbers() {
@@ -835,80 +867,6 @@
             }
         });
 
-        // Table sorting
-        let currentSort = { column: null, direction: null }; // null = unsorted, 'asc', 'desc'
-        let originalOrder = []; // Store original row order
-
-        // Save original order on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            const tbody = document.querySelector('#propertiesTable tbody');
-            if (tbody) {
-                originalOrder = Array.from(tbody.querySelectorAll('tr'));
-            }
-        });
-
-        document.querySelectorAll('th[data-sort]').forEach(th => {
-            th.addEventListener('click', () => sortTable(th));
-        });
-
-        function sortTable(th) {
-            const column = th.dataset.sort;
-            const isNumeric = th.dataset.type === 'number';
-            const table = document.getElementById('propertiesTable');
-            const tbody = table.querySelector('tbody');
-            let rows = Array.from(tbody.querySelectorAll('tr'));
-
-            // Cycle through: null -> asc -> desc -> null
-            if (currentSort.column === column) {
-                if (currentSort.direction === 'asc') {
-                    currentSort.direction = 'desc';
-                } else if (currentSort.direction === 'desc') {
-                    currentSort.direction = null;
-                    currentSort.column = null;
-                } else {
-                    currentSort.direction = 'asc';
-                }
-            } else {
-                currentSort.column = column;
-                currentSort.direction = 'asc';
-            }
-
-            // Update header styling
-            document.querySelectorAll('th').forEach(h => h.classList.remove('sorted-asc', 'sorted-desc'));
-            if (currentSort.direction) {
-                th.classList.add(currentSort.direction === 'asc' ? 'sorted-asc' : 'sorted-desc');
-            }
-
-            // If unsorted, restore original order
-            if (!currentSort.direction) {
-                rows = [...originalOrder];
-            } else {
-                // Get column index
-                const colIndex = Array.from(th.parentElement.children).indexOf(th);
-
-                // Sort rows
-                rows.sort((a, b) => {
-                    let aVal = a.children[colIndex]?.textContent?.trim() || '';
-                    let bVal = b.children[colIndex]?.textContent?.trim() || '';
-
-                    if (isNumeric) {
-                        aVal = parseFloat(aVal.replace(/[$,]/g, '')) || 0;
-                        bVal = parseFloat(bVal.replace(/[$,]/g, '')) || 0;
-                        return currentSort.direction === 'asc' ? aVal - bVal : bVal - aVal;
-                    } else {
-                        return currentSort.direction === 'asc'
-                            ? aVal.localeCompare(bVal)
-                            : bVal.localeCompare(aVal);
-                    }
-                });
-            }
-
-            // Rebuild table
-            rows.forEach((row, i) => {
-                row.querySelector('.row-num').textContent = i + 1;
-                tbody.appendChild(row);
-            });
-        }
     </script>
 </body>
 </html>
