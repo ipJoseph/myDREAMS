@@ -28,7 +28,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.platypus import (
     SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
-    HRFlowable
+    HRFlowable, PageBreak
 )
 from reportlab.lib.enums import TA_CENTER
 
@@ -42,6 +42,7 @@ BRAND_PRIMARY = colors.HexColor("#1e3a5f")  # Deep blue
 BRAND_ACCENT = colors.HexColor("#e85d04")   # Orange
 BRAND_LIGHT = colors.HexColor("#f8f9fa")    # Light gray
 BRAND_SUCCESS = colors.HexColor("#2d6a4f")  # Green
+BRAND_FAVORITE = colors.HexColor("#d4af37") # Gold for favorites
 
 
 def get_lead_from_db(name=None, email=None, lead_id=None):
@@ -79,18 +80,30 @@ def get_lead_from_db(name=None, email=None, lead_id=None):
     return None
 
 
-def get_lead_activities(lead_id, limit=50):
-    """Fetch recent activities for a lead."""
+def get_property_activity(fub_id):
+    """Fetch property view/favorite activity for a lead from contact_events."""
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
     cursor.execute("""
-        SELECT * FROM lead_activities
-        WHERE lead_id = ?
-        ORDER BY activity_date DESC
-        LIMIT ?
-    """, (lead_id, limit))
+        SELECT
+            ce.occurred_at,
+            ce.event_type,
+            ce.property_price,
+            ce.property_mls,
+            p.address,
+            p.city,
+            p.beds,
+            p.baths,
+            p.acreage,
+            p.sqft
+        FROM contact_events ce
+        LEFT JOIN properties p ON ce.property_mls = p.mls_number
+        WHERE ce.contact_id = ?
+          AND ce.event_type IN ('property_view', 'property_favorite')
+        ORDER BY ce.occurred_at DESC
+    """, (fub_id,))
 
     rows = cursor.fetchall()
     conn.close()
@@ -111,6 +124,13 @@ def format_currency(value):
     """Format number as currency."""
     if not value:
         return "N/A"
+    return f"${value:,.0f}"
+
+
+def format_short_currency(value):
+    """Format number as short currency for tables."""
+    if not value:
+        return "-"
     return f"${value:,.0f}"
 
 
@@ -146,6 +166,15 @@ def create_styles():
     ))
 
     styles.add(ParagraphStyle(
+        name='PageTitle',
+        parent=styles['Heading1'],
+        fontSize=20,
+        textColor=BRAND_PRIMARY,
+        spaceAfter=4,
+        fontName='Helvetica-Bold'
+    ))
+
+    styles.add(ParagraphStyle(
         name='LeadBodyText',
         parent=styles['Normal'],
         fontSize=10,
@@ -158,6 +187,13 @@ def create_styles():
         parent=styles['Normal'],
         fontSize=9,
         textColor=colors.gray
+    ))
+
+    styles.add(ParagraphStyle(
+        name='TableCell',
+        parent=styles['Normal'],
+        fontSize=8,
+        textColor=colors.black,
     ))
 
     return styles
@@ -232,6 +268,95 @@ def create_stats_table(stats):
     return table
 
 
+def create_activity_table(activities):
+    """Create the property activity history table."""
+    # Header row
+    header = ['Date', 'Type', 'Address', 'Price', 'Beds', 'Baths', 'Acres']
+    data = [header]
+
+    for activity in activities:
+        # Format date
+        date_str = activity.get('occurred_at', '')
+        if date_str:
+            try:
+                dt = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+                date_display = dt.strftime('%m/%d/%y')
+            except:
+                date_display = date_str[:10] if len(date_str) >= 10 else date_str
+        else:
+            date_display = '-'
+
+        # Format event type
+        event_type = activity.get('event_type', '')
+        if event_type == 'property_favorite':
+            type_display = '★ Fav'
+        elif event_type == 'property_view':
+            type_display = 'View'
+        else:
+            type_display = event_type
+
+        # Format address (truncate if too long)
+        address = activity.get('address') or f"MLS# {activity.get('property_mls', 'N/A')}"
+        if address and len(address) > 35:
+            address = address[:32] + "..."
+
+        # Format other fields
+        price = format_short_currency(activity.get('property_price'))
+        beds = str(int(activity.get('beds'))) if activity.get('beds') else '-'
+        baths = str(activity.get('baths')) if activity.get('baths') else '-'
+        acreage = f"{activity.get('acreage'):.2f}" if activity.get('acreage') else '-'
+
+        data.append([date_display, type_display, address, price, beds, baths, acreage])
+
+    # Column widths: Date, Type, Address, Price, Beds, Baths, Acres
+    col_widths = [0.65*inch, 0.5*inch, 2.6*inch, 0.85*inch, 0.45*inch, 0.45*inch, 0.55*inch]
+
+    table = Table(data, colWidths=col_widths, repeatRows=1)
+
+    # Build style commands
+    style_commands = [
+        # Header styling
+        ('BACKGROUND', (0, 0), (-1, 0), BRAND_PRIMARY),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 9),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+        ('TOPPADDING', (0, 0), (-1, 0), 8),
+
+        # Body styling
+        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 1), (-1, -1), 8),
+        ('BOTTOMPADDING', (0, 1), (-1, -1), 5),
+        ('TOPPADDING', (0, 1), (-1, -1), 5),
+
+        # Alignment
+        ('ALIGN', (0, 0), (0, -1), 'CENTER'),  # Date
+        ('ALIGN', (1, 0), (1, -1), 'CENTER'),  # Type
+        ('ALIGN', (3, 0), (3, -1), 'RIGHT'),   # Price
+        ('ALIGN', (4, 0), (4, -1), 'CENTER'),  # Beds
+        ('ALIGN', (5, 0), (5, -1), 'CENTER'),  # Baths
+        ('ALIGN', (6, 0), (6, -1), 'CENTER'),  # Acres
+
+        # Grid lines
+        ('LINEBELOW', (0, 0), (-1, 0), 1, BRAND_PRIMARY),
+        ('LINEBELOW', (0, 1), (-1, -1), 0.5, colors.HexColor("#e0e0e0")),
+    ]
+
+    # Add alternating row colors and highlight favorites
+    for i in range(1, len(data)):
+        # Alternating background
+        if i % 2 == 0:
+            style_commands.append(('BACKGROUND', (0, i), (-1, i), BRAND_LIGHT))
+
+        # Highlight favorites with gold text in Type column
+        if data[i][1] == '★ Fav':
+            style_commands.append(('TEXTCOLOR', (1, i), (1, i), BRAND_FAVORITE))
+            style_commands.append(('FONTNAME', (1, i), (1, i), 'Helvetica-Bold'))
+
+    table.setStyle(TableStyle(style_commands))
+    return table
+
+
 def generate_insights(lead):
     """Generate key insights based on lead data."""
     insights = []
@@ -298,6 +423,8 @@ def build_pdf(lead):
 
     styles = create_styles()
     story = []
+
+    # ========== PAGE 1: Lead Profile ==========
 
     # Header
     heat_score = lead.get('heat_score', 0) or 0
@@ -417,7 +544,34 @@ def build_pdf(lead):
     story.append(Paragraph(rec, styles['LeadBodyText']))
     story.append(HRFlowable(width="100%", thickness=1, color=BRAND_SUCCESS, spaceBefore=10, spaceAfter=20))
 
-    # Footer
+    # ========== PAGE 2: Activity History ==========
+
+    # Get property activity if lead has FUB ID
+    fub_id = lead.get('fub_id')
+    if fub_id:
+        activities = get_property_activity(fub_id)
+
+        if activities:
+            story.append(PageBreak())
+
+            # Page 2 Header
+            story.append(Paragraph(f"{full_name}", styles['PageTitle']))
+            story.append(Paragraph(f"Property Activity History  •  {len(activities)} activities", styles['SubTitle']))
+            story.append(HRFlowable(width="100%", thickness=2, color=BRAND_PRIMARY, spaceAfter=16))
+
+            # Activity summary
+            favorites = sum(1 for a in activities if a.get('event_type') == 'property_favorite')
+            views = sum(1 for a in activities if a.get('event_type') == 'property_view')
+            story.append(Paragraph(
+                f"<b>{views}</b> property views  •  <b>{favorites}</b> favorites  •  ★ = Favorited",
+                styles['LeadSmallText']
+            ))
+            story.append(Spacer(1, 12))
+
+            # Activity table
+            story.append(create_activity_table(activities))
+
+    # Footer on last page
     story.append(Spacer(1, 20))
     footer_style = ParagraphStyle(
         'Footer',
