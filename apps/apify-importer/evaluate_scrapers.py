@@ -63,7 +63,9 @@ class ApifyClient:
             return None
 
         # Start the actor run
-        url = f"{self.base_url}/acts/{actor_id}/runs"
+        # Apify API uses tilde separator for actor IDs: username~actor-name
+        actor_id_api = actor_id.replace('/', '~')
+        url = f"{self.base_url}/acts/{actor_id_api}/runs"
         headers = {'Authorization': f'Bearer {self.token}'}
 
         logger.info(f"Starting actor: {actor_id}")
@@ -214,11 +216,10 @@ class ScraperEvaluator:
 
         if scraper_key == 'redfin_triangle':
             # tri_angle/redfin-search uses search URLs
-            # For evaluation, we'll search by county
+            # Use standard Redfin city search URLs with object format
             return {
                 'searchUrls': [
-                    f"https://www.redfin.com/county/{info['redfin_region']}/NC/{name}-County/filter/property-type=house,min-beds=1"
-                    for name, info in list(WNC_COUNTIES.items())[:3]  # Just 3 counties for test
+                    {'url': 'https://www.redfin.com/city/570/NC/Asheville'},
                 ],
                 'maxItems': 50,
             }
@@ -247,9 +248,12 @@ class ScraperEvaluator:
         """Build input for a Zillow scraper."""
 
         if scraper_key == 'zillow_maxcopell':
-            # maxcopell/zillow-scraper
+            # maxcopell/zillow-scraper - uses Zillow search URLs
+            # Need filter URL like: https://www.zillow.com/asheville-nc/?searchQueryState=...
             return {
-                'searchTerms': ['Asheville, NC', 'Brevard, NC', 'Franklin, NC'],
+                'searchUrls': [
+                    'https://www.zillow.com/asheville-nc/homes/',
+                ],
                 'maxItems': 50,
             }
 
@@ -372,9 +376,11 @@ class ScraperEvaluator:
             if beds and beds > VALIDATION_RULES['beds_max']:
                 quality_issues.append(f"High beds count: {beds}")
 
-            # Check price
+            # Check price (handle dict format like {"value": 500000})
             price = r.get('price') or r.get('listPrice')
-            if price:
+            if isinstance(price, dict):
+                price = price.get('value') or price.get('amount')
+            if price and isinstance(price, (int, float)):
                 if price < VALIDATION_RULES['price_min']:
                     quality_issues.append(f"Low price: ${price}")
                 elif price > VALIDATION_RULES['price_max']:
@@ -401,15 +407,15 @@ class ScraperEvaluator:
     def _get_field_variants(self, field: str) -> List[str]:
         """Get possible field name variants for a standard field."""
         variants = {
-            'address': ['address', 'streetAddress', 'formattedAddress', 'street_address'],
+            'address': ['address', 'streetAddress', 'formattedAddress', 'street_address', 'streetLine'],
             'city': ['city', 'cityName'],
             'state': ['state', 'stateCode'],
             'zip': ['zip', 'zipCode', 'postalCode', 'zipcode'],
             'price': ['price', 'listPrice', 'list_price', 'currentPrice'],
-            'status': ['status', 'homeStatus', 'listingStatus', 'propertyStatus'],
+            'status': ['status', 'homeStatus', 'listingStatus', 'propertyStatus', 'mlsStatus'],
             'beds': ['beds', 'bedrooms', 'bedroomCount', 'bedroom_count'],
             'baths': ['baths', 'bathrooms', 'bathroomCount', 'bathroom_count'],
-            'sqft': ['sqft', 'livingArea', 'squareFeet', 'square_feet', 'buildingSize'],
+            'sqft': ['sqft', 'livingArea', 'squareFeet', 'square_feet', 'buildingSize', 'sqFt'],
             'photo_url': ['photo', 'photos', 'imgSrc', 'primaryPhoto', 'photoUrl'],
             'days_on_market': ['daysOnMarket', 'days_on_market', 'dom', 'timeOnZillow'],
             'views': ['views', 'pageViewCount', 'viewCount'],

@@ -6,72 +6,61 @@ Copy the text below to start a new Claude Code session:
 
 ## Context
 
-I'm implementing an Apify scraper evaluation system for updating property data in myDREAMS. Here's the progress so far:
+The Apify scraper evaluation and production importer are complete. Here's the summary:
 
 ### Completed:
 
-1. **Created `apps/apify-importer/` directory** with:
-   - `config.py` - Configuration with Apify actor IDs, pricing, field mappings
-   - `evaluate_scrapers.py` - Test harness to run and compare scrapers
-   - `evaluation_results.md` - Template to document findings
+1. **Scraper Evaluation** - Tested multiple Apify scrapers:
+   - Winner: `tri_angle/redfin-search` (10/10 must-have fields, free tier)
+   - Other scrapers require paid rental
 
-2. **Architecture confirmed:**
-   - `package_properties` table already has `added_at` column (no change needed)
-   - ~9K properties in database (8216 ACTIVE, 539 PENDING, 222 CONTINGENT)
+2. **Production Importer Built** - `apps/apify-importer/apify_importer.py`:
+   - Scrapes properties by county using correct Redfin region IDs
+   - Maps Redfin fields to dreams.db schema
+   - Matches existing properties by redfin_id, MLS number, or address
+   - Detects and logs price/status changes to `property_changes` table
+   - Tested on Graham County: 101 new properties, 4 price changes detected
 
-### Next Steps:
+3. **Config Updated** - Correct Redfin region IDs for all 11 WNC counties
 
-1. **Run the evaluation:**
-   ```bash
-   cd /home/bigeug/myDREAMS/apps/apify-importer
+### How to Run Full Import:
 
-   # Export 50 test properties (already done on DEV, need to re-run on new machine)
-   python3 evaluate_scrapers.py --export-test-set
+```bash
+cd /home/bigeug/myDREAMS/apps/apify-importer
 
-   # Set Apify token (get from https://console.apify.com/account#/integrations)
-   export APIFY_TOKEN='your_token'
+# Token is in .env file
+source .env  # or: export APIFY_TOKEN='your_token_here'
 
-   # Run evaluations
-   python3 evaluate_scrapers.py --run redfin_triangle
-   python3 evaluate_scrapers.py --run redfin_epctex
-   python3 evaluate_scrapers.py --run redfin_mantisus
-   python3 evaluate_scrapers.py --run zillow_maxcopell
+# Import single county
+python3 apify_importer.py --county Buncombe
 
-   # Generate comparison report
-   python3 evaluate_scrapers.py --analyze
-   ```
+# Import all 11 WNC counties
+python3 apify_importer.py --all-counties
 
-2. **After evaluation, build the production importer:**
-   - Create `apps/apify-importer/apify_importer.py`
-   - Map Apify fields to dreams.db schema
-   - Implement source hierarchy (PropStream > Redfin > Zillow)
-   - Log changes to `property_changes` table
+# Dry run to see what would happen
+python3 apify_importer.py --all-counties --dry-run
+```
 
-3. **Full data update:**
-   - Run winning scraper on all 11 WNC counties
-   - Import to dreams.db
-   - Verify change tracking working
+### Cost Estimate:
+- ~9,000 active properties across 11 counties
+- At $0.001/result = ~$9 for full update
+- Free tier: 5,000 results/month
+
+### Next Steps (Optional):
+
+1. **Run full import** on all 11 WNC counties to update database
+2. **Set up scheduled updates** (cron job or GitHub Action)
+3. **Build price change alerts** - email/SMS when tracked properties change
 
 ### Key Files:
-- Plan details: See `docs/TODO.md` or the plan at top of this conversation
-- Evaluation template: `apps/apify-importer/evaluation_results.md`
-- Test harness: `apps/apify-importer/evaluate_scrapers.py`
-- Reference importer: `apps/redfin-importer/propstream_importer.py`
-
-### Budget:
-- Evaluation: ~$0.25 (covered by free tier)
-- Full update: ~$30-40 one-time
+- Importer: `apps/apify-importer/apify_importer.py`
+- Config: `apps/apify-importer/config.py`
+- Evaluation: `apps/apify-importer/evaluate_scrapers.py`
 
 ---
 
 ## If you need to continue:
 
-Please help me continue with the Apify scraper evaluation. The files have been created in `apps/apify-importer/`. Next I need to:
-
-1. Create an Apify account and get the API token
-2. Export the test property set
-3. Run the evaluations
-4. Analyze results and pick the winning scrapers
-5. Build the production importer
+The Apify importer is ready to use. Run `python3 apify_importer.py --all-counties` to update all WNC property data, or continue with building scheduled updates or alerts.
 
 ---

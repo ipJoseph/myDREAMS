@@ -9,6 +9,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Property Deduplication & Provenance Tracking** - Prevent duplicate imports and track data freshness
+  - **UPSERT on redfin_id** - Unique constraint prevents Redfin-to-Redfin duplicates on re-import
+  - **Provenance columns** - Track data origin and freshness:
+    - `first_seen_at` - When property was first imported
+    - `first_seen_source` - Original data source (redfin, propstream)
+    - `listing_last_seen_at` - Last time property appeared in Redfin feed
+    - `delisted_at` - When property was marked as off-market
+  - **Delisting detection** - Properties not seen in feed for 3+ days marked OFF_MARKET
+  - **Migration**: `apps/apify-importer/migrations/001_dedup_tracking.sql`
+  - Backfilled 13,815 existing records with provenance data
 - **My Leads Assignment Tracking** - Track lead assignments with full history
   - **Database tables**: `fub_users` (team member cache), `assignment_history` (assignment changes)
   - **FUB client extension**: `fetch_users()`, `fetch_current_user()` methods

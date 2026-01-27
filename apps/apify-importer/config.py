@@ -38,19 +38,19 @@ PRICING = {
     'zillow_detail': 0.002,        # Estimated
 }
 
-# WNC Counties and their Redfin region codes
+# WNC Counties and their Redfin region codes (verified from redfin.com URLs)
 WNC_COUNTIES = {
-    'Buncombe': {'redfin_region': '1380', 'main_city': 'Asheville'},
-    'Henderson': {'redfin_region': '1416', 'main_city': 'Hendersonville'},
-    'Haywood': {'redfin_region': '1412', 'main_city': 'Waynesville'},
-    'Madison': {'redfin_region': '1459', 'main_city': 'Marshall'},
-    'Transylvania': {'redfin_region': '1535', 'main_city': 'Brevard'},
-    'Jackson': {'redfin_region': '1426', 'main_city': 'Sylva'},
-    'Macon': {'redfin_region': '1456', 'main_city': 'Franklin'},
-    'Swain': {'redfin_region': '1522', 'main_city': 'Bryson City'},
-    'Cherokee': {'redfin_region': '1388', 'main_city': 'Murphy'},
-    'Clay': {'redfin_region': '1391', 'main_city': 'Hayesville'},
-    'Graham': {'redfin_region': '1407', 'main_city': 'Robbinsville'},
+    'Buncombe': {'redfin_region': '2017', 'main_city': 'Asheville'},
+    'Henderson': {'redfin_region': '2051', 'main_city': 'Hendersonville'},
+    'Haywood': {'redfin_region': '2050', 'main_city': 'Waynesville'},
+    'Madison': {'redfin_region': '2064', 'main_city': 'Marshall'},
+    'Transylvania': {'redfin_region': '2094', 'main_city': 'Brevard'},
+    'Jackson': {'redfin_region': '2056', 'main_city': 'Sylva'},
+    'Macon': {'redfin_region': '2063', 'main_city': 'Franklin'},
+    'Swain': {'redfin_region': '2093', 'main_city': 'Bryson City'},
+    'Cherokee': {'redfin_region': '2026', 'main_city': 'Murphy'},
+    'Clay': {'redfin_region': '2028', 'main_city': 'Hayesville'},
+    'Graham': {'redfin_region': '2044', 'main_city': 'Robbinsville'},
 }
 
 # Required fields we need from scrapers
