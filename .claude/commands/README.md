@@ -6,6 +6,7 @@ Custom slash commands for common myDREAMS development tasks.
 
 | Command | Description |
 |---------|-------------|
+| `/pdf` | Generate lead profile PDF |
 | `/test-writer` | Generate pytest tests for code |
 | `/code-review` | Security and quality analysis |
 | `/docs-update` | Update CHANGELOG, ROADMAP, TODO |
@@ -16,6 +17,7 @@ Custom slash commands for common myDREAMS development tasks.
 Type the command in Claude Code:
 
 ```
+/pdf Steve Legg
 /test-writer src/core/database.py
 /code-review apps/property-api/
 /docs-update
@@ -23,6 +25,13 @@ Type the command in Claude Code:
 ```
 
 ## Command Details
+
+### /pdf
+Generates professional PDF lead profiles.
+- Searches lead by name, email, or ID
+- Creates visually formatted PDF with scores, insights, recommendations
+- Outputs to `output/<lead_name>_profile.pdf`
+- Example: `/pdf Katie Boggs`
 
 ### /test-writer
 Generates pytest tests following project conventions.
@@ -55,6 +64,7 @@ Deploys code from DEV to PRD.
 ## Skill Files
 
 Detailed instructions are in `.claude/skills/`:
+- `pdf.md`
 - `test-writer.md`
 - `code-review.md`
 - `docs-updater.md`
