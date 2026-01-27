@@ -1,0 +1,5 @@
+# Evaluation output files (generated, not tracked)
+evaluation_output/
+
+# Don't commit API tokens
+.env
