@@ -25,20 +25,20 @@ I'm implementing an Apify scraper evaluation system for updating property data i
    ```bash
    cd /home/bigeug/myDREAMS/apps/apify-importer
 
-   # Export 50 test properties
-   python evaluate_scrapers.py --export-test-set
+   # Export 50 test properties (already done on DEV, need to re-run on new machine)
+   python3 evaluate_scrapers.py --export-test-set
 
    # Set Apify token (get from https://console.apify.com/account#/integrations)
    export APIFY_TOKEN='your_token'
 
    # Run evaluations
-   python evaluate_scrapers.py --run redfin_triangle
-   python evaluate_scrapers.py --run redfin_epctex
-   python evaluate_scrapers.py --run redfin_mantisus
-   python evaluate_scrapers.py --run zillow_maxcopell
+   python3 evaluate_scrapers.py --run redfin_triangle
+   python3 evaluate_scrapers.py --run redfin_epctex
+   python3 evaluate_scrapers.py --run redfin_mantisus
+   python3 evaluate_scrapers.py --run zillow_maxcopell
 
    # Generate comparison report
-   python evaluate_scrapers.py --analyze
+   python3 evaluate_scrapers.py --analyze
    ```
 
 2. **After evaluation, build the production importer:**
