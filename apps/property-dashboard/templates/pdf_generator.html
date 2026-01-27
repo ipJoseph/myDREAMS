@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lead Profile PDF Generator | DREAMS</title>
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="{{ favicon }}">
+    <!-- Shared Design System -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='shared/css/dreams.css') }}">
+    <style>
+        .generator-container {
+            max-width: 600px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        .generator-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            padding: 32px;
+        }
+
+        .generator-header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .generator-header h1 {
+            color: var(--primary);
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+
+        .generator-header p {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .search-container {
+            position: relative;
+            margin-bottom: 24px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 14px 16px;
+            padding-left: 44px;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            font-size: 16px;
+            transition: all 0.2s;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.1);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+            font-size: 18px;
+        }
+
+        .dropdown-container {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+            max-height: 400px;
+            overflow-y: auto;
+            z-index: 100;
+            display: none;
+        }
+
+        .dropdown-container.active {
+            display: block;
+        }
+
+        .dropdown-item {
+            padding: 12px 16px;
+            cursor: pointer;
+            border-bottom: 1px solid var(--border);
+            transition: background 0.15s;
+        }
+
+        .dropdown-item:last-child {
+            border-bottom: none;
+        }
+
+        .dropdown-item:hover {
+            background: var(--bg-secondary);
+        }
+
+        .dropdown-item.selected {
+            background: var(--primary);
+            color: white;
+        }
+
+        .dropdown-item.selected .lead-meta {
+            color: rgba(255,255,255,0.8);
+        }
+
+        .lead-name {
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+
+        .lead-meta {
+            font-size: 12px;
+            color: var(--text-secondary);
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .lead-meta span {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .heat-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .heat-hot {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+
+        .heat-warm {
+            background: #fef3c7;
+            color: #d97706;
+        }
+
+        .heat-cold {
+            background: #e0f2fe;
+            color: #0284c7;
+        }
+
+        .selected-lead {
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 24px;
+            display: none;
+        }
+
+        .selected-lead.active {
+            display: block;
+        }
+
+        .selected-lead-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+        }
+
+        .selected-lead-name {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .clear-btn {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 4px;
+            font-size: 18px;
+        }
+
+        .clear-btn:hover {
+            color: var(--danger);
+        }
+
+        .selected-lead-details {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            font-size: 13px;
+        }
+
+        .selected-lead-details span {
+            color: var(--text-secondary);
+        }
+
+        .selected-lead-details strong {
+            color: var(--text-primary);
+        }
+
+        .generate-btn {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, var(--primary), #2d4a6f);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .generate-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(30, 58, 95, 0.3);
+        }
+
+        .generate-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .generate-btn.loading {
+            pointer-events: none;
+        }
+
+        .generate-btn .spinner {
+            display: none;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        .generate-btn.loading .spinner {
+            display: block;
+        }
+
+        .generate-btn.loading .btn-text {
+            display: none;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .result-container {
+            margin-top: 24px;
+            padding: 16px;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .result-container.success {
+            display: block;
+            background: #ecfdf5;
+            border: 1px solid #10b981;
+        }
+
+        .result-container.error {
+            display: block;
+            background: #fef2f2;
+            border: 1px solid #ef4444;
+        }
+
+        .result-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+
+        .result-container.success .result-header {
+            color: #059669;
+        }
+
+        .result-container.error .result-header {
+            color: #dc2626;
+        }
+
+        .download-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            background: #059669;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+
+        .download-btn:hover {
+            background: #047857;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+
+        .back-link:hover {
+            color: var(--primary);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+
+        .loading-state {
+            text-align: center;
+            padding: 20px;
+            color: var(--text-secondary);
+        }
+
+        .recent-header {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 8px 16px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+        }
+    </style>
+</head>
+<body>
+    <div class="generator-container">
+        <a href="/" class="back-link">
+            <span>←</span> Back to Dashboard
+        </a>
+
+        <div class="generator-card">
+            <div class="generator-header">
+                <h1>📄 Lead Profile PDF</h1>
+                <p>Generate a professional PDF profile for any lead</p>
+            </div>
+
+            <div class="search-container">
+                <span class="search-icon">🔍</span>
+                <input
+                    type="text"
+                    class="search-input"
+                    id="leadSearch"
+                    placeholder="Search leads by name, email, or phone..."
+                    autocomplete="off"
+                >
+                <div class="dropdown-container" id="dropdown">
+                    <div class="recent-header">Recent Activity</div>
+                    <div id="dropdownContent"></div>
+                </div>
+            </div>
+
+            <div class="selected-lead" id="selectedLead">
+                <div class="selected-lead-header">
+                    <div class="selected-lead-name" id="selectedName"></div>
+                    <button class="clear-btn" id="clearBtn" title="Clear selection">✕</button>
+                </div>
+                <div class="selected-lead-details">
+                    <div><span>Email:</span> <strong id="selectedEmail"></strong></div>
+                    <div><span>Phone:</span> <strong id="selectedPhone"></strong></div>
+                    <div><span>Heat Score:</span> <strong id="selectedHeat"></strong></div>
+                    <div><span>Stage:</span> <strong id="selectedStage"></strong></div>
+                </div>
+            </div>
+
+            <button class="generate-btn" id="generateBtn" disabled>
+                <span class="spinner"></span>
+                <span class="btn-text">📄 Generate PDF</span>
+            </button>
+
+            <div class="result-container" id="resultContainer">
+                <div class="result-header">
+                    <span id="resultIcon"></span>
+                    <span id="resultMessage"></span>
+                </div>
+                <div id="resultActions"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const searchInput = document.getElementById('leadSearch');
+        const dropdown = document.getElementById('dropdown');
+        const dropdownContent = document.getElementById('dropdownContent');
+        const selectedLeadDiv = document.getElementById('selectedLead');
+        const generateBtn = document.getElementById('generateBtn');
+        const resultContainer = document.getElementById('resultContainer');
+
+        let selectedLead = null;
+        let leads = [];
+        let debounceTimer = null;
+
+        // Load initial leads (sorted by recent activity)
+        async function loadInitialLeads() {
+            dropdownContent.innerHTML = '<div class="loading-state">Loading leads...</div>';
+
+            try {
+                const response = await fetch('/api/leads/search?limit=50');
+                const data = await response.json();
+
+                if (data.success) {
+                    leads = data.leads;
+                    renderDropdown(leads);
+                }
+            } catch (error) {
+                dropdownContent.innerHTML = '<div class="empty-state">Error loading leads</div>';
+            }
+        }
+
+        // Search leads
+        async function searchLeads(query) {
+            try {
+                const response = await fetch(`/api/leads/search?q=${encodeURIComponent(query)}&limit=30`);
+                const data = await response.json();
+
+                if (data.success) {
+                    leads = data.leads;
+                    renderDropdown(leads, query);
+                }
+            } catch (error) {
+                dropdownContent.innerHTML = '<div class="empty-state">Error searching leads</div>';
+            }
+        }
+
+        // Render dropdown items
+        function renderDropdown(leads, highlightQuery = '') {
+            if (leads.length === 0) {
+                dropdownContent.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🔍</div>
+                        <div>No leads found</div>
+                    </div>
+                `;
+                return;
+            }
+
+            dropdownContent.innerHTML = leads.map(lead => {
+                const heatClass = lead.heat_score >= 70 ? 'heat-hot' :
+                                  lead.heat_score >= 40 ? 'heat-warm' : 'heat-cold';
+                const heatEmoji = lead.heat_score >= 70 ? '🔥' :
+                                  lead.heat_score >= 40 ? '🌡️' : '❄️';
+
+                let name = `${lead.first_name || ''} ${lead.last_name || ''}`.trim();
+                if (highlightQuery && highlightQuery.length >= 2) {
+                    const regex = new RegExp(`(${highlightQuery})`, 'gi');
+                    name = name.replace(regex, '<mark>$1</mark>');
+                }
+
+                const lastActivity = lead.days_since_activity !== null
+                    ? (lead.days_since_activity === 0 ? 'Today' :
+                       lead.days_since_activity === 1 ? 'Yesterday' :
+                       `${lead.days_since_activity} days ago`)
+                    : 'No activity';
+
+                return `
+                    <div class="dropdown-item" data-id="${lead.id}" data-fub-id="${lead.fub_id || ''}">
+                        <div class="lead-name">${name}</div>
+                        <div class="lead-meta">
+                            <span class="heat-badge ${heatClass}">${heatEmoji} ${lead.heat_score || 0}</span>
+                            <span>📧 ${lead.email || 'No email'}</span>
+                            <span>🕐 ${lastActivity}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            // Add click handlers
+            dropdownContent.querySelectorAll('.dropdown-item').forEach(item => {
+                item.addEventListener('click', () => selectLead(item.dataset.id));
+            });
+        }
+
+        // Select a lead
+        function selectLead(leadId) {
+            selectedLead = leads.find(l => l.id === leadId);
+
+            if (selectedLead) {
+                document.getElementById('selectedName').textContent =
+                    `${selectedLead.first_name || ''} ${selectedLead.last_name || ''}`.trim();
+                document.getElementById('selectedEmail').textContent = selectedLead.email || 'N/A';
+                document.getElementById('selectedPhone').textContent = formatPhone(selectedLead.phone) || 'N/A';
+                document.getElementById('selectedHeat').textContent =
+                    `${selectedLead.heat_score || 0} ${selectedLead.heat_score >= 70 ? '🔥' : selectedLead.heat_score >= 40 ? '🌡️' : '❄️'}`;
+                document.getElementById('selectedStage').textContent = selectedLead.stage || 'N/A';
+
+                selectedLeadDiv.classList.add('active');
+                generateBtn.disabled = false;
+                dropdown.classList.remove('active');
+                searchInput.value = `${selectedLead.first_name || ''} ${selectedLead.last_name || ''}`.trim();
+
+                // Hide any previous results
+                resultContainer.className = 'result-container';
+            }
+        }
+
+        // Clear selection
+        document.getElementById('clearBtn').addEventListener('click', () => {
+            selectedLead = null;
+            selectedLeadDiv.classList.remove('active');
+            generateBtn.disabled = true;
+            searchInput.value = '';
+            resultContainer.className = 'result-container';
+        });
+
+        // Format phone number
+        function formatPhone(phone) {
+            if (!phone) return null;
+            const digits = phone.toString().replace(/\D/g, '');
+            if (digits.length === 10) {
+                return `(${digits.slice(0,3)}) ${digits.slice(3,6)}-${digits.slice(6)}`;
+            }
+            return phone;
+        }
+
+        // Search input handlers
+        searchInput.addEventListener('focus', () => {
+            if (leads.length === 0) {
+                loadInitialLeads();
+            }
+            dropdown.classList.add('active');
+        });
+
+        searchInput.addEventListener('input', (e) => {
+            const query = e.target.value.trim();
+
+            clearTimeout(debounceTimer);
+
+            if (query.length < 2) {
+                // Show recent leads
+                loadInitialLeads();
+                document.querySelector('.recent-header').style.display = 'block';
+            } else {
+                document.querySelector('.recent-header').style.display = 'none';
+                debounceTimer = setTimeout(() => searchLeads(query), 300);
+            }
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.search-container')) {
+                dropdown.classList.remove('active');
+            }
+        });
+
+        // Generate PDF
+        generateBtn.addEventListener('click', async () => {
+            if (!selectedLead) return;
+
+            generateBtn.classList.add('loading');
+            resultContainer.className = 'result-container';
+
+            try {
+                const response = await fetch(`/api/pdf/generate/${selectedLead.id}`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    resultContainer.className = 'result-container success';
+                    document.getElementById('resultIcon').textContent = '✅';
+                    document.getElementById('resultMessage').textContent = 'PDF Generated Successfully!';
+                    document.getElementById('resultActions').innerHTML = `
+                        <a href="${data.download_url}" class="download-btn" target="_blank">
+                            📥 Download PDF
+                        </a>
+                        <p style="margin-top: 12px; font-size: 13px; color: #059669;">
+                            ${data.filename}
+                        </p>
+                    `;
+                } else {
+                    throw new Error(data.error || 'Failed to generate PDF');
+                }
+            } catch (error) {
+                resultContainer.className = 'result-container error';
+                document.getElementById('resultIcon').textContent = '❌';
+                document.getElementById('resultMessage').textContent = 'Error Generating PDF';
+                document.getElementById('resultActions').innerHTML = `
+                    <p style="color: #dc2626; font-size: 13px;">${error.message}</p>
+                `;
+            } finally {
+                generateBtn.classList.remove('loading');
+            }
+        });
+
+        // Load initial leads on page load
+        loadInitialLeads();
+    </script>
+</body>
+</html>

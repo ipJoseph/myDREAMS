@@ -2957,5 +2957,158 @@ def api_update_setting(key):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+# ==========================================
+# PDF Generator Routes
+# ==========================================
+
+@app.route('/pdf-generator')
+@requires_auth
+def pdf_generator():
+    """PDF generator page for creating lead profile PDFs."""
+    return render_template('pdf_generator.html')
+
+
+@app.route('/api/leads/search')
+@requires_auth
+def api_leads_search():
+    """API endpoint to search leads for PDF generator dropdown."""
+    db = get_db()
+    query = request.args.get('q', '').strip()
+    limit = min(int(request.args.get('limit', 50)), 100)
+
+    try:
+        with db._get_connection() as conn:
+            if query and len(query) >= 2:
+                # Search by name, email, or phone
+                sql = '''
+                    SELECT id, fub_id, first_name, last_name, email, phone,
+                           stage, heat_score, priority_score, days_since_activity
+                    FROM leads
+                    WHERE first_name LIKE ? OR last_name LIKE ?
+                       OR email LIKE ? OR phone LIKE ?
+                    ORDER BY
+                        CASE WHEN days_since_activity IS NULL THEN 1 ELSE 0 END,
+                        days_since_activity ASC,
+                        heat_score DESC
+                    LIMIT ?
+                '''
+                search_term = f'%{query}%'
+                rows = conn.execute(sql, (search_term, search_term, search_term, search_term, limit)).fetchall()
+            else:
+                # Return leads sorted by most recent activity
+                sql = '''
+                    SELECT id, fub_id, first_name, last_name, email, phone,
+                           stage, heat_score, priority_score, days_since_activity
+                    FROM leads
+                    WHERE stage NOT IN ('Trash', 'Agents/Vendors/Lendors')
+                    ORDER BY
+                        CASE WHEN days_since_activity IS NULL THEN 1 ELSE 0 END,
+                        days_since_activity ASC,
+                        heat_score DESC
+                    LIMIT ?
+                '''
+                rows = conn.execute(sql, (limit,)).fetchall()
+
+            leads = []
+            for row in rows:
+                leads.append({
+                    'id': row[0],
+                    'fub_id': row[1],
+                    'first_name': row[2],
+                    'last_name': row[3],
+                    'email': row[4],
+                    'phone': row[5],
+                    'stage': row[6],
+                    'heat_score': row[7] or 0,
+                    'priority_score': row[8] or 0,
+                    'days_since_activity': row[9]
+                })
+
+            return jsonify({
+                'success': True,
+                'leads': leads,
+                'count': len(leads)
+            })
+
+    except Exception as e:
+        logger.error(f"Error searching leads: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/pdf/generate/<lead_id>', methods=['POST'])
+@requires_auth
+def api_generate_pdf(lead_id):
+    """API endpoint to generate a lead profile PDF."""
+    try:
+        # Run the PDF generator script
+        script_path = PROJECT_ROOT / 'scripts' / 'generate_lead_pdf.py'
+        venv_python = PROJECT_ROOT / '.venv' / 'bin' / 'python3'
+
+        # Use venv python if available, otherwise system python
+        python_cmd = str(venv_python) if venv_python.exists() else 'python3'
+
+        result = subprocess.run(
+            [python_cmd, str(script_path), '--id', str(lead_id)],
+            capture_output=True,
+            text=True,
+            cwd=str(PROJECT_ROOT),
+            timeout=30
+        )
+
+        if result.returncode != 0:
+            error_msg = result.stderr.strip() or 'Unknown error generating PDF'
+            logger.error(f"PDF generation failed: {error_msg}")
+            return jsonify({'success': False, 'error': error_msg}), 500
+
+        # Parse output to get filename
+        output_lines = result.stdout.strip().split('\n')
+        pdf_path = None
+        for line in output_lines:
+            if 'PDF created:' in line:
+                pdf_path = line.split('PDF created:')[1].strip()
+                break
+
+        if not pdf_path:
+            return jsonify({'success': False, 'error': 'Could not determine PDF path'}), 500
+
+        # Get just the filename
+        filename = os.path.basename(pdf_path)
+
+        return jsonify({
+            'success': True,
+            'filename': filename,
+            'download_url': f'/pdf/download/{filename}'
+        })
+
+    except subprocess.TimeoutExpired:
+        return jsonify({'success': False, 'error': 'PDF generation timed out'}), 500
+    except Exception as e:
+        logger.error(f"Error generating PDF: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/pdf/download/<filename>')
+@requires_auth
+def download_pdf(filename):
+    """Serve generated PDF files for download."""
+    from flask import send_file
+
+    # Security: ensure filename is safe
+    if '..' in filename or '/' in filename:
+        return jsonify({'error': 'Invalid filename'}), 400
+
+    pdf_path = PROJECT_ROOT / 'output' / filename
+
+    if not pdf_path.exists():
+        return jsonify({'error': 'PDF not found'}), 404
+
+    return send_file(
+        pdf_path,
+        mimetype='application/pdf',
+        as_attachment=True,
+        download_name=filename
+    )
+
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001, debug=True)
