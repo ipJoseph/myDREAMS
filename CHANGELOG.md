@@ -9,6 +9,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Lead Reassignment Tracking** - Track leads that get reassigned away (round-robin timeout, transfers)
+  - **New database columns**: `reassigned_at`, `reassigned_from_user_id`, `reassigned_reason`
+  - **Detection during sync**: Automatically detects when leads disappear from your FUB assignments
+  - **"Leads Reassigned" section in daily email**: Shows leads lost in last 7 days with reason
+  - **PRD sync frequency doubled**: Now syncs at 6am AND 6pm to catch fast-moving round-robin leads
+  - **Fix**: FUB API field mapping (`assignedUserId` instead of `ownerId`)
+
 - **Property Deduplication & Provenance Tracking** - Prevent duplicate imports and track data freshness
   - **UPSERT on redfin_id** - Unique constraint prevents Redfin-to-Redfin duplicates on re-import
   - **Provenance columns** - Track data origin and freshness:
