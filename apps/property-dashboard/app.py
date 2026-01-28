@@ -74,13 +74,28 @@ DREAMS_ENV = os.getenv('DREAMS_ENV', 'dev').lower()
 # Client Portfolio Password (simple key-based access)
 CLIENT_PORTFOLIO_KEY = os.getenv('CLIENT_PORTFOLIO_KEY', 'dreams2026')
 
+# Current user configuration (for filtering contacts)
+CURRENT_USER_ID = int(os.getenv('FUB_MY_USER_ID', 8))  # Default: Joseph Williams
+CURRENT_USER_NAME = os.getenv('FUB_MY_USER_NAME', 'Joseph Williams')
+
+# View definitions for contact filtering
+CONTACT_VIEWS = {
+    'my_leads': {'label': 'My Leads', 'description': 'Contacts assigned to you'},
+    'team': {'label': 'Team', 'description': 'All team contacts (excl. ponds)'},
+    'ponds': {'label': 'Ponds', 'description': 'Pond contacts (Ava Cares)'},
+    'agents': {'label': 'Agents/Vendors', 'description': 'Agents, vendors, and lenders'},
+    'all': {'label': 'All Contacts', 'description': 'Everyone in the database'},
+}
+
 
 @app.context_processor
 def inject_globals():
     """Inject global variables into all templates"""
     return {
         'dreams_env': DREAMS_ENV,
-        'favicon': f'/static/favicon-{DREAMS_ENV}.svg'
+        'favicon': f'/static/favicon-{DREAMS_ENV}.svg',
+        'current_user_name': CURRENT_USER_NAME,
+        'contact_views': CONTACT_VIEWS,
     }
 
 
@@ -586,6 +601,11 @@ def home():
     """Unified dashboard home (requires authentication)"""
     db = get_db()
 
+    # Get view filter from query params (default to 'my_leads')
+    current_view = request.args.get('view', 'my_leads')
+    if current_view not in CONTACT_VIEWS:
+        current_view = 'my_leads'
+
     # Get property stats
     all_properties = fetch_properties()
     property_metrics = calculate_metrics(all_properties)
@@ -596,11 +616,16 @@ def home():
         'avg_price': "${:,.0f}".format(property_metrics.get('avg_price', 0)) if property_metrics.get('avg_price') else '--'
     }
 
-    # Get contact stats
-    contact_stats = db.get_contact_stats()
+    # Get contact stats (filtered by view)
+    contact_stats = db.get_contact_stats(user_id=CURRENT_USER_ID, view=current_view)
 
-    # Get top priority contacts
-    top_contacts = db.get_contacts_by_priority(min_priority=0, limit=10)
+    # Get top priority contacts (filtered by view)
+    top_contacts = db.get_contacts_by_priority(
+        min_priority=0,
+        limit=10,
+        user_id=CURRENT_USER_ID,
+        view=current_view
+    )
 
     # Count actions due (simplified - contacts with next_action set)
     actions_due = sum(1 for c in top_contacts if c.get('next_action'))
@@ -616,6 +641,7 @@ def home():
                          actions_due=actions_due,
                          todays_changes=todays_changes,
                          change_summary=change_summary,
+                         current_view=current_view,
                          refresh_time=datetime.now().strftime('%B %d, %Y %I:%M %p'))
 
 
@@ -1068,6 +1094,11 @@ def contacts_list():
     """Contacts list view with tabs (requires authentication)"""
     db = get_db()
 
+    # Get view filter from query params (default to 'my_leads')
+    current_view = request.args.get('view', 'my_leads')
+    if current_view not in CONTACT_VIEWS:
+        current_view = 'my_leads'
+
     # Get filter parameters
     min_heat = request.args.get('min_heat', 0, type=float)
     min_value = request.args.get('min_value', 0, type=float)
@@ -1076,8 +1107,13 @@ def contacts_list():
     filter_type = request.args.get('filter', '')  # hot_leads, high_value, active_week
     active_tab = request.args.get('tab', 'contacts')  # contacts, queue, analysis, insights, trends
 
-    # Get all contacts (no artificial limit - let the database handle it)
-    all_contacts = db.get_contacts_by_priority(min_priority=0, limit=2000)
+    # Get all contacts (filtered by view)
+    all_contacts = db.get_contacts_by_priority(
+        min_priority=0,
+        limit=2000,
+        user_id=CURRENT_USER_ID,
+        view=current_view
+    )
 
     # Add suggested action to each contact
     for contact in all_contacts:
@@ -1124,13 +1160,14 @@ def contacts_list():
     # Get unique stages for filter dropdown
     stages = sorted(set(c.get('stage') for c in all_contacts if c.get('stage')))
 
-    # Get aggregate stats
-    stats = db.get_contact_stats()
+    # Get aggregate stats (filtered by view)
+    stats = db.get_contact_stats(user_id=CURRENT_USER_ID, view=current_view)
 
     return render_template('contacts.html',
                          contacts=contacts,
                          all_contacts=all_contacts,
                          stats=stats,
+                         current_view=current_view,
                          stages=stages,
                          selected_stage=stage,
                          selected_min_heat=min_heat,

@@ -168,6 +168,45 @@
         .hero-card.contacts .hero-card-icon { background: #dcfce7; color: #16a34a; }
         .hero-card.actions .hero-card-icon { background: #fef3c7; color: #d97706; }
 
+        /* View Switcher */
+        .view-switcher-inline {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 8px;
+        }
+        .view-switcher-inline label {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        .view-switcher-inline select {
+            padding: 4px 24px 4px 8px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 12px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath fill='%236b7280' d='M2.5 4L5 6.5L7.5 4'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 6px center;
+        }
+        .view-switcher-inline select:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+        .view-badge-small {
+            display: inline-block;
+            background: var(--primary);
+            color: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 10px;
+            font-weight: 600;
+            margin-left: 6px;
+        }
+
         /* Two-column layout */
         .dashboard-columns {
             display: grid;
@@ -562,15 +601,28 @@
 
         <div class="hero-card contacts">
             <div class="hero-card-header">
-                <span class="hero-card-title">Contacts</span>
+                <span class="hero-card-title">
+                    Contacts
+                    {% if current_view != 'my_leads' %}
+                    <span class="view-badge-small">{{ contact_views[current_view].label }}</span>
+                    {% endif %}
+                </span>
                 <div class="hero-card-icon">👥</div>
             </div>
             <div class="hero-card-value">{{ contact_stats.total }}</div>
             <div class="hero-card-subtitle">
                 Hot: {{ contact_stats.hot }} | High Value: {{ contact_stats.high_value }} | Active: {{ contact_stats.active_week }}
             </div>
+            <div class="view-switcher-inline">
+                <label>View:</label>
+                <select onchange="window.location.href='/?view=' + this.value">
+                    {% for key, view in contact_views.items() %}
+                    <option value="{{ key }}" {% if current_view == key %}selected{% endif %}>{{ view.label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
             <div class="hero-card-link">
-                <a href="/contacts" class="dreams-btn dreams-btn-primary">View Contacts</a>
+                <a href="/contacts?view={{ current_view }}" class="dreams-btn dreams-btn-primary">View Contacts</a>
             </div>
         </div>
 
@@ -584,7 +636,7 @@
                 Contacts with scheduled actions today
             </div>
             <div class="hero-card-link">
-                <a href="/contacts?sort=priority" class="dreams-btn dreams-btn-primary">View Call List</a>
+                <a href="/contacts?sort=priority&view={{ current_view }}" class="dreams-btn dreams-btn-primary">View Call List</a>
             </div>
         </div>
     </div>
@@ -594,8 +646,13 @@
         <!-- Top Priority Contacts -->
         <div class="dashboard-section">
             <div class="section-header">
-                <h3 class="section-title">Top Priority Contacts</h3>
-                <a href="/contacts?sort=priority" style="font-size: 13px; color: var(--primary);">View All</a>
+                <h3 class="section-title">
+                    Top Priority Contacts
+                    {% if current_view != 'my_leads' %}
+                    <span class="view-badge-small">{{ contact_views[current_view].label }}</span>
+                    {% endif %}
+                </h3>
+                <a href="/contacts?sort=priority&view={{ current_view }}" style="font-size: 13px; color: var(--primary);">View All</a>
             </div>
             <ul class="priority-list">
                 {% for contact in top_contacts[:5] %}

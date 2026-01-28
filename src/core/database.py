@@ -1042,36 +1042,92 @@ class DREAMSDatabase:
     def get_contacts_by_priority(
         self,
         min_priority: float = 0,
-        limit: int = 100
+        limit: int = 100,
+        user_id: Optional[int] = None,
+        view: str = 'all'
     ) -> List[Dict[str, Any]]:
-        """Get contacts sorted by priority score."""
+        """
+        Get contacts sorted by priority score with optional filtering.
+
+        Args:
+            min_priority: Minimum priority score
+            limit: Maximum contacts to return
+            user_id: Filter by assigned user ID (required for 'my_leads' view)
+            view: Filter view - 'all', 'my_leads', 'ponds', 'agents', 'unassigned'
+        """
         with self._get_connection() as conn:
-            rows = conn.execute('''
-                SELECT * FROM leads
-                WHERE priority_score >= ?
-                ORDER BY priority_score DESC
-                LIMIT ?
-            ''', (min_priority, limit)).fetchall()
+            query = 'SELECT * FROM leads WHERE priority_score >= ?'
+            params = [min_priority]
+
+            # Apply view filter
+            if view == 'my_leads' and user_id:
+                query += ' AND assigned_user_id = ?'
+                params.append(user_id)
+            elif view == 'ponds':
+                # Ponds = contacts assigned to Ava Cares (user 12) or other pond managers
+                query += ' AND assigned_user_id = 12'
+            elif view == 'agents':
+                # Agents/Vendors/Lenders stage
+                query += " AND stage = 'Agents/Vendors/Lendors'"
+            elif view == 'unassigned':
+                query += ' AND (assigned_user_id IS NULL OR assigned_user_id = 0)'
+            elif view == 'team':
+                # All team contacts except ponds and unassigned
+                query += ' AND assigned_user_id IS NOT NULL AND assigned_user_id != 12'
+            # 'all' = no additional filter
+
+            query += ' ORDER BY priority_score DESC LIMIT ?'
+            params.append(limit)
+
+            rows = conn.execute(query, params).fetchall()
             return [dict(row) for row in rows]
 
-    def get_contact_stats(self) -> Dict[str, Any]:
-        """Get aggregate statistics for contacts."""
+    def get_contact_stats(
+        self,
+        user_id: Optional[int] = None,
+        view: str = 'all'
+    ) -> Dict[str, Any]:
+        """
+        Get aggregate statistics for contacts with optional filtering.
+
+        Args:
+            user_id: Filter by assigned user ID (required for 'my_leads' view)
+            view: Filter view - 'all', 'my_leads', 'ponds', 'agents', 'unassigned', 'team'
+        """
         with self._get_connection() as conn:
-            total = conn.execute('SELECT COUNT(*) FROM leads').fetchone()[0]
+            # Build WHERE clause based on view
+            where_clause = '1=1'
+            params = []
+
+            if view == 'my_leads' and user_id:
+                where_clause = 'assigned_user_id = ?'
+                params = [user_id]
+            elif view == 'ponds':
+                where_clause = 'assigned_user_id = 12'
+            elif view == 'agents':
+                where_clause = "stage = 'Agents/Vendors/Lendors'"
+            elif view == 'unassigned':
+                where_clause = '(assigned_user_id IS NULL OR assigned_user_id = 0)'
+            elif view == 'team':
+                where_clause = 'assigned_user_id IS NOT NULL AND assigned_user_id != 12'
+
+            total = conn.execute(
+                f'SELECT COUNT(*) FROM leads WHERE {where_clause}', params
+            ).fetchone()[0]
             hot = conn.execute(
-                'SELECT COUNT(*) FROM leads WHERE heat_score >= 75'
+                f'SELECT COUNT(*) FROM leads WHERE {where_clause} AND heat_score >= 75', params
             ).fetchone()[0]
             high_value = conn.execute(
-                'SELECT COUNT(*) FROM leads WHERE value_score >= 60'
+                f'SELECT COUNT(*) FROM leads WHERE {where_clause} AND value_score >= 60', params
             ).fetchone()[0]
             active_week = conn.execute(
-                'SELECT COUNT(*) FROM leads WHERE days_since_activity <= 7'
+                f'SELECT COUNT(*) FROM leads WHERE {where_clause} AND days_since_activity <= 7', params
             ).fetchone()[0]
             avg_priority = conn.execute(
-                'SELECT AVG(priority_score) FROM leads WHERE priority_score > 0'
+                f'SELECT AVG(priority_score) FROM leads WHERE {where_clause} AND priority_score > 0', params
             ).fetchone()[0] or 0
             high_intent = conn.execute(
-                'SELECT COUNT(*) FROM leads WHERE intent_signal_count >= 4'
+                f'SELECT COUNT(*) FROM leads WHERE {where_clause} AND intent_signal_count >= 4', params
             ).fetchone()[0]
 
             return {
