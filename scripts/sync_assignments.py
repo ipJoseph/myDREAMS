@@ -77,26 +77,32 @@ def main():
 
     for person in people:
         fub_id = str(person.get('id'))
-        owner_id = person.get('ownerId')
+        # FUB API returns assignedUserId, not ownerId
+        owner_id = person.get('assignedUserId')
+        owner_name_from_api = person.get('assignedTo')  # Pre-resolved name from FUB
 
         if not owner_id:
             skipped += 1
             continue
 
-        owner_name = user_lookup.get(owner_id, f"User {owner_id}")
+        # Use FUB-provided name if available, otherwise look up
+        owner_name = owner_name_from_api or user_lookup.get(owner_id, f"User {owner_id}")
 
-        # Check if contact exists in our database
-        contact = db.get_lead(fub_id)
+        # Check if contact exists in our database (look up by fub_id, not id)
+        contact = db.get_contact_by_fub_id(fub_id)
         if not contact:
             skipped += 1
             continue
+
+        # Get the actual contact ID (may be UUID or fub_id depending on when created)
+        contact_id = contact.get('id')
 
         # Check if assignment is different
         current_owner_id = contact.get('assigned_user_id')
         if current_owner_id != owner_id:
             # Update assignment (this will also record in history)
             changed = db.update_contact_assignment(
-                contact_id=fub_id,
+                contact_id=contact_id,  # Use the actual ID from the record
                 new_user_id=owner_id,
                 new_user_name=owner_name,
                 source='backfill'
@@ -114,7 +120,7 @@ def main():
                             assigned_at = ?,
                             updated_at = ?
                         WHERE id = ?
-                    ''', (owner_id, owner_name, now, now, fub_id))
+                    ''', (owner_id, owner_name, now, now, contact_id))
 
                     # Record initial assignment
                     conn.execute('''
@@ -122,7 +128,7 @@ def main():
                         (contact_id, assigned_from_user_id, assigned_from_user_name,
                          assigned_to_user_id, assigned_to_user_name, assigned_at, source)
                         VALUES (?, NULL, NULL, ?, ?, ?, 'backfill')
-                    ''', (fub_id, owner_id, owner_name, now))
+                    ''', (contact_id, owner_id, owner_name, now))
                     conn.commit()
                     new_assignments += 1
 

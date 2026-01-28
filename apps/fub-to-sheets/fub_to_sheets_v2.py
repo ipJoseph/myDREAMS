@@ -630,7 +630,8 @@ def flatten_person_base(person: Dict) -> Dict:
         "leadTypeTags": ", ".join(person.get("leadTypeTags", [])) if person.get("leadTypeTags") else "",
         "created": person.get("created", ""),
         "updated": person.get("updated", ""),
-        "ownerId": person.get("ownerId", ""),
+        # FUB API uses 'assignedUserId', not 'ownerId' - map to ownerId for compatibility
+        "ownerId": person.get("assignedUserId") or person.get("ownerId", ""),
         "primaryEmail": person.get("emails", [{}])[0].get("value", "") if person.get("emails") else "",
         "primaryPhone": person.get("phones", [{}])[0].get("value", "") if person.get("phones") else "",
         "company": person.get("company", ""),
@@ -938,9 +939,21 @@ def compute_daily_activity_stats(
         new_contacts = db.get_recent_contacts(days=3)
         stats["new_contacts"] = new_contacts
         logger.info(f"✓ Found {len(new_contacts)} new contacts in last 3 days")
+
+        # Get recently reassigned leads (leads lost in last 7 days)
+        my_user_id = int(os.getenv('FUB_MY_USER_ID', 8))
+        reassigned_leads = db.get_recently_reassigned_leads(
+            from_user_id=my_user_id,
+            days=7,
+            limit=20
+        )
+        stats["reassigned_leads"] = reassigned_leads
+        if reassigned_leads:
+            logger.info(f"⚠️  Found {len(reassigned_leads)} leads reassigned in last 7 days")
     except Exception as e:
         logger.warning(f"Could not fetch new contacts: {e}")
         stats["new_contacts"] = []
+        stats["reassigned_leads"] = []
 
     logger.info(f"✓ Daily stats: {stats['total_events_today']} events, {stats['unique_visitors_today']} unique visitors")
     return stats
@@ -1472,6 +1485,41 @@ def send_top_priority_email(
             body_lines.append(f"<li style='padding: 4px 0;'>{name} - {time_str}{source_str}</li>")
         body_lines.append("</ul>")
 
+    # Reassigned leads (leads lost via round-robin or transfer)
+    if daily_stats.get('reassigned_leads'):
+        body_lines.extend([
+            "<h3>⚠️ Leads Reassigned (Last 7 Days)</h3>",
+            "<p style='color: #666; font-size: 13px; margin-bottom: 10px;'>These leads were reassigned away from you (round-robin timeout or transfer):</p>",
+            "<ul style='list-style: none; padding-left: 0;'>",
+        ])
+        for lead in daily_stats['reassigned_leads']:
+            name = f"{lead.get('first_name', '')} {lead.get('last_name', '')}".strip() or "Unknown"
+            reason = lead.get('reassigned_reason', 'unknown')
+            reassigned_at = lead.get('reassigned_at', '')
+
+            # Format the reassignment date
+            if reassigned_at:
+                try:
+                    dt = parse_datetime_safe(reassigned_at)
+                    if dt:
+                        days_ago = (datetime.now(timezone.utc) - dt).days
+                        if days_ago == 0:
+                            time_str = "<strong style='color: #ef4444;'>Today</strong>"
+                        elif days_ago == 1:
+                            time_str = "<span style='color: #f97316;'>Yesterday</span>"
+                        else:
+                            time_str = f"<span style='color: #6b7280;'>{days_ago} days ago</span>"
+                    else:
+                        time_str = ""
+                except Exception:
+                    time_str = ""
+            else:
+                time_str = ""
+
+            reason_str = f" <span style='color: #666; font-size: 12px;'>({reason})</span>" if reason else ""
+            body_lines.append(f"<li style='padding: 4px 0; color: #dc2626;'>{name} - {time_str}{reason_str}</li>")
+        body_lines.append("</ul>")
+
     # Top priority contacts
     idx = {name: i for i, name in enumerate(CONTACTS_HEADER)}
 
@@ -1837,6 +1885,10 @@ def sync_to_sqlite(contact_rows: List[List], person_stats: Dict[str, Dict], user
     error_count = 0
     assignment_changes = 0
 
+    # Track FUB IDs assigned to the current user for reassignment detection
+    my_user_id = int(os.getenv('FUB_MY_USER_ID', 8))
+    current_user_fub_ids = set()  # FUB IDs currently assigned to my_user_id
+
     for row in contact_rows:
         try:
             fub_id = str(row[idx["id"]]) if row[idx["id"]] else None
@@ -1925,11 +1977,37 @@ def sync_to_sqlite(contact_rows: List[List], person_stats: Dict[str, Dict], user
                 if changed:
                     assignment_changes += 1
 
+                # Track if this contact is assigned to the current user
+                if owner_id_int == my_user_id:
+                    current_user_fub_ids.add(str(fub_id))
+
         except Exception as e:
             error_count += 1
             logger.debug(f"Error syncing contact: {e}")
 
-    logger.info(f"✓ SQLite sync complete: {success_count} synced, {error_count} errors, {assignment_changes} assignment changes")
+    # Detect reassigned leads (leads that were assigned to user but no longer are)
+    reassigned_count = 0
+    try:
+        reassigned_leads = db.detect_reassigned_leads(my_user_id, current_user_fub_ids)
+        if reassigned_leads:
+            lead_ids = [lead['id'] for lead in reassigned_leads]
+            reassigned_count = db.mark_leads_as_reassigned(
+                lead_ids=lead_ids,
+                from_user_id=my_user_id,
+                reason='round_robin'  # Most likely reason for automatic reassignment
+            )
+            logger.info(f"⚠️  Detected {reassigned_count} leads reassigned away from user {my_user_id}")
+
+            # Log the names for visibility
+            for lead in reassigned_leads[:5]:  # Show up to 5
+                name = f"{lead.get('first_name', '')} {lead.get('last_name', '')}".strip()
+                logger.info(f"   - {name} (ID: {lead.get('fub_id') or lead.get('id')})")
+            if len(reassigned_leads) > 5:
+                logger.info(f"   ... and {len(reassigned_leads) - 5} more")
+    except Exception as e:
+        logger.error(f"Error detecting reassigned leads: {e}")
+
+    logger.info(f"✓ SQLite sync complete: {success_count} synced, {error_count} errors, {assignment_changes} assignment changes, {reassigned_count} reassigned")
 
 
 def evaluate_contact_trends(db, contact_rows: List[List]) -> Dict[str, str]:

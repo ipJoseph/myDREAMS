@@ -106,6 +106,10 @@ class DREAMSDatabase:
             ("assigned_user_id", "INTEGER"),            # FUB user ID
             ("assigned_user_name", "TEXT"),             # Cached user name for display
             ("assigned_at", "TEXT"),                    # When assigned to current user
+            # Reassignment tracking
+            ("reassigned_at", "TEXT"),                  # When lead was reassigned away from user
+            ("reassigned_from_user_id", "INTEGER"),     # Previous user ID before reassignment
+            ("reassigned_reason", "TEXT"),              # 'round_robin', 'transfer', 'deleted', 'unknown'
         ]
 
         for col_name, col_type in new_lead_columns:
@@ -4760,3 +4764,163 @@ class DREAMSDatabase:
                 contacts.append(contact)
 
             return contacts
+
+    # ==========================================
+    # REASSIGNMENT DETECTION OPERATIONS
+    # ==========================================
+
+    def detect_reassigned_leads(
+        self,
+        user_id: int,
+        current_fub_ids: set
+    ) -> List[Dict[str, Any]]:
+        """
+        Detect leads that were previously assigned to a user but are no longer in FUB.
+
+        This identifies leads that have been:
+        - Reassigned via round-robin (speed to lead timeout)
+        - Manually transferred to another agent
+        - Deleted from FUB
+
+        Args:
+            user_id: The FUB user ID to check
+            current_fub_ids: Set of FUB IDs currently assigned to this user (from FUB API)
+
+        Returns:
+            List of leads that are no longer assigned to this user
+        """
+        with self._get_connection() as conn:
+            # Get all leads currently marked as assigned to this user in local DB
+            # that don't have a reassigned_at timestamp yet
+            rows = conn.execute('''
+                SELECT id, fub_id, first_name, last_name, email, phone,
+                       assigned_user_id, assigned_user_name, assigned_at,
+                       stage, source, heat_score, priority_score
+                FROM leads
+                WHERE assigned_user_id = ?
+                  AND reassigned_at IS NULL
+            ''', (user_id,)).fetchall()
+
+            reassigned = []
+            for row in rows:
+                lead = dict(row)
+                fub_id = lead.get('fub_id') or lead.get('id')
+
+                # If this lead's FUB ID is not in the current FUB response for this user,
+                # it has been reassigned
+                if str(fub_id) not in current_fub_ids:
+                    reassigned.append(lead)
+
+            return reassigned
+
+    def mark_leads_as_reassigned(
+        self,
+        lead_ids: List[str],
+        from_user_id: int,
+        reason: str = 'unknown'
+    ) -> int:
+        """
+        Mark leads as reassigned away from a user.
+
+        Args:
+            lead_ids: List of lead IDs (primary keys) to mark
+            from_user_id: The user ID they were reassigned from
+            reason: The reason for reassignment ('round_robin', 'transfer', 'deleted', 'unknown')
+
+        Returns:
+            Number of leads marked
+        """
+        if not lead_ids:
+            return 0
+
+        with self._get_connection() as conn:
+            now = datetime.now().isoformat()
+            count = 0
+
+            for lead_id in lead_ids:
+                conn.execute('''
+                    UPDATE leads SET
+                        reassigned_at = ?,
+                        reassigned_from_user_id = ?,
+                        reassigned_reason = ?,
+                        updated_at = ?
+                    WHERE id = ?
+                ''', (now, from_user_id, reason, now, lead_id))
+                count += 1
+
+            conn.commit()
+            return count
+
+    def get_recently_reassigned_leads(
+        self,
+        from_user_id: int,
+        days: int = 7,
+        limit: int = 50
+    ) -> List[Dict[str, Any]]:
+        """
+        Get leads that were recently reassigned away from a user.
+
+        Args:
+            from_user_id: The user ID they were reassigned from
+            days: Number of days to look back
+            limit: Maximum leads to return
+
+        Returns:
+            List of reassigned leads with details
+        """
+        with self._get_connection() as conn:
+            cutoff = (datetime.now() - timedelta(days=days)).isoformat()
+
+            rows = conn.execute('''
+                SELECT id, fub_id, first_name, last_name, email, phone,
+                       reassigned_at, reassigned_from_user_id, reassigned_reason,
+                       assigned_user_id, assigned_user_name,
+                       stage, source, heat_score, priority_score
+                FROM leads
+                WHERE reassigned_from_user_id = ?
+                  AND reassigned_at >= ?
+                ORDER BY reassigned_at DESC
+                LIMIT ?
+            ''', (from_user_id, cutoff, limit)).fetchall()
+
+            return [dict(row) for row in rows]
+
+    def get_reassignment_stats(
+        self,
+        user_id: int,
+        days: int = 30
+    ) -> Dict[str, Any]:
+        """
+        Get reassignment statistics for a user.
+
+        Args:
+            user_id: The FUB user ID
+            days: Number of days to analyze
+
+        Returns:
+            Dict with reassignment stats
+        """
+        with self._get_connection() as conn:
+            cutoff = (datetime.now() - timedelta(days=days)).isoformat()
+
+            # Total reassigned in period
+            total = conn.execute('''
+                SELECT COUNT(*) as count
+                FROM leads
+                WHERE reassigned_from_user_id = ?
+                  AND reassigned_at >= ?
+            ''', (user_id, cutoff)).fetchone()
+
+            # By reason
+            by_reason = conn.execute('''
+                SELECT reassigned_reason, COUNT(*) as count
+                FROM leads
+                WHERE reassigned_from_user_id = ?
+                  AND reassigned_at >= ?
+                GROUP BY reassigned_reason
+            ''', (user_id, cutoff)).fetchall()
+
+            return {
+                'total_reassigned': total['count'] if total else 0,
+                'by_reason': {row['reassigned_reason']: row['count'] for row in by_reason}
+            }
