@@ -9,6 +9,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Contact View Filtering** - Dashboard now defaults to showing your contacts only
+  - **View switcher dropdown** on home and contacts pages
+  - **Available views**: My Leads (default), Team, Ponds, Agents, All Contacts
+  - **My Leads**: Shows contacts assigned to you (341 for Joseph)
+  - **Ponds**: Shows contacts in Ava Cares pond (104 contacts)
+  - **Team**: All team contacts except ponds
+  - **Agents**: Contacts with Agents/Vendors/Lenders stage (75 contacts)
+  - **All**: Complete database view (458 contacts)
+  - View selection persists when navigating between pages
+
 - **Lead Reassignment Tracking** - Track leads that get reassigned away (round-robin timeout, transfers)
   - **New database columns**: `reassigned_at`, `reassigned_from_user_id`, `reassigned_reason`
   - **Detection during sync**: Automatically detects when leads disappear from your FUB assignments
