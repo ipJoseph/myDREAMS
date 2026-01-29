@@ -3147,5 +3147,177 @@ def download_pdf(filename):
     )
 
 
+# ==========================================
+# Listings Gallery (New Schema)
+# ==========================================
+
+@app.route('/listings')
+@requires_auth
+def listings_gallery():
+    """Listings gallery view - showcases properties with photos from new schema."""
+    import json as json_lib
+
+    # Get filter parameters
+    county = request.args.get('county', '')
+    city = request.args.get('city', '')
+    status = request.args.get('status', 'ACTIVE')
+    min_price = request.args.get('min_price', '')
+    max_price = request.args.get('max_price', '')
+    photos_only = request.args.get('photos_only', '1')  # Default to photos only
+
+    # Pagination
+    page = max(1, int(request.args.get('page', 1)))
+    per_page = 24  # Good for grid layout
+
+    with db._get_connection() as conn:
+        # Get filter options from new schema
+        counties = [r[0] for r in conn.execute(
+            "SELECT DISTINCT county FROM parcels WHERE county IS NOT NULL ORDER BY county"
+        ).fetchall()]
+
+        cities = [r[0] for r in conn.execute(
+            "SELECT DISTINCT city FROM parcels WHERE city IS NOT NULL ORDER BY city"
+        ).fetchall()]
+
+        statuses = [r[0] for r in conn.execute(
+            "SELECT DISTINCT status FROM listings WHERE status IS NOT NULL ORDER BY status"
+        ).fetchall()]
+
+        # Build query for listings with parcel data
+        query = '''
+            SELECT
+                l.id as listing_id,
+                l.mls_source,
+                l.mls_number,
+                l.status,
+                l.list_price,
+                l.beds,
+                l.baths,
+                l.sqft,
+                l.year_built,
+                l.property_type,
+                l.primary_photo,
+                l.photos,
+                l.redfin_url,
+                l.listing_agent_name,
+                l.listing_agent_phone,
+                p.id as parcel_id,
+                p.address,
+                p.city,
+                p.county,
+                p.state,
+                p.zip,
+                p.latitude,
+                p.longitude,
+                p.acreage,
+                p.apn
+            FROM listings l
+            JOIN parcels p ON l.parcel_id = p.id
+            WHERE 1=1
+        '''
+        params = []
+
+        if photos_only == '1':
+            query += ' AND l.primary_photo IS NOT NULL'
+
+        if status:
+            query += ' AND l.status = ?'
+            params.append(status)
+
+        if county:
+            query += ' AND p.county = ?'
+            params.append(county)
+
+        if city:
+            query += ' AND p.city = ?'
+            params.append(city)
+
+        if min_price:
+            query += ' AND l.list_price >= ?'
+            params.append(int(min_price))
+
+        if max_price:
+            query += ' AND l.list_price <= ?'
+            params.append(int(max_price))
+
+        # Count total
+        count_query = query.replace('SELECT\n                l.id as listing_id', 'SELECT COUNT(*)')
+        count_query = count_query.split('FROM listings')[0] + 'COUNT(*) FROM listings' + count_query.split('FROM listings')[1]
+        # Simpler approach
+        count_result = conn.execute(f"SELECT COUNT(*) FROM ({query})", params).fetchone()
+        total_count = count_result[0] if count_result else 0
+
+        total_pages = max(1, (total_count + per_page - 1) // per_page)
+        page = min(page, total_pages)
+        offset = (page - 1) * per_page
+
+        # Add sorting and pagination
+        query += ' ORDER BY l.list_price DESC LIMIT ? OFFSET ?'
+        params.extend([per_page, offset])
+
+        rows = conn.execute(query, params).fetchall()
+
+        # Convert to list of dicts
+        listings = []
+        for row in rows:
+            listing = dict(row)
+            # Parse photos JSON if present
+            if listing.get('photos'):
+                try:
+                    listing['photos_list'] = json_lib.loads(listing['photos'])
+                except:
+                    listing['photos_list'] = []
+            else:
+                listing['photos_list'] = []
+            listings.append(listing)
+
+    return render_template('listings_gallery.html',
+                         listings=listings,
+                         counties=counties,
+                         cities=cities,
+                         statuses=statuses,
+                         selected_county=county,
+                         selected_city=city,
+                         selected_status=status,
+                         min_price=min_price,
+                         max_price=max_price,
+                         photos_only=photos_only,
+                         page=page,
+                         total_pages=total_pages,
+                         total_count=total_count,
+                         per_page=per_page)
+
+
+@app.route('/api/listings/<listing_id>')
+@requires_auth
+def api_listing_detail(listing_id):
+    """API endpoint for listing details."""
+    import json as json_lib
+
+    with db._get_connection() as conn:
+        row = conn.execute('''
+            SELECT
+                l.*,
+                p.address, p.city, p.county, p.state, p.zip,
+                p.latitude, p.longitude, p.acreage, p.apn,
+                p.owner_name, p.owner_phone, p.assessed_value
+            FROM listings l
+            JOIN parcels p ON l.parcel_id = p.id
+            WHERE l.id = ?
+        ''', [listing_id]).fetchone()
+
+        if not row:
+            return jsonify({'error': 'Listing not found'}), 404
+
+        listing = dict(row)
+        if listing.get('photos'):
+            try:
+                listing['photos'] = json_lib.loads(listing['photos'])
+            except:
+                listing['photos'] = []
+
+        return jsonify(listing)
+
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001, debug=True)

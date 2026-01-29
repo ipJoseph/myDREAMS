@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Listings Gallery - DREAMS</title>
+    <link rel="icon" type="image/svg+xml" href="{{ favicon }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='shared/css/dreams.css') }}">
+    <style>
+        /* Gallery Grid */
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 24px;
+            padding: 24px 0;
+        }
+
+        /* Property Card */
+        .property-card {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+        }
+
+        .property-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+        }
+
+        /* Card Image */
+        .card-image {
+            position: relative;
+            height: 200px;
+            background: #f3f4f6;
+            overflow: hidden;
+        }
+
+        .card-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .card-image .no-photo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #9ca3af;
+            font-size: 14px;
+        }
+
+        /* Status Badge */
+        .status-badge {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-badge.active {
+            background: #10b981;
+            color: white;
+        }
+
+        .status-badge.pending {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .status-badge.contingent {
+            background: #8b5cf6;
+            color: white;
+        }
+
+        .status-badge.sold {
+            background: #ef4444;
+            color: white;
+        }
+
+        /* Photo Count */
+        .photo-count {
+            position: absolute;
+            bottom: 12px;
+            right: 12px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        /* Card Content */
+        .card-content {
+            padding: 16px;
+        }
+
+        .card-price {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--primary-dark);
+            margin-bottom: 4px;
+        }
+
+        .card-address {
+            font-size: 14px;
+            color: #374151;
+            margin-bottom: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .card-location {
+            font-size: 13px;
+            color: #6b7280;
+            margin-bottom: 12px;
+        }
+
+        /* Property Details */
+        .card-details {
+            display: flex;
+            gap: 16px;
+            font-size: 13px;
+            color: #4b5563;
+            padding-top: 12px;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .card-details span {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        /* Agent Info */
+        .card-agent {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #e5e7eb;
+            font-size: 12px;
+            color: #6b7280;
+        }
+
+        .card-agent strong {
+            color: #374151;
+        }
+
+        /* Filters Bar */
+        .filters-bar {
+            background: white;
+            padding: 16px 24px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            margin-bottom: 24px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            align-items: center;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .filter-group label {
+            font-size: 11px;
+            font-weight: 600;
+            color: #6b7280;
+            text-transform: uppercase;
+        }
+
+        .filter-group select,
+        .filter-group input {
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+            min-width: 140px;
+        }
+
+        .filter-actions {
+            margin-left: auto;
+            display: flex;
+            gap: 8px;
+        }
+
+        /* Stats Bar */
+        .stats-bar {
+            display: flex;
+            gap: 24px;
+            margin-bottom: 16px;
+            font-size: 14px;
+            color: #6b7280;
+        }
+
+        .stats-bar strong {
+            color: var(--primary-dark);
+        }
+
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            max-width: 900px;
+            max-height: 90vh;
+            overflow: auto;
+            position: relative;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: rgba(0, 0, 0, 0.5);
+            color: white;
+            border: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 18px;
+            z-index: 10;
+        }
+
+        .modal-gallery {
+            display: flex;
+            overflow-x: auto;
+            gap: 8px;
+            padding: 16px;
+            background: #111;
+        }
+
+        .modal-gallery img {
+            height: 400px;
+            object-fit: contain;
+            border-radius: 4px;
+        }
+
+        .modal-details {
+            padding: 24px;
+        }
+
+        /* Pagination */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 32px;
+        }
+
+        .pagination a, .pagination span {
+            padding: 8px 16px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        .pagination a {
+            background: white;
+            color: var(--primary-dark);
+            border: 1px solid #d1d5db;
+        }
+
+        .pagination a:hover {
+            background: var(--primary-light);
+        }
+
+        .pagination .current {
+            background: var(--primary-dark);
+            color: white;
+        }
+
+        /* Checkbox toggle */
+        .toggle-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .toggle-group input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <h1>Listings Gallery</h1>
+                <span class="env-badge {{ dreams_env }}">{{ dreams_env }}</span>
+            </div>
+            <nav class="header-nav">
+                <a href="/">Home</a>
+                <a href="/properties">Properties (Legacy)</a>
+                <a href="/contacts">Contacts</a>
+                <a href="/listings" class="active">Listings</a>
+            </nav>
+        </header>
+
+        <!-- Filters -->
+        <form class="filters-bar" method="get">
+            <div class="filter-group">
+                <label>County</label>
+                <select name="county" onchange="this.form.submit()">
+                    <option value="">All Counties</option>
+                    {% for c in counties %}
+                    <option value="{{ c }}" {% if c == selected_county %}selected{% endif %}>{{ c }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label>City</label>
+                <select name="city" onchange="this.form.submit()">
+                    <option value="">All Cities</option>
+                    {% for c in cities %}
+                    <option value="{{ c }}" {% if c == selected_city %}selected{% endif %}>{{ c }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label>Status</label>
+                <select name="status" onchange="this.form.submit()">
+                    <option value="">All Statuses</option>
+                    {% for s in statuses %}
+                    <option value="{{ s }}" {% if s == selected_status %}selected{% endif %}>{{ s }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label>Min Price</label>
+                <input type="number" name="min_price" value="{{ min_price }}" placeholder="$0" step="10000">
+            </div>
+
+            <div class="filter-group">
+                <label>Max Price</label>
+                <input type="number" name="max_price" value="{{ max_price }}" placeholder="No max" step="10000">
+            </div>
+
+            <div class="toggle-group">
+                <input type="checkbox" name="photos_only" value="1" id="photos_only"
+                       {% if photos_only == '1' %}checked{% endif %}
+                       onchange="this.form.submit()">
+                <label for="photos_only">Photos only</label>
+            </div>
+
+            <div class="filter-actions">
+                <button type="submit" class="btn btn-primary">Apply</button>
+                <a href="/listings" class="btn btn-secondary">Reset</a>
+            </div>
+        </form>
+
+        <!-- Stats -->
+        <div class="stats-bar">
+            <span>Showing <strong>{{ listings|length }}</strong> of <strong>{{ total_count }}</strong> listings</span>
+            <span>Page <strong>{{ page }}</strong> of <strong>{{ total_pages }}</strong></span>
+        </div>
+
+        <!-- Gallery Grid -->
+        <div class="gallery-grid">
+            {% for listing in listings %}
+            <div class="property-card" onclick="openModal('{{ listing.listing_id }}')">
+                <div class="card-image">
+                    {% if listing.primary_photo %}
+                    <img src="{{ listing.primary_photo }}" alt="{{ listing.address }}" loading="lazy"
+                         onerror="this.parentElement.innerHTML='<div class=\'no-photo\'>Photo unavailable</div>'">
+                    {% else %}
+                    <div class="no-photo">No photo</div>
+                    {% endif %}
+
+                    <span class="status-badge {{ listing.status|lower }}">{{ listing.status }}</span>
+
+                    {% if listing.photos_list %}
+                    <span class="photo-count">{{ listing.photos_list|length }} photos</span>
+                    {% endif %}
+                </div>
+
+                <div class="card-content">
+                    <div class="card-price">${{ "{:,.0f}".format(listing.list_price or 0) }}</div>
+                    <div class="card-address">{{ listing.address }}</div>
+                    <div class="card-location">{{ listing.city }}, {{ listing.county }} County</div>
+
+                    <div class="card-details">
+                        {% if listing.beds %}
+                        <span><strong>{{ listing.beds }}</strong> bd</span>
+                        {% endif %}
+                        {% if listing.baths %}
+                        <span><strong>{{ listing.baths }}</strong> ba</span>
+                        {% endif %}
+                        {% if listing.sqft %}
+                        <span><strong>{{ "{:,.0f}".format(listing.sqft) }}</strong> sqft</span>
+                        {% endif %}
+                        {% if listing.acreage %}
+                        <span><strong>{{ "%.2f"|format(listing.acreage) }}</strong> ac</span>
+                        {% endif %}
+                    </div>
+
+                    {% if listing.listing_agent_name %}
+                    <div class="card-agent">
+                        Listed by <strong>{{ listing.listing_agent_name }}</strong>
+                        {% if listing.listing_agent_phone %}
+                        <br>{{ listing.listing_agent_phone | phone }}
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        {% if listings|length == 0 %}
+        <div style="text-align: center; padding: 60px; color: #6b7280;">
+            <h3>No listings found</h3>
+            <p>Try adjusting your filters or <a href="/listings?photos_only=0">show all listings</a></p>
+        </div>
+        {% endif %}
+
+        <!-- Pagination -->
+        {% if total_pages > 1 %}
+        <div class="pagination">
+            {% if page > 1 %}
+            <a href="?page={{ page - 1 }}&county={{ selected_county }}&city={{ selected_city }}&status={{ selected_status }}&min_price={{ min_price }}&max_price={{ max_price }}&photos_only={{ photos_only }}">Previous</a>
+            {% endif %}
+
+            {% for p in range(1, total_pages + 1) %}
+                {% if p == page %}
+                <span class="current">{{ p }}</span>
+                {% elif p <= 3 or p > total_pages - 3 or (p >= page - 2 and p <= page + 2) %}
+                <a href="?page={{ p }}&county={{ selected_county }}&city={{ selected_city }}&status={{ selected_status }}&min_price={{ min_price }}&max_price={{ max_price }}&photos_only={{ photos_only }}">{{ p }}</a>
+                {% elif p == 4 or p == total_pages - 3 %}
+                <span>...</span>
+                {% endif %}
+            {% endfor %}
+
+            {% if page < total_pages %}
+            <a href="?page={{ page + 1 }}&county={{ selected_county }}&city={{ selected_city }}&status={{ selected_status }}&min_price={{ min_price }}&max_price={{ max_price }}&photos_only={{ photos_only }}">Next</a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Photo Modal -->
+    <div class="modal-overlay" id="photoModal" onclick="closeModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <button class="modal-close" onclick="closeModal()">&times;</button>
+            <div class="modal-gallery" id="modalGallery"></div>
+            <div class="modal-details" id="modalDetails"></div>
+        </div>
+    </div>
+
+    <script>
+        function openModal(listingId) {
+            fetch(`/api/listings/${listingId}`)
+                .then(r => r.json())
+                .then(data => {
+                    // Build photo gallery
+                    let galleryHtml = '';
+                    if (data.photos && data.photos.length > 0) {
+                        data.photos.forEach(url => {
+                            galleryHtml += `<img src="${url}" alt="Property photo">`;
+                        });
+                    } else if (data.primary_photo) {
+                        galleryHtml = `<img src="${data.primary_photo}" alt="Property photo">`;
+                    }
+                    document.getElementById('modalGallery').innerHTML = galleryHtml;
+
+                    // Build details
+                    let detailsHtml = `
+                        <h2 style="margin-top:0;">$${(data.list_price || 0).toLocaleString()}</h2>
+                        <p style="font-size:18px; margin-bottom:4px;">${data.address}</p>
+                        <p style="color:#6b7280;">${data.city}, ${data.county} County, ${data.state} ${data.zip || ''}</p>
+                        <div style="display:flex; gap:24px; margin:16px 0;">
+                            ${data.beds ? `<span><strong>${data.beds}</strong> beds</span>` : ''}
+                            ${data.baths ? `<span><strong>${data.baths}</strong> baths</span>` : ''}
+                            ${data.sqft ? `<span><strong>${data.sqft.toLocaleString()}</strong> sqft</span>` : ''}
+                            ${data.acreage ? `<span><strong>${data.acreage.toFixed(2)}</strong> acres</span>` : ''}
+                            ${data.year_built ? `<span>Built <strong>${data.year_built}</strong></span>` : ''}
+                        </div>
+                    `;
+
+                    if (data.listing_agent_name) {
+                        detailsHtml += `
+                            <div style="border-top:1px solid #e5e7eb; padding-top:16px; margin-top:16px;">
+                                <strong>Listing Agent:</strong> ${data.listing_agent_name}
+                                ${data.listing_agent_phone ? `<br><a href="tel:${data.listing_agent_phone}">${data.listing_agent_phone}</a>` : ''}
+                            </div>
+                        `;
+                    }
+
+                    if (data.redfin_url) {
+                        detailsHtml += `
+                            <div style="margin-top:16px;">
+                                <a href="${data.redfin_url}" target="_blank" class="btn btn-primary">View on Redfin</a>
+                            </div>
+                        `;
+                    }
+
+                    document.getElementById('modalDetails').innerHTML = detailsHtml;
+                    document.getElementById('photoModal').classList.add('active');
+                });
+        }
+
+        function closeModal(event) {
+            if (!event || event.target.classList.contains('modal-overlay')) {
+                document.getElementById('photoModal').classList.remove('active');
+            }
+        }
+
+        // Close on Escape key
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') closeModal();
+        });
+    </script>
+</body>
+</html>
