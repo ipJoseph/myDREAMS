@@ -171,67 +171,180 @@ def unresponsive_biweekly(dry_run: bool = False) -> List[Dict]:
     return matching
 
 
+def get_last_personal_comm(person_id: int, headers: Dict) -> Optional[str]:
+    """
+    Get the date of last PERSONAL communication for a contact.
+
+    FUB's UI "Last Communication" counts only personal emails, calls, and texts.
+    Bulk emails (campaignOrigin: "FUB Bulk") are excluded.
+
+    Returns: Date string (YYYY-MM-DD) or None if never communicated.
+    """
+    last_comm_date = None
+
+    # Check emails (exclude bulk/automated)
+    resp = requests.get(
+        f'{FUB_BASE_URL}/emails',
+        headers=headers,
+        params={'personId': person_id, 'limit': 50}
+    )
+    if resp.ok:
+        for email in resp.json().get('emails', []):
+            # Skip bulk/automated emails
+            origin = (email.get('campaignOrigin') or '').lower()
+            if 'bulk' in origin or 'drip' in origin or 'auto' in origin:
+                continue
+
+            created = email.get('created', '')[:10]
+            if created and (not last_comm_date or created > last_comm_date):
+                last_comm_date = created
+
+    # Check calls
+    resp = requests.get(
+        f'{FUB_BASE_URL}/calls',
+        headers=headers,
+        params={'personId': person_id, 'limit': 50}
+    )
+    if resp.ok:
+        for call in resp.json().get('calls', []):
+            created = call.get('created', '')[:10]
+            if created and (not last_comm_date or created > last_comm_date):
+                last_comm_date = created
+
+    # Check text messages
+    resp = requests.get(
+        f'{FUB_BASE_URL}/textMessages',
+        headers=headers,
+        params={'personId': person_id, 'limit': 50}
+    )
+    if resp.ok:
+        for text in resp.json().get('textmessages', []):
+            created = text.get('created', '')[:10]
+            if created and (not last_comm_date or created > last_comm_date):
+                last_comm_date = created
+
+    return last_comm_date
+
+
 def cool_quarterly(dry_run: bool = False) -> List[Dict]:
     """
     CoolQuarterly Smart List
 
     Criteria:
         - Stage: Nurture
-        - Timeframe: includes "12+ Months", "No Plans", or "6-12 Months"
-        - Last Communication: more than 90 days ago (or never)
+        - Timeframe: includes "12+ Months", "No Plans", or "6-12 Months" (IDs: 3, 4, 5)
+        - Last Communication: more than 90 days ago
+        - IMPORTANT: Excludes contacts who have NEVER been communicated with
         - Assigned to: Me (FUB_MY_USER_ID)
 
     Purpose: Re-engage nurture contacts on a quarterly basis
     Recommended frequency: Every 90 days (quarterly)
 
-    Note: Timeframe field may not be exposed via API. This filters by
-    Stage and LastComm criteria. Verify timeframe manually if needed.
+    Note: FUB's "Last Communication" is calculated from actual email/call/text
+    records, excluding bulk emails (campaignOrigin: "FUB Bulk").
     """
     print("=" * 60)
     print("COOL QUARTERLY")
     print("=" * 60)
 
     cutoff_date = (datetime.now() - timedelta(days=90)).strftime('%Y-%m-%d')
-    print(f"Criteria: Stage=Nurture, LastComm<{cutoff_date}")
-    print(f"Timeframe targets: 12+ Months, No Plans, 6-12 Months")
+    print(f"Cutoff date: {cutoff_date}")
+    print(f"Timeframe targets: 6-12 Months (ID 3), 12+ Months (ID 4), No Plans (ID 5)")
     print(f"Assigned to user ID: {FUB_MY_USER_ID}")
     print()
 
-    # Fetch all nurture contacts
-    people = fetch_people(stage='Nurture')
-    print(f"Total Nurture stage contacts: {len(people)}")
+    headers = get_fub_headers()
 
-    # Target timeframes (case-insensitive matching)
-    target_timeframes = ['12+ months', 'no plans', '6-12 months']
+    # Target timeframe IDs
+    # FUB timeframes: 1=0-3mo, 2=3-6mo, 3=6-12mo, 4=12+mo, 5=No Plans
+    target_timeframe_ids = [3, 4, 5]
 
-    # Filter by criteria
+    # Fetch Nurture contacts with target timeframes
+    print("Fetching Nurture contacts with target timeframes...")
+    all_people = {}  # Use dict to dedupe by ID
+
+    for tf_id in target_timeframe_ids:
+        offset = 0
+        while True:
+            params = {
+                'stage': 'Nurture',
+                'timeframeId': tf_id,
+                'limit': 100,
+                'offset': offset
+            }
+            resp = requests.get(f'{FUB_BASE_URL}/people', headers=headers, params=params)
+
+            if not resp.ok:
+                print(f"  API Error for timeframe {tf_id}: {resp.status_code}")
+                break
+
+            people = resp.json().get('people', [])
+            if not people:
+                break
+
+            for person in people:
+                all_people[person['id']] = person  # Dedupe by ID
+            offset += 100
+
+            if len(people) < 100:
+                break
+
+    all_people = list(all_people.values())
+    print(f"Found {len(all_people)} contacts matching Stage/Timeframe")
+
+    # Filter by assignment
+    assigned_to_me = [p for p in all_people if p.get('assignedUserId') == FUB_MY_USER_ID]
+    print(f"Assigned to me: {len(assigned_to_me)}")
+
+    # Check actual communication records (this takes time)
+    print("\nChecking actual communication records (this may take a minute)...")
     matching = []
-    for person in people:
+    never_communicated = 0
+    recent_comm = 0
+
+    for i, person in enumerate(assigned_to_me):
+        if i > 0 and i % 20 == 0:
+            print(f"  Processed {i}/{len(assigned_to_me)}...")
+
         contact = extract_contact_info(person)
 
-        # Must be assigned to me
-        if contact['assigned_user_id'] != FUB_MY_USER_ID:
+        # Get actual last personal communication date
+        last_comm = get_last_personal_comm(person['id'], headers)
+
+        if last_comm is None:
+            # Never communicated - FUB excludes these from "more than X days" filter
+            never_communicated += 1
+            contact['last_comm'] = 'Never'
             continue
 
-        # Last comm more than 90 days ago (or never)
-        last_comm = contact['last_comm']
-        if last_comm != 'Never' and last_comm >= cutoff_date:
+        if last_comm >= cutoff_date:
+            # Recent communication - doesn't match
+            recent_comm += 1
             continue
 
-        # Check timeframe (may be in custom fields)
+        # Has communication AND it was > 90 days ago
+        contact['last_comm'] = last_comm
+
+        # Get timeframe label
         timeframe = person.get('timeframe', '') or ''
         for cf in person.get('customFields', []):
             cf_name = cf.get('name', '').lower()
             if 'timeframe' in cf_name or 'timeline' in cf_name:
                 timeframe = cf.get('value', '') or timeframe
-
         contact['timeframe'] = timeframe
 
-        # Note: API may not expose timeframe, so we include all matching
-        # Stage + LastComm criteria. FUB UI does additional filtering.
         matching.append(contact)
 
-    print(f"Matching contacts: {len(matching)}")
+    print()
+    print("=" * 60)
+    print("RESULTS")
+    print("=" * 60)
+    print(f"Total checked: {len(assigned_to_me)}")
+    print(f"  With comm > 90 days ago: {len(matching)}")
+    print(f"  Never communicated (excluded): {never_communicated}")
+    print(f"  Recent comm < 90 days: {recent_comm}")
+    print()
+    print(f"Final matching contacts: {len(matching)}")
     print(f"  With email: {sum(1 for c in matching if c['email'])}")
     print(f"  With phone: {sum(1 for c in matching if c['phone'])}")
 
