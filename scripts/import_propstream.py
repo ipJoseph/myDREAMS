@@ -7,10 +7,12 @@ Creates parcels and listings (for MLS-active properties).
 
 Usage:
     python scripts/import_propstream.py /path/to/export.xlsx
+    python scripts/import_propstream.py /path/to/export.xlsx --reset  # Clear existing data first
 
 DEV ONLY - do not run in production without review.
 """
 
+import argparse
 import hashlib
 import re
 import sqlite3
@@ -136,7 +138,33 @@ def safe_date(value) -> str:
     return None
 
 
-def import_propstream(xlsx_path: str):
+def reset_tables(conn: sqlite3.Connection):
+    """Clear existing parcels and listings data (preserves contacts!)."""
+    print("\n*** RESET MODE ***")
+    print("Clearing existing parcels and listings data...")
+
+    # Get counts before
+    parcels_before = conn.execute("SELECT COUNT(*) FROM parcels").fetchone()[0]
+    listings_before = conn.execute("SELECT COUNT(*) FROM listings").fetchone()[0]
+
+    # Clear the tables
+    conn.execute("DELETE FROM listings")
+    conn.execute("DELETE FROM parcels")
+
+    # Also clear related tables
+    conn.execute("DELETE FROM listing_photos")
+    conn.execute("DELETE FROM enrichment_queue")
+    conn.execute("DELETE FROM contact_listings")
+
+    conn.commit()
+
+    print(f"  Cleared {parcels_before} parcels")
+    print(f"  Cleared {listings_before} listings")
+    print(f"  Cleared listing_photos, enrichment_queue, contact_listings")
+    print()
+
+
+def import_propstream(xlsx_path: str, reset: bool = False):
     """Import PropStream Excel export."""
 
     print("=" * 60)
@@ -144,6 +172,7 @@ def import_propstream(xlsx_path: str):
     print("=" * 60)
     print(f"Source: {xlsx_path}")
     print(f"Database: {DB_PATH}")
+    print(f"Reset mode: {reset}")
     print()
 
     # Load Excel
@@ -160,6 +189,10 @@ def import_propstream(xlsx_path: str):
 
     # Connect to DB
     conn = sqlite3.connect(DB_PATH)
+
+    # Reset if requested
+    if reset:
+        reset_tables(conn)
 
     parcels_created = 0
     parcels_updated = 0
@@ -188,7 +221,7 @@ def import_propstream(xlsx_path: str):
             state = get('State', 'NC')
             zip_code = str(get('Zip', ''))[:10] if get('Zip') else None
 
-            # Generate parcel ID
+            # Generate parcel ID (MD5 hash of APN + County per plan)
             if apn and county:
                 parcel_id = generate_id('prc', apn, county)
             elif address and city:
@@ -203,6 +236,14 @@ def import_propstream(xlsx_path: str):
             owner2_last = get('Owner 2 Last Name', '')
             owner_name = f"{owner1_first} {owner1_last}".strip() or None
             owner_name_2 = f"{owner2_first} {owner2_last}".strip() or None
+
+            # Acreage - try multiple sources
+            acreage = None
+            lot_sqft = safe_float(get('Lot Size Sqft'))
+            if lot_sqft:
+                acreage = lot_sqft / 43560  # Sqft to acres
+            if not acreage:
+                acreage = safe_float(get('Acreage'))
 
             # Check if parcel exists
             existing = conn.execute(
@@ -245,7 +286,7 @@ def import_propstream(xlsx_path: str):
                     get('Mailing City'),
                     get('Mailing State'),
                     str(get('Mailing Zip', ''))[:10] if get('Mailing Zip') else None,
-                    safe_float(get('Lot Size Sqft')) / 43560 if get('Lot Size Sqft') else None,  # Sqft to acres
+                    acreage,
                     get('Property Type'),
                     safe_int(get('Total Assessed Value')),
                     safe_date(get('Last Sale Date')),
@@ -269,7 +310,7 @@ def import_propstream(xlsx_path: str):
                 """, (
                     parcel_id, apn, county, state,
                     address, address_raw, city, zip_code,
-                    safe_float(get('Lot Size Sqft')) / 43560 if get('Lot Size Sqft') else None,
+                    acreage,
                     get('Property Type'),
                     owner_name, owner_name_2, get('Owner Occupied'),
                     get('Mobile') or get('Landline'),
@@ -293,33 +334,43 @@ def import_propstream(xlsx_path: str):
                 # Use APN + status + amount as unique identifier (no MLS# in PropStream)
                 listing_id = generate_id('lst', apn or address, mls_status, mls_amount)
 
+                # Get property details
+                beds = safe_int(get('Bedrooms'))
+                baths = safe_float(get('Total Bathrooms'))
+                sqft = safe_int(get('Building Sqft'))
+                year_built = safe_int(get('Year Built'))
+                property_type = get('Property Type')
+
+                # Insert listing with denormalized address fields
                 conn.execute("""
                     INSERT OR REPLACE INTO listings (
                         id, parcel_id,
                         mls_source, mls_number,
                         status, list_price, list_date,
                         beds, baths, sqft, year_built, property_type,
-                        hoa_fee,
+                        -- Denormalized address fields
+                        address, city, state, zip, county, acreage,
+                        -- Agent info
                         listing_agent_name, listing_agent_phone, listing_agent_email,
                         listing_office_name, listing_office_id,
+                        -- Meta
                         source, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     listing_id, parcel_id,
                     'PropStream', None,  # No MLS# from PropStream
                     mls_status, mls_amount,
                     safe_date(get('MLS Date')),
-                    safe_int(get('Bedrooms')),
-                    safe_float(get('Total Bathrooms')),
-                    safe_int(get('Building Sqft')),
-                    safe_int(get('Year Built')),
-                    get('Property Type'),
-                    None,  # HOA not in PropStream
+                    beds, baths, sqft, year_built, property_type,
+                    # Denormalized address
+                    address, city, state, zip_code, county, acreage,
+                    # Agent
                     get('MLS Agent Name'),
                     get('MLS Agent Phone'),
                     get('MLS Agent E-Mail'),
                     get('MLS Brokerage Name'),
                     get('MLS Brokerage Phone'),
+                    # Meta
                     'propstream_11county',
                     datetime.now().isoformat()
                 ))
@@ -349,16 +400,32 @@ def import_propstream(xlsx_path: str):
 
 
 def main():
-    if len(sys.argv) < 2:
-        print("Usage: python import_propstream.py <xlsx_path>")
+    parser = argparse.ArgumentParser(
+        description='Import PropStream Excel export into DREAMS database'
+    )
+    parser.add_argument('xlsx_path', help='Path to PropStream Excel file')
+    parser.add_argument(
+        '--reset', action='store_true',
+        help='Clear existing parcels and listings before import'
+    )
+
+    args = parser.parse_args()
+
+    if not Path(args.xlsx_path).exists():
+        print(f"File not found: {args.xlsx_path}")
         sys.exit(1)
 
-    xlsx_path = sys.argv[1]
-    if not Path(xlsx_path).exists():
-        print(f"File not found: {xlsx_path}")
-        sys.exit(1)
+    # Confirm reset
+    if args.reset:
+        print("\n*** WARNING ***")
+        print("Reset mode will DELETE all existing parcels and listings.")
+        print("Contacts will be preserved.")
+        response = input("\nContinue? [y/N] ")
+        if response.lower() != 'y':
+            print("Aborted.")
+            sys.exit(0)
 
-    import_propstream(xlsx_path)
+    import_propstream(args.xlsx_path, reset=args.reset)
 
 
 if __name__ == '__main__':

@@ -9,6 +9,34 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Property System Architecture Reset** - Normalized two-table schema (parcels + listings)
+  - **New Schema Design** - Clean separation of immutable parcel data from transactional listing data:
+    - `parcels` table: Physical land data (APN, county, coordinates, owner info, tax values, spatial data)
+    - `listings` table: MLS/listing data (status, price, beds/baths, photos, agent info)
+    - `contact_listings` junction table: Lead-property relationships with workflow tracking
+    - `listing_photos` audit table: Photo verification with confidence scoring
+    - `enrichment_queue` table: Priority-based photo/data enrichment queue
+  - **Photo Verification System** (`scripts/enrich_photos_verified.py`):
+    - Multi-factor matching (address, price, beds/baths, coordinates)
+    - Confidence scoring with auto-accept (>=90%), accept-with-note (70-89%), review queue (50-69%), reject (<50%)
+    - Audit trail in `listing_photos` table
+    - Rate limiting to avoid aggregator blocking
+  - **PropStream Importer Updates** (`scripts/import_propstream.py`):
+    - Added `--reset` flag to clear existing data for fresh imports
+    - Denormalizes address fields to listings for fast queries
+    - Populates both parcels and listings tables
+  - **Database Migration** (`scripts/migrate_property_schema_v2.py`):
+    - Adds spatial columns to parcels (flood_zone, elevation, view_potential, wildfire_risk)
+    - Adds photo verification columns to listings (photo_source, photo_confidence, photo_verified_at)
+    - Creates `properties_v2` view for backwards compatibility
+  - **Dashboard Compatibility**:
+    - Updated to use `properties_v2` view (falls back to `properties` if view missing)
+    - Listings gallery now uses denormalized address fields (faster queries)
+  - **Data Pipeline** (for e2e testing later):
+    1. PropStream import → parcels + listings baseline
+    2. NC OneMap enrichment → coordinates + spatial data
+    3. Photo verification → verified photos with confidence scores
+
 - **NC OneMap Spatial Data Integration** - Enrich properties with geographic intelligence
   - **Spatial Data Service** (`src/services/spatial_data_service.py`) - Core service for NC OneMap API queries
     - Flood zone queries (FEMA flood hazard areas with risk scoring)

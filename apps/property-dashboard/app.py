@@ -432,18 +432,26 @@ def get_filter_options() -> Dict[str, List[str]]:
     """Get distinct values for filter dropdowns - efficient single query approach"""
     with db._get_connection() as conn:
         options = {}
+        # Use properties_v2 view (backed by normalized parcels + listings tables)
+        # Falls back to properties table if view doesn't exist
+        table = 'properties_v2'
+        try:
+            conn.execute(f"SELECT 1 FROM {table} LIMIT 1")
+        except:
+            table = 'properties'
+
         # Use indexed columns with DISTINCT for fast retrieval
         options['clients'] = sorted([r[0] for r in conn.execute(
-            "SELECT DISTINCT added_for FROM properties WHERE added_for IS NOT NULL AND added_for != ''"
+            f"SELECT DISTINCT added_for FROM {table} WHERE added_for IS NOT NULL AND added_for != ''"
         ).fetchall()])
         options['cities'] = sorted([r[0] for r in conn.execute(
-            "SELECT DISTINCT city FROM properties WHERE city IS NOT NULL AND city != ''"
+            f"SELECT DISTINCT city FROM {table} WHERE city IS NOT NULL AND city != ''"
         ).fetchall()])
         options['counties'] = sorted([r[0] for r in conn.execute(
-            "SELECT DISTINCT county FROM properties WHERE county IS NOT NULL AND county != ''"
+            f"SELECT DISTINCT county FROM {table} WHERE county IS NOT NULL AND county != ''"
         ).fetchall()])
         options['statuses'] = sorted([r[0] for r in conn.execute(
-            "SELECT DISTINCT status FROM properties WHERE status IS NOT NULL AND status != ''"
+            f"SELECT DISTINCT status FROM {table} WHERE status IS NOT NULL AND status != ''"
         ).fetchall()])
         return options
 
@@ -452,7 +460,14 @@ def count_properties(added_for: Optional[str] = None, status: Optional[str] = No
                      city: Optional[str] = None, county: Optional[str] = None) -> int:
     """Count properties matching filters (for pagination)"""
     with db._get_connection() as conn:
-        query = 'SELECT COUNT(*) FROM properties WHERE 1=1'
+        # Use properties_v2 view (backed by normalized schema)
+        table = 'properties_v2'
+        try:
+            conn.execute(f"SELECT 1 FROM {table} LIMIT 1")
+        except:
+            table = 'properties'
+
+        query = f'SELECT COUNT(*) FROM {table} WHERE 1=1'
         params = []
 
         if added_for:
@@ -487,7 +502,14 @@ def fetch_properties(added_for: Optional[str] = None, status: Optional[str] = No
     sort_dir = 'ASC' if sort_order == 'asc' else 'DESC'
 
     with db._get_connection() as conn:
-        query = 'SELECT * FROM properties WHERE 1=1'
+        # Use properties_v2 view (backed by normalized schema)
+        table = 'properties_v2'
+        try:
+            conn.execute(f"SELECT 1 FROM {table} LIMIT 1")
+        except:
+            table = 'properties'
+
+        query = f'SELECT * FROM {table} WHERE 1=1'
         params = []
 
         if added_for:
@@ -743,12 +765,19 @@ def properties_map():
 
     # Fetch properties with coordinates
     with db._get_connection() as conn:
-        query = '''
+        # Use properties_v2 view (backed by normalized schema)
+        table = 'properties_v2'
+        try:
+            conn.execute(f"SELECT 1 FROM {table} LIMIT 1")
+        except:
+            table = 'properties'
+
+        query = f'''
             SELECT id, address, city, county, state, zip, price, beds, baths, sqft, acreage,
                    status, latitude, longitude, photo_urls,
                    flood_zone, flood_factor, elevation_feet, view_potential,
                    wildfire_risk, wildfire_score, slope_percent, aspect
-            FROM properties
+            FROM {table}
             WHERE latitude IS NOT NULL AND longitude IS NOT NULL
         '''
         params = []
@@ -3247,20 +3276,21 @@ def listings_gallery():
     per_page = 24  # Good for grid layout
 
     with db._get_connection() as conn:
-        # Get filter options from new schema
+        # Get filter options from listings (denormalized address data)
         counties = [r[0] for r in conn.execute(
-            "SELECT DISTINCT county FROM parcels WHERE county IS NOT NULL ORDER BY county"
+            "SELECT DISTINCT county FROM listings WHERE county IS NOT NULL AND county != '' ORDER BY county"
         ).fetchall()]
 
         cities = [r[0] for r in conn.execute(
-            "SELECT DISTINCT city FROM parcels WHERE city IS NOT NULL ORDER BY city"
+            "SELECT DISTINCT city FROM listings WHERE city IS NOT NULL AND city != '' ORDER BY city"
         ).fetchall()]
 
         statuses = [r[0] for r in conn.execute(
             "SELECT DISTINCT status FROM listings WHERE status IS NOT NULL ORDER BY status"
         ).fetchall()]
 
-        # Build query for listings with parcel data
+        # Build query for listings with denormalized address data
+        # (faster than JOIN - address fields now on listings table)
         query = '''
             SELECT
                 l.id as listing_id,
@@ -3278,18 +3308,18 @@ def listings_gallery():
                 l.redfin_url,
                 l.listing_agent_name,
                 l.listing_agent_phone,
-                p.id as parcel_id,
-                p.address,
-                p.city,
-                p.county,
-                p.state,
-                p.zip,
-                p.latitude,
-                p.longitude,
-                p.acreage,
-                p.apn
+                l.parcel_id,
+                l.address,
+                l.city,
+                l.county,
+                l.state,
+                l.zip,
+                l.latitude,
+                l.longitude,
+                l.acreage,
+                l.photo_confidence,
+                l.photo_review_status
             FROM listings l
-            JOIN parcels p ON l.parcel_id = p.id
             WHERE 1=1
         '''
         params = []
@@ -3302,11 +3332,11 @@ def listings_gallery():
             params.append(status)
 
         if county:
-            query += ' AND p.county = ?'
+            query += ' AND l.county = ?'
             params.append(county)
 
         if city:
-            query += ' AND p.city = ?'
+            query += ' AND l.city = ?'
             params.append(city)
 
         if min_price:
