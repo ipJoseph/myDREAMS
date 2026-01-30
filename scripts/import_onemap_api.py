@@ -159,21 +159,40 @@ def import_county(county: str, update_all: bool = False):
     updated = 0
 
     for idx, row in gdf.iterrows():
-        # Get APN from OneMap
-        onemap_apn = row.get('parno') or row.get('nparno') or row.get('altparno')
-        normalized_apn = normalize_apn(onemap_apn)
+        # Get all possible APNs from OneMap and try each one
+        # Some counties use different fields (parno vs altparno)
+        possible_apns = []
+        for field in ['parno', 'nparno', 'altparno']:
+            val = row.get(field)
+            if val and isinstance(val, str):
+                val = val.strip()
+                # Skip empty or prefix-only values like '37173_'
+                if val and not val.endswith('_'):
+                    possible_apns.append(val)
 
-        if not normalized_apn:
+        if not possible_apns:
             continue
 
-        # Try to match
-        parcel_id = our_apn_lookup.get(normalized_apn)
+        # Try to match each normalized APN
+        parcel_id = None
+        matched_apn = None
+        for apn in possible_apns:
+            normalized_apn = normalize_apn(apn)
+            if not normalized_apn:
+                continue
 
-        if not parcel_id:
-            # Try without county prefix
+            parcel_id = our_apn_lookup.get(normalized_apn)
+            if parcel_id:
+                matched_apn = normalized_apn
+                break
+
+            # Try without county prefix (e.g., 37113_12345 -> 12345)
             if '_' in normalized_apn:
                 short_apn = normalized_apn.split('_')[-1]
                 parcel_id = our_apn_lookup.get(short_apn)
+                if parcel_id:
+                    matched_apn = short_apn
+                    break
 
         if not parcel_id:
             continue
@@ -253,8 +272,8 @@ def import_county(county: str, update_all: bool = False):
             updated += 1
 
         # Remove from lookup to avoid duplicate processing
-        if normalized_apn in our_apn_lookup:
-            del our_apn_lookup[normalized_apn]
+        if matched_apn and matched_apn in our_apn_lookup:
+            del our_apn_lookup[matched_apn]
 
     conn.commit()
     conn.close()
