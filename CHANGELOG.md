@@ -9,6 +9,33 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **NC OneMap Spatial Data Integration** - Enrich properties with geographic intelligence
+  - **Spatial Data Service** (`src/services/spatial_data_service.py`) - Core service for NC OneMap API queries
+    - Flood zone queries (FEMA flood hazard areas with risk scoring)
+    - Elevation data via USGS National Map API
+    - Wildfire risk assessment
+    - View potential calculation for mountain properties
+  - **Database Schema** - New spatial columns on `properties` table:
+    - `flood_zone`, `flood_zone_subtype`, `flood_factor` (1-10 risk score), `flood_sfha`
+    - `elevation_feet`, `slope_percent`, `aspect`
+    - `view_potential` (1-10 mountain view score)
+    - `wildfire_risk`, `wildfire_score`
+    - `spatial_enriched_at` timestamp
+  - **Batch Enrichment Script** (`scripts/enrich_spatial.py`)
+    - Enrich all properties with spatial data
+    - Supports `--limit`, `--county`, `--force`, `--dry-run` flags
+    - Rate limiting (0.5s default) to respect API limits
+  - **Interactive Map View** (`/properties/map`)
+    - Leaflet.js-powered property map with marker clustering
+    - Filter sidebar (status, county, price range)
+    - Property popups with spatial badges
+    - Toggle for high view potential properties
+  - **Property Detail Enhancement**
+    - Spatial data badges (flood zone, elevation, views, wildfire risk)
+    - Property Analysis sidebar section with spatial grid
+    - Mini-map with property location (click to open Google Maps)
+  - Data sources: NC OneMap (flood zones), USGS National Map (elevation)
+
 - **Contact View Filtering** - Dashboard now defaults to showing your contacts only
   - **View switcher dropdown** on home and contacts pages
   - **Available views**: My Leads (default), Team, Ponds, Agents, All Contacts

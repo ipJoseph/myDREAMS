@@ -23,6 +23,7 @@
 
 | Feature | Commit | Description |
 |---------|--------|-------------|
+| NC OneMap Spatial Data | - | Flood zones, elevation, view potential, wildfire risk - enriches property data with NC geographic intelligence |
 | Enhanced Property Ingest | - | PropStream expansion, Redfin change detection, daily CLI, changes dashboard, price drop alerts |
 | IDX MLS Validation | `f157fb0` | Automatic validation with address fallback |
 | On-Demand Validation | `016271b` | Validates properties when creating IDX portfolio |
@@ -270,4 +271,4 @@ The tension between personal workflow optimization vs. building a configurable p
 ---
 
 *Roadmap maintained by Joseph & Claude*
-*Last updated: January 23, 2026 - Action Management System, Metrics dropdown, Scoring History view*
+*Last updated: January 29, 2026 - NC OneMap Spatial Data Integration (flood zones, elevation, view potential)*

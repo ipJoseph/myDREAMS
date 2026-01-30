@@ -309,6 +309,84 @@
             margin: 0 8px;
         }
 
+        /* Spatial Data Badges */
+        .badge-spatial {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .badge-flood {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .badge-flood.high-risk {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .badge-elevation {
+            background: #e0f2fe;
+            color: #0369a1;
+        }
+
+        .badge-view {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .badge-wildfire {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .badge-wildfire.high-risk {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        /* Mini Map */
+        .property-map {
+            height: 200px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+
+        /* Spatial Details Grid */
+        .spatial-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .spatial-item {
+            padding: 10px;
+            background: #f9fafb;
+            border-radius: 6px;
+        }
+
+        .spatial-item .label {
+            font-size: 11px;
+            color: #6b7280;
+            text-transform: uppercase;
+            margin-bottom: 2px;
+        }
+
+        .spatial-item .value {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .spatial-item .value.warning {
+            color: #dc2626;
+        }
+
+        .spatial-item .value.good {
+            color: #059669;
+        }
+
         .photo-gallery {
             display: flex;
             gap: 8px;
@@ -429,6 +507,21 @@
                     {% if property.days_on_market %}
                     <span class="badge badge-dom">{{ property.days_on_market }} DOM</span>
                     {% endif %}
+                    {# Spatial data badges #}
+                    {% if property.flood_zone and property.flood_zone != 'X' %}
+                    <span class="badge badge-flood {% if property.flood_factor and property.flood_factor >= 6 %}high-risk{% endif %}">
+                        Flood: {{ property.flood_zone }}
+                    </span>
+                    {% endif %}
+                    {% if property.elevation_feet %}
+                    <span class="badge badge-elevation">{{ "{:,}".format(property.elevation_feet) }} ft</span>
+                    {% endif %}
+                    {% if property.view_potential and property.view_potential >= 7 %}
+                    <span class="badge badge-view">Mountain Views</span>
+                    {% endif %}
+                    {% if property.wildfire_risk and property.wildfire_risk.lower() in ['high', 'very high'] %}
+                    <span class="badge badge-wildfire high-risk">Fire Risk: {{ property.wildfire_risk }}</span>
+                    {% endif %}
                 </div>
 
                 <div class="property-links">
@@ -520,6 +613,71 @@
             </div>
 
             <div class="sidebar">
+                <!-- Location Map -->
+                {% if property.latitude and property.longitude %}
+                <div class="sidebar-section">
+                    <h3>Location</h3>
+                    <div id="propertyMap" class="property-map"></div>
+                </div>
+                {% endif %}
+
+                <!-- Spatial Data Section -->
+                {% if property.flood_zone or property.elevation_feet or property.wildfire_risk %}
+                <div class="sidebar-section">
+                    <h3>Property Analysis</h3>
+                    <div class="spatial-grid">
+                        {% if property.flood_zone %}
+                        <div class="spatial-item">
+                            <div class="label">Flood Zone</div>
+                            <div class="value {% if property.flood_factor and property.flood_factor >= 6 %}warning{% elif property.flood_zone == 'X' %}good{% endif %}">
+                                {{ property.flood_zone }}
+                                {% if property.flood_factor %}({{ property.flood_factor }}/10){% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% if property.elevation_feet %}
+                        <div class="spatial-item">
+                            <div class="label">Elevation</div>
+                            <div class="value">{{ "{:,}".format(property.elevation_feet) }} ft</div>
+                        </div>
+                        {% endif %}
+                        {% if property.slope_percent %}
+                        <div class="spatial-item">
+                            <div class="label">Slope</div>
+                            <div class="value">{{ "%.1f"|format(property.slope_percent) }}%</div>
+                        </div>
+                        {% endif %}
+                        {% if property.aspect %}
+                        <div class="spatial-item">
+                            <div class="label">Aspect</div>
+                            <div class="value">{{ property.aspect }}-facing</div>
+                        </div>
+                        {% endif %}
+                        {% if property.view_potential %}
+                        <div class="spatial-item">
+                            <div class="label">View Potential</div>
+                            <div class="value {% if property.view_potential >= 7 %}good{% endif %}">
+                                {{ property.view_potential }}/10
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% if property.wildfire_risk %}
+                        <div class="spatial-item">
+                            <div class="label">Wildfire Risk</div>
+                            <div class="value {% if property.wildfire_risk|lower in ['high', 'very high'] %}warning{% elif property.wildfire_risk|lower == 'low' %}good{% endif %}">
+                                {{ property.wildfire_risk }}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% if property.spatial_enriched_at %}
+                    <div style="font-size: 11px; color: var(--text-secondary); margin-top: 12px;">
+                        Data from NC OneMap &bull; Updated {{ property.spatial_enriched_at[:10] }}
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+
                 <!-- Price Changes -->
                 {% if changes %}
                 <div class="sidebar-section">
@@ -636,6 +794,36 @@
                     }
                 }
             }
+        });
+    </script>
+    {% endif %}
+
+    <!-- Mini Map -->
+    {% if property.latitude and property.longitude %}
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const lat = {{ property.latitude }};
+        const lng = {{ property.longitude }};
+
+        const map = L.map('propertyMap', {
+            zoomControl: false,
+            scrollWheelZoom: false
+        }).setView([lat, lng], 15);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap'
+        }).addTo(map);
+
+        // Property marker
+        const marker = L.marker([lat, lng]).addTo(map);
+
+        // Add zoom control to bottom right
+        L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+        // Click to open in Google Maps
+        map.on('click', function() {
+            window.open(`https://www.google.com/maps?q=${lat},${lng}`, '_blank');
         });
     </script>
     {% endif %}

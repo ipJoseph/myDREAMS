@@ -119,7 +119,34 @@ class DREAMSDatabase:
                     logger.info(f"Added column {col_name} to leads table")
                 except sqlite3.OperationalError:
                     pass  # Column already exists
-    
+
+        # Apply migrations for properties table (spatial enrichment columns)
+        cursor = conn.execute("PRAGMA table_info(properties)")
+        existing_prop_cols = {row[1] for row in cursor.fetchall()}
+
+        new_property_columns = [
+            ("school_district", "TEXT"),
+            ("flood_zone", "TEXT"),
+            ("flood_zone_subtype", "TEXT"),
+            ("flood_factor", "INTEGER"),
+            ("flood_sfha", "INTEGER DEFAULT 0"),
+            ("elevation_feet", "INTEGER"),
+            ("slope_percent", "REAL"),
+            ("aspect", "TEXT"),
+            ("view_potential", "INTEGER"),
+            ("wildfire_risk", "TEXT"),
+            ("wildfire_score", "INTEGER"),
+            ("spatial_enriched_at", "TEXT"),
+        ]
+
+        for col_name, col_type in new_property_columns:
+            if col_name not in existing_prop_cols:
+                try:
+                    conn.execute(f"ALTER TABLE properties ADD COLUMN {col_name} {col_type}")
+                    logger.info(f"Added column {col_name} to properties table")
+                except sqlite3.OperationalError:
+                    pass  # Column already exists
+
     @contextmanager
     def _get_connection(self):
         """Get database connection with context manager."""
@@ -265,6 +292,19 @@ class DREAMSDatabase:
             school_elementary_rating INTEGER,
             school_middle_rating INTEGER,
             school_high_rating INTEGER,
+            school_district TEXT,
+            -- Spatial enrichment fields (NC OneMap)
+            flood_zone TEXT,                 -- FEMA zone: X, A, AE, VE, etc.
+            flood_zone_subtype TEXT,         -- Zone subtype (shaded, floodway)
+            flood_factor INTEGER,            -- Risk score 1-10
+            flood_sfha INTEGER DEFAULT 0,    -- Special Flood Hazard Area (1=yes)
+            elevation_feet INTEGER,          -- Elevation in feet
+            slope_percent REAL,              -- Terrain slope percentage
+            aspect TEXT,                     -- Facing direction: N, NE, E, etc.
+            view_potential INTEGER,          -- Mountain view score 1-10
+            wildfire_risk TEXT,              -- Risk category: Low, Moderate, High, Very High
+            wildfire_score INTEGER,          -- Risk score 1-10
+            spatial_enriched_at TEXT,        -- When spatial data was last updated
             -- URLs
             zillow_url TEXT,
             realtor_url TEXT,
@@ -712,6 +752,14 @@ class DREAMSDatabase:
         CREATE INDEX IF NOT EXISTS idx_properties_mls ON properties(mls_number);
         CREATE INDEX IF NOT EXISTS idx_properties_sync_status ON properties(sync_status);
         CREATE INDEX IF NOT EXISTS idx_properties_idx_validation ON properties(idx_validation_status);
+        -- Spatial enrichment indexes
+        CREATE INDEX IF NOT EXISTS idx_properties_flood_zone ON properties(flood_zone);
+        CREATE INDEX IF NOT EXISTS idx_properties_flood_factor ON properties(flood_factor);
+        CREATE INDEX IF NOT EXISTS idx_properties_elevation ON properties(elevation_feet);
+        CREATE INDEX IF NOT EXISTS idx_properties_view_potential ON properties(view_potential);
+        CREATE INDEX IF NOT EXISTS idx_properties_wildfire ON properties(wildfire_risk);
+        CREATE INDEX IF NOT EXISTS idx_properties_spatial_enriched ON properties(spatial_enriched_at);
+        CREATE INDEX IF NOT EXISTS idx_properties_lat_lng ON properties(latitude, longitude);
         CREATE INDEX IF NOT EXISTS idx_matches_lead ON matches(lead_id);
         CREATE INDEX IF NOT EXISTS idx_matches_score ON matches(total_score DESC);
         CREATE INDEX IF NOT EXISTS idx_contact_props_contact ON contact_properties(contact_id);

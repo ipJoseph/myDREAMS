@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Property Map - DREAMS</title>
+    <link rel="icon" type="image/svg+xml" href="{{ favicon }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='shared/css/dreams.css') }}">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Leaflet MarkerCluster CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
+    <style>
+        .map-container {
+            display: flex;
+            height: calc(100vh - 80px);
+        }
+
+        /* Sidebar */
+        .map-sidebar {
+            width: 320px;
+            background: white;
+            border-right: 1px solid #e5e7eb;
+            overflow-y: auto;
+            flex-shrink: 0;
+        }
+
+        .sidebar-header {
+            padding: 16px;
+            border-bottom: 1px solid #e5e7eb;
+            position: sticky;
+            top: 0;
+            background: white;
+            z-index: 10;
+        }
+
+        .sidebar-header h2 {
+            margin: 0 0 12px 0;
+            font-size: 16px;
+            color: var(--primary-dark);
+        }
+
+        .filter-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .filter-row select,
+        .filter-row input {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 13px;
+        }
+
+        .filter-row label {
+            font-size: 11px;
+            font-weight: 600;
+            color: #6b7280;
+            text-transform: uppercase;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .overlay-toggles {
+            display: flex;
+            gap: 12px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+
+        .overlay-toggle {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .overlay-toggle input {
+            margin: 0;
+        }
+
+        .property-count {
+            font-size: 13px;
+            color: #6b7280;
+            margin-top: 12px;
+        }
+
+        .property-count strong {
+            color: var(--primary-dark);
+        }
+
+        /* Property List */
+        .property-list {
+            padding: 8px;
+        }
+
+        .property-item {
+            display: flex;
+            gap: 12px;
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .property-item:hover,
+        .property-item.selected {
+            background: #f3f4f6;
+        }
+
+        .property-item.selected {
+            border-left: 3px solid var(--primary);
+        }
+
+        .property-thumb {
+            width: 80px;
+            height: 60px;
+            border-radius: 6px;
+            object-fit: cover;
+            background: #e5e7eb;
+        }
+
+        .property-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .property-price {
+            font-weight: 700;
+            color: var(--primary-dark);
+            font-size: 15px;
+        }
+
+        .property-address {
+            font-size: 13px;
+            color: #374151;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .property-city {
+            font-size: 12px;
+            color: #6b7280;
+        }
+
+        .property-details {
+            font-size: 11px;
+            color: #6b7280;
+            margin-top: 4px;
+        }
+
+        .property-badges {
+            display: flex;
+            gap: 4px;
+            margin-top: 6px;
+        }
+
+        .badge-small {
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+
+        .badge-flood {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .badge-flood.high {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .badge-elevation {
+            background: #e0f2fe;
+            color: #0369a1;
+        }
+
+        .badge-view {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        /* Map */
+        #map {
+            flex: 1;
+            min-height: 400px;
+        }
+
+        /* Custom marker styles */
+        .property-marker {
+            background: var(--primary);
+            border: 2px solid white;
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .property-marker.active {
+            background: #10b981;
+        }
+
+        .property-marker.pending {
+            background: #f59e0b;
+        }
+
+        .property-marker.sold {
+            background: #ef4444;
+        }
+
+        /* Popup styles */
+        .leaflet-popup-content-wrapper {
+            padding: 0;
+            border-radius: 8px;
+        }
+
+        .leaflet-popup-content {
+            margin: 0;
+            min-width: 280px;
+        }
+
+        .popup-content {
+            padding: 12px;
+        }
+
+        .popup-photo {
+            width: 100%;
+            height: 140px;
+            object-fit: cover;
+            border-radius: 8px 8px 0 0;
+        }
+
+        .popup-price {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--primary-dark);
+            margin-bottom: 4px;
+        }
+
+        .popup-address {
+            font-size: 14px;
+            color: #374151;
+            margin-bottom: 2px;
+        }
+
+        .popup-location {
+            font-size: 12px;
+            color: #6b7280;
+            margin-bottom: 8px;
+        }
+
+        .popup-stats {
+            display: flex;
+            gap: 16px;
+            font-size: 13px;
+            color: #4b5563;
+            margin-bottom: 8px;
+        }
+
+        .popup-spatial {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            padding-top: 8px;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .popup-link {
+            display: block;
+            text-align: center;
+            padding: 8px;
+            background: var(--primary);
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            margin-top: 8px;
+        }
+
+        .popup-link:hover {
+            background: var(--primary-dark);
+        }
+
+        /* Legend */
+        .map-legend {
+            position: absolute;
+            bottom: 30px;
+            right: 10px;
+            background: white;
+            padding: 12px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            z-index: 1000;
+            font-size: 12px;
+        }
+
+        .legend-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--primary-dark);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+        }
+
+        .legend-dot.active { background: #10b981; }
+        .legend-dot.pending { background: #f59e0b; }
+        .legend-dot.sold { background: #ef4444; }
+        .legend-dot.other { background: var(--primary); }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .map-container {
+                flex-direction: column;
+            }
+            .map-sidebar {
+                width: 100%;
+                height: 300px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <h1>Property Map</h1>
+                <span class="env-badge {{ dreams_env }}">{{ dreams_env }}</span>
+            </div>
+            <nav class="header-nav">
+                <a href="/">Home</a>
+                <a href="/properties">Properties</a>
+                <a href="/listings">Listings</a>
+                <a href="/properties/map" class="active">Map View</a>
+            </nav>
+        </header>
+    </div>
+
+    <div class="map-container">
+        <!-- Sidebar with filters and property list -->
+        <div class="map-sidebar">
+            <div class="sidebar-header">
+                <h2>Filter Properties</h2>
+
+                <div class="filter-row">
+                    <div style="flex:1">
+                        <label>Status</label>
+                        <select id="filterStatus">
+                            <option value="">All Statuses</option>
+                            {% for s in statuses %}
+                            <option value="{{ s }}" {% if s == selected_status %}selected{% endif %}>{{ s }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div style="flex:1">
+                        <label>County</label>
+                        <select id="filterCounty">
+                            <option value="">All Counties</option>
+                            {% for c in counties %}
+                            <option value="{{ c }}" {% if c == selected_county %}selected{% endif %}>{{ c }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="filter-row">
+                    <div style="flex:1">
+                        <label>Min Price</label>
+                        <input type="number" id="filterMinPrice" placeholder="$0" step="10000" value="{{ min_price }}">
+                    </div>
+                    <div style="flex:1">
+                        <label>Max Price</label>
+                        <input type="number" id="filterMaxPrice" placeholder="No max" step="10000" value="{{ max_price }}">
+                    </div>
+                </div>
+
+                <div class="overlay-toggles">
+                    <label class="overlay-toggle">
+                        <input type="checkbox" id="showFloodZones" checked>
+                        Show Flood Zones
+                    </label>
+                    <label class="overlay-toggle">
+                        <input type="checkbox" id="showHighViewPotential">
+                        High View (7+)
+                    </label>
+                </div>
+
+                <div class="property-count">
+                    Showing <strong id="propertyCount">0</strong> properties
+                </div>
+            </div>
+
+            <div class="property-list" id="propertyList">
+                <!-- Populated by JavaScript -->
+            </div>
+        </div>
+
+        <!-- Map -->
+        <div id="map"></div>
+
+        <!-- Legend -->
+        <div class="map-legend">
+            <div class="legend-title">Property Status</div>
+            <div class="legend-item">
+                <span class="legend-dot active"></span> Active
+            </div>
+            <div class="legend-item">
+                <span class="legend-dot pending"></span> Pending
+            </div>
+            <div class="legend-item">
+                <span class="legend-dot sold"></span> Sold
+            </div>
+            <div class="legend-item">
+                <span class="legend-dot other"></span> Other
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Leaflet MarkerCluster -->
+    <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
+
+    <script>
+        // Property data from server
+        const allProperties = {{ properties | tojson }};
+
+        // Initialize map centered on WNC
+        const map = L.map('map').setView([35.5, -82.5], 9);
+
+        // Add tile layer
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Marker cluster group
+        const markers = L.markerClusterGroup({
+            maxClusterRadius: 50,
+            spiderfyOnMaxZoom: true,
+            showCoverageOnHover: false
+        });
+
+        // Store markers by property ID
+        const markerMap = {};
+
+        // Get marker color based on status
+        function getMarkerColor(status) {
+            status = (status || '').toLowerCase();
+            if (status === 'active') return '#10b981';
+            if (status === 'pending' || status === 'contingent') return '#f59e0b';
+            if (status === 'sold' || status === 'closed') return '#ef4444';
+            return '#2563eb';
+        }
+
+        // Create custom icon
+        function createIcon(status) {
+            const color = getMarkerColor(status);
+            return L.divIcon({
+                className: 'custom-marker',
+                html: `<div style="
+                    background: ${color};
+                    width: 24px;
+                    height: 24px;
+                    border-radius: 50%;
+                    border: 3px solid white;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                "></div>`,
+                iconSize: [24, 24],
+                iconAnchor: [12, 12]
+            });
+        }
+
+        // Format price
+        function formatPrice(price) {
+            return '$' + (price || 0).toLocaleString();
+        }
+
+        // Create popup content
+        function createPopup(p) {
+            let spatialBadges = '';
+
+            if (p.flood_zone && p.flood_zone !== 'X') {
+                const floodClass = p.flood_factor >= 6 ? 'high' : '';
+                spatialBadges += `<span class="badge-small badge-flood ${floodClass}">Flood: ${p.flood_zone}</span>`;
+            }
+
+            if (p.elevation_feet) {
+                spatialBadges += `<span class="badge-small badge-elevation">${p.elevation_feet.toLocaleString()} ft</span>`;
+            }
+
+            if (p.view_potential >= 7) {
+                spatialBadges += `<span class="badge-small badge-view">Views: ${p.view_potential}/10</span>`;
+            }
+
+            const photoHtml = p.primary_photo
+                ? `<img src="${p.primary_photo}" class="popup-photo" onerror="this.style.display='none'">`
+                : '';
+
+            return `
+                ${photoHtml}
+                <div class="popup-content">
+                    <div class="popup-price">${formatPrice(p.price)}</div>
+                    <div class="popup-address">${p.address || 'Address unavailable'}</div>
+                    <div class="popup-location">${p.city || ''}, ${p.county || ''} County</div>
+                    <div class="popup-stats">
+                        ${p.beds ? `<span><strong>${p.beds}</strong> bd</span>` : ''}
+                        ${p.baths ? `<span><strong>${p.baths}</strong> ba</span>` : ''}
+                        ${p.sqft ? `<span><strong>${p.sqft.toLocaleString()}</strong> sqft</span>` : ''}
+                        ${p.acreage ? `<span><strong>${p.acreage.toFixed(2)}</strong> ac</span>` : ''}
+                    </div>
+                    ${spatialBadges ? `<div class="popup-spatial">${spatialBadges}</div>` : ''}
+                    <a href="/properties/${p.id}" class="popup-link">View Details</a>
+                </div>
+            `;
+        }
+
+        // Create property list item
+        function createListItem(p) {
+            let badges = '';
+
+            if (p.flood_zone && p.flood_zone !== 'X') {
+                const floodClass = p.flood_factor >= 6 ? 'high' : '';
+                badges += `<span class="badge-small badge-flood ${floodClass}">${p.flood_zone}</span>`;
+            }
+
+            if (p.view_potential >= 7) {
+                badges += `<span class="badge-small badge-view">Views ${p.view_potential}</span>`;
+            }
+
+            const thumbHtml = p.primary_photo
+                ? `<img src="${p.primary_photo}" class="property-thumb" onerror="this.style.background='#e5e7eb'">`
+                : `<div class="property-thumb"></div>`;
+
+            return `
+                <div class="property-item" data-id="${p.id}" onclick="selectProperty('${p.id}')">
+                    ${thumbHtml}
+                    <div class="property-info">
+                        <div class="property-price">${formatPrice(p.price)}</div>
+                        <div class="property-address">${p.address || 'Address unavailable'}</div>
+                        <div class="property-city">${p.city || ''}</div>
+                        <div class="property-details">
+                            ${p.beds ? p.beds + ' bd' : ''}
+                            ${p.baths ? ' | ' + p.baths + ' ba' : ''}
+                            ${p.sqft ? ' | ' + p.sqft.toLocaleString() + ' sqft' : ''}
+                        </div>
+                        ${badges ? `<div class="property-badges">${badges}</div>` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        // Add properties to map
+        function addPropertiesToMap(properties) {
+            markers.clearLayers();
+
+            properties.forEach(p => {
+                if (!p.latitude || !p.longitude) return;
+
+                const marker = L.marker([p.latitude, p.longitude], {
+                    icon: createIcon(p.status)
+                });
+
+                marker.bindPopup(createPopup(p), {
+                    maxWidth: 300,
+                    minWidth: 280
+                });
+
+                marker.propertyId = p.id;
+                markerMap[p.id] = marker;
+
+                markers.addLayer(marker);
+            });
+
+            map.addLayer(markers);
+
+            // Fit bounds if we have markers
+            if (markers.getLayers().length > 0) {
+                map.fitBounds(markers.getBounds(), { padding: [50, 50] });
+            }
+        }
+
+        // Update property list
+        function updatePropertyList(properties) {
+            const listEl = document.getElementById('propertyList');
+            listEl.innerHTML = properties.map(createListItem).join('');
+            document.getElementById('propertyCount').textContent = properties.length;
+        }
+
+        // Select property
+        function selectProperty(id) {
+            // Update list selection
+            document.querySelectorAll('.property-item').forEach(el => {
+                el.classList.toggle('selected', el.dataset.id === id);
+            });
+
+            // Zoom to marker and open popup
+            const marker = markerMap[id];
+            if (marker) {
+                markers.zoomToShowLayer(marker, () => {
+                    marker.openPopup();
+                });
+            }
+        }
+
+        // Filter properties
+        function filterProperties() {
+            const status = document.getElementById('filterStatus').value;
+            const county = document.getElementById('filterCounty').value;
+            const minPrice = parseInt(document.getElementById('filterMinPrice').value) || 0;
+            const maxPrice = parseInt(document.getElementById('filterMaxPrice').value) || Infinity;
+            const showFloodZones = document.getElementById('showFloodZones').checked;
+            const showHighView = document.getElementById('showHighViewPotential').checked;
+
+            const filtered = allProperties.filter(p => {
+                if (status && p.status !== status) return false;
+                if (county && p.county !== county) return false;
+                if (p.price < minPrice) return false;
+                if (p.price > maxPrice) return false;
+                if (showHighView && (!p.view_potential || p.view_potential < 7)) return false;
+                return true;
+            });
+
+            addPropertiesToMap(filtered);
+            updatePropertyList(filtered);
+        }
+
+        // Set up filter listeners
+        document.getElementById('filterStatus').addEventListener('change', filterProperties);
+        document.getElementById('filterCounty').addEventListener('change', filterProperties);
+        document.getElementById('filterMinPrice').addEventListener('input', debounce(filterProperties, 500));
+        document.getElementById('filterMaxPrice').addEventListener('input', debounce(filterProperties, 500));
+        document.getElementById('showFloodZones').addEventListener('change', filterProperties);
+        document.getElementById('showHighViewPotential').addEventListener('change', filterProperties);
+
+        // Debounce helper
+        function debounce(fn, delay) {
+            let timeout;
+            return function(...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => fn.apply(this, args), delay);
+            };
+        }
+
+        // Initial load
+        filterProperties();
+    </script>
+</body>
+</html>

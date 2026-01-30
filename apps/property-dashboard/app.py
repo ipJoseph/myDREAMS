@@ -726,6 +726,83 @@ def properties_list():
                          refresh_time=datetime.now().strftime('%B %d, %Y %I:%M %p'))
 
 
+@app.route('/properties/map')
+@requires_auth
+def properties_map():
+    """Interactive map view of properties with spatial data."""
+    # Get filter parameters
+    status = request.args.get('status', '')
+    county = request.args.get('county', '')
+    min_price = request.args.get('min_price', '')
+    max_price = request.args.get('max_price', '')
+
+    # Get dropdown options
+    filter_options = get_filter_options()
+    counties = filter_options['counties']
+    statuses = filter_options['statuses']
+
+    # Fetch properties with coordinates
+    with db._get_connection() as conn:
+        query = '''
+            SELECT id, address, city, county, state, zip, price, beds, baths, sqft, acreage,
+                   status, latitude, longitude, photo_urls,
+                   flood_zone, flood_factor, elevation_feet, view_potential,
+                   wildfire_risk, wildfire_score, slope_percent, aspect
+            FROM properties
+            WHERE latitude IS NOT NULL AND longitude IS NOT NULL
+        '''
+        params = []
+
+        if status:
+            query += ' AND LOWER(status) = LOWER(?)'
+            params.append(status)
+
+        if county:
+            query += ' AND county LIKE ?'
+            params.append(f'%{county}%')
+
+        if min_price:
+            query += ' AND price >= ?'
+            params.append(int(min_price))
+
+        if max_price:
+            query += ' AND price <= ?'
+            params.append(int(max_price))
+
+        query += ' ORDER BY price DESC LIMIT 500'
+
+        rows = conn.execute(query, params).fetchall()
+
+        properties = []
+        for row in rows:
+            prop = dict(row)
+
+            # Parse first photo URL
+            if prop.get('photo_urls'):
+                try:
+                    photos = json.loads(prop['photo_urls'])
+                    prop['primary_photo'] = photos[0] if photos else None
+                except (json.JSONDecodeError, IndexError):
+                    prop['primary_photo'] = None
+            else:
+                prop['primary_photo'] = None
+
+            # Clean county name
+            if prop.get('county'):
+                prop['county'] = re.sub(r'\s+County$', '', prop['county'], flags=re.IGNORECASE).strip()
+
+            properties.append(prop)
+
+    return render_template('properties_map.html',
+                         properties=properties,
+                         counties=counties,
+                         statuses=statuses,
+                         selected_status=status,
+                         selected_county=county,
+                         min_price=min_price,
+                         max_price=max_price)
+
+
 @app.route('/lead/<client_name>')
 def lead_dashboard_redirect(client_name):
     """Redirect old /lead/ URLs to new /client/ URLs"""
