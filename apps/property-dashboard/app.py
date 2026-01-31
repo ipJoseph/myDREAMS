@@ -15,7 +15,7 @@ from functools import wraps
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-from flask import Flask, render_template, render_template_string, request, jsonify, Response, redirect, url_for
+from flask import Flask, render_template, render_template_string, request, jsonify, Response, redirect, url_for, send_from_directory
 from dotenv import load_dotenv
 
 # Module logger
@@ -3549,6 +3549,13 @@ def api_listing_detail(listing_id):
                 listing['photos'] = []
 
         return jsonify(listing)
+
+
+@app.route('/photos/<path:filename>')
+def serve_photo(filename):
+    """Serve MLS photos from data/photos directory."""
+    photos_dir = PROJECT_ROOT / 'data' / 'photos'
+    return send_from_directory(photos_dir, filename)
 
 
 if __name__ == '__main__':
