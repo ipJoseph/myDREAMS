@@ -362,11 +362,20 @@ def import_listings(
                 if not listing.get('zip') and parcel.get('zip'):
                     listing['zip'] = parcel['zip']
 
-            # Check if listing exists
+            # Check if listing exists - first by MLS#, then by parcel_id
             existing = conn.execute(
-                "SELECT id FROM listings WHERE mls_source = 'CSMLS' AND mls_number = ?",
+                "SELECT id, source FROM listings WHERE mls_source = 'CSMLS' AND mls_number = ?",
                 [mls_num]
             ).fetchone()
+
+            # If no CSMLS match, check for existing PropStream listing for same parcel
+            if not existing and parcel_id:
+                existing = conn.execute(
+                    "SELECT id, source FROM listings WHERE parcel_id = ?",
+                    [parcel_id]
+                ).fetchone()
+                if existing:
+                    stats['merged_propstream'] = stats.get('merged_propstream', 0) + 1
 
             # Get photo path
             photo_path = None
@@ -375,20 +384,22 @@ def import_listings(
                 stats['photos_added'] += 1
 
             if existing:
-                # Update existing listing
+                # Update existing listing - enrich with MLS data
                 conn.execute('''
                     UPDATE listings SET
                         parcel_id = COALESCE(?, parcel_id),
+                        mls_number = COALESCE(?, mls_number),
+                        mls_source = COALESCE(?, mls_source),
                         status = ?,
                         list_price = ?,
                         days_on_market = ?,
-                        beds = ?,
-                        baths = ?,
-                        sqft = ?,
-                        year_built = ?,
-                        property_type = ?,
-                        style = ?,
-                        acreage = ?,
+                        beds = COALESCE(?, beds),
+                        baths = COALESCE(?, baths),
+                        sqft = COALESCE(?, sqft),
+                        year_built = COALESCE(?, year_built),
+                        property_type = COALESCE(?, property_type),
+                        style = COALESCE(?, style),
+                        acreage = COALESCE(?, acreage),
                         hoa_fee = ?,
                         listing_agent_name = ?,
                         listing_agent_phone = ?,
@@ -396,14 +407,15 @@ def import_listings(
                         primary_photo = COALESCE(?, primary_photo),
                         photo_source = CASE WHEN ? IS NOT NULL THEN 'mls' ELSE photo_source END,
                         photo_review_status = CASE WHEN ? IS NOT NULL THEN 'verified' ELSE photo_review_status END,
-                        address = ?,
-                        city = ?,
-                        state = ?,
-                        updated_at = ?,
-                        source = 'CSMLS'
+                        address = COALESCE(?, address),
+                        city = COALESCE(?, city),
+                        state = COALESCE(?, state),
+                        updated_at = ?
                     WHERE id = ?
                 ''', [
                     parcel_id,
+                    mls_num,
+                    'CSMLS',
                     listing['status'],
                     listing['list_price'],
                     listing['days_on_market'],
@@ -513,12 +525,13 @@ def main():
     print("=" * 60)
     print("IMPORT COMPLETE")
     print("=" * 60)
-    print(f"Total parsed:    {stats['total']}")
-    print(f"Created:         {stats['created']}")
-    print(f"Updated:         {stats['updated']}")
-    print(f"Matched parcel:  {stats['matched_parcel']}")
-    print(f"Photos added:    {stats['photos_added']}")
-    print(f"Errors:          {stats['errors']}")
+    print(f"Total parsed:      {stats['total']}")
+    print(f"Created new:       {stats['created']}")
+    print(f"Updated existing:  {stats['updated']}")
+    print(f"Merged to PropStream: {stats.get('merged_propstream', 0)}")
+    print(f"Matched to parcel: {stats['matched_parcel']}")
+    print(f"Photos added:      {stats['photos_added']}")
+    print(f"Errors:            {stats['errors']}")
 
     return 0
 
