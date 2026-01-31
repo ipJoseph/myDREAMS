@@ -3395,6 +3395,131 @@ def listings_gallery():
                          per_page=per_page)
 
 
+@app.route('/photos')
+@requires_auth
+def photos_dashboard():
+    """Photo enrichment dashboard - shows photo stats and review queue."""
+    view = request.args.get('view', 'verified')  # verified, pending, all
+    page = max(1, int(request.args.get('page', 1)))
+    per_page = 24
+
+    with db._get_connection() as conn:
+        # Get photo enrichment stats
+        stats = {}
+        stats['total_active'] = conn.execute(
+            "SELECT COUNT(*) FROM listings WHERE status = 'ACTIVE'"
+        ).fetchone()[0]
+        stats['with_photos'] = conn.execute(
+            "SELECT COUNT(*) FROM listings WHERE primary_photo IS NOT NULL"
+        ).fetchone()[0]
+        stats['verified'] = conn.execute(
+            "SELECT COUNT(*) FROM listings WHERE photo_review_status = 'verified'"
+        ).fetchone()[0]
+        stats['pending_review'] = conn.execute(
+            "SELECT COUNT(*) FROM listings WHERE photo_review_status = 'pending_review'"
+        ).fetchone()[0]
+        stats['rejected'] = conn.execute(
+            "SELECT COUNT(*) FROM listings WHERE photo_review_status = 'rejected'"
+        ).fetchone()[0]
+        stats['no_photos'] = conn.execute(
+            "SELECT COUNT(*) FROM listings WHERE status = 'ACTIVE' AND (primary_photo IS NULL OR primary_photo = '')"
+        ).fetchone()[0]
+
+        # Confidence breakdown
+        confidence_stats = conn.execute('''
+            SELECT
+                CASE
+                    WHEN photo_confidence >= 90 THEN '90-100%'
+                    WHEN photo_confidence >= 70 THEN '70-89%'
+                    WHEN photo_confidence >= 50 THEN '50-69%'
+                    ELSE 'Below 50%'
+                END as confidence_range,
+                COUNT(*) as count
+            FROM listings
+            WHERE photo_confidence IS NOT NULL
+            GROUP BY confidence_range
+            ORDER BY confidence_range DESC
+        ''').fetchall()
+        stats['confidence_breakdown'] = {r[0]: r[1] for r in confidence_stats}
+
+        # Source breakdown
+        source_stats = conn.execute('''
+            SELECT photo_source, COUNT(*) as count
+            FROM listings
+            WHERE photo_source IS NOT NULL
+            GROUP BY photo_source
+            ORDER BY count DESC
+        ''').fetchall()
+        stats['source_breakdown'] = {r[0]: r[1] for r in source_stats}
+
+        # Build query based on view
+        if view == 'pending':
+            where_clause = "WHERE photo_review_status = 'pending_review'"
+        elif view == 'all':
+            where_clause = "WHERE primary_photo IS NOT NULL"
+        else:  # verified (default)
+            where_clause = "WHERE photo_review_status = 'verified'"
+
+        # Get total count for pagination
+        total_count = conn.execute(f"SELECT COUNT(*) FROM listings {where_clause}").fetchone()[0]
+        total_pages = max(1, (total_count + per_page - 1) // per_page)
+        offset = (page - 1) * per_page
+
+        # Get listings
+        listings = conn.execute(f'''
+            SELECT
+                id, address, city, county, list_price, beds, baths, sqft, acreage,
+                primary_photo, photo_source, photo_confidence, photo_review_status,
+                redfin_url, idx_url, photo_verified_at
+            FROM listings
+            {where_clause}
+            ORDER BY photo_verified_at DESC NULLS LAST, updated_at DESC
+            LIMIT ? OFFSET ?
+        ''', [per_page, offset]).fetchall()
+        listings = [dict(row) for row in listings]
+
+    return render_template('photos_dashboard.html',
+                         listings=listings,
+                         stats=stats,
+                         view=view,
+                         page=page,
+                         total_pages=total_pages,
+                         total_count=total_count)
+
+
+@app.route('/api/photos/<listing_id>/approve', methods=['POST'])
+@requires_auth
+def approve_photo(listing_id):
+    """Approve a pending photo."""
+    with db._get_connection() as conn:
+        conn.execute('''
+            UPDATE listings
+            SET photo_review_status = 'verified',
+                photo_verified_by = 'manual',
+                photo_verified_at = datetime('now')
+            WHERE id = ?
+        ''', [listing_id])
+        conn.commit()
+    return jsonify({'success': True})
+
+
+@app.route('/api/photos/<listing_id>/reject', methods=['POST'])
+@requires_auth
+def reject_photo(listing_id):
+    """Reject a photo (clears the photo)."""
+    with db._get_connection() as conn:
+        conn.execute('''
+            UPDATE listings
+            SET photo_review_status = 'rejected',
+                primary_photo = NULL,
+                photo_verified_by = 'manual',
+                photo_verified_at = datetime('now')
+            WHERE id = ?
+        ''', [listing_id])
+        conn.commit()
+    return jsonify({'success': True})
+
+
 @app.route('/api/listings/<listing_id>')
 @requires_auth
 def api_listing_detail(listing_id):
