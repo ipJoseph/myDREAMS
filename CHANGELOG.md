@@ -9,6 +9,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Photos Dashboard Redesign** - MLS-style property listing view
+  - Horizontal property cards with photo on left, details on right
+  - Geospatial data section (elevation, flood zone, view potential, slope, aspect, wildfire risk)
+  - Filters: county, min/max price, sort options (newest, price, beds, acreage, elevation)
+  - View tabs: Verified, Pending, All
+  - Color-coded indicators for geospatial risk factors
+
 - **Property System Architecture Reset** - Normalized two-table schema (parcels + listings)
   - **New Schema Design** - Clean separation of immutable parcel data from transactional listing data:
     - `parcels` table: Physical land data (APN, county, coordinates, owner info, tax values, spatial data)
