@@ -3465,17 +3465,60 @@ def photos_dashboard():
         total_pages = max(1, (total_count + per_page - 1) // per_page)
         offset = (page - 1) * per_page
 
-        # Get listings
+        # Get filter options
+        counties = [r[0] for r in conn.execute(
+            "SELECT DISTINCT l.county FROM listings l WHERE l.primary_photo IS NOT NULL AND l.county IS NOT NULL ORDER BY l.county"
+        ).fetchall()]
+
+        # Apply additional filters
+        county_filter = request.args.get('county', '')
+        min_price = request.args.get('min_price', '')
+        max_price = request.args.get('max_price', '')
+        sort_by = request.args.get('sort', 'newest')
+
+        extra_where = ""
+        params = []
+        if county_filter:
+            extra_where += " AND l.county = ?"
+            params.append(county_filter)
+        if min_price:
+            extra_where += " AND l.list_price >= ?"
+            params.append(int(min_price))
+        if max_price:
+            extra_where += " AND l.list_price <= ?"
+            params.append(int(max_price))
+
+        # Sort options
+        sort_map = {
+            'newest': 'l.captured_at DESC',
+            'price_high': 'l.list_price DESC',
+            'price_low': 'l.list_price ASC',
+            'beds': 'l.beds DESC',
+            'acreage': 'l.acreage DESC',
+            'elevation': 'p.elevation_feet DESC',
+        }
+        order_by = sort_map.get(sort_by, 'l.captured_at DESC')
+
+        # Get listings with parcel geospatial data
+        base_where = where_clause.replace('WHERE', 'WHERE l.')
         listings = conn.execute(f'''
             SELECT
-                id, address, city, county, list_price, beds, baths, sqft, acreage,
-                primary_photo, photo_source, photo_confidence, photo_review_status,
-                redfin_url, idx_url, photo_verified_at
-            FROM listings
-            {where_clause}
-            ORDER BY photo_verified_at DESC NULLS LAST, updated_at DESC
+                l.id, l.address, l.city, l.county, l.zip, l.state,
+                l.list_price, l.beds, l.baths, l.sqft, l.acreage,
+                l.year_built, l.property_type, l.style, l.days_on_market,
+                l.hoa_fee,
+                l.primary_photo, l.photo_source, l.photo_confidence, l.photo_review_status,
+                l.redfin_url, l.idx_url, l.mls_number, l.mls_source,
+                l.listing_agent_name, l.listing_agent_phone, l.listing_office_name,
+                p.elevation_feet, p.slope_percent, p.aspect, p.flood_zone,
+                p.flood_factor, p.view_potential, p.wildfire_risk, p.wildfire_score,
+                p.latitude, p.longitude, p.assessed_value
+            FROM listings l
+            LEFT JOIN parcels p ON l.parcel_id = p.id
+            {base_where} {extra_where}
+            ORDER BY {order_by}
             LIMIT ? OFFSET ?
-        ''', [per_page, offset]).fetchall()
+        ''', params + [per_page, offset]).fetchall()
         listings = [dict(row) for row in listings]
 
     return render_template('photos_dashboard.html',
@@ -3484,7 +3527,12 @@ def photos_dashboard():
                          view=view,
                          page=page,
                          total_pages=total_pages,
-                         total_count=total_count)
+                         total_count=total_count,
+                         counties=counties,
+                         selected_county=county_filter,
+                         min_price=min_price,
+                         max_price=max_price,
+                         sort_by=sort_by)
 
 
 @app.route('/api/photos/<listing_id>/approve', methods=['POST'])

@@ -3,332 +3,340 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Photo Dashboard - DREAMS</title>
+    <title>MLS Listings - DREAMS</title>
     <link rel="icon" type="image/svg+xml" href="{{ favicon }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='shared/css/dreams.css') }}">
     <style>
-        /* Stats Grid */
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 16px;
-            margin-bottom: 24px;
+        :root {
+            --card-radius: 10px;
+            --photo-width: 280px;
         }
 
-        .stat-card {
+        /* Compact Stats Bar */
+        .stats-bar {
+            display: flex;
+            gap: 24px;
             background: white;
-            border-radius: 12px;
-            padding: 20px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            flex-wrap: wrap;
         }
 
-        .stat-card .stat-value {
-            font-size: 32px;
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .stat-item .stat-value {
+            font-size: 20px;
             font-weight: 700;
             color: var(--primary-dark);
-            line-height: 1;
         }
 
-        .stat-card .stat-label {
-            font-size: 13px;
+        .stat-item .stat-label {
+            font-size: 12px;
             color: #6b7280;
-            margin-top: 4px;
         }
 
-        .stat-card.success .stat-value { color: #10b981; }
-        .stat-card.warning .stat-value { color: #f59e0b; }
-        .stat-card.danger .stat-value { color: #ef4444; }
-        .stat-card.muted .stat-value { color: #9ca3af; }
+        .stat-item.success .stat-value { color: #10b981; }
+        .stat-item.warning .stat-value { color: #f59e0b; }
 
-        /* Progress bar */
-        .progress-container {
-            background: white;
-            border-radius: 12px;
-            padding: 20px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-            margin-bottom: 24px;
-        }
-
-        .progress-header {
+        /* Filters Row */
+        .filters-row {
             display: flex;
-            justify-content: space-between;
-            margin-bottom: 12px;
+            gap: 12px;
+            align-items: center;
+            background: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            flex-wrap: wrap;
         }
 
-        .progress-header h3 {
-            margin: 0;
-            font-size: 16px;
-            color: var(--primary-dark);
+        .filters-row select,
+        .filters-row input {
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 13px;
+            min-width: 120px;
         }
 
-        .progress-header span {
-            font-size: 14px;
+        .filters-row .filter-label {
+            font-size: 11px;
             color: #6b7280;
+            text-transform: uppercase;
+            font-weight: 600;
         }
 
-        .progress-bar {
-            background: #e5e7eb;
-            border-radius: 8px;
-            height: 12px;
-            overflow: hidden;
+        .filters-row .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
         }
 
-        .progress-fill {
-            background: linear-gradient(90deg, #10b981, #059669);
-            height: 100%;
-            border-radius: 8px;
-            transition: width 0.3s ease;
-        }
-
-        /* View tabs */
         .view-tabs {
             display: flex;
-            gap: 8px;
-            margin-bottom: 24px;
+            gap: 4px;
+            margin-left: auto;
         }
 
         .view-tab {
-            padding: 10px 20px;
-            border-radius: 8px;
+            padding: 8px 14px;
+            border-radius: 6px;
             text-decoration: none;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 500;
             color: #6b7280;
-            background: white;
-            border: 1px solid #e5e7eb;
+            background: #f3f4f6;
             transition: all 0.2s;
         }
 
-        .view-tab:hover {
-            border-color: var(--primary);
-            color: var(--primary);
-        }
-
+        .view-tab:hover { background: #e5e7eb; }
         .view-tab.active {
             background: var(--primary-dark);
             color: white;
-            border-color: var(--primary-dark);
         }
 
         .view-tab .count {
-            background: rgba(0, 0, 0, 0.1);
-            padding: 2px 8px;
-            border-radius: 10px;
-            font-size: 12px;
-            margin-left: 6px;
+            font-size: 11px;
+            opacity: 0.7;
+            margin-left: 4px;
         }
 
-        .view-tab.active .count {
-            background: rgba(255, 255, 255, 0.2);
+        /* MLS Property Cards */
+        .listings-container {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
         }
 
-        /* Gallery Grid */
-        .gallery-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 20px;
-        }
-
-        /* Photo Card */
-        .photo-card {
+        .property-card {
+            display: flex;
             background: white;
-            border-radius: 12px;
+            border-radius: var(--card-radius);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
             overflow: hidden;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-            transition: transform 0.2s, box-shadow 0.2s;
+            transition: box-shadow 0.2s;
         }
 
-        .photo-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+        .property-card:hover {
+            box-shadow: 0 4px 16px rgba(0,0,0,0.12);
         }
 
-        .photo-card .card-image {
+        /* Photo Section */
+        .property-photo {
+            width: var(--photo-width);
+            min-width: var(--photo-width);
+            height: 200px;
             position: relative;
-            height: 180px;
             background: #f3f4f6;
-            overflow: hidden;
         }
 
-        .photo-card .card-image img {
+        .property-photo img {
             width: 100%;
             height: 100%;
             object-fit: cover;
         }
 
-        /* Confidence Badge */
-        .confidence-badge {
+        .property-photo .photo-badge {
             position: absolute;
-            top: 10px;
-            right: 10px;
-            padding: 4px 10px;
-            border-radius: 4px;
-            font-size: 11px;
-            font-weight: 600;
-        }
-
-        .confidence-badge.high {
-            background: rgba(16, 185, 129, 0.9);
-            color: white;
-        }
-
-        .confidence-badge.medium {
-            background: rgba(245, 158, 11, 0.9);
-            color: white;
-        }
-
-        .confidence-badge.low {
-            background: rgba(239, 68, 68, 0.9);
-            color: white;
-        }
-
-        /* Source badge */
-        .source-badge {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            padding: 4px 8px;
+            top: 8px;
+            left: 8px;
+            padding: 3px 8px;
             border-radius: 4px;
             font-size: 10px;
             font-weight: 600;
             text-transform: uppercase;
-            background: rgba(0, 0, 0, 0.7);
+            background: rgba(0,0,0,0.7);
             color: white;
         }
 
-        /* Card content */
-        .photo-card .card-content {
-            padding: 14px;
+        .property-photo .mls-badge {
+            position: absolute;
+            bottom: 8px;
+            left: 8px;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            background: var(--primary-dark);
+            color: white;
         }
 
-        .photo-card .card-price {
-            font-size: 20px;
+        /* Property Details */
+        .property-details {
+            flex: 1;
+            padding: 16px 20px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .property-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 8px;
+        }
+
+        .property-price {
+            font-size: 26px;
             font-weight: 700;
             color: var(--primary-dark);
+        }
+
+        .property-dom {
+            font-size: 12px;
+            color: #6b7280;
+            background: #f3f4f6;
+            padding: 4px 10px;
+            border-radius: 12px;
+        }
+
+        .property-address {
+            font-size: 15px;
+            font-weight: 500;
+            color: #1f2937;
             margin-bottom: 2px;
         }
 
-        .photo-card .card-address {
+        .property-location {
             font-size: 13px;
-            color: #374151;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            color: #6b7280;
+            margin-bottom: 12px;
         }
 
-        .photo-card .card-location {
-            font-size: 12px;
-            color: #9ca3af;
-            margin-bottom: 10px;
-        }
-
-        .photo-card .card-details {
+        /* Property Specs Grid */
+        .property-specs {
             display: flex;
-            gap: 12px;
+            gap: 20px;
+            padding: 10px 0;
+            border-top: 1px solid #e5e7eb;
+            border-bottom: 1px solid #e5e7eb;
+            margin-bottom: 12px;
+        }
+
+        .spec-item {
+            text-align: center;
+        }
+
+        .spec-value {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        .spec-label {
+            font-size: 10px;
+            color: #9ca3af;
+            text-transform: uppercase;
+        }
+
+        /* Geospatial Section */
+        .geo-section {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+
+        .geo-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: #4b5563;
+        }
+
+        .geo-item .geo-icon {
+            font-size: 14px;
+        }
+
+        .geo-item .geo-value {
+            font-weight: 600;
+        }
+
+        .geo-item.good .geo-value { color: #10b981; }
+        .geo-item.warning .geo-value { color: #f59e0b; }
+        .geo-item.danger .geo-value { color: #ef4444; }
+
+        /* Agent Info */
+        .agent-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: auto;
+        }
+
+        .agent-info {
             font-size: 12px;
             color: #6b7280;
         }
 
-        .photo-card .card-details span {
-            display: flex;
-            align-items: center;
-            gap: 3px;
+        .agent-info strong {
+            color: #374151;
         }
 
-        /* Review actions */
-        .review-actions {
+        .property-actions {
             display: flex;
             gap: 8px;
-            margin-top: 12px;
-            padding-top: 12px;
-            border-top: 1px solid #e5e7eb;
         }
 
-        .review-actions button {
-            flex: 1;
-            padding: 8px 12px;
-            border: none;
-            border-radius: 6px;
+        .property-actions a {
+            padding: 6px 12px;
+            border-radius: 5px;
             font-size: 12px;
-            font-weight: 600;
-            cursor: pointer;
+            text-decoration: none;
+            font-weight: 500;
             transition: opacity 0.2s;
         }
 
-        .review-actions button:hover {
-            opacity: 0.85;
-        }
+        .property-actions a:hover { opacity: 0.85; }
 
-        .review-actions .btn-approve {
-            background: #10b981;
+        .btn-primary-sm {
+            background: var(--primary-dark);
             color: white;
         }
 
-        .review-actions .btn-reject {
-            background: #ef4444;
-            color: white;
-        }
-
-        .review-actions .btn-view {
+        .btn-secondary-sm {
             background: #e5e7eb;
             color: #374151;
         }
 
-        /* Breakdown cards */
-        .breakdown-section {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 16px;
-            margin-bottom: 24px;
-        }
-
-        .breakdown-card {
-            background: white;
-            border-radius: 12px;
-            padding: 16px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-        }
-
-        .breakdown-card h4 {
-            font-size: 14px;
-            color: var(--primary-dark);
-            margin: 0 0 12px 0;
-        }
-
-        .breakdown-item {
+        /* Review Actions */
+        .review-actions {
             display: flex;
-            justify-content: space-between;
-            padding: 6px 0;
-            font-size: 13px;
-            border-bottom: 1px solid #f3f4f6;
+            gap: 6px;
         }
 
-        .breakdown-item:last-child {
-            border-bottom: none;
+        .review-actions button {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 5px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
         }
 
-        .breakdown-item .label {
-            color: #6b7280;
-        }
-
-        .breakdown-item .value {
-            font-weight: 600;
-            color: #374151;
-        }
+        .btn-approve { background: #10b981; color: white; }
+        .btn-reject { background: #ef4444; color: white; }
 
         /* Pagination */
         .pagination {
             display: flex;
             justify-content: center;
-            gap: 8px;
-            margin-top: 32px;
+            gap: 6px;
+            margin-top: 24px;
         }
 
         .pagination a, .pagination span {
             padding: 8px 14px;
             border-radius: 6px;
-            text-decoration: none;
             font-size: 13px;
+            text-decoration: none;
         }
 
         .pagination a {
@@ -337,25 +345,45 @@
             border: 1px solid #d1d5db;
         }
 
-        .pagination a:hover {
-            background: var(--primary-light);
-        }
-
+        .pagination a:hover { background: #f3f4f6; }
         .pagination .current {
             background: var(--primary-dark);
             color: white;
         }
 
+        /* Results count */
+        .results-info {
+            font-size: 13px;
+            color: #6b7280;
+            margin-bottom: 12px;
+        }
+
+        .results-info strong {
+            color: var(--primary-dark);
+        }
+
         /* Empty state */
         .empty-state {
             text-align: center;
-            padding: 60px 20px;
-            color: #6b7280;
+            padding: 60px;
+            background: white;
+            border-radius: var(--card-radius);
         }
 
-        .empty-state h3 {
-            color: var(--primary-dark);
-            margin-bottom: 8px;
+        .empty-state h3 { color: var(--primary-dark); margin-bottom: 8px; }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .property-card {
+                flex-direction: column;
+            }
+            .property-photo {
+                width: 100%;
+                height: 200px;
+            }
+            .stats-bar { gap: 16px; }
+            .filters-row { flex-direction: column; align-items: stretch; }
+            .view-tabs { margin-left: 0; width: 100%; }
         }
     </style>
 </head>
@@ -364,174 +392,248 @@
         <!-- Header -->
         <header class="header">
             <div class="header-left">
-                <h1>Photo Dashboard</h1>
+                <h1>MLS Listings</h1>
                 <span class="env-badge {{ dreams_env }}">{{ dreams_env }}</span>
             </div>
             <nav class="header-nav">
                 <a href="/">Home</a>
-                <a href="/listings">Listings</a>
-                <a href="/photos" class="active">Photos</a>
+                <a href="/listings">Gallery</a>
+                <a href="/photos" class="active">MLS View</a>
                 <a href="/contacts">Contacts</a>
             </nav>
         </header>
 
-        <!-- Stats Grid -->
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-value">{{ stats.total_active }}</div>
-                <div class="stat-label">Active Listings</div>
+        <!-- Compact Stats Bar -->
+        <div class="stats-bar">
+            <div class="stat-item">
+                <span class="stat-value">{{ stats.total_active }}</span>
+                <span class="stat-label">Active</span>
             </div>
-            <div class="stat-card success">
-                <div class="stat-value">{{ stats.with_photos }}</div>
-                <div class="stat-label">With Photos</div>
+            <div class="stat-item success">
+                <span class="stat-value">{{ stats.with_photos }}</span>
+                <span class="stat-label">With Photos</span>
             </div>
-            <div class="stat-card success">
-                <div class="stat-value">{{ stats.verified }}</div>
-                <div class="stat-label">Verified</div>
+            <div class="stat-item success">
+                <span class="stat-value">{{ stats.verified }}</span>
+                <span class="stat-label">Verified</span>
             </div>
-            <div class="stat-card warning">
-                <div class="stat-value">{{ stats.pending_review }}</div>
-                <div class="stat-label">Pending Review</div>
+            {% if stats.pending_review > 0 %}
+            <div class="stat-item warning">
+                <span class="stat-value">{{ stats.pending_review }}</span>
+                <span class="stat-label">Pending</span>
             </div>
-            <div class="stat-card muted">
-                <div class="stat-value">{{ stats.no_photos }}</div>
-                <div class="stat-label">No Photos</div>
-            </div>
-        </div>
-
-        <!-- Progress Bar -->
-        {% set photo_pct = (stats.with_photos / stats.total_active * 100) if stats.total_active > 0 else 0 %}
-        <div class="progress-container">
-            <div class="progress-header">
-                <h3>Photo Enrichment Progress</h3>
-                <span>{{ "%.1f"|format(photo_pct) }}% complete ({{ stats.with_photos }} / {{ stats.total_active }})</span>
-            </div>
-            <div class="progress-bar">
-                <div class="progress-fill" style="width: {{ photo_pct }}%"></div>
+            {% endif %}
+            <div style="margin-left: auto; font-size: 12px; color: #6b7280;">
+                Sources: {% for src, cnt in stats.source_breakdown.items() %}{{ src }}({{ cnt }}){% if not loop.last %}, {% endif %}{% endfor %}
             </div>
         </div>
 
-        <!-- Breakdown Section -->
-        <div class="breakdown-section">
-            <div class="breakdown-card">
-                <h4>Confidence Breakdown</h4>
-                {% for range, count in stats.confidence_breakdown.items() %}
-                <div class="breakdown-item">
-                    <span class="label">{{ range }}</span>
-                    <span class="value">{{ count }}</span>
-                </div>
-                {% endfor %}
-                {% if not stats.confidence_breakdown %}
-                <div class="breakdown-item">
-                    <span class="label">No data</span>
-                </div>
-                {% endif %}
+        <!-- Filters Row -->
+        <form class="filters-row" method="get">
+            <input type="hidden" name="view" value="{{ view }}">
+
+            <div class="filter-group">
+                <span class="filter-label">County</span>
+                <select name="county" onchange="this.form.submit()">
+                    <option value="">All Counties</option>
+                    {% for c in counties %}
+                    <option value="{{ c }}" {% if c == selected_county %}selected{% endif %}>{{ c }}</option>
+                    {% endfor %}
+                </select>
             </div>
-            <div class="breakdown-card">
-                <h4>Photo Sources</h4>
-                {% for source, count in stats.source_breakdown.items() %}
-                <div class="breakdown-item">
-                    <span class="label">{{ source | capitalize }}</span>
-                    <span class="value">{{ count }}</span>
-                </div>
-                {% endfor %}
-                {% if not stats.source_breakdown %}
-                <div class="breakdown-item">
-                    <span class="label">No data</span>
-                </div>
-                {% endif %}
+
+            <div class="filter-group">
+                <span class="filter-label">Min Price</span>
+                <input type="number" name="min_price" value="{{ min_price }}" placeholder="$0" step="10000">
             </div>
+
+            <div class="filter-group">
+                <span class="filter-label">Max Price</span>
+                <input type="number" name="max_price" value="{{ max_price }}" placeholder="No max" step="10000">
+            </div>
+
+            <div class="filter-group">
+                <span class="filter-label">Sort By</span>
+                <select name="sort" onchange="this.form.submit()">
+                    <option value="newest" {% if sort_by == 'newest' %}selected{% endif %}>Newest</option>
+                    <option value="price_high" {% if sort_by == 'price_high' %}selected{% endif %}>Price: High to Low</option>
+                    <option value="price_low" {% if sort_by == 'price_low' %}selected{% endif %}>Price: Low to High</option>
+                    <option value="beds" {% if sort_by == 'beds' %}selected{% endif %}>Bedrooms</option>
+                    <option value="acreage" {% if sort_by == 'acreage' %}selected{% endif %}>Acreage</option>
+                    <option value="elevation" {% if sort_by == 'elevation' %}selected{% endif %}>Elevation</option>
+                </select>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="padding: 8px 16px; font-size: 13px;">Apply</button>
+            <a href="/photos?view={{ view }}" class="btn btn-secondary" style="padding: 8px 16px; font-size: 13px;">Reset</a>
+
+            <div class="view-tabs">
+                <a href="/photos?view=verified&county={{ selected_county }}&min_price={{ min_price }}&max_price={{ max_price }}&sort={{ sort_by }}"
+                   class="view-tab {% if view == 'verified' %}active{% endif %}">Verified<span class="count">{{ stats.verified }}</span></a>
+                <a href="/photos?view=pending&county={{ selected_county }}&min_price={{ min_price }}&max_price={{ max_price }}&sort={{ sort_by }}"
+                   class="view-tab {% if view == 'pending' %}active{% endif %}">Pending<span class="count">{{ stats.pending_review }}</span></a>
+                <a href="/photos?view=all&county={{ selected_county }}&min_price={{ min_price }}&max_price={{ max_price }}&sort={{ sort_by }}"
+                   class="view-tab {% if view == 'all' %}active{% endif %}">All<span class="count">{{ stats.with_photos }}</span></a>
+            </div>
+        </form>
+
+        <!-- Results Info -->
+        <div class="results-info">
+            Showing <strong>{{ listings|length }}</strong> of <strong>{{ total_count }}</strong> listings
+            {% if selected_county %} in <strong>{{ selected_county }} County</strong>{% endif %}
         </div>
 
-        <!-- View Tabs -->
-        <div class="view-tabs">
-            <a href="/photos?view=verified" class="view-tab {% if view == 'verified' %}active{% endif %}">
-                Verified <span class="count">{{ stats.verified }}</span>
-            </a>
-            <a href="/photos?view=pending" class="view-tab {% if view == 'pending' %}active{% endif %}">
-                Pending Review <span class="count">{{ stats.pending_review }}</span>
-            </a>
-            <a href="/photos?view=all" class="view-tab {% if view == 'all' %}active{% endif %}">
-                All Photos <span class="count">{{ stats.with_photos }}</span>
-            </a>
-        </div>
-
-        <!-- Gallery Grid -->
+        <!-- Listings -->
         {% if listings %}
-        <div class="gallery-grid">
+        <div class="listings-container">
             {% for listing in listings %}
-            <div class="photo-card" id="card-{{ listing.id }}">
-                <div class="card-image">
+            <div class="property-card" id="card-{{ listing.id }}">
+                <!-- Photo -->
+                <div class="property-photo">
                     <img src="{{ listing.primary_photo }}" alt="{{ listing.address }}" loading="lazy"
-                         onerror="this.parentElement.innerHTML='<div style=\"display:flex;align-items:center;justify-content:center;height:100%;color:#9ca3af;\">Photo unavailable</div>'">
-
+                         onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22280%22 height=%22200%22><rect fill=%22%23f3f4f6%22 width=%22100%%22 height=%22100%%22/><text x=%2250%%22 y=%2250%%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 fill=%22%239ca3af%22 font-size=%2214%22>No Photo</text></svg>'">
                     {% if listing.photo_source %}
-                    <span class="source-badge">{{ listing.photo_source }}</span>
+                    <span class="photo-badge">{{ listing.photo_source }}</span>
                     {% endif %}
-
-                    {% if listing.photo_confidence %}
-                    {% set conf = listing.photo_confidence %}
-                    <span class="confidence-badge {% if conf >= 90 %}high{% elif conf >= 70 %}medium{% else %}low{% endif %}">
-                        {{ "%.0f"|format(conf) }}%
-                    </span>
+                    {% if listing.mls_number %}
+                    <span class="mls-badge">MLS# {{ listing.mls_number }}</span>
                     {% endif %}
                 </div>
 
-                <div class="card-content">
-                    <div class="card-price">${{ "{:,.0f}".format(listing.list_price or 0) }}</div>
-                    <div class="card-address">{{ listing.address }}</div>
-                    <div class="card-location">{{ listing.city }}, {{ listing.county }} County</div>
+                <!-- Details -->
+                <div class="property-details">
+                    <div class="property-header">
+                        <span class="property-price">${{ "{:,.0f}".format(listing.list_price or 0) }}</span>
+                        {% if listing.days_on_market %}
+                        <span class="property-dom">{{ listing.days_on_market }} days</span>
+                        {% endif %}
+                    </div>
 
-                    <div class="card-details">
+                    <div class="property-address">{{ listing.address }}</div>
+                    <div class="property-location">
+                        {{ listing.city }}{% if listing.county %}, {{ listing.county }} County{% endif %}{% if listing.zip %} {{ listing.zip }}{% endif %}
+                    </div>
+
+                    <!-- Specs -->
+                    <div class="property-specs">
                         {% if listing.beds %}
-                        <span><strong>{{ listing.beds }}</strong> bd</span>
+                        <div class="spec-item">
+                            <div class="spec-value">{{ listing.beds }}</div>
+                            <div class="spec-label">Beds</div>
+                        </div>
                         {% endif %}
                         {% if listing.baths %}
-                        <span><strong>{{ listing.baths }}</strong> ba</span>
+                        <div class="spec-item">
+                            <div class="spec-value">{{ listing.baths }}</div>
+                            <div class="spec-label">Baths</div>
+                        </div>
                         {% endif %}
                         {% if listing.sqft %}
-                        <span><strong>{{ "{:,.0f}".format(listing.sqft) }}</strong> sqft</span>
+                        <div class="spec-item">
+                            <div class="spec-value">{{ "{:,.0f}".format(listing.sqft) }}</div>
+                            <div class="spec-label">Sq Ft</div>
+                        </div>
                         {% endif %}
                         {% if listing.acreage %}
-                        <span><strong>{{ "%.2f"|format(listing.acreage) }}</strong> ac</span>
+                        <div class="spec-item">
+                            <div class="spec-value">{{ "%.2f"|format(listing.acreage) }}</div>
+                            <div class="spec-label">Acres</div>
+                        </div>
+                        {% endif %}
+                        {% if listing.year_built %}
+                        <div class="spec-item">
+                            <div class="spec-value">{{ listing.year_built }}</div>
+                            <div class="spec-label">Built</div>
+                        </div>
+                        {% endif %}
+                        {% if listing.hoa_fee %}
+                        <div class="spec-item">
+                            <div class="spec-value">${{ listing.hoa_fee }}</div>
+                            <div class="spec-label">HOA</div>
+                        </div>
                         {% endif %}
                     </div>
 
-                    {% if view == 'pending' %}
-                    <div class="review-actions">
-                        <button class="btn-approve" onclick="approvePhoto('{{ listing.id }}')">Approve</button>
-                        <button class="btn-reject" onclick="rejectPhoto('{{ listing.id }}')">Reject</button>
-                        {% if listing.redfin_url %}
-                        <a href="{{ listing.redfin_url }}" target="_blank" class="btn-view" style="text-decoration:none;text-align:center;">View</a>
+                    <!-- Geospatial Data -->
+                    <div class="geo-section">
+                        {% if listing.elevation_feet %}
+                        <div class="geo-item">
+                            <span class="geo-icon">&#9968;</span>
+                            <span>Elevation: <span class="geo-value">{{ "{:,}".format(listing.elevation_feet) }} ft</span></span>
+                        </div>
+                        {% endif %}
+                        {% if listing.flood_zone %}
+                        <div class="geo-item {% if listing.flood_zone == 'X' %}good{% elif listing.flood_zone in ['A', 'AE', 'VE'] %}danger{% else %}warning{% endif %}">
+                            <span class="geo-icon">&#127754;</span>
+                            <span>Flood: <span class="geo-value">{{ listing.flood_zone }}{% if listing.flood_factor %} ({{ listing.flood_factor }}/10){% endif %}</span></span>
+                        </div>
+                        {% endif %}
+                        {% if listing.view_potential %}
+                        <div class="geo-item {% if listing.view_potential >= 7 %}good{% elif listing.view_potential >= 4 %}warning{% endif %}">
+                            <span class="geo-icon">&#127956;</span>
+                            <span>View: <span class="geo-value">{{ listing.view_potential }}/10</span></span>
+                        </div>
+                        {% endif %}
+                        {% if listing.slope_percent %}
+                        <div class="geo-item {% if listing.slope_percent < 15 %}good{% elif listing.slope_percent < 30 %}warning{% else %}danger{% endif %}">
+                            <span class="geo-icon">&#9650;</span>
+                            <span>Slope: <span class="geo-value">{{ "%.0f"|format(listing.slope_percent) }}%</span></span>
+                        </div>
+                        {% endif %}
+                        {% if listing.aspect %}
+                        <div class="geo-item">
+                            <span class="geo-icon">&#9678;</span>
+                            <span>Aspect: <span class="geo-value">{{ listing.aspect }}</span></span>
+                        </div>
+                        {% endif %}
+                        {% if listing.wildfire_risk %}
+                        <div class="geo-item {% if listing.wildfire_risk == 'Low' %}good{% elif listing.wildfire_risk == 'Moderate' %}warning{% else %}danger{% endif %}">
+                            <span class="geo-icon">&#128293;</span>
+                            <span>Fire: <span class="geo-value">{{ listing.wildfire_risk }}</span></span>
+                        </div>
                         {% endif %}
                     </div>
-                    {% else %}
-                    {% if listing.redfin_url or listing.idx_url %}
-                    <div class="review-actions">
-                        {% if listing.redfin_url %}
-                        <a href="{{ listing.redfin_url }}" target="_blank" class="btn-view" style="text-decoration:none;text-align:center;flex:1;">Redfin</a>
-                        {% endif %}
-                        {% if listing.idx_url %}
-                        <a href="{{ listing.idx_url }}" target="_blank" class="btn-view" style="text-decoration:none;text-align:center;flex:1;">Realtor</a>
+
+                    <!-- Agent & Actions -->
+                    <div class="agent-section">
+                        <div class="agent-info">
+                            {% if listing.listing_agent_name %}
+                            <strong>{{ listing.listing_agent_name }}</strong>
+                            {% if listing.listing_agent_phone %} &bull; {{ listing.listing_agent_phone }}{% endif %}
+                            {% if listing.listing_office_name %}<br>{{ listing.listing_office_name }}{% endif %}
+                            {% endif %}
+                        </div>
+
+                        {% if view == 'pending' %}
+                        <div class="review-actions">
+                            <button class="btn-approve" onclick="approvePhoto('{{ listing.id }}')">Approve</button>
+                            <button class="btn-reject" onclick="rejectPhoto('{{ listing.id }}')">Reject</button>
+                        </div>
+                        {% else %}
+                        <div class="property-actions">
+                            {% if listing.redfin_url %}
+                            <a href="{{ listing.redfin_url }}" target="_blank" class="btn-secondary-sm">Redfin</a>
+                            {% endif %}
+                            {% if listing.idx_url %}
+                            <a href="{{ listing.idx_url }}" target="_blank" class="btn-secondary-sm">Realtor</a>
+                            {% endif %}
+                            {% if listing.latitude and listing.longitude %}
+                            <a href="https://www.google.com/maps?q={{ listing.latitude }},{{ listing.longitude }}" target="_blank" class="btn-secondary-sm">Map</a>
+                            {% endif %}
+                        </div>
                         {% endif %}
                     </div>
-                    {% endif %}
-                    {% endif %}
                 </div>
             </div>
             {% endfor %}
         </div>
         {% else %}
         <div class="empty-state">
-            <h3>No photos found</h3>
+            <h3>No listings found</h3>
             <p>
-                {% if view == 'pending' %}
-                No photos are pending review. All caught up!
-                {% elif view == 'verified' %}
-                No verified photos yet. Run the photo enrichment script to get started.
-                {% else %}
-                No photos have been enriched yet.
-                {% endif %}
+                {% if view == 'pending' %}No photos pending review.
+                {% elif selected_county %}Try a different county or <a href="/photos?view={{ view }}">reset filters</a>.
+                {% else %}No listings with photos match your criteria.{% endif %}
             </p>
         </div>
         {% endif %}
@@ -540,21 +642,21 @@
         {% if total_pages > 1 %}
         <div class="pagination">
             {% if page > 1 %}
-            <a href="?view={{ view }}&page={{ page - 1 }}">Previous</a>
+            <a href="?view={{ view }}&page={{ page - 1 }}&county={{ selected_county }}&min_price={{ min_price }}&max_price={{ max_price }}&sort={{ sort_by }}">Prev</a>
             {% endif %}
 
             {% for p in range(1, total_pages + 1) %}
                 {% if p == page %}
                 <span class="current">{{ p }}</span>
-                {% elif p <= 3 or p > total_pages - 3 or (p >= page - 2 and p <= page + 2) %}
-                <a href="?view={{ view }}&page={{ p }}">{{ p }}</a>
-                {% elif p == 4 or p == total_pages - 3 %}
+                {% elif p <= 2 or p > total_pages - 2 or (p >= page - 1 and p <= page + 1) %}
+                <a href="?view={{ view }}&page={{ p }}&county={{ selected_county }}&min_price={{ min_price }}&max_price={{ max_price }}&sort={{ sort_by }}">{{ p }}</a>
+                {% elif p == 3 or p == total_pages - 2 %}
                 <span>...</span>
                 {% endif %}
             {% endfor %}
 
             {% if page < total_pages %}
-            <a href="?view={{ view }}&page={{ page + 1 }}">Next</a>
+            <a href="?view={{ view }}&page={{ page + 1 }}&county={{ selected_county }}&min_price={{ min_price }}&max_price={{ max_price }}&sort={{ sort_by }}">Next</a>
             {% endif %}
         </div>
         {% endif %}
@@ -567,21 +669,17 @@
                 .then(data => {
                     if (data.success) {
                         document.getElementById(`card-${listingId}`).remove();
-                        // Update count in tab
-                        location.reload();
                     }
                 });
         }
 
         function rejectPhoto(listingId) {
-            if (!confirm('Reject this photo? The listing will be marked for re-enrichment.')) return;
-
+            if (!confirm('Reject this photo?')) return;
             fetch(`/api/photos/${listingId}/reject`, { method: 'POST' })
                 .then(r => r.json())
                 .then(data => {
                     if (data.success) {
                         document.getElementById(`card-${listingId}`).remove();
-                        location.reload();
                     }
                 });
         }
