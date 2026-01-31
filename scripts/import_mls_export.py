@@ -101,52 +101,113 @@ def generate_listing_id(mls_number: str, mls_source: str = 'CSMLS') -> str:
     return f"lst_{hash_val}"
 
 
-def parse_csv_row(row: Dict[str, str]) -> Dict[str, Any]:
-    """Parse a CSV row into a normalized listing dict."""
-    # Calculate total baths (full + half*0.5)
-    full_baths = parse_int(row.get('Bathrooms Full', '')) or 0
-    half_baths = parse_int(row.get('Bathrooms Half', '')) or 0
-    total_baths = full_baths + (half_baths * 0.5) if full_baths or half_baths else None
+def detect_csv_format(row: Dict[str, str]) -> str:
+    """Detect which CSV format we're dealing with."""
+    if 'MLS Number' in row:
+        return 'classic'  # Classic CS MLS format with photos
+    elif 'ML #' in row:
+        return 'eug'  # EUG Display format
+    else:
+        return 'unknown'
 
-    # Parse HOA fee
-    hoa_fee = parse_float(row.get('HOA Fee', ''))
-    hoa_freq = row.get('HOA Fee Frequency', '').strip()
 
-    # Build listing dict
-    listing = {
-        'mls_number': row.get('ML #', '').strip(),
-        'mls_source': 'CSMLS',
-        'parcel_number': row.get('Parcel Number', '').strip(),
-        'deed_reference': row.get('Deed Reference', '').strip(),
-        'status': normalize_status(row.get('St', '')),
-        'property_type': row.get('Type', '').strip(),
-        'style': row.get('Levels', '').strip(),
-        'address': row.get('Address', '').strip(),
-        'city': row.get('City', '').strip(),
-        'state': 'NC',
-        'days_on_market': parse_int(row.get('DOM', '')),
-        'beds': parse_int(row.get('Bedrooms Total', '')),
-        'baths': total_baths,
-        'list_price': parse_price(row.get('List Price', '')),
-        'price_per_acre': parse_float(row.get('$/Acre', '')),
-        'price_per_sqft': parse_float(row.get('$/SqFt', '')),
-        'acreage': parse_float(row.get('Approximate Acres', '')),
-        'sqft': parse_int(row.get('Total Primary HLA', '').replace(',', '')),
-        'subdivision': row.get('Subdivision Name', '').strip(),
-        'year_built': parse_int(row.get('Year Built', '')),
-        'zoning': row.get('Zoning', '').strip(),
-        'sewer': row.get('Sewer', '').strip(),
-        'water': row.get('Water Source', '').strip(),
-        'can_subdivide': row.get('Can Subdivide YN', '').strip().upper() == 'Y',
-        'hoa_fee': int(hoa_fee) if hoa_fee else None,
-        'hoa_frequency': hoa_freq if hoa_freq else None,
-        'listing_agent_name': row.get('List Agent Full Name', '').strip(),
-        'listing_agent_phone': row.get('List Agent Direct Phone', '').strip(),
-        'listing_office_name': row.get('List Office Name', '').strip(),
-        'lot_description': row.get('Lot Description', '').strip(),
-        'plat_book': row.get('Plat Book Slide', '').strip(),
-        'plat_reference': row.get('Plat Reference Section Pages', '').strip(),
-    }
+def parse_csv_row(row: Dict[str, str], fmt: str = None) -> Dict[str, Any]:
+    """Parse a CSV row into a normalized listing dict. Handles multiple formats."""
+    if fmt is None:
+        fmt = detect_csv_format(row)
+
+    if fmt == 'classic':
+        # Classic CS MLS format (MLS Number, Parcel ID, LA Name, etc.)
+        full_baths = parse_int(row.get('Baths', '')) or 0
+        half_baths = parse_int(row.get('Half Baths', '')) or 0
+        total_baths = full_baths + (half_baths * 0.5) if full_baths or half_baths else None
+
+        hoa_fee = parse_float(row.get('HOA Dues', ''))
+        hoa_freq = row.get('HOA Frequency', '').strip()
+
+        # Build address from House # and Address
+        house_num = row.get('House #', '').strip()
+        street = row.get('Address', '').strip()
+        if house_num and street:
+            address = f"{house_num} {street}"
+        else:
+            address = street or house_num
+
+        listing = {
+            'mls_number': row.get('MLS Number', '').strip(),
+            'mls_source': 'CSMLS',
+            'parcel_number': row.get('Parcel ID', '').strip(),
+            'deed_reference': f"{row.get('Deed Book', '').strip()}/{row.get('Deed Page', '').strip()}".strip('/'),
+            'status': 'ACTIVE',  # This export is typically active listings
+            'property_type': None,
+            'style': None,
+            'address': address,
+            'city': row.get('City', '').strip(),
+            'state': row.get('State', 'NC').strip(),
+            'zip': row.get('Zip Code', '').strip(),
+            'county': row.get('County', '').strip(),
+            'days_on_market': parse_int(row.get('Days on Market', '')),
+            'beds': parse_int(row.get('Bedrooms', '')),
+            'baths': total_baths,
+            'list_price': parse_price(row.get('List Price', '')),
+            'price_per_acre': parse_float(row.get('List Price Per ACRE', '')),
+            'acreage': parse_float(row.get('Parcel Size', '')),
+            'subdivision': row.get('Subdivision', '').strip(),
+            'township': row.get('Township', '').strip(),
+            'hoa_fee': int(hoa_fee) if hoa_fee else None,
+            'hoa_frequency': hoa_freq if hoa_freq else None,
+            'listing_agent_name': row.get('LA Name', '').strip(),
+            'listing_agent_email': row.get('LA Email', '').strip(),
+            'listing_agent_phone': row.get('LA Phone', '').strip(),
+            'listing_office_id': row.get('Listing Office', '').strip(),
+            'ownership': row.get('Ownership', '').strip(),
+            'owner_name': row.get('Additional Owner Name', '').strip(),
+        }
+    else:
+        # EUG Display format (ML #, Parcel Number, List Agent Full Name, etc.)
+        full_baths = parse_int(row.get('Bathrooms Full', '')) or 0
+        half_baths = parse_int(row.get('Bathrooms Half', '')) or 0
+        total_baths = full_baths + (half_baths * 0.5) if full_baths or half_baths else None
+
+        hoa_fee = parse_float(row.get('HOA Fee', ''))
+        hoa_freq = row.get('HOA Fee Frequency', '').strip()
+
+        listing = {
+            'mls_number': row.get('ML #', '').strip(),
+            'mls_source': 'CSMLS',
+            'parcel_number': row.get('Parcel Number', '').strip(),
+            'deed_reference': row.get('Deed Reference', '').strip(),
+            'status': normalize_status(row.get('St', '')),
+            'property_type': row.get('Type', '').strip(),
+            'style': row.get('Levels', '').strip(),
+            'address': row.get('Address', '').strip(),
+            'city': row.get('City', '').strip(),
+            'state': 'NC',
+            'zip': None,
+            'county': None,
+            'days_on_market': parse_int(row.get('DOM', '')),
+            'beds': parse_int(row.get('Bedrooms Total', '')),
+            'baths': total_baths,
+            'list_price': parse_price(row.get('List Price', '')),
+            'price_per_acre': parse_float(row.get('$/Acre', '')),
+            'price_per_sqft': parse_float(row.get('$/SqFt', '')),
+            'acreage': parse_float(row.get('Approximate Acres', '')),
+            'sqft': parse_int(row.get('Total Primary HLA', '').replace(',', '') if row.get('Total Primary HLA') else ''),
+            'subdivision': row.get('Subdivision Name', '').strip(),
+            'year_built': parse_int(row.get('Year Built', '')),
+            'zoning': row.get('Zoning', '').strip(),
+            'sewer': row.get('Sewer', '').strip(),
+            'water': row.get('Water Source', '').strip(),
+            'can_subdivide': row.get('Can Subdivide YN', '').strip().upper() == 'Y',
+            'hoa_fee': int(hoa_fee) if hoa_fee else None,
+            'hoa_frequency': hoa_freq if hoa_freq else None,
+            'listing_agent_name': row.get('List Agent Full Name', '').strip(),
+            'listing_agent_phone': row.get('List Agent Direct Phone', '').strip(),
+            'listing_office_name': row.get('List Office Name', '').strip(),
+            'lot_description': row.get('Lot Description', '').strip(),
+            'plat_book': row.get('Plat Book Slide', '').strip(),
+            'plat_reference': row.get('Plat Reference Section Pages', '').strip(),
+        }
 
     return listing
 
@@ -376,8 +437,8 @@ def import_listings(
                         year_built, property_type, style, acreage, hoa_fee,
                         listing_agent_name, listing_agent_phone, listing_office_name,
                         primary_photo, photo_source, photo_review_status,
-                        address, city, state, source, captured_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        address, city, state, zip, county, source, captured_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ''', [
                     listing_id,
                     parcel_id,
@@ -388,21 +449,23 @@ def import_listings(
                     listing['days_on_market'],
                     listing['beds'],
                     listing['baths'],
-                    listing['sqft'],
-                    listing['year_built'],
-                    listing['property_type'],
-                    listing['style'],
+                    listing.get('sqft'),
+                    listing.get('year_built'),
+                    listing.get('property_type'),
+                    listing.get('style'),
                     listing['acreage'],
                     listing['hoa_fee'],
                     listing['listing_agent_name'],
-                    listing['listing_agent_phone'],
-                    listing['listing_office_name'],
+                    listing.get('listing_agent_phone'),
+                    listing.get('listing_office_name'),
                     photo_path,
                     'mls' if photo_path else None,
                     'verified' if photo_path else None,
                     listing['address'],
                     listing['city'],
                     listing['state'],
+                    listing.get('zip'),
+                    listing.get('county'),
                     'CSMLS',
                     now,
                     now
