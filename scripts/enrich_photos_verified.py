@@ -39,6 +39,9 @@ CONFIDENCE_ACCEPT_NOTE = 70    # Accept with note if 70-89%
 CONFIDENCE_REVIEW = 50         # Queue for review if 50-69%
 CONFIDENCE_REJECT = 50         # Reject if < 50%
 
+# Single photo mode - only grab primary photo (faster, simpler)
+SINGLE_PHOTO_MODE = True
+
 # Rate limits per day
 RATE_LIMITS = {
     'redfin': {'daily_limit': 100, 'delay_seconds': 3},
@@ -219,60 +222,245 @@ class VerifiedPhotoEnricher:
         await self.stop()
         return False
 
+    async def search_realtor(self, address: str, city: str, state: str, zip_code: str = None) -> Optional[Dict]:
+        """
+        Search Realtor.com for a property and extract photos from __NEXT_DATA__.
+
+        Realtor.com embeds all property data in a JSON script tag, making it
+        much more reliable than scraping DOM elements.
+        """
+        # Build search URL - Realtor.com uses a specific URL format
+        # Format: /realestateandhomes-detail/[address]_[city]_[state]_[zip]
+        addr_slug = address.lower().replace(' ', '-').replace('#', '').replace(',', '')
+        addr_slug = re.sub(r'-+', '-', addr_slug)  # Remove multiple dashes
+        city_slug = city.lower().replace(' ', '-')
+
+        # Try direct property URL first
+        direct_url = f"https://www.realtor.com/realestateandhomes-detail/{addr_slug}_{city_slug}_{state}"
+        if zip_code:
+            direct_url += f"_{zip_code}"
+
+        context = await self.browser.new_context(
+            viewport={'width': 1280, 'height': 900},
+            user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        )
+        page = await context.new_page()
+
+        try:
+            # Try direct URL first
+            await page.goto(direct_url, wait_until='domcontentloaded', timeout=20000)
+            await page.wait_for_timeout(2000)
+
+            current_url = page.url
+            html = await page.content()
+
+            # Check if we got a valid property page (look for __NEXT_DATA__)
+            if '__NEXT_DATA__' not in html or '/realestateandhomes-detail/' not in current_url:
+                # Fall back to search
+                search_url = f"https://www.realtor.com/realestateandhomes-search/{city_slug}_{state}"
+                await page.goto(search_url, wait_until='domcontentloaded', timeout=20000)
+                await page.wait_for_timeout(2000)
+
+                # Look for search input and enter address
+                search_input = await page.query_selector('input[data-testid="search-bar-input"], input[type="text"]')
+                if search_input:
+                    query = f"{address}, {city}, {state}"
+                    await search_input.fill(query)
+                    await page.wait_for_timeout(1000)
+
+                    # Look for autocomplete suggestions
+                    suggestions = await page.query_selector_all('[data-testid*="suggestion"], [class*="suggestion"]')
+                    if suggestions:
+                        await suggestions[0].click()
+                        await page.wait_for_timeout(3000)
+                    else:
+                        await page.keyboard.press('Enter')
+                        await page.wait_for_timeout(3000)
+
+                current_url = page.url
+                html = await page.content()
+
+            # Extract __NEXT_DATA__ JSON
+            next_data_match = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', html, re.DOTALL)
+            if not next_data_match:
+                print(f"    No __NEXT_DATA__ found")
+                await context.close()
+                return None
+
+            try:
+                next_data = json.loads(next_data_match.group(1))
+            except json.JSONDecodeError:
+                print(f"    Failed to parse __NEXT_DATA__")
+                await context.close()
+                return None
+
+            # Navigate to property data - structure varies
+            property_data = None
+
+            # Try different paths in the JSON structure
+            try:
+                # Path 1: initialReduxState structure
+                redux_state = next_data.get('props', {}).get('pageProps', {}).get('initialReduxState', {})
+                property_data = redux_state.get('propertyDetails', {}).get('listingDetails', {})
+            except:
+                pass
+
+            if not property_data:
+                try:
+                    # Path 2: Direct pageProps structure
+                    property_data = next_data.get('props', {}).get('pageProps', {}).get('property', {})
+                except:
+                    pass
+
+            if not property_data:
+                try:
+                    # Path 3: listing structure
+                    property_data = next_data.get('props', {}).get('pageProps', {}).get('listing', {})
+                except:
+                    pass
+
+            if not property_data:
+                # Try to find any object with 'photos' key
+                def find_photos(obj, depth=0):
+                    if depth > 5:
+                        return None
+                    if isinstance(obj, dict):
+                        if 'photos' in obj and isinstance(obj['photos'], list) and len(obj['photos']) > 0:
+                            return obj
+                        for v in obj.values():
+                            result = find_photos(v, depth + 1)
+                            if result:
+                                return result
+                    elif isinstance(obj, list):
+                        for item in obj:
+                            result = find_photos(item, depth + 1)
+                            if result:
+                                return result
+                    return None
+
+                property_data = find_photos(next_data) or {}
+
+            data = {
+                'source': 'realtor',
+                'url': current_url,
+                'address': None,
+                'price': None,
+                'beds': None,
+                'baths': None,
+                'latitude': None,
+                'longitude': None,
+                'photos': [],
+                'primary_photo': None,
+            }
+
+            # Extract property ID
+            prop_id = property_data.get('property_id') or property_data.get('listing_id')
+            if prop_id:
+                data['realtor_id'] = str(prop_id)
+
+            # Extract address
+            location = property_data.get('location', {})
+            addr = location.get('address', {})
+            if addr:
+                line = addr.get('line', '')
+                data['address'] = line
+            elif property_data.get('address'):
+                data['address'] = property_data.get('address', {}).get('line', '')
+
+            # Extract price
+            data['price'] = property_data.get('list_price') or property_data.get('price')
+
+            # Extract beds/baths
+            desc = property_data.get('description', {})
+            data['beds'] = desc.get('beds') or property_data.get('beds')
+            data['baths'] = desc.get('baths') or property_data.get('baths')
+
+            # Extract coordinates
+            coord = location.get('coordinate', {}) or property_data.get('coordinate', {})
+            data['latitude'] = coord.get('lat')
+            data['longitude'] = coord.get('lon')
+
+            # Extract photos - this is the key data we need
+            photos = property_data.get('photos', [])
+            if not photos:
+                photos = property_data.get('home_photos', [])
+
+            photo_urls = []
+            for photo in photos:
+                if isinstance(photo, dict):
+                    # Try different URL keys
+                    url = photo.get('href') or photo.get('url') or photo.get('image_url')
+                    if url:
+                        # Get larger version if available (replace size suffix)
+                        url = re.sub(r'-[a-z]\d*\.', '-o.', url)  # -o is original/large
+                        photo_urls.append(url)
+                elif isinstance(photo, str):
+                    photo_urls.append(photo)
+
+            # Also check for primary_photo
+            primary = property_data.get('primary_photo', {})
+            if isinstance(primary, dict):
+                primary_url = primary.get('href') or primary.get('url')
+                if primary_url and primary_url not in photo_urls:
+                    photo_urls.insert(0, primary_url)
+            elif isinstance(primary, str) and primary not in photo_urls:
+                photo_urls.insert(0, primary)
+
+            if SINGLE_PHOTO_MODE:
+                # Single photo mode - just get the primary photo
+                data['photos'] = photo_urls[:1]
+            else:
+                data['photos'] = photo_urls[:20]
+
+            if data['photos']:
+                data['primary_photo'] = data['photos'][0]
+
+            photo_count = len(data['photos'])
+            print(f"    Found {photo_count} photo{'s' if photo_count != 1 else ''} from Realtor.com")
+
+            await context.close()
+            return data
+
+        except Exception as e:
+            print(f"    Realtor.com error: {e}")
+            await context.close()
+            return None
+
     async def search_redfin(self, address: str, city: str, state: str, zip_code: str = None) -> Optional[Dict]:
-        """Search Redfin for a property and scrape photos."""
+        """
+        Search Redfin for a property.
+
+        Key insight: Photos are grouped by a set ID in the URL path.
+        The main listing's photos have the most occurrences of a single set ID.
+        Other set IDs are from "similar homes" shown on the page.
+        """
         query = f"{address}, {city}, {state}"
         if zip_code:
             query += f" {zip_code}"
 
         context = await self.browser.new_context(
-            viewport={'width': 1280, 'height': 900},
-            user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
+            viewport={'width': 1920, 'height': 1080},
+            user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
         )
         page = await context.new_page()
 
         try:
-            # Go to Redfin homepage
             await page.goto('https://www.redfin.com/', wait_until='domcontentloaded', timeout=20000)
             await page.wait_for_timeout(1000)
 
-            # Find and use search box
-            search_input = await page.query_selector(
-                'input[type="search"], input[placeholder*="Address"], '
-                '#search-box-input, [data-rf-test-id="search-box-input"]'
-            )
-            if not search_input:
-                search_input = await page.query_selector('input[type="text"]')
-
+            search_input = await page.query_selector('input[type="search"], input[type="text"]')
             if search_input:
                 await search_input.click()
-                await page.wait_for_timeout(500)
                 await search_input.fill(query)
                 await page.wait_for_timeout(1500)
+                await page.keyboard.press('Enter')
+                await page.wait_for_timeout(3000)
 
-                # Look for autocomplete suggestion
-                state_lower = state.lower()
-                suggestions = await page.query_selector_all(
-                    '[class*="suggestion"], [class*="SearchInputSuggestion"], [role="option"]'
-                )
-
-                for suggestion in suggestions:
-                    text = await suggestion.text_content()
-                    if text and state_lower in text.lower():
-                        await suggestion.click()
-                        await page.wait_for_timeout(2000)
-                        break
-                else:
-                    await page.keyboard.press('Enter')
-                    await page.wait_for_timeout(2000)
-
-            # Check if we landed on a property page
             current_url = page.url
-            if '/home/' not in current_url or f'/{state.lower()}/' not in current_url.lower():
+            if '/home/' not in current_url:
                 await context.close()
                 return None
 
-            # Scrape the property page
             html = await page.content()
 
             data = {
@@ -288,61 +476,83 @@ class VerifiedPhotoEnricher:
                 'primary_photo': None,
             }
 
-            # Extract Redfin ID
+            # Extract Redfin ID from URL
             redfin_id_match = re.search(r'/home/(\d+)', current_url)
             if redfin_id_match:
                 data['redfin_id'] = redfin_id_match.group(1)
 
-            # Extract address from page title
-            title_match = re.search(r'<title>([^|]+)', html)
-            if title_match:
-                data['address'] = title_match.group(1).strip()
-
-            # Extract price
+            # Extract property data from embedded JSON
             price_match = re.search(r'"price":(\d+)', html)
             if price_match:
                 data['price'] = int(price_match.group(1))
 
-            # Extract beds/baths
             beds_match = re.search(r'"numBedrooms":(\d+)', html)
             if beds_match:
                 data['beds'] = int(beds_match.group(1))
+
             baths_match = re.search(r'"numBathrooms":([\d.]+)', html)
             if baths_match:
                 data['baths'] = float(baths_match.group(1))
 
-            # Extract coordinates
             lat_match = re.search(r'"latitude":([\d.-]+)', html)
             lng_match = re.search(r'"longitude":([\d.-]+)', html)
             if lat_match and lng_match:
                 data['latitude'] = float(lat_match.group(1))
                 data['longitude'] = float(lng_match.group(1))
 
-            # Extract photos
-            photo_patterns = [
-                r'"url":"(https://ssl\.cdn-redfin\.com/photo/[^"]+)"',
-                r'src="(https://ssl\.cdn-redfin\.com/photo/[^"]+)"',
-                r'"photoUrl":"(https://[^"]+\.jpg)"',
-            ]
+            # Extract address from page
+            addr_match = re.search(r'"streetAddress":\s*"([^"]+)"', html)
+            if addr_match:
+                data['address'] = addr_match.group(1)
 
-            photos = set()
-            for pattern in photo_patterns:
-                for match in re.finditer(pattern, html):
-                    photo_url = match.group(1)
-                    if ('cdn-redfin.com/photo/' in photo_url and
-                        'thumb' not in photo_url.lower() and
-                        '.jpg' in photo_url.lower()):
-                        photos.add(photo_url)
+            # PHOTO EXTRACTION - Key logic to avoid "similar homes" photos
+            # 1. Find all Redfin CDN photo URLs
+            all_photos = re.findall(r'https://ssl\.cdn-redfin\.com/photo/[^"\'>\s]+\.jpg', html)
 
-            data['photos'] = list(photos)[:20]
-            if data['photos']:
-                data['primary_photo'] = data['photos'][0]
+            if all_photos:
+                # 2. Group photos by their set ID in the URL path
+                # Format: /photo/XXX/TYPE/SET_ID/filename.jpg
+                id_counts = {}
+                for photo in all_photos:
+                    match = re.search(r'/photo/\d+/[a-z]+/(\d+)/', photo)
+                    if match:
+                        set_id = match.group(1)
+                        id_counts[set_id] = id_counts.get(set_id, 0) + 1
+
+                if id_counts:
+                    # 3. The set ID with the most photos is the main listing
+                    main_set_id = max(id_counts, key=id_counts.get)
+
+                    # 4. Filter to only photos from the main listing
+                    main_photos = [p for p in all_photos if f'/{main_set_id}/' in p]
+                    main_photos = list(set(main_photos))  # Deduplicate
+
+                    # 5. Prefer larger image sizes (bigphoto > mbpaddedwide > others)
+                    main_photos.sort(key=lambda x: (
+                        'bigphoto' in x,
+                        'mbpadded' in x
+                    ), reverse=True)
+
+                    # 6. Filter out thumbnails
+                    main_photos = [p for p in main_photos if 'thumb' not in p.lower() and 'genBcs' not in p]
+
+                    if SINGLE_PHOTO_MODE:
+                        # Single photo mode - just get the primary photo
+                        data['photos'] = main_photos[:1]
+                    else:
+                        data['photos'] = main_photos[:20]
+
+                    if data['photos']:
+                        data['primary_photo'] = data['photos'][0]
+
+            photo_count = len(data['photos'])
+            print(f"    Found {photo_count} photo{'s' if photo_count != 1 else ''} from Redfin")
 
             await context.close()
             return data
 
         except Exception as e:
-            print(f"    Redfin search error: {e}")
+            print(f"    Redfin error: {e}")
             await context.close()
             return None
 
@@ -350,6 +560,7 @@ class VerifiedPhotoEnricher:
         """
         Enrich a single listing with verified photos.
 
+        Tries Realtor.com first (most reliable), then Redfin as fallback.
         Returns enrichment result or None if failed.
         """
         listing_id = listing['id']
@@ -360,16 +571,21 @@ class VerifiedPhotoEnricher:
 
         print(f"  Processing: {address}, {city}")
 
-        # Try Redfin first
-        scraped = await self.search_redfin(address, city, state, zip_code)
+        # Try Realtor.com first (has structured __NEXT_DATA__ JSON)
+        scraped = await self.search_realtor(address, city, state, zip_code)
+
+        # Fall back to Redfin if Realtor.com failed
+        if not scraped or not scraped.get('photos'):
+            print(f"    Trying Redfin as fallback...")
+            scraped = await self.search_redfin(address, city, state, zip_code)
 
         if not scraped:
-            print(f"    Not found on Redfin")
+            print(f"    Not found on any source")
             self.stats['not_found'] += 1
             return None
 
         if not scraped.get('photos'):
-            print(f"    No photos found")
+            print(f"    No photos found on any source")
             self.stats['not_found'] += 1
             return None
 
@@ -399,40 +615,64 @@ class VerifiedPhotoEnricher:
         conn = sqlite3.connect(DB_PATH)
         try:
             now = datetime.now().isoformat()
-            photos_json = json.dumps(scraped.get('photos', []))
+            source = scraped.get('source', 'unknown')
+            photo_count = len(scraped.get('photos', []))
 
-            # Update listing
+            # Update listing based on source
             if status in ('verified', 'pending_review'):
-                conn.execute("""
-                    UPDATE listings SET
-                        redfin_url = ?,
-                        redfin_id = ?,
-                        primary_photo = ?,
-                        photos = ?,
-                        photo_source = ?,
-                        photo_confidence = ?,
-                        photo_verified_at = ?,
-                        photo_verified_by = 'auto',
-                        photo_review_status = ?,
-                        photo_count = ?,
-                        updated_at = ?
-                    WHERE id = ?
-                """, (
-                    scraped.get('url'),
-                    scraped.get('redfin_id'),
-                    scraped.get('primary_photo'),
-                    photos_json,
-                    scraped.get('source', 'redfin'),
-                    confidence,
-                    now,
-                    status,
-                    len(scraped.get('photos', [])),
-                    now,
-                    listing_id
-                ))
+                if source == 'realtor':
+                    conn.execute("""
+                        UPDATE listings SET
+                            idx_url = ?,
+                            primary_photo = ?,
+                            photo_source = ?,
+                            photo_confidence = ?,
+                            photo_verified_at = ?,
+                            photo_verified_by = 'auto',
+                            photo_review_status = ?,
+                            photo_count = ?,
+                            updated_at = ?
+                        WHERE id = ?
+                    """, (
+                        scraped.get('url'),
+                        scraped.get('primary_photo'),
+                        source,
+                        confidence,
+                        now,
+                        status,
+                        photo_count,
+                        now,
+                        listing_id
+                    ))
+                else:  # redfin or other
+                    conn.execute("""
+                        UPDATE listings SET
+                            redfin_url = ?,
+                            redfin_id = ?,
+                            primary_photo = ?,
+                            photo_source = ?,
+                            photo_confidence = ?,
+                            photo_verified_at = ?,
+                            photo_verified_by = 'auto',
+                            photo_review_status = ?,
+                            photo_count = ?,
+                            updated_at = ?
+                        WHERE id = ?
+                    """, (
+                        scraped.get('url'),
+                        scraped.get('redfin_id'),
+                        scraped.get('primary_photo'),
+                        source,
+                        confidence,
+                        now,
+                        status,
+                        photo_count,
+                        now,
+                        listing_id
+                    ))
 
-            # Create audit records for each photo
-            for idx, photo_url in enumerate(scraped.get('photos', [])):
+            # Create audit record for primary photo only (simplified for single-photo mode)
+            if scraped.get('primary_photo'):
                 conn.execute("""
                     INSERT OR REPLACE INTO listing_photos (
                         listing_id, photo_url, photo_source, photo_index,
@@ -441,9 +681,9 @@ class VerifiedPhotoEnricher:
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     listing_id,
-                    photo_url,
-                    scraped.get('source', 'redfin'),
-                    idx,
+                    scraped.get('primary_photo'),
+                    source,
+                    0,
                     confidence,
                     json.dumps(factors),
                     now,
@@ -488,13 +728,14 @@ def get_enrichment_queue(limit: int = 50) -> List[Dict]:
         conn.close()
         return queued
 
-    # Fallback: get listings without photos
+    # Fallback: get listings without photos (residential only)
     cursor = conn.execute("""
         SELECT *
         FROM listings
         WHERE (primary_photo IS NULL OR primary_photo = '')
         AND address IS NOT NULL AND address != ''
         AND status IN ('ACTIVE', 'Active', 'active')
+        AND is_residential = 1
         ORDER BY updated_at DESC
         LIMIT ?
     """, (limit,))
@@ -575,6 +816,7 @@ async def main():
             FROM listings
             WHERE (primary_photo IS NULL OR primary_photo = '')
             AND address IS NOT NULL AND address != ''
+            AND is_residential = 1
         """
         params = []
 

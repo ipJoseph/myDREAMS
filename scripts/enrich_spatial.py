@@ -59,7 +59,7 @@ def get_properties_to_enrich(
     query = f"""
         SELECT id, address, city, county, latitude, longitude,
                flood_zone, elevation_feet, spatial_enriched_at
-        FROM properties
+        FROM parcels
         WHERE {where_clause}
         ORDER BY updated_at DESC
     """
@@ -139,7 +139,7 @@ def update_property(conn, property_id: str, updates: dict):
     values.append(property_id)
 
     query = f"""
-        UPDATE properties
+        UPDATE parcels
         SET {', '.join(set_clauses)}
         WHERE id = ?
     """

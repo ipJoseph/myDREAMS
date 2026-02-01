@@ -176,6 +176,7 @@ Make the property database a reliable **single source of truth** with automated 
 | # | Date | Source | Action | Records | MLS# | Photos | Coords | Verdict |
 |---|------|--------|--------|---------|------|--------|--------|---------|
 | 0 | 2026-01-31 | Current | Baseline audit | 10,881 listings | 32.8% | 11.2% | 82.0% | Starting point |
+| 1 | 2026-02-01 | CSMLS/PropStream | Fix photo JSON/count fields | 1,088 fixed | - | 10.0% JSON | - | photos JSON 0.7%→10%, photo_count 1%→10.2% |
 
 ---
 
@@ -234,3 +235,6 @@ Make the property database a reliable **single source of truth** with automated 
 |------|-------------|---------|
 | 2026-01-31 | Baseline data quality audit | 32.8% MLS#, 11.2% photos, 82% coords |
 | 2026-01-31 | Documented data sources | Confirmed MLS Grid is best path forward |
+| 2026-02-01 | Fixed photo JSON/count fields | `photos` JSON: 0.7%→10%, `photo_count`: 1%→10.2% |
+| 2026-02-01 | Created fix_csmls_photos.py | Links orphan MLS photos, populates JSON arrays |
+| 2026-02-01 | Identified 79 orphan photos | MLS photos with no matching listing (newer exports?) |
