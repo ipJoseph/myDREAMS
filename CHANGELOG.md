@@ -9,6 +9,33 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Home Dashboard Redesign** - Action-oriented morning briefing reflecting the three-step sales framework
+  - **Today's Priority Actions** - Three-column layout for Calls, Follow-ups, and Send Properties
+    - Prioritized by score with contact details and quick links
+    - Direct FUB integration links for each contact
+  - **Pipeline Snapshot** - Visual dual-input funnel showing the sales flow
+    - LEADS → BUYERS → PURSUITS → CONTRACTS
+    - Properties feed into Pursuits as the property source
+    - 7-day delta indicators for trend awareness
+    - Counts for need-intake buyers and pipeline value
+  - **Hottest Leads** - Top 5 by heat score with color-coded indicators
+    - Shows activity metrics (properties viewed, saved, last activity)
+  - **Overnight Changes** - Grouped by type for quick scanning
+    - New Leads, Price Drops, Status Changes, Going Cold sections
+  - **Active Pursuits** - Buyer + Property portfolio view
+    - Criteria summary, property counts, new matches indicator
+    - "Send Update" and "View Buyer" actions
+  - **New Data Model** - Pursuits table for buyer-property relationships
+    - `pursuits` table linking buyers to property portfolios
+    - `pursuit_properties` table tracking property status in pursuit
+  - **Documentation** - `docs/SALES_FLOW.md` documenting the dual-input funnel model
+  - **Database Methods** - New query functions for dashboard data
+    - `get_pipeline_snapshot()` - Stage counts with deltas
+    - `get_todays_actions()` - Calls, follow-ups, buyers needing properties
+    - `get_overnight_changes()` - Recent leads, price drops, status changes
+    - `get_hottest_leads()` - Top leads by heat score
+    - `get_active_pursuits()` - Active buyer-property portfolios
+
 - **Property Database "Bulletproof" Plan** - Foundation for reliable single source of truth
   - **MLS Grid Integration** (`scripts/import_mlsgrid.py`)
     - Full RESO Web API client for Canopy MLS data

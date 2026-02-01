@@ -733,6 +733,37 @@ class DREAMSDatabase:
             notes TEXT,
             FOREIGN KEY (contact_id) REFERENCES leads(id)
         );
+
+        -- Pursuits: Buyer + Property Portfolio (maps to FUB Deals)
+        CREATE TABLE IF NOT EXISTS pursuits (
+            id TEXT PRIMARY KEY,
+            buyer_id TEXT NOT NULL,               -- FK to leads
+            intake_form_id TEXT,                  -- FK to intake_forms (future)
+            fub_deal_id INTEGER,                  -- FUB deal ID if synced
+            name TEXT,                            -- "John Smith — Primary Residence"
+            status TEXT DEFAULT 'active',         -- active, paused, converted, abandoned
+            criteria_summary TEXT,                -- "3BR, $300-400K, Franklin"
+            notes TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (buyer_id) REFERENCES leads(id)
+        );
+
+        -- Properties within a Pursuit
+        CREATE TABLE IF NOT EXISTS pursuit_properties (
+            id TEXT PRIMARY KEY,
+            pursuit_id TEXT NOT NULL,             -- FK to pursuits
+            property_id TEXT NOT NULL,            -- FK to properties
+            status TEXT DEFAULT 'suggested',      -- suggested, sent, viewed, favorited, rejected
+            source TEXT DEFAULT 'agent_added',    -- idx_saved, agent_added, auto_match
+            added_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            sent_at TEXT,
+            viewed_at TEXT,
+            notes TEXT,
+            FOREIGN KEY (pursuit_id) REFERENCES pursuits(id),
+            FOREIGN KEY (property_id) REFERENCES properties(id),
+            UNIQUE(pursuit_id, property_id)
+        );
         '''
 
     def _get_indexes_schema(self) -> str:
@@ -811,6 +842,13 @@ class DREAMSDatabase:
         CREATE INDEX IF NOT EXISTS idx_assignment_history_contact ON assignment_history(contact_id, assigned_at DESC);
         CREATE INDEX IF NOT EXISTS idx_assignment_history_to_user ON assignment_history(assigned_to_user_id, assigned_at DESC);
         CREATE INDEX IF NOT EXISTS idx_assignment_history_from_user ON assignment_history(assigned_from_user_id);
+        -- Pursuit indexes
+        CREATE INDEX IF NOT EXISTS idx_pursuits_buyer ON pursuits(buyer_id);
+        CREATE INDEX IF NOT EXISTS idx_pursuits_status ON pursuits(status);
+        CREATE INDEX IF NOT EXISTS idx_pursuits_fub_deal ON pursuits(fub_deal_id);
+        CREATE INDEX IF NOT EXISTS idx_pursuit_properties_pursuit ON pursuit_properties(pursuit_id);
+        CREATE INDEX IF NOT EXISTS idx_pursuit_properties_property ON pursuit_properties(property_id);
+        CREATE INDEX IF NOT EXISTS idx_pursuit_properties_status ON pursuit_properties(status);
         '''
 
     def _seed_default_settings(self, conn) -> None:
@@ -3185,6 +3223,415 @@ class DREAMSDatabase:
             'price_decrease_count': len(price_decreases),
             'status_change_count': len(status_changes)
         }
+
+    # ==========================================
+    # DASHBOARD (HOME PAGE) OPERATIONS
+    # ==========================================
+
+    def get_pipeline_snapshot(self, user_id: Optional[int] = None) -> Dict[str, Any]:
+        """
+        Get pipeline counts for the dashboard snapshot.
+
+        Returns counts for: leads, buyers, properties, pursuits, contracts
+        Plus 7-day deltas for trend indicators.
+        """
+        with self._get_connection() as conn:
+            today = datetime.now()
+            week_ago = (today - timedelta(days=7)).isoformat()
+
+            # Base user filter
+            user_filter = ""
+            user_params = []
+            if user_id:
+                user_filter = "AND assigned_user_id = ?"
+                user_params = [user_id]
+
+            # LEADS: stage = 'Lead' or similar early stages
+            leads_count = conn.execute(f'''
+                SELECT COUNT(*) FROM leads
+                WHERE stage IN ('Lead', 'lead', 'New Lead')
+                {user_filter}
+            ''', user_params).fetchone()[0]
+
+            leads_week_ago = conn.execute(f'''
+                SELECT COUNT(*) FROM leads
+                WHERE stage IN ('Lead', 'lead', 'New Lead')
+                AND created_at <= ?
+                {user_filter}
+            ''', [week_ago] + user_params).fetchone()[0]
+
+            # BUYERS: Qualified leads (Prospect, Active Client, etc.)
+            buyers_count = conn.execute(f'''
+                SELECT COUNT(*) FROM leads
+                WHERE stage IN ('Prospect', 'Active Client', 'Active Buyer', 'Qualified')
+                {user_filter}
+            ''', user_params).fetchone()[0]
+
+            # Buyers needing intake (no requirements captured)
+            buyers_need_intake = conn.execute(f'''
+                SELECT COUNT(*) FROM leads
+                WHERE stage IN ('Prospect', 'Active Client', 'Active Buyer', 'Qualified')
+                AND (min_price IS NULL OR max_price IS NULL OR preferred_cities IS NULL)
+                {user_filter}
+            ''', user_params).fetchone()[0]
+
+            # PROPERTIES: Active listings
+            properties_active = conn.execute('''
+                SELECT COUNT(*) FROM properties WHERE status = 'active'
+            ''').fetchone()[0]
+
+            # New properties today
+            today_start = today.replace(hour=0, minute=0, second=0).isoformat()
+            properties_new = conn.execute('''
+                SELECT COUNT(*) FROM properties
+                WHERE status = 'active' AND created_at >= ?
+            ''', [today_start]).fetchone()[0]
+
+            # Price drops in last 24 hours
+            yesterday = (today - timedelta(hours=24)).isoformat()
+            price_drops = conn.execute('''
+                SELECT COUNT(*) FROM property_changes
+                WHERE change_type = 'price' AND change_amount < 0 AND detected_at >= ?
+            ''', [yesterday]).fetchone()[0]
+
+            # PURSUITS: Active pursuits
+            pursuits_count = conn.execute('''
+                SELECT COUNT(*) FROM pursuits WHERE status = 'active'
+            ''').fetchone()[0]
+
+            # Total properties in active pursuits
+            pursuit_properties_count = conn.execute('''
+                SELECT COUNT(*) FROM pursuit_properties pp
+                JOIN pursuits p ON pp.pursuit_id = p.id
+                WHERE p.status = 'active'
+            ''').fetchone()[0]
+
+            # CONTRACTS: Under contract (stage-based for now)
+            contracts_count = conn.execute(f'''
+                SELECT COUNT(*) FROM leads
+                WHERE stage IN ('Under Contract', 'Pending', 'Active Under Contract')
+                {user_filter}
+            ''', user_params).fetchone()[0]
+
+            # Pipeline value (sum of max_price for contracts)
+            pipeline_value = conn.execute(f'''
+                SELECT COALESCE(SUM(max_price), 0) FROM leads
+                WHERE stage IN ('Under Contract', 'Pending', 'Active Under Contract')
+                {user_filter}
+            ''', user_params).fetchone()[0]
+
+            return {
+                'leads': {
+                    'count': leads_count,
+                    'delta': leads_count - leads_week_ago,
+                    'label': 'Leads'
+                },
+                'buyers': {
+                    'count': buyers_count,
+                    'need_intake': buyers_need_intake,
+                    'label': 'Buyers'
+                },
+                'properties': {
+                    'active': properties_active,
+                    'new_today': properties_new,
+                    'price_drops': price_drops,
+                    'label': 'Properties'
+                },
+                'pursuits': {
+                    'count': pursuits_count,
+                    'properties_count': pursuit_properties_count,
+                    'label': 'Pursuits'
+                },
+                'contracts': {
+                    'count': contracts_count,
+                    'value': pipeline_value,
+                    'label': 'Contracts'
+                }
+            }
+
+    def get_todays_actions(self, user_id: Optional[int] = None, limit: int = 10) -> Dict[str, List[Dict]]:
+        """
+        Get today's priority actions for the dashboard.
+
+        Returns grouped actions: calls, follow_ups, send_properties
+        """
+        with self._get_connection() as conn:
+            today = datetime.now().strftime('%Y-%m-%d')
+
+            user_filter = ""
+            user_params = []
+            if user_id:
+                user_filter = "AND l.assigned_user_id = ?"
+                user_params = [user_id]
+
+            # Calls due today (from contact_actions table)
+            calls = conn.execute(f'''
+                SELECT
+                    ca.id as action_id,
+                    ca.contact_id,
+                    l.first_name || ' ' || COALESCE(l.last_name, '') as name,
+                    l.phone,
+                    l.email,
+                    l.stage,
+                    l.priority_score,
+                    l.heat_score,
+                    ca.description,
+                    ca.due_date,
+                    l.fub_id
+                FROM contact_actions ca
+                JOIN leads l ON ca.contact_id = l.id
+                WHERE ca.action_type = 'call'
+                AND ca.completed_at IS NULL
+                AND ca.due_date <= ?
+                {user_filter}
+                ORDER BY ca.due_date ASC, l.priority_score DESC
+                LIMIT ?
+            ''', [today] + user_params + [limit]).fetchall()
+
+            # Follow-ups due today
+            follow_ups = conn.execute(f'''
+                SELECT
+                    ca.id as action_id,
+                    ca.contact_id,
+                    l.first_name || ' ' || COALESCE(l.last_name, '') as name,
+                    l.phone,
+                    l.email,
+                    l.stage,
+                    l.priority_score,
+                    ca.description,
+                    ca.due_date,
+                    l.fub_id
+                FROM contact_actions ca
+                JOIN leads l ON ca.contact_id = l.id
+                WHERE ca.action_type = 'follow_up'
+                AND ca.completed_at IS NULL
+                AND ca.due_date <= ?
+                {user_filter}
+                ORDER BY ca.due_date ASC, l.priority_score DESC
+                LIMIT ?
+            ''', [today] + user_params + [limit]).fetchall()
+
+            # Buyers with new matches (hot leads with requirements who have new matching properties)
+            # For now, return high-priority buyers that may need property updates
+            send_properties = conn.execute(f'''
+                SELECT
+                    l.id as contact_id,
+                    l.first_name || ' ' || COALESCE(l.last_name, '') as name,
+                    l.phone,
+                    l.email,
+                    l.stage,
+                    l.priority_score,
+                    l.heat_score,
+                    l.min_price,
+                    l.max_price,
+                    l.preferred_cities,
+                    l.fub_id
+                FROM leads l
+                WHERE l.stage IN ('Prospect', 'Active Client', 'Active Buyer', 'Qualified')
+                AND l.heat_score >= 50
+                AND l.min_price IS NOT NULL
+                {user_filter}
+                ORDER BY l.priority_score DESC
+                LIMIT ?
+            ''', user_params + [limit]).fetchall()
+
+            return {
+                'calls': [dict(row) for row in calls],
+                'follow_ups': [dict(row) for row in follow_ups],
+                'send_properties': [dict(row) for row in send_properties]
+            }
+
+    def get_overnight_changes(self, hours: int = 24) -> Dict[str, List[Dict]]:
+        """
+        Get overnight/recent changes for the dashboard.
+
+        Returns: new_leads, price_drops, new_matches, going_cold, status_changes
+        """
+        with self._get_connection() as conn:
+            cutoff = (datetime.now() - timedelta(hours=hours)).isoformat()
+
+            # New leads in the time period
+            new_leads = conn.execute('''
+                SELECT
+                    id, first_name, last_name, email, phone, source, stage,
+                    heat_score, priority_score, created_at
+                FROM leads
+                WHERE created_at >= ?
+                ORDER BY created_at DESC
+                LIMIT 10
+            ''', [cutoff]).fetchall()
+
+            # Price drops on active properties
+            price_drops = conn.execute('''
+                SELECT
+                    pc.property_id,
+                    pc.property_address,
+                    pc.old_value,
+                    pc.new_value,
+                    pc.change_amount,
+                    pc.detected_at,
+                    p.city,
+                    p.beds,
+                    p.baths
+                FROM property_changes pc
+                LEFT JOIN properties p ON pc.property_id = p.id
+                WHERE pc.change_type = 'price'
+                AND pc.change_amount < 0
+                AND pc.detected_at >= ?
+                ORDER BY pc.change_amount ASC
+                LIMIT 10
+            ''', [cutoff]).fetchall()
+
+            # Status changes (pending, sold, etc.)
+            status_changes = conn.execute('''
+                SELECT
+                    pc.property_id,
+                    pc.property_address,
+                    pc.old_value,
+                    pc.new_value,
+                    pc.detected_at,
+                    p.city,
+                    p.price
+                FROM property_changes pc
+                LEFT JOIN properties p ON pc.property_id = p.id
+                WHERE pc.change_type = 'status'
+                AND pc.detected_at >= ?
+                ORDER BY pc.detected_at DESC
+                LIMIT 10
+            ''', [cutoff]).fetchall()
+
+            # Leads going cold (no activity in 7+ days, was active before)
+            cold_cutoff = (datetime.now() - timedelta(days=7)).isoformat()
+            going_cold = conn.execute('''
+                SELECT
+                    id, first_name, last_name, email, phone, stage,
+                    heat_score, priority_score, last_activity_at, days_since_activity
+                FROM leads
+                WHERE stage IN ('Lead', 'Prospect', 'Active Client', 'Active Buyer')
+                AND heat_score >= 30
+                AND (days_since_activity >= 7 OR last_activity_at IS NULL OR last_activity_at <= ?)
+                ORDER BY priority_score DESC
+                LIMIT 10
+            ''', [cold_cutoff]).fetchall()
+
+            return {
+                'new_leads': [dict(row) for row in new_leads],
+                'price_drops': [dict(row) for row in price_drops],
+                'status_changes': [dict(row) for row in status_changes],
+                'going_cold': [dict(row) for row in going_cold]
+            }
+
+    def get_hottest_leads(self, limit: int = 5, user_id: Optional[int] = None) -> List[Dict]:
+        """
+        Get the hottest leads by heat score.
+        """
+        with self._get_connection() as conn:
+            user_filter = ""
+            user_params = []
+            if user_id:
+                user_filter = "AND assigned_user_id = ?"
+                user_params = [user_id]
+
+            results = conn.execute(f'''
+                SELECT
+                    id, first_name, last_name, email, phone, stage, source,
+                    heat_score, value_score, relationship_score, priority_score,
+                    website_visits, properties_viewed, properties_favorited,
+                    last_activity_at, days_since_activity,
+                    min_price, max_price, preferred_cities,
+                    fub_id
+                FROM leads
+                WHERE heat_score > 0
+                AND stage NOT IN ('Past Client', 'Trash', 'Agents/Vendors/Lendors')
+                {user_filter}
+                ORDER BY heat_score DESC
+                LIMIT ?
+            ''', user_params + [limit]).fetchall()
+
+            return [dict(row) for row in results]
+
+    def get_active_pursuits(self, limit: int = 5) -> List[Dict]:
+        """
+        Get active pursuits with property counts.
+        """
+        with self._get_connection() as conn:
+            pursuits = conn.execute('''
+                SELECT
+                    p.id,
+                    p.name,
+                    p.status,
+                    p.criteria_summary,
+                    p.created_at,
+                    p.updated_at,
+                    l.id as buyer_id,
+                    l.first_name || ' ' || COALESCE(l.last_name, '') as buyer_name,
+                    l.email as buyer_email,
+                    l.phone as buyer_phone,
+                    l.fub_id as buyer_fub_id,
+                    COUNT(pp.id) as property_count,
+                    SUM(CASE WHEN pp.status = 'favorited' THEN 1 ELSE 0 END) as favorited_count,
+                    SUM(CASE WHEN pp.added_at >= datetime('now', '-7 days') THEN 1 ELSE 0 END) as new_count
+                FROM pursuits p
+                JOIN leads l ON p.buyer_id = l.id
+                LEFT JOIN pursuit_properties pp ON p.id = pp.pursuit_id
+                WHERE p.status = 'active'
+                GROUP BY p.id
+                ORDER BY p.updated_at DESC
+                LIMIT ?
+            ''', [limit]).fetchall()
+
+            return [dict(row) for row in pursuits]
+
+    def create_pursuit(
+        self,
+        buyer_id: str,
+        name: str,
+        criteria_summary: Optional[str] = None,
+        intake_form_id: Optional[str] = None,
+        fub_deal_id: Optional[int] = None
+    ) -> str:
+        """
+        Create a new pursuit for a buyer.
+
+        Returns the pursuit ID.
+        """
+        import uuid
+        pursuit_id = str(uuid.uuid4())
+
+        with self._get_connection() as conn:
+            conn.execute('''
+                INSERT INTO pursuits (id, buyer_id, name, criteria_summary, intake_form_id, fub_deal_id)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', [pursuit_id, buyer_id, name, criteria_summary, intake_form_id, fub_deal_id])
+            conn.commit()
+
+        return pursuit_id
+
+    def add_property_to_pursuit(
+        self,
+        pursuit_id: str,
+        property_id: str,
+        source: str = 'agent_added',
+        status: str = 'suggested',
+        notes: Optional[str] = None
+    ) -> str:
+        """
+        Add a property to a pursuit.
+
+        Returns the pursuit_property ID.
+        """
+        import uuid
+        pp_id = str(uuid.uuid4())
+
+        with self._get_connection() as conn:
+            conn.execute('''
+                INSERT OR IGNORE INTO pursuit_properties
+                (id, pursuit_id, property_id, source, status, notes)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', [pp_id, pursuit_id, property_id, source, status, notes])
+            conn.commit()
+
+        return pp_id
 
     # ==========================================
     # CONTACT DAILY ACTIVITY OPERATIONS

@@ -628,6 +628,27 @@ def home():
     if current_view not in CONTACT_VIEWS:
         current_view = 'my_leads'
 
+    # ===== PRIORITY ACTIONS =====
+    # Today's calls, follow-ups, and buyers needing property updates
+    todays_actions = db.get_todays_actions(user_id=CURRENT_USER_ID, limit=10)
+
+    # ===== PIPELINE SNAPSHOT =====
+    # Dual-input funnel: Leads + Properties -> Pursuits -> Contracts
+    pipeline = db.get_pipeline_snapshot(user_id=CURRENT_USER_ID)
+
+    # ===== HOTTEST LEADS =====
+    # Top 5 by heat score for left column
+    hottest_leads = db.get_hottest_leads(limit=5, user_id=CURRENT_USER_ID)
+
+    # ===== OVERNIGHT CHANGES =====
+    # New leads, price drops, status changes, going cold
+    overnight = db.get_overnight_changes(hours=24)
+
+    # ===== ACTIVE PURSUITS =====
+    # Buyer + property portfolio combinations
+    active_pursuits = db.get_active_pursuits(limit=5)
+
+    # ===== LEGACY DATA (for backward compatibility) =====
     # Get property stats
     all_properties = fetch_properties()
     property_metrics = calculate_metrics(all_properties)
@@ -649,14 +670,21 @@ def home():
         view=current_view
     )
 
-    # Count actions due (simplified - contacts with next_action set)
-    actions_due = sum(1 for c in top_contacts if c.get('next_action'))
+    # Count actions due
+    actions_due = len(todays_actions.get('calls', [])) + len(todays_actions.get('follow_ups', []))
 
     # Get today's property changes
     todays_changes = db.get_todays_changes()
     change_summary = db.get_change_summary(hours=24)
 
     return render_template('home.html',
+                         # New dashboard data
+                         todays_actions=todays_actions,
+                         pipeline=pipeline,
+                         hottest_leads=hottest_leads,
+                         overnight=overnight,
+                         active_pursuits=active_pursuits,
+                         # Legacy data
                          property_stats=property_stats,
                          contact_stats=contact_stats,
                          top_contacts=top_contacts,
