@@ -3279,17 +3279,18 @@ class DREAMSDatabase:
                 {user_filter}
             ''', user_params).fetchone()[0]
 
-            # PROPERTIES: Active listings
+            # PROPERTIES: Active listings from the listings table (canonical source)
             properties_active = conn.execute('''
-                SELECT COUNT(*) FROM properties WHERE status = 'active'
+                SELECT COUNT(*) FROM listings WHERE LOWER(status) = 'active'
             ''').fetchone()[0]
 
-            # New properties today
-            today_start = today.replace(hour=0, minute=0, second=0).isoformat()
+            # New listings today (by list_date or captured_at)
+            today_start = today.strftime('%Y-%m-%d')
             properties_new = conn.execute('''
-                SELECT COUNT(*) FROM properties
-                WHERE status = 'active' AND created_at >= ?
-            ''', [today_start]).fetchone()[0]
+                SELECT COUNT(*) FROM listings
+                WHERE LOWER(status) = 'active'
+                AND (list_date >= ? OR captured_at >= ?)
+            ''', [today_start, today_start]).fetchone()[0]
 
             # Price drops in last 24 hours
             yesterday = (today - timedelta(hours=24)).isoformat()
