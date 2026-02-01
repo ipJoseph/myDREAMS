@@ -3250,31 +3250,32 @@ class DREAMSDatabase:
                 user_filter = "AND assigned_user_id = ?"
                 user_params = [user_id]
 
-            # LEADS: stage = 'Lead' or similar early stages
+            # LEADS: All contacts excluding Agents/Vendors and Trash
+            # These are all potential buyers in the funnel
             leads_count = conn.execute(f'''
                 SELECT COUNT(*) FROM leads
-                WHERE stage IN ('Lead', 'lead', 'New Lead')
+                WHERE (stage IS NULL OR stage NOT IN ('Agents/Vendors/Lendors', 'Trash', 'Closed'))
                 {user_filter}
             ''', user_params).fetchone()[0]
 
             leads_week_ago = conn.execute(f'''
                 SELECT COUNT(*) FROM leads
-                WHERE stage IN ('Lead', 'lead', 'New Lead')
+                WHERE (stage IS NULL OR stage NOT IN ('Agents/Vendors/Lendors', 'Trash', 'Closed'))
                 AND created_at <= ?
                 {user_filter}
             ''', [week_ago] + user_params).fetchone()[0]
 
-            # BUYERS: Qualified leads (Prospect, Active Client, etc.)
+            # BUYERS: Qualified/active leads ready to purchase
             buyers_count = conn.execute(f'''
                 SELECT COUNT(*) FROM leads
-                WHERE stage IN ('Prospect', 'Active Client', 'Active Buyer', 'Qualified')
+                WHERE stage IN ('Active Client', 'Active Buyer', 'Hot Prospect', 'Qualified', 'Prospect')
                 {user_filter}
             ''', user_params).fetchone()[0]
 
             # Buyers needing intake (no requirements captured)
             buyers_need_intake = conn.execute(f'''
                 SELECT COUNT(*) FROM leads
-                WHERE stage IN ('Prospect', 'Active Client', 'Active Buyer', 'Qualified')
+                WHERE stage IN ('Active Client', 'Active Buyer', 'Hot Prospect', 'Qualified', 'Prospect')
                 AND (min_price IS NULL OR max_price IS NULL OR preferred_cities IS NULL)
                 {user_filter}
             ''', user_params).fetchone()[0]
