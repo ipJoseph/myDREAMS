@@ -358,11 +358,11 @@
             min-width: 120px;
         }
 
-        .pipeline-stage.leads { background: #dbeafe; }
-        .pipeline-stage.buyers { background: #dcfce7; }
-        .pipeline-stage.properties { background: #f3e8ff; }
-        .pipeline-stage.pursuits { background: #fef3c7; }
-        .pipeline-stage.contracts { background: #fce7f3; }
+        .pipeline-stage.leads { background: #fee2e2; }       /* Red - new/cold */
+        .pipeline-stage.buyers { background: #fef3c7; }      /* Yellow - qualifying */
+        .pipeline-stage.properties { background: #f3e8ff; }  /* Purple - inventory */
+        .pipeline-stage.pursuits { background: #dbeafe; }    /* Blue - active search */
+        .pipeline-stage.contracts { background: #dcfce7; }   /* Green - closing */
 
         .pipeline-stage-value {
             font-size: 28px;
@@ -897,8 +897,8 @@
                             <a href="/contacts/{{ buyer.contact_id }}">{{ buyer.name }}</a>
                         </div>
                         <div class="action-meta">
-                            {% if buyer.preferred_cities %}{{ buyer.preferred_cities|truncate(20) }} &middot; {% endif %}
-                            {% if buyer.min_price and buyer.max_price %}${{ "{:,.0f}".format(buyer.min_price) }}-{{ "{:,.0f}".format(buyer.max_price) }}{% endif %}
+                            <strong style="color: #16a34a;">{{ buyer.match_count }} matches</strong>
+                            {% if buyer.preferred_cities and buyer.preferred_cities != '[]' %} &middot; {{ buyer.preferred_cities|truncate(15) }}{% endif %}
                         </div>
                         <div class="action-contact-links">
                             {% if buyer.email %}
@@ -909,11 +909,11 @@
                             {% endif %}
                         </div>
                     </div>
-                    <span class="action-score">H{{ "%.0f"|format(buyer.heat_score or 0) }}</span>
+                    <span class="action-score" style="background: #dcfce7; color: #16a34a;">{{ buyer.match_count }}</span>
                 </div>
                 {% endfor %}
             {% else %}
-                <div class="action-empty">No hot buyers needing properties</div>
+                <div class="action-empty">No buyers with matching properties</div>
             {% endif %}
         </div>
     </div>

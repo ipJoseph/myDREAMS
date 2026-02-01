@@ -3416,35 +3416,25 @@ class DREAMSDatabase:
                 LIMIT ?
             ''', [today] + user_params + [limit]).fetchall()
 
-            # Buyers with new matches (hot leads with requirements who have new matching properties)
-            # For now, return high-priority buyers that may need property updates
-            send_properties = conn.execute(f'''
-                SELECT
-                    l.id as contact_id,
-                    l.first_name || ' ' || COALESCE(l.last_name, '') as name,
-                    l.phone,
-                    l.email,
-                    l.stage,
-                    l.priority_score,
-                    l.heat_score,
-                    l.min_price,
-                    l.max_price,
-                    l.preferred_cities,
-                    l.fub_id
-                FROM leads l
-                WHERE l.stage IN ('Prospect', 'Active Client', 'Active Buyer', 'Qualified')
-                AND l.heat_score >= 50
-                AND l.min_price IS NOT NULL
-                {user_filter}
-                ORDER BY l.priority_score DESC
-                LIMIT ?
-            ''', user_params + [limit]).fetchall()
+            calls_list = [dict(row) for row in calls]
+            follow_ups_list = [dict(row) for row in follow_ups]
 
-            return {
-                'calls': [dict(row) for row in calls],
-                'follow_ups': [dict(row) for row in follow_ups],
-                'send_properties': [dict(row) for row in send_properties]
-            }
+        # Get buyers with matching properties (uses separate connection)
+        send_properties = self.get_buyers_with_matches(
+            user_id=user_id,
+            min_matches=1,
+            limit=limit
+        )
+
+        # Add contact_id alias for template compatibility
+        for buyer in send_properties:
+            buyer['contact_id'] = buyer['id']
+
+        return {
+            'calls': calls_list,
+            'follow_ups': follow_ups_list,
+            'send_properties': send_properties
+        }
 
     def get_overnight_changes(self, hours: int = 24) -> Dict[str, List[Dict]]:
         """
@@ -3774,6 +3764,227 @@ class DREAMSDatabase:
 
             result['properties'] = [dict(p) for p in properties]
             return result
+
+    # ==========================================
+    # PROPERTY MATCHING OPERATIONS
+    # ==========================================
+
+    def match_listings_to_buyer(
+        self,
+        buyer_id: str,
+        limit: int = 50
+    ) -> List[Dict]:
+        """
+        Find active listings that match a buyer's requirements.
+
+        Matches on:
+        - Price range (min_price, max_price)
+        - Location (preferred_cities)
+        - Bedrooms (min_beds)
+        - Bathrooms (min_baths)
+
+        Returns listings sorted by match quality.
+        """
+        with self._get_connection() as conn:
+            # Get buyer requirements
+            buyer = conn.execute('''
+                SELECT
+                    id, first_name, last_name,
+                    min_price, max_price,
+                    preferred_cities,
+                    min_beds, min_baths,
+                    min_sqft, min_acreage
+                FROM leads
+                WHERE id = ?
+            ''', [buyer_id]).fetchone()
+
+            if not buyer:
+                return []
+
+            buyer = dict(buyer)
+
+            # Build dynamic query based on available requirements
+            conditions = ["LOWER(l.status) = 'active'"]
+            params = []
+
+            # Price range
+            if buyer.get('min_price'):
+                conditions.append("l.list_price >= ?")
+                params.append(buyer['min_price'])
+            if buyer.get('max_price'):
+                conditions.append("l.list_price <= ?")
+                params.append(buyer['max_price'])
+
+            # Bedrooms
+            if buyer.get('min_beds'):
+                conditions.append("l.beds >= ?")
+                params.append(buyer['min_beds'])
+
+            # Bathrooms
+            if buyer.get('min_baths'):
+                conditions.append("l.baths >= ?")
+                params.append(buyer['min_baths'])
+
+            # Square footage
+            if buyer.get('min_sqft'):
+                conditions.append("l.sqft >= ?")
+                params.append(buyer['min_sqft'])
+
+            # Acreage
+            if buyer.get('min_acreage'):
+                conditions.append("l.acreage >= ?")
+                params.append(buyer['min_acreage'])
+
+            # Location (preferred_cities is comma-separated)
+            city_conditions = []
+            preferred_cities = buyer.get('preferred_cities', '') or ''
+            # Handle empty array strings like '[]' or '[""]'
+            if preferred_cities and preferred_cities not in ('[]', '[""]', ''):
+                cities = [c.strip().lower() for c in preferred_cities.split(',') if c.strip() and c.strip() not in ('[]', '[""]')]
+                for city in cities:
+                    if city:  # Skip empty strings
+                        city_conditions.append("LOWER(l.city) LIKE ?")
+                        params.append(f"%{city}%")
+
+            where_clause = " AND ".join(conditions)
+            if city_conditions:
+                where_clause += " AND (" + " OR ".join(city_conditions) + ")"
+
+            # Query matching listings
+            query = f'''
+                SELECT
+                    l.id,
+                    l.mls_number,
+                    l.address,
+                    l.city,
+                    l.state,
+                    l.zip,
+                    l.county,
+                    l.list_price,
+                    l.beds,
+                    l.baths,
+                    l.sqft,
+                    l.acreage,
+                    l.year_built,
+                    l.property_type,
+                    l.status,
+                    l.list_date,
+                    l.days_on_market,
+                    l.primary_photo,
+                    l.mls_url,
+                    l.idx_url,
+                    p.latitude,
+                    p.longitude
+                FROM listings l
+                LEFT JOIN parcels p ON l.parcel_id = p.id
+                WHERE {where_clause}
+                ORDER BY l.list_date DESC
+                LIMIT ?
+            '''
+            params.append(limit)
+
+            results = conn.execute(query, params).fetchall()
+            return [dict(row) for row in results]
+
+    def get_buyer_match_count(self, buyer_id: str) -> int:
+        """
+        Get count of matching listings for a buyer (for dashboard display).
+        """
+        matches = self.match_listings_to_buyer(buyer_id, limit=1000)
+        return len(matches)
+
+    def get_buyers_with_matches(
+        self,
+        user_id: Optional[int] = None,
+        min_matches: int = 1,
+        limit: int = 10
+    ) -> List[Dict]:
+        """
+        Get buyers who have matching listings available.
+        Used for the "Send Properties" column on dashboard.
+        """
+        with self._get_connection() as conn:
+            user_filter = ""
+            params = []
+            if user_id:
+                user_filter = "AND l.assigned_user_id = ?"
+                params.append(user_id)
+
+            # Get qualified buyers with requirements
+            buyers = conn.execute(f'''
+                SELECT
+                    l.id,
+                    l.first_name || ' ' || COALESCE(l.last_name, '') as name,
+                    l.email,
+                    l.phone,
+                    l.stage,
+                    l.heat_score,
+                    l.priority_score,
+                    l.min_price,
+                    l.max_price,
+                    l.preferred_cities,
+                    l.min_beds,
+                    l.min_baths,
+                    l.fub_id
+                FROM leads l
+                WHERE l.stage IN ('Prospect', 'Active Client', 'Active Buyer', 'Qualified')
+                AND (l.min_price IS NOT NULL OR l.max_price IS NOT NULL OR l.preferred_cities IS NOT NULL)
+                {user_filter}
+                ORDER BY l.priority_score DESC
+                LIMIT ?
+            ''', params + [limit * 2]).fetchall()  # Fetch extra to filter
+
+            # For each buyer, count matches
+            results = []
+            for buyer in buyers:
+                buyer_dict = dict(buyer)
+                match_count = self.get_buyer_match_count(buyer_dict['id'])
+                if match_count >= min_matches:
+                    buyer_dict['match_count'] = match_count
+                    results.append(buyer_dict)
+                    if len(results) >= limit:
+                        break
+
+            return results
+
+    def auto_populate_pursuit_matches(
+        self,
+        pursuit_id: str,
+        limit: int = 20
+    ) -> int:
+        """
+        Auto-populate a pursuit with matching listings.
+        Returns the number of properties added.
+        """
+        with self._get_connection() as conn:
+            # Get the buyer_id for this pursuit
+            pursuit = conn.execute('''
+                SELECT buyer_id FROM pursuits WHERE id = ?
+            ''', [pursuit_id]).fetchone()
+
+            if not pursuit:
+                return 0
+
+            buyer_id = pursuit[0]
+
+            # Get matching listings
+            matches = self.match_listings_to_buyer(buyer_id, limit=limit)
+
+            # Add each match to the pursuit (if not already there)
+            added = 0
+            for match in matches:
+                try:
+                    self.add_property_to_pursuit(
+                        pursuit_id=pursuit_id,
+                        property_id=match['id'],
+                        source='auto_match',
+                        status='suggested'
+                    )
+                    added += 1
+                except Exception:
+                    pass  # Already exists or other error
+
+            return added
 
     # ==========================================
     # CONTACT DAILY ACTIVITY OPERATIONS
