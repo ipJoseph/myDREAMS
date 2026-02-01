@@ -2,6 +2,76 @@
 
 Instructions and context for Claude Code sessions on this project.
 
+## Partnership & Engagement
+
+This is a collaborative partnership between Eugy and Claude. Use "we/our" language, not "the user/they." We're building this together - Eugy brings domain expertise in real estate and the vision; Claude brings technical implementation and architectural thinking. Both contribute to decisions.
+
+**Engagement principles:**
+- Treat this as shared ownership of the problem and solution
+- Ask clarifying questions early rather than making assumptions
+- Document decisions and context so we don't repeat discussions
+- Be direct about tradeoffs and concerns
+
+---
+
+## The myDREAMS Vision
+
+### The Core Problem
+Real estate agents (especially solopreneurs and small teams) spend inordinate time dealing with **data fragmentation**. When a buyer searches aggregators like Zillow, they find properties unbounded by geography - across multiple MLSs, outside our IDX coverage. When an agent needs to present 5 properties from 3 different sources, they must:
+- Manually pull data from each MLS/aggregator
+- Reconcile wildly inconsistent formats
+- Cobble together coherent property packages
+- Repeat constantly as listings change
+
+This is where time goes to die.
+
+### The Vision
+**myDREAMS is the single source of truth.** Regardless of where a property originates (Canopy MLS, Carolina Smokies MLS, Zillow, PropStream, IDX), it enters ONE unified database with standardized fields. From there, everything flows: client packets, ShowingTime integration, mapping/routing - all from one place.
+
+### The Three-Step Sales Framework
+The sales process is three clean steps. myDREAMS supports each:
+
+**1. LEADS → BUYERS** (Contacts & Scoring)
+- Leads flow from IDX website (JonTharpHomes.com)
+- Scoring system identifies who's ready to buy:
+  - **VALUE** = revenue opportunity
+  - **HEAT** = IDX activity (visits, views, saves, shares)
+  - **RELATIONSHIP** = agent-lead communication frequency
+  - **PRIORITY** = customizable blend of all three
+- Call lists put highest-priority contacts on top
+
+**2. BUYERS → REQUIREMENTS** (Intake Forms)
+- Once a buyer is identified, capture specific requirements
+- Sources: IDX activity, calls, emails, texts
+- One buyer may have multiple searches (personal home, rental, investment)
+- Intake form attaches to buyer and drives property search
+
+**3. REQUIREMENTS → PROPERTIES** (Unified Property Database)
+- Properties imported regardless of source MLS
+- Standardized schema across all sources
+- Monitored and updated within the database
+- Powers: packet generation, showing scheduling, mapping/routing
+
+### Who This Serves
+- **Primary**: Eugy (solopreneur agent)
+- **Future**: Small teams needing comprehensive, integrated, simple, efficient systems
+
+### Data Sources & Trust Hierarchy
+| Source | Type | Trust Level | Notes |
+|--------|------|-------------|-------|
+| Canopy MLS | Primary MLS | Authoritative | Full data access |
+| Carolina Smokies MLS | Secondary MLS | Authoritative | Regional coverage |
+| PropStream | Data aggregator | Baseline | Good for initial load, but missing fields (MLS#, APN, lat/long, agent info) |
+| IDX (JonTharpHomes) | Our website | Derived | Activity data, not property source |
+| Aggregators (Zillow, etc.) | Reference | Supplemental | What buyers see, not authoritative |
+
+### Current Property Database Challenges
+- PropStream exports leave critical fields blank
+- Need enrichment pipeline: collect → validate → update → maintain
+- Goal: multiply agent time through data consistency
+
+---
+
 ## Permissions
 
 - **Commit and push**: You have standing permission to commit and push after completing each section of work. Do not ask for confirmation.
