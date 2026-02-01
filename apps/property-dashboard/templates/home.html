@@ -257,20 +257,105 @@
             text-align: center;
         }
 
-        .pipeline-flow {
+        /* Dual-input funnel layout */
+        .pipeline-dual {
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 0;
+            max-width: 1000px;
+            margin: 0 auto;
         }
 
+        /* Left side: Two parallel tracks (People + Properties) */
+        .pipeline-inputs {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        /* People track: Leads -> Buyers */
+        .pipeline-people {
+            display: flex;
+            align-items: center;
+        }
+
+        /* Properties track */
+        .pipeline-properties {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 8px;
+        }
+
+        /* Convergence zone - the merge arrows */
+        .pipeline-converge {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 0 8px;
+            position: relative;
+            min-width: 50px;
+        }
+
+        .converge-arrows {
+            position: relative;
+            width: 50px;
+            height: 100px;
+        }
+
+        .converge-arrow-top,
+        .converge-arrow-bottom {
+            position: absolute;
+            width: 45px;
+            height: 2px;
+            background: #9ca3af;
+            right: 0;
+        }
+
+        .converge-arrow-top {
+            top: 25px;
+            transform: rotate(25deg);
+            transform-origin: right center;
+        }
+
+        .converge-arrow-bottom {
+            bottom: 25px;
+            transform: rotate(-25deg);
+            transform-origin: right center;
+        }
+
+        .converge-arrow-top::after,
+        .converge-arrow-bottom::after {
+            content: '';
+            position: absolute;
+            right: -2px;
+            top: -4px;
+            border: 5px solid transparent;
+            border-left-color: #9ca3af;
+        }
+
+        /* Right side: Pursuits -> Contracts */
+        .pipeline-outputs {
+            display: flex;
+            align-items: center;
+        }
+
+        /* Arrow to contracts */
+        .pipeline-to-contracts {
+            font-size: 24px;
+            color: #9ca3af;
+            padding: 0 12px;
+        }
+
+        /* Stage card styling */
         .pipeline-stage {
             text-align: center;
-            padding: 16px 24px;
+            padding: 16px 20px;
             background: var(--bg-secondary);
             border-radius: 8px;
-            min-width: 140px;
-            position: relative;
+            min-width: 120px;
         }
 
         .pipeline-stage.leads { background: #dbeafe; }
@@ -280,14 +365,14 @@
         .pipeline-stage.contracts { background: #fce7f3; }
 
         .pipeline-stage-value {
-            font-size: 32px;
+            font-size: 28px;
             font-weight: 700;
             color: var(--text-primary);
             line-height: 1;
         }
 
         .pipeline-stage-label {
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 600;
             color: var(--text-secondary);
             text-transform: uppercase;
@@ -295,41 +380,72 @@
         }
 
         .pipeline-stage-delta {
-            font-size: 11px;
+            font-size: 10px;
             color: var(--text-secondary);
-            margin-top: 8px;
+            margin-top: 6px;
         }
 
         .pipeline-stage-delta.positive { color: #16a34a; }
         .pipeline-stage-delta.negative { color: #dc2626; }
 
         .pipeline-arrow {
-            font-size: 24px;
-            color: var(--text-secondary);
+            font-size: 20px;
+            color: #9ca3af;
             padding: 0 8px;
         }
 
-        .pipeline-merge {
+        /* Track labels */
+        .track-label {
+            font-size: 10px;
+            font-weight: 600;
+            color: #9ca3af;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        .pipeline-track {
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 8px;
         }
 
-        .pipeline-merge-arrow {
-            width: 40px;
-            height: 2px;
-            background: var(--text-secondary);
-            position: relative;
+        .pipeline-track-row {
+            display: flex;
+            align-items: center;
         }
 
-        .pipeline-merge-arrow::after {
-            content: '';
-            position: absolute;
-            right: 0;
-            top: -4px;
-            border: 5px solid transparent;
-            border-left-color: var(--text-secondary);
+        /* Responsive */
+        @media (max-width: 900px) {
+            .pipeline-dual {
+                flex-direction: column;
+                gap: 16px;
+            }
+            .pipeline-inputs {
+                flex-direction: column;
+                gap: 16px;
+            }
+            .pipeline-properties {
+                justify-content: center;
+            }
+            .converge-arrows {
+                display: none;
+            }
+            .pipeline-converge {
+                padding: 8px 0;
+            }
+            .pipeline-converge::before {
+                content: '\\2193';
+                font-size: 24px;
+                color: #9ca3af;
+            }
+            .pipeline-outputs {
+                flex-direction: column;
+                gap: 8px;
+            }
+            .pipeline-to-contracts {
+                transform: rotate(90deg);
+            }
         }
 
         /* ========== SECTION 3: TWO COLUMN DETAIL ========== */
@@ -805,62 +921,79 @@
     <!-- Section 2: Pipeline Snapshot -->
     <div class="pipeline-section">
         <div class="pipeline-header">Pipeline Snapshot</div>
-        <div class="pipeline-flow">
-            <!-- Leads -->
-            <div class="pipeline-stage leads">
-                <div class="pipeline-stage-value">{{ pipeline.leads.count }}</div>
-                <div class="pipeline-stage-label">Leads</div>
-                {% if pipeline.leads.delta != 0 %}
-                <div class="pipeline-stage-delta {{ 'positive' if pipeline.leads.delta > 0 else 'negative' }}">
-                    {{ '+' if pipeline.leads.delta > 0 else '' }}{{ pipeline.leads.delta }} this week
+        <div class="pipeline-dual">
+            <!-- LEFT: Two parallel input tracks -->
+            <div class="pipeline-inputs">
+                <!-- PEOPLE TRACK: Leads -> Buyers -->
+                <div class="pipeline-people">
+                    <div class="pipeline-track">
+                        <div class="track-label">People</div>
+                        <div class="pipeline-track-row">
+                            <div class="pipeline-stage leads">
+                                <div class="pipeline-stage-value">{{ pipeline.leads.count }}</div>
+                                <div class="pipeline-stage-label">Leads</div>
+                                {% if pipeline.leads.delta != 0 %}
+                                <div class="pipeline-stage-delta {{ 'positive' if pipeline.leads.delta > 0 else 'negative' }}">
+                                    {{ '+' if pipeline.leads.delta > 0 else '' }}{{ pipeline.leads.delta }} this week
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="pipeline-arrow">&#8594;</div>
+                            <div class="pipeline-stage buyers">
+                                <div class="pipeline-stage-value">{{ pipeline.buyers.count }}</div>
+                                <div class="pipeline-stage-label">Buyers</div>
+                                {% if pipeline.buyers.need_intake > 0 %}
+                                <div class="pipeline-stage-delta">{{ pipeline.buyers.need_intake }} need intake</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                {% endif %}
-            </div>
 
-            <div class="pipeline-arrow">&#8594;</div>
-
-            <!-- Buyers -->
-            <div class="pipeline-stage buyers">
-                <div class="pipeline-stage-value">{{ pipeline.buyers.count }}</div>
-                <div class="pipeline-stage-label">Buyers</div>
-                {% if pipeline.buyers.need_intake > 0 %}
-                <div class="pipeline-stage-delta">{{ pipeline.buyers.need_intake }} need intake</div>
-                {% endif %}
-            </div>
-
-            <div class="pipeline-arrow">&#8594;</div>
-
-            <!-- Properties (feeds into Pursuits from below) -->
-            <div class="pipeline-merge">
-                <div class="pipeline-stage properties">
-                    <div class="pipeline-stage-value">{{ pipeline.properties.active }}</div>
-                    <div class="pipeline-stage-label">Properties</div>
-                    <div class="pipeline-stage-delta">
-                        {{ pipeline.properties.new_today }} new &middot; {{ pipeline.properties.price_drops }} drops
+                <!-- PROPERTIES TRACK -->
+                <div class="pipeline-properties">
+                    <div class="pipeline-track">
+                        <div class="track-label">Properties</div>
+                        <div class="pipeline-stage properties">
+                            <div class="pipeline-stage-value">{{ pipeline.properties.active }}</div>
+                            <div class="pipeline-stage-label">Active</div>
+                            <div class="pipeline-stage-delta">
+                                {{ pipeline.properties.new_today }} new &middot; {{ pipeline.properties.price_drops }} drops
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <div class="pipeline-arrow">&#8594;</div>
-
-            <!-- Pursuits -->
-            <div class="pipeline-stage pursuits">
-                <div class="pipeline-stage-value">{{ pipeline.pursuits.count }}</div>
-                <div class="pipeline-stage-label">Pursuits</div>
-                {% if pipeline.pursuits.properties_count > 0 %}
-                <div class="pipeline-stage-delta">{{ pipeline.pursuits.properties_count }} properties</div>
-                {% endif %}
+            <!-- CONVERGENCE ZONE -->
+            <div class="pipeline-converge">
+                <div class="converge-arrows">
+                    <div class="converge-arrow-top"></div>
+                    <div class="converge-arrow-bottom"></div>
+                </div>
             </div>
 
-            <div class="pipeline-arrow">&#8594;</div>
+            <!-- RIGHT: Output stages -->
+            <div class="pipeline-outputs">
+                <!-- PURSUITS -->
+                <div class="pipeline-stage pursuits">
+                    <div class="pipeline-stage-value">{{ pipeline.pursuits.count }}</div>
+                    <div class="pipeline-stage-label">Pursuits</div>
+                    {% if pipeline.pursuits.properties_count > 0 %}
+                    <div class="pipeline-stage-delta">{{ pipeline.pursuits.properties_count }} properties</div>
+                    {% endif %}
+                </div>
 
-            <!-- Contracts -->
-            <div class="pipeline-stage contracts">
-                <div class="pipeline-stage-value">{{ pipeline.contracts.count }}</div>
-                <div class="pipeline-stage-label">Contracts</div>
-                {% if pipeline.contracts.value > 0 %}
-                <div class="pipeline-stage-delta">${{ "{:,.0f}".format(pipeline.contracts.value) }}</div>
-                {% endif %}
+                <div class="pipeline-to-contracts">&#8594;</div>
+
+                <!-- CONTRACTS -->
+                <div class="pipeline-stage contracts">
+                    <div class="pipeline-stage-value">{{ pipeline.contracts.count }}</div>
+                    <div class="pipeline-stage-label">Contracts</div>
+                    {% if pipeline.contracts.value > 0 %}
+                    <div class="pipeline-stage-delta">${{ "{:,.0f}".format(pipeline.contracts.value) }}</div>
+                    {% endif %}
+                </div>
             </div>
         </div>
     </div>
