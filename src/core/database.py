@@ -3639,6 +3639,141 @@ class DREAMSDatabase:
 
         return pp_id
 
+    def get_all_pursuits(self, status: str = None) -> List[Dict]:
+        """
+        Get all pursuits with buyer info and property counts.
+
+        Args:
+            status: Optional filter by pursuit status (active, paused, converted, abandoned)
+        """
+        with self._get_connection() as conn:
+            status_filter = ""
+            params = []
+            if status:
+                status_filter = "WHERE p.status = ?"
+                params = [status]
+
+            results = conn.execute(f'''
+                SELECT
+                    p.id,
+                    p.name,
+                    p.status,
+                    p.criteria_summary,
+                    p.notes,
+                    p.created_at,
+                    p.updated_at,
+                    p.fub_deal_id,
+                    l.id as buyer_id,
+                    l.first_name || ' ' || COALESCE(l.last_name, '') as buyer_name,
+                    l.email as buyer_email,
+                    l.phone as buyer_phone,
+                    l.stage as buyer_stage,
+                    l.heat_score as buyer_heat,
+                    l.fub_id as buyer_fub_id,
+                    l.min_price,
+                    l.max_price,
+                    l.preferred_cities,
+                    COUNT(pp.id) as property_count,
+                    SUM(CASE WHEN pp.status = 'favorited' THEN 1 ELSE 0 END) as favorited_count,
+                    SUM(CASE WHEN pp.status = 'sent' THEN 1 ELSE 0 END) as sent_count,
+                    SUM(CASE WHEN pp.added_at >= datetime('now', '-7 days') THEN 1 ELSE 0 END) as new_count
+                FROM pursuits p
+                JOIN leads l ON p.buyer_id = l.id
+                LEFT JOIN pursuit_properties pp ON p.id = pp.pursuit_id
+                {status_filter}
+                GROUP BY p.id
+                ORDER BY p.updated_at DESC
+            ''', params).fetchall()
+
+            return [dict(row) for row in results]
+
+    def get_potential_pursuit_buyers(self, limit: int = 20) -> List[Dict]:
+        """
+        Get qualified buyers who don't have an active pursuit yet.
+        These are candidates for creating new pursuits.
+        """
+        with self._get_connection() as conn:
+            results = conn.execute('''
+                SELECT
+                    l.id,
+                    l.first_name || ' ' || COALESCE(l.last_name, '') as name,
+                    l.email,
+                    l.phone,
+                    l.stage,
+                    l.heat_score,
+                    l.priority_score,
+                    l.min_price,
+                    l.max_price,
+                    l.preferred_cities,
+                    l.fub_id
+                FROM leads l
+                LEFT JOIN pursuits p ON l.id = p.buyer_id AND p.status = 'active'
+                WHERE l.stage IN ('Prospect', 'Active Client', 'Active Buyer', 'Qualified')
+                AND p.id IS NULL
+                ORDER BY l.priority_score DESC
+                LIMIT ?
+            ''', [limit]).fetchall()
+
+            return [dict(row) for row in results]
+
+    def get_pursuit_with_properties(self, pursuit_id: str) -> Optional[Dict]:
+        """
+        Get a single pursuit with all its properties.
+        """
+        with self._get_connection() as conn:
+            # Get pursuit details
+            pursuit = conn.execute('''
+                SELECT
+                    p.id,
+                    p.name,
+                    p.status,
+                    p.criteria_summary,
+                    p.notes,
+                    p.created_at,
+                    p.updated_at,
+                    l.id as buyer_id,
+                    l.first_name || ' ' || COALESCE(l.last_name, '') as buyer_name,
+                    l.email as buyer_email,
+                    l.phone as buyer_phone,
+                    l.fub_id as buyer_fub_id
+                FROM pursuits p
+                JOIN leads l ON p.buyer_id = l.id
+                WHERE p.id = ?
+            ''', [pursuit_id]).fetchone()
+
+            if not pursuit:
+                return None
+
+            result = dict(pursuit)
+
+            # Get properties in this pursuit
+            properties = conn.execute('''
+                SELECT
+                    pp.id as pursuit_property_id,
+                    pp.status as pursuit_status,
+                    pp.source,
+                    pp.added_at,
+                    pp.sent_at,
+                    pp.viewed_at,
+                    pp.notes as pursuit_notes,
+                    pr.id as property_id,
+                    pr.address,
+                    pr.city,
+                    pr.price,
+                    pr.beds,
+                    pr.baths,
+                    pr.sqft,
+                    pr.status as property_status,
+                    pr.photo_urls
+                FROM pursuit_properties pp
+                JOIN properties pr ON pp.property_id = pr.id
+                WHERE pp.pursuit_id = ?
+                ORDER BY pp.added_at DESC
+            ''', [pursuit_id]).fetchall()
+
+            result['properties'] = [dict(p) for p in properties]
+            return result
+
     # ==========================================
     # CONTACT DAILY ACTIVITY OPERATIONS
     # ==========================================

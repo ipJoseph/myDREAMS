@@ -695,6 +695,46 @@ def home():
                          refresh_time=datetime.now().strftime('%B %d, %Y %I:%M %p'))
 
 
+@app.route('/pursuits')
+@requires_auth
+def pursuits_list():
+    """Pursuits list view - Buyer + Property portfolios"""
+    db = get_db()
+
+    # Get all pursuits with details
+    pursuits = db.get_all_pursuits()
+
+    # Get buyers who could become pursuits (qualified but no pursuit yet)
+    potential_buyers = db.get_potential_pursuit_buyers()
+
+    return render_template('pursuits.html',
+                         pursuits=pursuits,
+                         potential_buyers=potential_buyers,
+                         refresh_time=datetime.now().strftime('%B %d, %Y %I:%M %p'))
+
+
+@app.route('/pursuits/create', methods=['POST'])
+@requires_auth
+def create_pursuit():
+    """Create a new pursuit from a buyer"""
+    db = get_db()
+
+    buyer_id = request.form.get('buyer_id')
+    name = request.form.get('name')
+    criteria_summary = request.form.get('criteria_summary')
+
+    if not buyer_id:
+        return jsonify({'error': 'buyer_id required'}), 400
+
+    pursuit_id = db.create_pursuit(
+        buyer_id=buyer_id,
+        name=name,
+        criteria_summary=criteria_summary
+    )
+
+    return redirect(url_for('pursuits_list'))
+
+
 @app.route('/properties')
 @requires_auth
 def properties_list():
