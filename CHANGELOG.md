@@ -9,6 +9,35 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Property Database "Bulletproof" Plan** - Foundation for reliable single source of truth
+  - **MLS Grid Integration** (`scripts/import_mlsgrid.py`)
+    - Full RESO Web API client for Canopy MLS data
+    - OAuth2 authentication with long-term tokens
+    - Field mapping from RESO data dictionary to myDREAMS schema
+    - Incremental sync support (only changed records since last run)
+    - Media/photos extraction with proper attribution
+    - Rate limiting (0.6s delay, respects 2 req/sec limit)
+    - Supports `--full`, `--incremental`, `--status`, `--dry-run`, `--test` flags
+    - Sync state persistence in `data/mlsgrid_sync_state.json`
+  - **Data Quality Dashboard** (`/data-quality`)
+    - Listings coverage metrics (MLS#, photos, coords, agent info)
+    - Parcels spatial enrichment status
+    - Data source breakdown by MLS source
+    - Photo source and review status
+    - City-level coverage visualization
+    - Recent import history (30 days)
+    - MLS Grid API status panel
+    - Recommended action items
+    - API endpoint (`/api/data-quality`) for programmatic access
+  - **Data Quality Tracking** (`docs/DATA_QUALITY_TRACKING.md`)
+    - Baseline audit (32.8% MLS#, 11.2% photos, 82% coords)
+    - API availability matrix (Canopy MLS, PropStream, NC OneMap)
+    - Data flow architecture diagram
+    - Gap analysis with resolution paths
+    - Experiment tracking template
+    - Implementation plan phases
+  - Navigation link in Metrics dropdown on home page
+
 - **Photos Dashboard Redesign** - MLS-style property listing view
   - Horizontal property cards with photo on left, details on right
   - Geospatial data section (elevation, flood zone, view potential, slope, aspect, wildfire risk)

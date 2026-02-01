@@ -3606,5 +3606,155 @@ def serve_photo(filename):
     return send_from_directory(photos_dir, filename)
 
 
+@app.route('/data-quality')
+@requires_auth
+def data_quality():
+    """Data quality monitoring dashboard."""
+    db_conn = get_db()
+
+    # Listings stats
+    listings_stats = db_conn.execute("""
+        SELECT
+            COUNT(*) as total,
+            COUNT(CASE WHEN mls_number IS NOT NULL AND mls_number != '' THEN 1 END) as has_mls,
+            COUNT(CASE WHEN photos IS NOT NULL AND photos != '[]' AND photos != '' THEN 1 END) as has_photos_json,
+            COUNT(CASE WHEN primary_photo IS NOT NULL AND primary_photo != '' THEN 1 END) as has_primary_photo,
+            COUNT(CASE WHEN latitude IS NOT NULL AND latitude != 0 THEN 1 END) as has_coords,
+            COUNT(CASE WHEN listing_agent_name IS NOT NULL AND listing_agent_name != '' THEN 1 END) as has_agent,
+            COUNT(CASE WHEN parcel_id IS NOT NULL THEN 1 END) as has_parcel,
+            COUNT(CASE WHEN status = 'ACTIVE' THEN 1 END) as active,
+            COUNT(CASE WHEN status = 'PENDING' THEN 1 END) as pending,
+            COUNT(CASE WHEN status = 'SOLD' THEN 1 END) as sold
+        FROM listings
+    """).fetchone()
+
+    # Listings by source
+    source_stats = db_conn.execute("""
+        SELECT
+            mls_source,
+            COUNT(*) as count,
+            COUNT(CASE WHEN mls_number IS NOT NULL AND mls_number != '' THEN 1 END) as has_mls,
+            COUNT(CASE WHEN photos IS NOT NULL AND photos != '[]' AND photos != '' THEN 1 END) as has_photos,
+            COUNT(CASE WHEN listing_agent_name IS NOT NULL AND listing_agent_name != '' THEN 1 END) as has_agent,
+            MAX(updated_at) as last_updated
+        FROM listings
+        GROUP BY mls_source
+        ORDER BY count DESC
+    """).fetchall()
+
+    # Parcels stats
+    parcels_stats = db_conn.execute("""
+        SELECT
+            COUNT(*) as total,
+            COUNT(CASE WHEN latitude IS NOT NULL AND latitude != 0 THEN 1 END) as has_coords,
+            COUNT(CASE WHEN flood_zone IS NOT NULL AND flood_zone != '' THEN 1 END) as has_flood,
+            COUNT(CASE WHEN elevation_feet IS NOT NULL THEN 1 END) as has_elevation,
+            COUNT(CASE WHEN spatial_enriched_at IS NOT NULL THEN 1 END) as spatially_enriched,
+            MAX(spatial_enriched_at) as last_spatial_enrichment
+        FROM parcels
+    """).fetchone()
+
+    # Photo coverage by source
+    photo_stats = db_conn.execute("""
+        SELECT
+            COALESCE(photo_source, 'none') as source,
+            COUNT(*) as count,
+            ROUND(AVG(photo_confidence), 1) as avg_confidence
+        FROM listings
+        GROUP BY photo_source
+        ORDER BY count DESC
+    """).fetchall()
+
+    # Photo review status
+    review_stats = db_conn.execute("""
+        SELECT
+            COALESCE(photo_review_status, 'not_reviewed') as status,
+            COUNT(*) as count
+        FROM listings
+        GROUP BY photo_review_status
+        ORDER BY count DESC
+    """).fetchall()
+
+    # Coverage by city (top 10)
+    city_coverage = db_conn.execute("""
+        SELECT
+            city,
+            COUNT(*) as total,
+            COUNT(CASE WHEN mls_number IS NOT NULL AND mls_number != '' THEN 1 END) as has_mls,
+            COUNT(CASE WHEN primary_photo IS NOT NULL AND primary_photo != '' THEN 1 END) as has_photo
+        FROM listings
+        WHERE status = 'ACTIVE'
+        GROUP BY city
+        ORDER BY total DESC
+        LIMIT 10
+    """).fetchall()
+
+    # Import history (last 10 imports based on created_at clusters)
+    recent_imports = db_conn.execute("""
+        SELECT
+            DATE(created_at) as import_date,
+            mls_source,
+            COUNT(*) as records
+        FROM listings
+        WHERE created_at > datetime('now', '-30 days')
+        GROUP BY DATE(created_at), mls_source
+        ORDER BY import_date DESC
+        LIMIT 10
+    """).fetchall()
+
+    # MLS Grid sync state
+    mlsgrid_state = {}
+    state_file = PROJECT_ROOT / 'data' / 'mlsgrid_sync_state.json'
+    if state_file.exists():
+        import json as json_lib
+        with open(state_file) as f:
+            mlsgrid_state = json_lib.load(f)
+
+    return render_template('data_quality.html',
+                          listings_stats=dict(listings_stats),
+                          source_stats=[dict(s) for s in source_stats],
+                          parcels_stats=dict(parcels_stats),
+                          photo_stats=[dict(s) for s in photo_stats],
+                          review_stats=[dict(s) for s in review_stats],
+                          city_coverage=[dict(c) for c in city_coverage],
+                          recent_imports=[dict(i) for i in recent_imports],
+                          mlsgrid_state=mlsgrid_state,
+                          refresh_time=datetime.now().strftime('%B %d, %Y %I:%M %p'))
+
+
+@app.route('/api/data-quality')
+@requires_auth
+def api_data_quality():
+    """Data quality API endpoint for programmatic access."""
+    db_conn = get_db()
+
+    stats = db_conn.execute("""
+        SELECT
+            (SELECT COUNT(*) FROM listings) as total_listings,
+            (SELECT COUNT(*) FROM listings WHERE mls_number IS NOT NULL AND mls_number != '') as listings_with_mls,
+            (SELECT COUNT(*) FROM listings WHERE primary_photo IS NOT NULL AND primary_photo != '') as listings_with_photos,
+            (SELECT COUNT(*) FROM listings WHERE latitude IS NOT NULL AND latitude != 0) as listings_with_coords,
+            (SELECT COUNT(*) FROM parcels) as total_parcels,
+            (SELECT COUNT(*) FROM parcels WHERE spatial_enriched_at IS NOT NULL) as parcels_enriched
+    """).fetchone()
+
+    return jsonify({
+        'listings': {
+            'total': stats['total_listings'],
+            'with_mls_number': stats['listings_with_mls'],
+            'with_photos': stats['listings_with_photos'],
+            'with_coords': stats['listings_with_coords'],
+            'mls_coverage_pct': round(stats['listings_with_mls'] / stats['total_listings'] * 100, 1) if stats['total_listings'] else 0,
+            'photo_coverage_pct': round(stats['listings_with_photos'] / stats['total_listings'] * 100, 1) if stats['total_listings'] else 0,
+        },
+        'parcels': {
+            'total': stats['total_parcels'],
+            'spatially_enriched': stats['parcels_enriched'],
+            'enrichment_pct': round(stats['parcels_enriched'] / stats['total_parcels'] * 100, 1) if stats['total_parcels'] else 0,
+        },
+        'timestamp': datetime.now().isoformat(),
+    })
+
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001, debug=True)

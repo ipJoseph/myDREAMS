@@ -23,6 +23,9 @@
 
 | Feature | Commit | Description |
 |---------|--------|-------------|
+| **Data Quality Dashboard** | - | `/data-quality` route showing coverage metrics, MLS Grid status, import history |
+| **MLS Grid Integration** | - | `import_mlsgrid.py` script for Canopy MLS API (RESO Web API via MLS Grid) |
+| **Data Quality Tracking** | - | `docs/DATA_QUALITY_TRACKING.md` with baseline audit and experiment tracking |
 | NC OneMap Spatial Data | - | Flood zones, elevation, view potential, wildfire risk - enriches property data with NC geographic intelligence |
 | Enhanced Property Ingest | - | PropStream expansion, Redfin change detection, daily CLI, changes dashboard, price drop alerts |
 | IDX MLS Validation | `f157fb0` | Automatic validation with address fallback |
@@ -223,6 +226,39 @@ Deep-link phone numbers in dashboard to FUB contact pages for dialing.
 
 ---
 
+## Property Database "Bulletproof" Plan (NEW)
+
+Goal: Make the property database a reliable single source of truth with automated data feeds.
+
+### Current State (Baseline Audit 2026-01-31)
+| Metric | Coverage | Notes |
+|--------|----------|-------|
+| MLS Number | 32.8% | Critical gap - need MLS Grid API |
+| Photos | 11.2% | Low - need MLS photos + enhanced scraping |
+| Coordinates | 82.0% | Good - NC OneMap working |
+| Agent Info | 98.2% | Good |
+| Parcel Link | 86.4% | Good |
+
+### API Access Research
+| Source | API? | Automation Potential |
+|--------|------|---------------------|
+| Canopy MLS | YES | MLS Grid (RESO Web API) - contact data@canopyrealtors.com |
+| Carolina Smokies MLS | UNCLEAR | May need manual exports |
+| PropStream | NO | Excel export only |
+| NC OneMap | YES | Already integrated (95.7% coverage) |
+
+### Implementation Progress
+- [x] Baseline data quality audit (`docs/DATA_QUALITY_TRACKING.md`)
+- [x] MLS Grid integration script (`scripts/import_mlsgrid.py`)
+- [x] Data quality dashboard (`/data-quality` route)
+- [ ] Request MLS Grid API access from Canopy MLS
+- [ ] Set up automated MLS Grid sync (cron job)
+- [ ] Phase out PropStream as primary source
+
+See: `docs/DATA_QUALITY_TRACKING.md` for full details.
+
+---
+
 ## Known Issues & Tech Debt
 
 | Issue | Priority | Status |
@@ -230,6 +266,8 @@ Deep-link phone numbers in dashboard to FUB contact pages for dialing.
 | ~~Multiple extension versions in repo~~ | Low | Done - moved to archive/ |
 | ~~Backup files scattered~~ | Low | Done - archive/ created |
 | ~~Email tracking not implemented~~ | High | Done - Added email fetching from FUB API |
+| **Low MLS# coverage (32.8%)** | High | MLS Grid integration built, awaiting API access |
+| **Low photo coverage (11.2%)** | High | Need MLS photos via API + enhanced scraping |
 | Zillow scraper blocked | Medium | Code exists but site blocks scraping |
 | Realtor.com scraper not implemented | Low | Falls back to Redfin pattern |
 | Inconsistent error handling | Medium | Standardize patterns |
@@ -271,4 +309,4 @@ The tension between personal workflow optimization vs. building a configurable p
 ---
 
 *Roadmap maintained by Joseph & Claude*
-*Last updated: January 29, 2026 - NC OneMap Spatial Data Integration (flood zones, elevation, view potential)*
+*Last updated: January 31, 2026 - Property Database Bulletproof Plan (MLS Grid integration, data quality dashboard)*
