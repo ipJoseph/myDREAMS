@@ -3212,7 +3212,11 @@ class DREAMSDatabase:
                 else:
                     price_decreases.append(change)
             elif change['change_type'] == 'status':
-                status_changes.append(change)
+                # Exclude case-only changes (e.g., "contingent" -> "Contingent")
+                old_val = (change.get('old_value') or '').lower()
+                new_val = (change.get('new_value') or '').lower()
+                if old_val != new_val:
+                    status_changes.append(change)
 
         return {
             'total_changes': len(changes),
@@ -3483,6 +3487,7 @@ class DREAMSDatabase:
             ''', [cutoff]).fetchall()
 
             # Status changes (pending, sold, etc.)
+            # Exclude case-only changes (e.g., "contingent" -> "Contingent")
             status_changes = conn.execute('''
                 SELECT
                     pc.property_id,
@@ -3496,6 +3501,7 @@ class DREAMSDatabase:
                 LEFT JOIN properties p ON pc.property_id = p.id
                 WHERE pc.change_type = 'status'
                 AND pc.detected_at >= ?
+                AND LOWER(pc.old_value) != LOWER(pc.new_value)
                 ORDER BY pc.detected_at DESC
                 LIMIT 10
             ''', [cutoff]).fetchall()
