@@ -183,6 +183,67 @@ def get_grouped_tasks(limit: int = 15) -> dict:
     return grouped
 
 
+def get_tasks_by_project(limit: int = 20) -> dict:
+    """
+    Get tasks grouped by Todoist project for dashboard display.
+
+    Returns dict with:
+    - 'projects': list of {id, name, color, tasks: [...]}
+    - 'total_count': total number of tasks
+    - 'overdue_count': number of overdue tasks
+    """
+    try:
+        # Fetch all projects
+        projects_raw = todoist_client.get_projects()
+        project_map = {p['id']: p for p in projects_raw}
+
+        # Fetch tasks
+        tasks = get_todoist_tasks_for_dashboard(limit=limit)
+
+        # Group by project
+        projects_with_tasks = {}
+        overdue_count = 0
+
+        for task in tasks:
+            project_id = task.get('project_id')
+            if not project_id:
+                project_id = 'inbox'
+
+            if project_id not in projects_with_tasks:
+                project_info = project_map.get(project_id, {})
+                projects_with_tasks[project_id] = {
+                    'id': project_id,
+                    'name': project_info.get('name', 'Inbox'),
+                    'color': project_info.get('color', 'grey'),
+                    'tasks': [],
+                }
+
+            projects_with_tasks[project_id]['tasks'].append(task)
+
+            if task.get('is_overdue'):
+                overdue_count += 1
+
+        # Sort projects by task count (most tasks first), then by name
+        sorted_projects = sorted(
+            projects_with_tasks.values(),
+            key=lambda p: (-len(p['tasks']), p['name'])
+        )
+
+        return {
+            'projects': sorted_projects,
+            'total_count': len(tasks),
+            'overdue_count': overdue_count,
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to get tasks by project: {e}")
+        return {
+            'projects': [],
+            'total_count': 0,
+            'overdue_count': 0,
+        }
+
+
 def enrich_task_with_deal(fub_task_id: int, person_id: int) -> Optional[dict]:
     """
     Fetch and cache deal information for a task.

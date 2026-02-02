@@ -83,7 +83,14 @@ class TodoistClient:
 
     def get_projects(self) -> list[dict]:
         """Get all projects."""
-        return self._rest_request('GET', 'projects')
+        data = self._rest_request('GET', 'projects')
+
+        # API v1 returns {"results": [...], "next_cursor": ...}
+        if isinstance(data, dict) and 'results' in data:
+            return data['results']
+        elif isinstance(data, list):
+            return data
+        return []
 
     def get_project(self, project_id: str) -> dict:
         """Get a project by ID."""

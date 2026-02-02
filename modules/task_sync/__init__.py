@@ -11,4 +11,5 @@ from .dashboard import (
     get_todoist_tasks_for_dashboard,
     get_task_stats,
     get_grouped_tasks,
+    get_tasks_by_project,
 )

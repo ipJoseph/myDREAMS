@@ -36,12 +36,13 @@ db = DREAMSDatabase(DB_PATH)
 
 # Import task sync dashboard integration (optional - graceful degradation if not available)
 try:
-    from modules.task_sync import get_grouped_tasks, get_task_stats
+    from modules.task_sync import get_grouped_tasks, get_task_stats, get_tasks_by_project
     TASK_SYNC_AVAILABLE = True
 except ImportError:
     TASK_SYNC_AVAILABLE = False
     get_grouped_tasks = None
     get_task_stats = None
+    get_tasks_by_project = None
 
 # Load environment variables
 def load_env_file():
@@ -642,11 +643,11 @@ def home():
     todays_actions = db.get_todays_actions(user_id=CURRENT_USER_ID, limit=10)
 
     # ===== TODOIST TASKS =====
-    # Fetch tasks from Todoist (replaces follow-ups column)
-    todoist_tasks = {'overdue': [], 'today': [], 'upcoming': []}
+    # Fetch tasks from Todoist grouped by project
+    todoist_tasks = {'projects': [], 'total_count': 0, 'overdue_count': 0}
     if TASK_SYNC_AVAILABLE:
         try:
-            todoist_tasks = get_grouped_tasks(limit=15)
+            todoist_tasks = get_tasks_by_project(limit=20)
         except Exception as e:
             logger.warning(f"Failed to fetch Todoist tasks: {e}")
 

@@ -941,110 +941,68 @@
             {% endif %}
         </div>
 
-        <!-- Todos Column (Todoist Tasks) -->
-        <div class="action-column">
+        <!-- Todos Column (Todoist Tasks by Project) -->
+        <div class="action-column" style="max-height: 500px; overflow-y: auto;">
             <div class="action-column-header">
                 <span class="action-column-title">Todos</span>
-                <span class="action-column-count">{{ (todoist_tasks.overdue|length) + (todoist_tasks.today|length) + (todoist_tasks.upcoming|length) }}</span>
+                <span class="action-column-count">{{ todoist_tasks.total_count }}</span>
+                {% if todoist_tasks.overdue_count > 0 %}
+                <span style="background: #fef2f2; color: #dc2626; padding: 2px 6px; border-radius: 10px; font-size: 10px; margin-left: 4px;">{{ todoist_tasks.overdue_count }} overdue</span>
+                {% endif %}
                 <a href="https://todoist.com/app" target="_blank" style="font-size: 11px; color: var(--text-secondary); margin-left: auto;">Open Todoist</a>
             </div>
 
-            {# Overdue Tasks #}
-            {% if todoist_tasks.overdue %}
-            <div style="font-size: 10px; font-weight: 600; color: #dc2626; text-transform: uppercase; margin-bottom: 8px; padding-top: 4px;">Overdue</div>
-            {% for task in todoist_tasks.overdue[:2] %}
-            <div class="action-item" style="border-left: 3px solid #dc2626; padding-left: 12px;">
-                <div class="action-icon follow-up" style="background: #fef2f2;">&#9888;</div>
-                <div class="action-content">
-                    <div class="action-name">
-                        <a href="https://todoist.com/showTask?id={{ task.todoist_id }}" target="_blank">{{ task.content|truncate(35) }}</a>
-                    </div>
-                    <div class="action-meta">
-                        {% if task.person_name %}{{ task.person_name }}{% endif %}
-                        {% if task.deal_stage %} &middot; {{ task.deal_stage }}{% endif %}
-                        {% if task.due_date %} &middot; {{ task.due_date[:10] }}{% endif %}
-                    </div>
-                    <div class="action-contact-links">
-                        {% if task.fub_person_id %}
-                        <a href="https://JonTharpTeam.followupboss.com/2/people/view/{{ task.fub_person_id }}" target="_blank">FUB</a>
-                        {% endif %}
-                    </div>
+            {% if todoist_tasks.projects %}
+                {% for project in todoist_tasks.projects[:4] %}
+                {# Project Header #}
+                <div style="font-size: 10px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; margin: {{ '4px' if loop.first else '12px' }} 0 8px 0; display: flex; align-items: center; gap: 6px;">
+                    <span style="width: 8px; height: 8px; border-radius: 2px; background: {% if project.color == 'red' %}#dc2626{% elif project.color == 'orange' %}#f97316{% elif project.color == 'yellow' %}#eab308{% elif project.color == 'green' %}#22c55e{% elif project.color == 'blue' %}#3b82f6{% elif project.color == 'purple' %}#a855f7{% else %}#6b7280{% endif %};"></span>
+                    {{ project.name|truncate(25) }}
+                    <span style="background: var(--bg-secondary); padding: 1px 6px; border-radius: 10px; font-size: 9px;">{{ project.tasks|length }}</span>
                 </div>
-                <span class="action-score" style="background: #fef2f2; color: #dc2626;">P{{ task.priority }}</span>
-            </div>
-            {% endfor %}
-            {% endif %}
 
-            {# Today's Tasks #}
-            {% if todoist_tasks.today %}
-            <div style="font-size: 10px; font-weight: 600; color: #2563eb; text-transform: uppercase; margin: 12px 0 8px 0;">Today</div>
-            {% for task in todoist_tasks.today[:3] %}
-            <div class="action-item">
-                <div class="action-icon follow-up" style="background: #dbeafe;">&#128197;</div>
-                <div class="action-content">
-                    <div class="action-name">
-                        <a href="https://todoist.com/showTask?id={{ task.todoist_id }}" target="_blank">{{ task.content|truncate(35) }}</a>
+                {# Tasks in this project #}
+                {% for task in project.tasks[:3] %}
+                <div class="action-item" {% if task.is_overdue %}style="border-left: 3px solid #dc2626; padding-left: 12px;"{% endif %}>
+                    <div class="action-icon follow-up" style="background: {% if task.is_overdue %}#fef2f2{% else %}#f3f4f6{% endif %};">
+                        {% if task.is_overdue %}&#9888;{% else %}&#9744;{% endif %}
                     </div>
-                    <div class="action-meta">
-                        {% if task.person_name %}{{ task.person_name }}{% endif %}
-                        {% if task.deal_stage %} &middot; {{ task.deal_stage }}{% endif %}
+                    <div class="action-content">
+                        <div class="action-name">
+                            <a href="https://todoist.com/app/task/{{ task.todoist_id }}" target="_blank">{{ task.content|truncate(30) }}</a>
+                        </div>
+                        <div class="action-meta">
+                            {% if task.person_name %}{{ task.person_name }}{% endif %}
+                            {% if task.deal_stage %} &middot; {{ task.deal_stage }}{% endif %}
+                            {% if task.due_date %} &middot; {{ task.due_date[:10] }}{% endif %}
+                        </div>
+                        <div class="action-contact-links">
+                            {% if task.fub_person_id %}
+                            <a href="https://JonTharpTeam.followupboss.com/2/people/view/{{ task.fub_person_id }}" target="_blank">FUB</a>
+                            {% endif %}
+                        </div>
                     </div>
-                    <div class="action-contact-links">
-                        {% if task.fub_person_id %}
-                        <a href="https://JonTharpTeam.followupboss.com/2/people/view/{{ task.fub_person_id }}" target="_blank">FUB</a>
-                        {% endif %}
-                    </div>
+                    {% if task.priority > 1 %}
+                    <span class="action-score" style="background: {% if task.priority == 4 %}#fef2f2{% elif task.priority == 3 %}#fef3c7{% else %}#dbeafe{% endif %}; color: {% if task.priority == 4 %}#dc2626{% elif task.priority == 3 %}#d97706{% else %}#2563eb{% endif %};">P{{ task.priority }}</span>
+                    {% endif %}
                 </div>
-                <span class="action-score" style="background: #dbeafe; color: #2563eb;">P{{ task.priority }}</span>
-            </div>
-            {% endfor %}
-            {% endif %}
+                {% endfor %}
 
-            {# Upcoming Tasks #}
-            {% if todoist_tasks.upcoming and not todoist_tasks.today and not todoist_tasks.overdue %}
-            <div style="font-size: 10px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 8px;">Upcoming</div>
-            {% for task in todoist_tasks.upcoming[:3] %}
-            <div class="action-item">
-                <div class="action-icon follow-up">&#128337;</div>
-                <div class="action-content">
-                    <div class="action-name">
-                        <a href="https://todoist.com/showTask?id={{ task.todoist_id }}" target="_blank">{{ task.content|truncate(35) }}</a>
-                    </div>
-                    <div class="action-meta">
-                        {% if task.person_name %}{{ task.person_name }}{% endif %}
-                        {% if task.due_date %} &middot; {{ task.due_date[:10] }}{% endif %}
-                    </div>
-                    <div class="action-contact-links">
-                        {% if task.fub_person_id %}
-                        <a href="https://JonTharpTeam.followupboss.com/2/people/view/{{ task.fub_person_id }}" target="_blank">FUB</a>
-                        {% endif %}
-                    </div>
+                {# Show more indicator #}
+                {% if project.tasks|length > 3 %}
+                <div style="font-size: 11px; color: var(--text-secondary); padding: 4px 0; text-align: center;">
+                    +{{ project.tasks|length - 3 }} more in this project
                 </div>
-            </div>
-            {% endfor %}
-            {% elif todoist_tasks.upcoming %}
-            {# Show upcoming only if there's space after today/overdue #}
-            {% set remaining_slots = 5 - (todoist_tasks.overdue[:2]|length) - (todoist_tasks.today[:3]|length) %}
-            {% if remaining_slots > 0 %}
-            <div style="font-size: 10px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; margin: 12px 0 8px 0;">Upcoming</div>
-            {% for task in todoist_tasks.upcoming[:remaining_slots] %}
-            <div class="action-item">
-                <div class="action-icon follow-up">&#128337;</div>
-                <div class="action-content">
-                    <div class="action-name">
-                        <a href="https://todoist.com/showTask?id={{ task.todoist_id }}" target="_blank">{{ task.content|truncate(35) }}</a>
-                    </div>
-                    <div class="action-meta">
-                        {% if task.person_name %}{{ task.person_name }}{% endif %}
-                        {% if task.due_date %} &middot; {{ task.due_date[:10] }}{% endif %}
-                    </div>
-                </div>
-            </div>
-            {% endfor %}
-            {% endif %}
-            {% endif %}
+                {% endif %}
+                {% endfor %}
 
-            {% if not todoist_tasks.overdue and not todoist_tasks.today and not todoist_tasks.upcoming %}
+                {# More projects indicator #}
+                {% if todoist_tasks.projects|length > 4 %}
+                <div style="font-size: 11px; color: var(--text-secondary); padding: 8px 0; text-align: center; border-top: 1px solid var(--bg-secondary); margin-top: 8px;">
+                    +{{ todoist_tasks.projects|length - 4 }} more projects
+                </div>
+                {% endif %}
+            {% else %}
                 <div class="action-empty">No tasks - you're all caught up!</div>
             {% endif %}
         </div>
