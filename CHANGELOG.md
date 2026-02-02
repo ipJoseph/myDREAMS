@@ -9,6 +9,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Todoist ↔ FUB Task Sync** (`modules/task_sync/`)
+  - Bidirectional task synchronization between Todoist and Follow Up Boss
+  - **FUB Client** - Full task API support (CRUD, completion, deal/pipeline queries)
+  - **Todoist Client** - Unified API v1 support (REST + Sync endpoints)
+  - **Sync Engine** - Change detection, anti-loop protection, last-write-wins conflict resolution
+  - **Poller Service** - Async polling with configurable intervals via `.env`
+  - **CLI Interface** - `python -m modules.task_sync <test|status|sync-once|run>`
+  - **Bridge Database** - SQLite tables for task mapping, sync state, and audit logs
+  - **Systemd Integration** - Service files for dev and production deployment
+  - Configuration: `FUB_POLL_INTERVAL`, `TODOIST_POLL_INTERVAL`, `DEAL_CACHE_REFRESH`
+
 - **Home Dashboard Redesign** - Action-oriented morning briefing reflecting the three-step sales framework
   - **Today's Priority Actions** - Three-column layout for Calls, Follow-ups, and Send Properties
     - Prioritized by score with contact details and quick links
