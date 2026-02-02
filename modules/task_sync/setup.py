@@ -2,23 +2,17 @@
 Task Sync Setup - Process-based Project Routing.
 
 Routes FUB tasks to Todoist projects based on the client's stage
-in the sales process:
+in the buyer journey:
 
-    BUYER JOURNEY:
-    QUALIFY  → CURATE  → ACQUIRE → CLOSE
-    (leads)    (search)   (offers)  (contract)
-
-    SELLER JOURNEY:
-    QUALIFY  → PRESENT → MARKET  → CLOSE
-    (leads)    (listing)  (showings) (contract)
+    QUALIFY  →  CURATE   →  ACQUIRE  →  CLOSE
+    (leads)     (search)    (offers)    (contract)
 
 Projects:
-    QUALIFY  - Lead → Client (calls, qualification) [Buyer & Seller]
+    QUALIFY  - Lead → Buyer (calls, qualification, discovery)
     CURATE   - Buyer requirements, property search, showings
-    ACQUIRE  - Buyer making offers, negotiating
-    PRESENT  - Seller listing prep, CMA, photography
-    MARKET   - Seller showings, receiving/reviewing offers
-    CLOSE    - Contract → Close (inspections, due diligence) [Buyer & Seller]
+    ACQUIRE  - Writing offers, negotiating, winning the deal
+    CLOSE    - Contract → Close (inspections, due diligence)
+    GENERAL  - Tasks not tied to a specific deal stage
 """
 
 import logging
@@ -31,46 +25,38 @@ from .todoist_client import todoist_client
 
 logger = logging.getLogger(__name__)
 
-# Process project IDs (set after creation)
+# Process project IDs
 PROCESS_PROJECTS = {
-    # Shared (Buyer & Seller)
     'QUALIFY': '6fvm9JfRGCx3J79G',
-    'CLOSE': '6fvm9M28wGFj76Hr',
-    # Buyer-specific
     'CURATE': '6fvm9Jq8qxgCrH3P',
     'ACQUIRE': '6fvm9JwFrM5hHCP3',
-    # Seller-specific
-    'PRESENT': '6fvmCWCGfvvvRMw3',
-    'MARKET': '6fvmCWHJ9jCp2HGW',
+    'CLOSE': '6fvm9M28wGFj76Hr',
+    'GENERAL': '6fvmHcVcJQc5mr79',
 }
 
-# Map deal stage keywords to process
-# Format: (keyword, pipeline_type) -> process
-# pipeline_type: 'buyer', 'seller', or 'any'
+# Map deal stage keywords to process (buyer journey)
 STAGE_TO_PROCESS = {
-    # QUALIFY - Lead to Buyer/Seller (shared)
+    # QUALIFY - Lead to Buyer
     'new deal': 'QUALIFY',
     'lead': 'QUALIFY',
 
     # CURATE - Buyer requirements & property search
     'buyer contract': 'CURATE',
+    'contract': 'CURATE',  # Generic contract stage
 
-    # PRESENT - Seller listing preparation
-    'listing contract': 'PRESENT',
-    'listed': 'MARKET',  # Once listed, move to MARKET
+    # ACQUIRE - Making offers
+    'offer': 'ACQUIRE',
 
-    # ACQUIRE - Buyer making offers
-    'offer': 'ACQUIRE',  # Buyer pipeline offer stage
-
-    # MARKET - Seller receiving offers
-    # (Seller "Offer" stage would also be MARKET - handled by pipeline detection)
-
-    # CLOSE - Contract to Close (shared)
+    # CLOSE - Contract to Close
     'pending': 'CLOSE',
     'under contract': 'CLOSE',
 
-    # Referrals default to QUALIFY
-    'referral contract': 'QUALIFY',
+    # Seller stages → GENERAL for now
+    'listing': 'GENERAL',
+    'listed': 'GENERAL',
+
+    # Referrals → GENERAL
+    'referral': 'GENERAL',
 }
 
 
