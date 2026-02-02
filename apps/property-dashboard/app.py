@@ -34,6 +34,15 @@ from src.core.database import DREAMSDatabase
 DB_PATH = os.getenv('DREAMS_DB_PATH', str(PROJECT_ROOT / 'data' / 'dreams.db'))
 db = DREAMSDatabase(DB_PATH)
 
+# Import task sync dashboard integration (optional - graceful degradation if not available)
+try:
+    from modules.task_sync import get_grouped_tasks, get_task_stats
+    TASK_SYNC_AVAILABLE = True
+except ImportError:
+    TASK_SYNC_AVAILABLE = False
+    get_grouped_tasks = None
+    get_task_stats = None
+
 # Load environment variables
 def load_env_file():
     env_path = Path(__file__).parent.parent.parent / '.env'
@@ -632,6 +641,15 @@ def home():
     # Today's calls, follow-ups, and buyers needing property updates
     todays_actions = db.get_todays_actions(user_id=CURRENT_USER_ID, limit=10)
 
+    # ===== TODOIST TASKS =====
+    # Fetch tasks from Todoist (replaces follow-ups column)
+    todoist_tasks = {'overdue': [], 'today': [], 'upcoming': []}
+    if TASK_SYNC_AVAILABLE:
+        try:
+            todoist_tasks = get_grouped_tasks(limit=15)
+        except Exception as e:
+            logger.warning(f"Failed to fetch Todoist tasks: {e}")
+
     # ===== PIPELINE SNAPSHOT =====
     # Dual-input funnel: Leads + Properties -> Pursuits -> Contracts
     pipeline = db.get_pipeline_snapshot(user_id=CURRENT_USER_ID)
@@ -680,6 +698,7 @@ def home():
     return render_template('home.html',
                          # New dashboard data
                          todays_actions=todays_actions,
+                         todoist_tasks=todoist_tasks,
                          pipeline=pipeline,
                          hottest_leads=hottest_leads,
                          overnight=overnight,

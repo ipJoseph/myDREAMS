@@ -81,8 +81,18 @@ class TodoistTask:
 
     @classmethod
     def from_api(cls, data: dict) -> 'TodoistTask':
-        """Create from Todoist API response."""
-        due = data.get('due', {}) or {}
+        """Create from Todoist API response (v1 format)."""
+        # Handle due field - can be dict or None
+        due = data.get('due')
+        if isinstance(due, dict):
+            due_date = due.get('date')
+            due_datetime = due.get('datetime')
+        else:
+            due_date = None
+            due_datetime = None
+
+        # API v1 uses 'checked' instead of 'is_completed'
+        # and 'added_at' instead of 'created_at'
         return cls(
             id=str(data['id']),
             content=data['content'],
@@ -92,10 +102,10 @@ class TodoistTask:
             parent_id=str(data['parent_id']) if data.get('parent_id') else None,
             labels=data.get('labels', []),
             priority=data.get('priority', 1),
-            due_date=due.get('date'),
-            due_datetime=due.get('datetime'),
-            is_completed=data.get('is_completed', False),
-            created_at=data.get('created_at'),
+            due_date=due_date,
+            due_datetime=due_datetime,
+            is_completed=data.get('checked', False) or data.get('is_completed', False),
+            created_at=data.get('added_at') or data.get('created_at'),
             completed_at=data.get('completed_at'),
         )
 

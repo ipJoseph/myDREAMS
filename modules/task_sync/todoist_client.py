@@ -133,7 +133,16 @@ class TodoistClient:
             params['section_id'] = section_id
 
         data = self._rest_request('GET', 'tasks', params=params)
-        return [TodoistTask.from_api(t) for t in data]
+
+        # API v1 returns {"results": [...], "next_cursor": ...}
+        if isinstance(data, dict) and 'results' in data:
+            tasks = data['results']
+        elif isinstance(data, list):
+            tasks = data
+        else:
+            tasks = []
+
+        return [TodoistTask.from_api(t) for t in tasks]
 
     def get_task(self, task_id: str) -> TodoistTask:
         """Get a single task by ID."""

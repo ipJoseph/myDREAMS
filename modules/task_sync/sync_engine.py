@@ -50,8 +50,42 @@ class SyncEngine:
 
     def _create_todoist_from_fub(self, fub_task: FUBTask) -> str:
         """Create a new Todoist task from FUB task."""
-        # Get person name for context
-        person_name = self.fub.get_person_name(fub_task.person_id)
+        # Get person info for context
+        person = self.fub.get_person(fub_task.person_id)
+        person_name = f"{person.get('firstName', '')} {person.get('lastName', '')}".strip() or 'Unknown'
+
+        # Try to get deal for enrichment
+        deal_id = None
+        deal_stage = None
+        try:
+            deals = self.fub.get_deals(person_id=fub_task.person_id)
+            if deals:
+                deal = deals[0]  # Most recent deal
+                deal_id = deal.id
+                deal_stage = deal.stage_name
+
+                # Cache the deal for dashboard use
+                deal_data = {
+                    'id': deal.id,
+                    'person_id': deal.person_id,
+                    'pipeline_id': deal.pipeline_id,
+                    'stage_id': deal.stage_id,
+                    'stage_name': deal.stage_name,
+                    'deal_name': deal.name,
+                    'deal_value': deal.deal_value,
+                    'property_address': deal.property_address,
+                    'property_city': deal.property_city,
+                    'property_state': deal.property_state,
+                    'property_zip': deal.property_zip,
+                    'person_name': person_name,
+                    'person_email': person.get('emails', [{}])[0].get('value') if person.get('emails') else None,
+                    'person_phone': person.get('phones', [{}])[0].get('value') if person.get('phones') else None,
+                    'updated': deal.updated,
+                }
+                db.cache_deal(deal_data)
+                logger.debug(f"Cached deal {deal_id} for person {fub_task.person_id}")
+        except Exception as e:
+            logger.warning(f"Failed to fetch deal for person {fub_task.person_id}: {e}")
 
         # Map FUB task type to Todoist priority
         priority_map = {
@@ -68,16 +102,17 @@ class SyncEngine:
         # Create Todoist task
         todoist_task = self.todoist.create_task(
             content=f"{fub_task.name} [{person_name}]",
-            description=self._build_todoist_description(fub_task, person_name),
+            description=self._build_todoist_description(fub_task, person_name, deal_stage),
             due_date=fub_task.due_date,
             priority=priority,
         )
 
-        # Create mapping
+        # Create mapping with deal context
         db.create_mapping(
             fub_task_id=fub_task.id,
             todoist_task_id=todoist_task.id,
             fub_person_id=fub_task.person_id,
+            fub_deal_id=deal_id,
             origin='fub',
         )
 
@@ -173,15 +208,21 @@ class SyncEngine:
 
         return todoist_task_id if updates else None
 
-    def _build_todoist_description(self, fub_task: FUBTask, person_name: str) -> str:
+    def _build_todoist_description(self, fub_task: FUBTask, person_name: str, deal_stage: Optional[str] = None) -> str:
         """Build Todoist task description from FUB task."""
         lines = [
             f"**Contact:** {person_name}",
             f"**Type:** {fub_task.type}",
+        ]
+
+        if deal_stage:
+            lines.append(f"**Stage:** {deal_stage}")
+
+        lines.extend([
             f"**FUB Task ID:** {fub_task.id}",
             "",
-            f"[Open in FUB](https://app.followupboss.com/2/people/view/{fub_task.person_id})",
-        ]
+            f"[Open in FUB](https://JonTharpTeam.followupboss.com/2/people/view/{fub_task.person_id})",
+        ])
         return "\n".join(lines)
 
     # ==========================================================================

@@ -941,37 +941,111 @@
             {% endif %}
         </div>
 
-        <!-- Follow-ups Column -->
+        <!-- Todos Column (Todoist Tasks) -->
         <div class="action-column">
             <div class="action-column-header">
-                <span class="action-column-title">Follow-ups</span>
-                <span class="action-column-count">{{ todays_actions.follow_ups|length }}</span>
+                <span class="action-column-title">Todos</span>
+                <span class="action-column-count">{{ (todoist_tasks.overdue|length) + (todoist_tasks.today|length) + (todoist_tasks.upcoming|length) }}</span>
+                <a href="https://todoist.com/app" target="_blank" style="font-size: 11px; color: var(--text-secondary); margin-left: auto;">Open Todoist</a>
             </div>
-            {% if todays_actions.follow_ups %}
-                {% for action in todays_actions.follow_ups[:5] %}
-                <div class="action-item">
-                    <div class="action-icon follow-up">&#128337;</div>
-                    <div class="action-content">
-                        <div class="action-name">
-                            <a href="/contacts/{{ action.contact_id }}">{{ action.name }}</a>
-                        </div>
-                        <div class="action-meta">{{ action.stage or 'Lead' }} {% if action.description %}&middot; {{ action.description|truncate(30) }}{% endif %}</div>
-                        <div class="action-contact-links">
-                            {% if action.email %}
-                            <a href="mailto:{{ action.email }}">{{ action.email|truncate(20) }}</a>
-                            {% endif %}
-                            {% if action.fub_id %}
-                            <a href="https://JonTharpTeam.followupboss.com/2/people/view/{{ action.fub_id }}" target="_blank">FUB</a>
-                            {% endif %}
-                        </div>
+
+            {# Overdue Tasks #}
+            {% if todoist_tasks.overdue %}
+            <div style="font-size: 10px; font-weight: 600; color: #dc2626; text-transform: uppercase; margin-bottom: 8px; padding-top: 4px;">Overdue</div>
+            {% for task in todoist_tasks.overdue[:2] %}
+            <div class="action-item" style="border-left: 3px solid #dc2626; padding-left: 12px;">
+                <div class="action-icon follow-up" style="background: #fef2f2;">&#9888;</div>
+                <div class="action-content">
+                    <div class="action-name">
+                        <a href="https://todoist.com/showTask?id={{ task.todoist_id }}" target="_blank">{{ task.content|truncate(35) }}</a>
                     </div>
-                    {% if action.priority_score %}
-                    <span class="action-score">P{{ "%.0f"|format(action.priority_score) }}</span>
-                    {% endif %}
+                    <div class="action-meta">
+                        {% if task.person_name %}{{ task.person_name }}{% endif %}
+                        {% if task.deal_stage %} &middot; {{ task.deal_stage }}{% endif %}
+                        {% if task.due_date %} &middot; {{ task.due_date[:10] }}{% endif %}
+                    </div>
+                    <div class="action-contact-links">
+                        {% if task.fub_person_id %}
+                        <a href="https://JonTharpTeam.followupboss.com/2/people/view/{{ task.fub_person_id }}" target="_blank">FUB</a>
+                        {% endif %}
+                    </div>
                 </div>
-                {% endfor %}
-            {% else %}
-                <div class="action-empty">No follow-ups due today</div>
+                <span class="action-score" style="background: #fef2f2; color: #dc2626;">P{{ task.priority }}</span>
+            </div>
+            {% endfor %}
+            {% endif %}
+
+            {# Today's Tasks #}
+            {% if todoist_tasks.today %}
+            <div style="font-size: 10px; font-weight: 600; color: #2563eb; text-transform: uppercase; margin: 12px 0 8px 0;">Today</div>
+            {% for task in todoist_tasks.today[:3] %}
+            <div class="action-item">
+                <div class="action-icon follow-up" style="background: #dbeafe;">&#128197;</div>
+                <div class="action-content">
+                    <div class="action-name">
+                        <a href="https://todoist.com/showTask?id={{ task.todoist_id }}" target="_blank">{{ task.content|truncate(35) }}</a>
+                    </div>
+                    <div class="action-meta">
+                        {% if task.person_name %}{{ task.person_name }}{% endif %}
+                        {% if task.deal_stage %} &middot; {{ task.deal_stage }}{% endif %}
+                    </div>
+                    <div class="action-contact-links">
+                        {% if task.fub_person_id %}
+                        <a href="https://JonTharpTeam.followupboss.com/2/people/view/{{ task.fub_person_id }}" target="_blank">FUB</a>
+                        {% endif %}
+                    </div>
+                </div>
+                <span class="action-score" style="background: #dbeafe; color: #2563eb;">P{{ task.priority }}</span>
+            </div>
+            {% endfor %}
+            {% endif %}
+
+            {# Upcoming Tasks #}
+            {% if todoist_tasks.upcoming and not todoist_tasks.today and not todoist_tasks.overdue %}
+            <div style="font-size: 10px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 8px;">Upcoming</div>
+            {% for task in todoist_tasks.upcoming[:3] %}
+            <div class="action-item">
+                <div class="action-icon follow-up">&#128337;</div>
+                <div class="action-content">
+                    <div class="action-name">
+                        <a href="https://todoist.com/showTask?id={{ task.todoist_id }}" target="_blank">{{ task.content|truncate(35) }}</a>
+                    </div>
+                    <div class="action-meta">
+                        {% if task.person_name %}{{ task.person_name }}{% endif %}
+                        {% if task.due_date %} &middot; {{ task.due_date[:10] }}{% endif %}
+                    </div>
+                    <div class="action-contact-links">
+                        {% if task.fub_person_id %}
+                        <a href="https://JonTharpTeam.followupboss.com/2/people/view/{{ task.fub_person_id }}" target="_blank">FUB</a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+            {% elif todoist_tasks.upcoming %}
+            {# Show upcoming only if there's space after today/overdue #}
+            {% set remaining_slots = 5 - (todoist_tasks.overdue[:2]|length) - (todoist_tasks.today[:3]|length) %}
+            {% if remaining_slots > 0 %}
+            <div style="font-size: 10px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; margin: 12px 0 8px 0;">Upcoming</div>
+            {% for task in todoist_tasks.upcoming[:remaining_slots] %}
+            <div class="action-item">
+                <div class="action-icon follow-up">&#128337;</div>
+                <div class="action-content">
+                    <div class="action-name">
+                        <a href="https://todoist.com/showTask?id={{ task.todoist_id }}" target="_blank">{{ task.content|truncate(35) }}</a>
+                    </div>
+                    <div class="action-meta">
+                        {% if task.person_name %}{{ task.person_name }}{% endif %}
+                        {% if task.due_date %} &middot; {{ task.due_date[:10] }}{% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+            {% endif %}
+            {% endif %}
+
+            {% if not todoist_tasks.overdue and not todoist_tasks.today and not todoist_tasks.upcoming %}
+                <div class="action-empty">No tasks - you're all caught up!</div>
             {% endif %}
         </div>
 

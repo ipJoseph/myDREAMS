@@ -251,6 +251,119 @@ class Database:
             ).fetchall()
             return [dict(row) for row in rows]
 
+    # ==========================================================================
+    # Deal Cache
+    # ==========================================================================
+
+    def cache_deal(self, deal: dict):
+        """Cache a FUB deal for quick lookups."""
+        with self.connection() as conn:
+            conn.execute("""
+                INSERT INTO deal_cache (
+                    id, person_id, pipeline_id, stage_id, stage_name,
+                    deal_name, deal_value, property_address, property_city,
+                    property_state, property_zip, person_name, person_email,
+                    person_phone, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    person_id = excluded.person_id,
+                    pipeline_id = excluded.pipeline_id,
+                    stage_id = excluded.stage_id,
+                    stage_name = excluded.stage_name,
+                    deal_name = excluded.deal_name,
+                    deal_value = excluded.deal_value,
+                    property_address = excluded.property_address,
+                    property_city = excluded.property_city,
+                    property_state = excluded.property_state,
+                    property_zip = excluded.property_zip,
+                    person_name = excluded.person_name,
+                    person_email = excluded.person_email,
+                    person_phone = excluded.person_phone,
+                    fetched_at = datetime('now'),
+                    updated_at = excluded.updated_at
+            """, (
+                deal.get('id'),
+                deal.get('person_id'),
+                deal.get('pipeline_id'),
+                deal.get('stage_id'),
+                deal.get('stage_name'),
+                deal.get('deal_name'),
+                deal.get('deal_value'),
+                deal.get('property_address'),
+                deal.get('property_city'),
+                deal.get('property_state'),
+                deal.get('property_zip'),
+                deal.get('person_name'),
+                deal.get('person_email'),
+                deal.get('person_phone'),
+                deal.get('updated'),
+            ))
+
+    def get_cached_deal(self, deal_id: int) -> Optional[dict]:
+        """Get a cached deal by ID."""
+        with self.connection() as conn:
+            row = conn.execute(
+                "SELECT * FROM deal_cache WHERE id = ?", (deal_id,)
+            ).fetchone()
+            return dict(row) if row else None
+
+    def get_deals_for_person(self, person_id: int) -> list[dict]:
+        """Get all cached deals for a person."""
+        with self.connection() as conn:
+            rows = conn.execute(
+                "SELECT * FROM deal_cache WHERE person_id = ? ORDER BY updated_at DESC", (person_id,)
+            ).fetchall()
+            return [dict(row) for row in rows]
+
+    # ==========================================================================
+    # Dashboard Queries
+    # ==========================================================================
+
+    def get_dashboard_tasks(self, limit: int = 10) -> list[dict]:
+        """
+        Get tasks for dashboard display.
+
+        Returns tasks with FUB person and deal context for display.
+        """
+        with self.connection() as conn:
+            rows = conn.execute("""
+                SELECT
+                    tm.id as mapping_id,
+                    tm.todoist_task_id,
+                    tm.fub_task_id,
+                    tm.fub_person_id,
+                    tm.fub_deal_id,
+                    tm.todoist_project_id,
+                    tm.sync_status,
+                    tm.last_synced_at,
+                    dc.person_name,
+                    dc.stage_name as deal_stage,
+                    dc.deal_name,
+                    dc.property_address
+                FROM task_map tm
+                LEFT JOIN deal_cache dc ON tm.fub_deal_id = dc.id
+                WHERE tm.sync_status = 'synced'
+                ORDER BY tm.last_synced_at DESC
+                LIMIT ?
+            """, (limit,)).fetchall()
+            return [dict(row) for row in rows]
+
+    def get_all_mappings(self, include_completed: bool = False) -> list[dict]:
+        """Get all task mappings for dashboard display."""
+        with self.connection() as conn:
+            rows = conn.execute("""
+                SELECT
+                    tm.*,
+                    dc.person_name,
+                    dc.stage_name as deal_stage,
+                    dc.deal_name,
+                    dc.property_address
+                FROM task_map tm
+                LEFT JOIN deal_cache dc ON tm.fub_deal_id = dc.id
+                ORDER BY tm.created_at DESC
+            """).fetchall()
+            return [dict(row) for row in rows]
+
 
 # Module-level instance
 db = Database()
