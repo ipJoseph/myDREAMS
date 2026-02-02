@@ -50,19 +50,34 @@ class SyncEngine:
 
     def _create_todoist_from_fub(self, fub_task: FUBTask) -> str:
         """Create a new Todoist task from FUB task."""
+        # Import setup here to avoid circular imports
+        from .setup import get_project_for_stage, get_default_project
+
         # Get person info for context
         person = self.fub.get_person(fub_task.person_id)
         person_name = f"{person.get('firstName', '')} {person.get('lastName', '')}".strip() or 'Unknown'
 
-        # Try to get deal for enrichment
+        # Try to get deal for enrichment and project routing
         deal_id = None
         deal_stage = None
+        todoist_project_id = None
+        pipeline_id = None
+        stage_id = None
+
         try:
             deals = self.fub.get_deals(person_id=fub_task.person_id)
             if deals:
                 deal = deals[0]  # Most recent deal
                 deal_id = deal.id
                 deal_stage = deal.stage_name
+                pipeline_id = deal.pipeline_id
+                stage_id = deal.stage_id
+
+                # Look up Todoist project for this deal's stage
+                if pipeline_id and stage_id:
+                    todoist_project_id = get_project_for_stage(pipeline_id, stage_id)
+                    if todoist_project_id:
+                        logger.debug(f"Routing task to project for stage {deal_stage}")
 
                 # Cache the deal for dashboard use
                 deal_data = {
@@ -87,6 +102,10 @@ class SyncEngine:
         except Exception as e:
             logger.warning(f"Failed to fetch deal for person {fub_task.person_id}: {e}")
 
+        # Fall back to default project if no stage mapping
+        if not todoist_project_id:
+            todoist_project_id = get_default_project()
+
         # Map FUB task type to Todoist priority
         priority_map = {
             'Call': 4,
@@ -99,10 +118,11 @@ class SyncEngine:
         }
         priority = priority_map.get(fub_task.type, 2)
 
-        # Create Todoist task
+        # Create Todoist task in the appropriate project
         todoist_task = self.todoist.create_task(
             content=f"{fub_task.name} [{person_name}]",
             description=self._build_todoist_description(fub_task, person_name, deal_stage),
+            project_id=todoist_project_id,
             due_date=fub_task.due_date,
             priority=priority,
         )
@@ -113,6 +133,7 @@ class SyncEngine:
             todoist_task_id=todoist_task.id,
             fub_person_id=fub_task.person_id,
             fub_deal_id=deal_id,
+            todoist_project_id=todoist_project_id,
             origin='fub',
         )
 

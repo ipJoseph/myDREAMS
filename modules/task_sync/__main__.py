@@ -6,6 +6,8 @@ Usage:
     python -m modules.task_sync status     Show sync status
     python -m modules.task_sync sync-once  Run one sync cycle
     python -m modules.task_sync run        Start sync service
+    python -m modules.task_sync setup      Setup pipeline → project mapping
+    python -m modules.task_sync mappings   Show current mappings
 """
 
 import argparse
@@ -196,9 +198,54 @@ def cmd_run():
     return 0
 
 
+def cmd_setup():
+    """Run the pipeline-to-project setup wizard."""
+    from .setup import run_setup_wizard
+    run_setup_wizard(interactive=True)
+    return 0
+
+
+def cmd_mappings():
+    """Show current pipeline-to-project mappings."""
+    from .setup import get_existing_mappings
+    from .fub_client import fub_client
+
+    mappings = get_existing_mappings()
+
+    if not mappings:
+        print("No pipeline-to-project mappings configured.")
+        print("Run 'python -m modules.task_sync setup' to create them.")
+        return 0
+
+    # Get pipeline names for display
+    pipelines = {p.id: p.name for p in fub_client.get_pipelines()}
+    stages = {}
+    for p in fub_client.get_pipelines():
+        for s in p.stages:
+            stages[s['id']] = s['name']
+
+    print("=" * 60)
+    print("Pipeline → Todoist Project Mappings")
+    print("=" * 60)
+
+    current_pipeline = None
+    for m in mappings:
+        pipeline_name = pipelines.get(m['fub_pipeline_id'], f"Pipeline {m['fub_pipeline_id']}")
+        stage_name = stages.get(m['fub_stage_id'], f"Stage {m['fub_stage_id']}")
+
+        if pipeline_name != current_pipeline:
+            print(f"\n📁 {pipeline_name}")
+            current_pipeline = pipeline_name
+
+        print(f"   {stage_name} → {m['project_name']}")
+
+    print()
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser(description='Task Sync - Todoist ↔ FUB')
-    parser.add_argument('command', choices=['test', 'status', 'sync-once', 'run'],
+    parser.add_argument('command', choices=['test', 'status', 'sync-once', 'run', 'setup', 'mappings'],
                         help='Command to run')
 
     args = parser.parse_args()
@@ -208,6 +255,8 @@ def main():
         'status': cmd_status,
         'sync-once': cmd_sync_once,
         'run': cmd_run,
+        'setup': cmd_setup,
+        'mappings': cmd_mappings,
     }
 
     return commands[args.command]()
