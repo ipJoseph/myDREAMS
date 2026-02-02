@@ -1,0 +1,28 @@
+[Unit]
+Description=DREAMS Task Sync - Todoist/FUB bidirectional sync
+After=network.target
+
+[Service]
+Type=simple
+User=dreams
+Group=dreams
+WorkingDirectory=/opt/mydreams
+Environment="PATH=/opt/mydreams/venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="PYTHONUNBUFFERED=1"
+ExecStart=/opt/mydreams/venv/bin/python -m modules.task_sync run
+Restart=always
+RestartSec=10
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=mydreams-task-sync
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/opt/mydreams/data /opt/mydreams/logs
+
+[Install]
+WantedBy=multi-user.target

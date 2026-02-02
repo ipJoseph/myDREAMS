@@ -16,10 +16,10 @@ logger = logging.getLogger(__name__)
 
 
 class TodoistClient:
-    """Todoist API client."""
+    """Todoist API client using unified API v1."""
 
-    REST_BASE_URL = 'https://api.todoist.com/rest/v2'
-    SYNC_BASE_URL = 'https://api.todoist.com/sync/v9'
+    # New unified API v1 (replaces deprecated REST v2 and Sync v9)
+    BASE_URL = 'https://api.todoist.com/api/v1'
 
     def __init__(self):
         self.api_token = config.TODOIST_API_TOKEN
@@ -40,7 +40,7 @@ class TodoistClient:
         timeout: int = 30
     ) -> dict:
         """Make a REST API request."""
-        url = f"{self.REST_BASE_URL}/{endpoint}"
+        url = f"{self.BASE_URL}/{endpoint}"
         headers = self._get_headers()
 
         with httpx.Client(timeout=timeout) as client:
@@ -60,8 +60,8 @@ class TodoistClient:
             return response.json()
 
     def _sync_request(self, commands: list = None, resource_types: list = None, sync_token: str = '*') -> dict:
-        """Make a Sync API request."""
-        url = f"{self.SYNC_BASE_URL}/sync"
+        """Make a Sync API request using unified API v1."""
+        url = f"{self.BASE_URL}/sync"
         headers = self._get_headers()
 
         data = {'sync_token': sync_token}

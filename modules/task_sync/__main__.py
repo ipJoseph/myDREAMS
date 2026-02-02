@@ -111,19 +111,34 @@ def cmd_status():
     print("Task Sync Status")
     print("=" * 60)
 
+    # Configuration
+    print("\n[Configuration]")
+    print(f"  Environment: {config.TASK_SYNC_ENV}")
+    print(f"  FUB poll interval: {config.FUB_POLL_INTERVAL}s")
+    print(f"  Todoist poll interval: {config.TODOIST_POLL_INTERVAL}s")
+    print(f"  Deal cache refresh: {config.DEAL_CACHE_REFRESH}s")
+
     # Get sync state
+    print("\n[Sync State]")
     last_fub_poll = db.get_state('fub_last_poll')
     last_todoist_sync = db.get_state('todoist_sync_token')
 
-    print(f"\nLast FUB poll: {last_fub_poll or 'Never'}")
-    print(f"Todoist sync token: {'Set' if last_todoist_sync else 'Not set'}")
+    print(f"  Last FUB poll: {last_fub_poll or 'Never'}")
+    print(f"  Todoist sync token: {'Set' if last_todoist_sync else 'Not set'}")
+
+    # Count mappings
+    with db.connection() as conn:
+        mapping_count = conn.execute("SELECT COUNT(*) FROM task_map").fetchone()[0]
+        pending_count = conn.execute("SELECT COUNT(*) FROM task_map WHERE sync_status != 'synced'").fetchone()[0]
+    print(f"  Task mappings: {mapping_count} total, {pending_count} pending")
 
     # Get recent logs
     print("\n[Recent Sync Activity]")
     logs = db.get_recent_logs(limit=10)
     if logs:
         for log in logs:
-            print(f"  {log['timestamp']} | {log['direction']} | {log['action']} | {log['status']}")
+            status_icon = "✓" if log['status'] == 'success' else "✗"
+            print(f"  {status_icon} {log['timestamp'][:16]} | {log['direction']:20} | {log['action']}")
     else:
         print("  No sync activity recorded yet")
 
@@ -160,10 +175,24 @@ def cmd_sync_once():
 
 
 def cmd_run():
-    """Start the sync service."""
-    print("Starting Task Sync service...")
-    # TODO: Implement polling and webhook server
-    print("Service not yet implemented")
+    """Start the sync service (continuous polling)."""
+    from .poller import run_poller
+
+    print("=" * 60)
+    print("Starting Task Sync Service")
+    print("=" * 60)
+    print(f"Environment: {config.TASK_SYNC_ENV}")
+    print(f"FUB poll interval: {config.FUB_POLL_INTERVAL}s")
+    print(f"Todoist poll interval: {config.TODOIST_POLL_INTERVAL}s")
+    print(f"Deal cache refresh: {config.DEAL_CACHE_REFRESH}s")
+    print("=" * 60)
+    print("\nPress Ctrl+C to stop\n")
+
+    try:
+        run_poller()
+    except KeyboardInterrupt:
+        print("\nStopped by user")
+
     return 0
 
 
