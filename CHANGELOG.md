@@ -11,14 +11,30 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Added
 - **Todoist ↔ FUB Task Sync** (`modules/task_sync/`)
   - Bidirectional task synchronization between Todoist and Follow Up Boss
-  - **FUB Client** - Full task API support (CRUD, completion, deal/pipeline queries)
+  - **FUB → Todoist**: Tasks auto-sync with person name, deal stage, and project routing
+  - **Todoist → FUB**: Create FUB tasks from Todoist with person context:
+    - `@fub:12345` - Direct FUB person ID in task content
+    - `[Person Name]` - Search FUB by name (e.g., "Call back [John Smith]")
+    - Project-based - Tasks in pipeline-stage projects auto-link to deals
+  - **FUB Client** - Full task API support (CRUD, completion, deal/pipeline queries, person search)
   - **Todoist Client** - Unified API v1 support (REST + Sync endpoints)
   - **Sync Engine** - Change detection, anti-loop protection, last-write-wins conflict resolution
   - **Poller Service** - Async polling with configurable intervals via `.env`
-  - **CLI Interface** - `python -m modules.task_sync <test|status|sync-once|run>`
+  - **CLI Interface** - `python -m modules.task_sync <test|status|sync-once|sync-all|sync-todoist|run>`
   - **Bridge Database** - SQLite tables for task mapping, sync state, and audit logs
   - **Systemd Integration** - Service files for dev and production deployment
   - Configuration: `FUB_POLL_INTERVAL`, `TODOIST_POLL_INTERVAL`, `DEAL_CACHE_REFRESH`
+
+- **Active Deals Dashboard Section** - Shows active pipeline deals on home dashboard
+  - Stage-colored card borders (Pending=blue, Offer=orange, Contract=yellow, New=green)
+  - Deal value and property address display
+  - Quick links: View Deal, Call, Email
+  - Filters out Closed and Terminated stages
+
+- **Enhanced Todoist Task Display** - Richer task context on dashboard
+  - Deal stage, value, and property address in task metadata
+  - Direct link to FUB Deal page on tasks with associated deals
+  - Todoist tasks grouped by project with color indicators
 
 - **Home Dashboard Redesign** - Action-oriented morning briefing reflecting the three-step sales framework
   - **Today's Priority Actions** - Three-column layout for Calls, Follow-ups, and Send Properties
