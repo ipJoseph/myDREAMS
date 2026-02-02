@@ -214,8 +214,9 @@ class FUBClient:
 
         Returns list of matching people with id, name, email, phone.
         """
+        # FUB API uses 'name' filter, not 'query'
         params = {
-            'query': query,
+            'name': query,
             'limit': min(limit, 100)
         }
         data = self._request('GET', 'people', params=params)
