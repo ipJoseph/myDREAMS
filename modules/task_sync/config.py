@@ -43,8 +43,8 @@ class Config:
     API_HOST: str = os.getenv('TASK_SYNC_API_HOST', '127.0.0.1')
     API_PORT: int = int(os.getenv('TASK_SYNC_API_PORT', '8100'))
 
-    # Logging
-    LOG_LEVEL: str = os.getenv('TASK_SYNC_LOG_LEVEL', 'DEBUG' if TASK_SYNC_ENV == 'dev' else 'INFO')
+    # Logging (set TASK_SYNC_LOG_LEVEL=DEBUG for verbose output)
+    LOG_LEVEL: str = os.getenv('TASK_SYNC_LOG_LEVEL', 'INFO')
 
     @classmethod
     def is_dev(cls) -> bool:

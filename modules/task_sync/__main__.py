@@ -304,13 +304,15 @@ def cmd_mappings():
 
 
 def cmd_sync_todoist():
-    """Sync new Todoist tasks to FUB."""
+    """Sync Todoist tasks to FUB (new tasks + completion status)."""
     print("=" * 60)
     print("Sync Todoist → FUB")
     print("=" * 60)
 
     from .sync_engine import sync_engine
     from .todoist_client import todoist_client
+    from .fub_client import fub_client
+    from .models import TodoistTask
 
     # Get all active Todoist tasks
     print("\n[Fetching Todoist tasks...]")
@@ -318,7 +320,14 @@ def cmd_sync_todoist():
     active_tasks = [t for t in all_tasks if not t.is_completed]
     print(f"  Found {len(all_tasks)} total tasks, {len(active_tasks)} active")
 
-    # Filter to tasks that might need syncing
+    # Build a lookup of active task IDs for quick completion checking
+    active_task_ids = {t.id for t in all_tasks if not t.is_completed}
+
+    synced = []
+    completed = []
+    errors = []
+
+    # Part 1: Sync new tasks with person context
     print("\n[Checking for unsynced tasks...]")
     unsynced = []
     for task in active_tasks:
@@ -332,35 +341,70 @@ def cmd_sync_todoist():
                 context = '@fub:ID' if has_fub_id else '[Name]'
                 print(f"  • {task.content[:50]} ({context})")
 
-    if not unsynced:
+    if unsynced:
+        print(f"\n[Syncing {len(unsynced)} new tasks...]")
+        for task in unsynced:
+            try:
+                result = sync_engine.sync_todoist_task_to_fub(task)
+                if result:
+                    synced.append(task.id)
+                    print(f"  ✓  Created FUB task {result}")
+                else:
+                    print(f"  ⏭️  {task.content[:40]} (no person found)")
+            except Exception as e:
+                errors.append((task.id, str(e)))
+                print(f"  ✗  {task.content[:40]} - {e}")
+    else:
         print("  No unsynced tasks with person context found.")
-        print("\n  To sync a Todoist task to FUB, add one of:")
-        print("    @fub:12345 - Direct FUB person ID")
-        print("    [Person Name] - Name to search in FUB")
-        return 0
 
-    print(f"\n[Syncing {len(unsynced)} tasks...]")
-    synced = []
-    errors = []
+    # Part 2: Check mapped tasks for completion status changes
+    print("\n[Checking mapped tasks for completion...]")
+    with db.connection() as conn:
+        mappings = conn.execute("""
+            SELECT id, todoist_task_id, fub_task_id
+            FROM task_map
+            WHERE todoist_task_id IS NOT NULL AND fub_task_id IS NOT NULL
+        """).fetchall()
 
-    for task in unsynced:
-        try:
-            result = sync_engine.sync_todoist_task_to_fub(task)
-            if result:
-                synced.append(task.id)
-                print(f"  ✓  Created FUB task {result}")
-            else:
-                print(f"  ⏭️  {task.content[:40]} (no person found)")
-        except Exception as e:
-            errors.append((task.id, str(e)))
-            print(f"  ✗  {task.content[:40]} - {e}")
+    for mapping in mappings:
+        todoist_id = mapping['todoist_task_id']
+        fub_id = mapping['fub_task_id']
+
+        # If task is NOT in active list, it was completed in Todoist
+        if todoist_id not in active_task_ids:
+            try:
+                # Check FUB task status
+                fub_task = fub_client.get_task(fub_id)
+                if not fub_task.is_completed:
+                    # Complete it in FUB
+                    fub_client.complete_task(fub_id)
+                    completed.append(fub_id)
+                    print(f"  ✓  Completed FUB task {fub_id} (Todoist {todoist_id} closed)")
+                    db.log_sync(
+                        direction='todoist_to_fub',
+                        action='complete',
+                        fub_task_id=fub_id,
+                        todoist_task_id=todoist_id,
+                    )
+            except Exception as e:
+                errors.append((todoist_id, str(e)))
+                print(f"  ✗  Failed to complete FUB task {fub_id}: {e}")
+
+    if not completed and not [m for m in mappings if m['todoist_task_id'] not in active_task_ids]:
+        print("  No completion changes detected")
 
     # Summary
     print("\n" + "=" * 60)
     print(f"Todoist → FUB Sync Complete")
     print("=" * 60)
-    print(f"  Synced: {len(synced)} tasks")
-    print(f"  Errors: {len(errors)}")
+    print(f"  New tasks synced: {len(synced)}")
+    print(f"  Tasks completed:  {len(completed)}")
+    print(f"  Errors:           {len(errors)}")
+
+    if not synced and not completed:
+        print("\n  To sync a Todoist task to FUB, add one of:")
+        print("    @fub:12345 - Direct FUB person ID")
+        print("    [Person Name] - Name to search in FUB")
 
     return 0
 
