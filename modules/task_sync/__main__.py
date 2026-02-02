@@ -1,0 +1,167 @@
+"""
+Task Sync CLI entry point.
+
+Usage:
+    python -m modules.task_sync test       Test connections
+    python -m modules.task_sync status     Show sync status
+    python -m modules.task_sync sync-once  Run one sync cycle
+    python -m modules.task_sync run        Start sync service
+"""
+
+import argparse
+import json
+import logging
+import sys
+
+from .config import config
+from .db import db
+
+logging.basicConfig(
+    level=getattr(logging, config.LOG_LEVEL),
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+
+def cmd_test():
+    """Test connections to FUB and Todoist."""
+    print("=" * 60)
+    print("Task Sync Connection Test")
+    print("=" * 60)
+
+    # Validate config
+    errors = config.validate()
+    if errors:
+        print("\n[CONFIG ERRORS]")
+        for err in errors:
+            print(f"  - {err}")
+        return 1
+
+    print(f"\nEnvironment: {config.TASK_SYNC_ENV}")
+    print(f"Database: {config.DB_PATH}")
+
+    # Test FUB connection
+    print("\n[FUB Connection]")
+    try:
+        from .fub_client import fub_client
+
+        # Get test contact
+        TEST_PERSON_ID = 12955  # Thebig Eug
+        person = fub_client.get_person(TEST_PERSON_ID)
+        name = f"{person.get('firstName', '')} {person.get('lastName', '')}".strip()
+        print(f"  ✓ Connected to FUB")
+        print(f"  ✓ Test contact: {name} (ID: {TEST_PERSON_ID})")
+
+        # Get tasks for test contact
+        tasks = fub_client.get_tasks(person_id=TEST_PERSON_ID)
+        print(f"  ✓ Found {len(tasks)} tasks for test contact")
+        for task in tasks[:3]:
+            status = "✓" if task.is_completed else "○"
+            print(f"    {status} [{task.id}] {task.name}")
+
+        # Get pipelines
+        pipelines = fub_client.get_pipelines()
+        print(f"  ✓ Found {len(pipelines)} deal pipelines")
+        for p in pipelines:
+            print(f"    - {p.name} ({len(p.stages)} stages)")
+
+    except Exception as e:
+        print(f"  ✗ FUB connection failed: {e}")
+        return 1
+
+    # Test Todoist connection
+    print("\n[Todoist Connection]")
+    try:
+        from .todoist_client import todoist_client
+
+        projects = todoist_client.get_projects()
+        print(f"  ✓ Connected to Todoist")
+        print(f"  ✓ Found {len(projects)} projects")
+        for p in projects[:5]:
+            print(f"    - {p['name']}")
+
+        labels = todoist_client.get_labels()
+        print(f"  ✓ Found {len(labels)} labels")
+
+    except Exception as e:
+        print(f"  ✗ Todoist connection failed: {e}")
+        return 1
+
+    # Test database
+    print("\n[Database]")
+    try:
+        state = db.get_state('test_key')
+        db.set_state('test_key', 'test_value')
+        state = db.get_state('test_key')
+        print(f"  ✓ Database read/write working")
+        print(f"  ✓ Path: {config.DB_PATH}")
+    except Exception as e:
+        print(f"  ✗ Database failed: {e}")
+        return 1
+
+    print("\n" + "=" * 60)
+    print("All connections successful!")
+    print("=" * 60)
+    return 0
+
+
+def cmd_status():
+    """Show current sync status."""
+    print("=" * 60)
+    print("Task Sync Status")
+    print("=" * 60)
+
+    # Get sync state
+    last_fub_poll = db.get_state('fub_last_poll')
+    last_todoist_sync = db.get_state('todoist_sync_token')
+
+    print(f"\nLast FUB poll: {last_fub_poll or 'Never'}")
+    print(f"Todoist sync token: {'Set' if last_todoist_sync else 'Not set'}")
+
+    # Get recent logs
+    print("\n[Recent Sync Activity]")
+    logs = db.get_recent_logs(limit=10)
+    if logs:
+        for log in logs:
+            print(f"  {log['timestamp']} | {log['direction']} | {log['action']} | {log['status']}")
+    else:
+        print("  No sync activity recorded yet")
+
+    return 0
+
+
+def cmd_sync_once():
+    """Run a single sync cycle."""
+    print("Running single sync cycle...")
+    # TODO: Implement sync engine
+    print("Sync engine not yet implemented")
+    return 0
+
+
+def cmd_run():
+    """Start the sync service."""
+    print("Starting Task Sync service...")
+    # TODO: Implement polling and webhook server
+    print("Service not yet implemented")
+    return 0
+
+
+def main():
+    parser = argparse.ArgumentParser(description='Task Sync - Todoist ↔ FUB')
+    parser.add_argument('command', choices=['test', 'status', 'sync-once', 'run'],
+                        help='Command to run')
+
+    args = parser.parse_args()
+
+    commands = {
+        'test': cmd_test,
+        'status': cmd_status,
+        'sync-once': cmd_sync_once,
+        'run': cmd_run,
+    }
+
+    return commands[args.command]()
+
+
+if __name__ == '__main__':
+    sys.exit(main())
