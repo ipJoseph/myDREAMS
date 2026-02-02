@@ -132,9 +132,30 @@ def cmd_status():
 
 def cmd_sync_once():
     """Run a single sync cycle."""
-    print("Running single sync cycle...")
-    # TODO: Implement sync engine
-    print("Sync engine not yet implemented")
+    print("=" * 60)
+    print("Running Single Sync Cycle")
+    print("=" * 60)
+
+    from .sync_engine import sync_engine
+
+    # Poll FUB for changes
+    print("\n[Polling FUB for changes...]")
+    synced = sync_engine.poll_fub_changes()
+
+    if synced:
+        print(f"  ✓ Synced {len(synced)} tasks: {synced}")
+    else:
+        print("  No changes detected")
+
+    # Show recent logs
+    print("\n[Recent Sync Activity]")
+    logs = db.get_recent_logs(limit=5)
+    for log in logs:
+        status_icon = "✓" if log['status'] == 'success' else "✗"
+        print(f"  {status_icon} {log['timestamp'][:16]} | {log['direction']} | {log['action']}")
+        if log.get('details'):
+            print(f"      {log['details'][:60]}")
+
     return 0
 
 
