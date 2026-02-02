@@ -4,10 +4,21 @@ Task Sync Setup - Process-based Project Routing.
 Routes FUB tasks to Todoist projects based on the client's stage
 in the sales process:
 
-    QUALIFY  - Lead → Buyer (calls, qualification)
-    CURATE   - Buyer → Pursuit (requirements, property search)
-    ACQUIRE  - Pursuit → Contract (offers, negotiation)
-    CLOSE    - Contract → Close (inspections, due diligence)
+    BUYER JOURNEY:
+    QUALIFY  → CURATE  → ACQUIRE → CLOSE
+    (leads)    (search)   (offers)  (contract)
+
+    SELLER JOURNEY:
+    QUALIFY  → PRESENT → MARKET  → CLOSE
+    (leads)    (listing)  (showings) (contract)
+
+Projects:
+    QUALIFY  - Lead → Client (calls, qualification) [Buyer & Seller]
+    CURATE   - Buyer requirements, property search, showings
+    ACQUIRE  - Buyer making offers, negotiating
+    PRESENT  - Seller listing prep, CMA, photography
+    MARKET   - Seller showings, receiving/reviewing offers
+    CLOSE    - Contract → Close (inspections, due diligence) [Buyer & Seller]
 """
 
 import logging
@@ -22,30 +33,44 @@ logger = logging.getLogger(__name__)
 
 # Process project IDs (set after creation)
 PROCESS_PROJECTS = {
+    # Shared (Buyer & Seller)
     'QUALIFY': '6fvm9JfRGCx3J79G',
+    'CLOSE': '6fvm9M28wGFj76Hr',
+    # Buyer-specific
     'CURATE': '6fvm9Jq8qxgCrH3P',
     'ACQUIRE': '6fvm9JwFrM5hHCP3',
-    'CLOSE': '6fvm9M28wGFj76Hr',
+    # Seller-specific
+    'PRESENT': '6fvmCWCGfvvvRMw3',
+    'MARKET': '6fvmCWHJ9jCp2HGW',
 }
 
 # Map deal stage keywords to process
+# Format: (keyword, pipeline_type) -> process
+# pipeline_type: 'buyer', 'seller', or 'any'
 STAGE_TO_PROCESS = {
-    # QUALIFY - Lead to Buyer
+    # QUALIFY - Lead to Buyer/Seller (shared)
     'new deal': 'QUALIFY',
     'lead': 'QUALIFY',
 
-    # CURATE - Buyer to Pursuit
+    # CURATE - Buyer requirements & property search
     'buyer contract': 'CURATE',
-    'listing contract': 'CURATE',
-    'referral contract': 'CURATE',
-    'listed': 'CURATE',
 
-    # ACQUIRE - Pursuit to Contract
-    'offer': 'ACQUIRE',
+    # PRESENT - Seller listing preparation
+    'listing contract': 'PRESENT',
+    'listed': 'MARKET',  # Once listed, move to MARKET
 
-    # CLOSE - Contract to Close
+    # ACQUIRE - Buyer making offers
+    'offer': 'ACQUIRE',  # Buyer pipeline offer stage
+
+    # MARKET - Seller receiving offers
+    # (Seller "Offer" stage would also be MARKET - handled by pipeline detection)
+
+    # CLOSE - Contract to Close (shared)
     'pending': 'CLOSE',
     'under contract': 'CLOSE',
+
+    # Referrals default to QUALIFY
+    'referral contract': 'QUALIFY',
 }
 
 
