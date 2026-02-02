@@ -208,6 +208,35 @@ class FUBClient:
         last = person.get('lastName', '')
         return f"{first} {last}".strip() or 'Unknown'
 
+    def search_people(self, query: str, limit: int = 10) -> list[dict]:
+        """
+        Search for people by name, email, or phone.
+
+        Returns list of matching people with id, name, email, phone.
+        """
+        params = {
+            'query': query,
+            'limit': min(limit, 100)
+        }
+        data = self._request('GET', 'people', params=params)
+        people = data.get('people', [])
+
+        results = []
+        for p in people:
+            first = p.get('firstName', '')
+            last = p.get('lastName', '')
+            name = f"{first} {last}".strip()
+
+            results.append({
+                'id': p['id'],
+                'name': name,
+                'email': p.get('emails', [{}])[0].get('value') if p.get('emails') else None,
+                'phone': p.get('phones', [{}])[0].get('value') if p.get('phones') else None,
+                'stage': p.get('stage'),
+            })
+
+        return results
+
 
 # Module-level instance
 fub_client = FUBClient()

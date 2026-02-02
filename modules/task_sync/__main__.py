@@ -2,13 +2,18 @@
 Task Sync CLI entry point.
 
 Usage:
-    python -m modules.task_sync test       Test connections
-    python -m modules.task_sync status     Show sync status
-    python -m modules.task_sync sync-once  Run one sync cycle (changes only)
-    python -m modules.task_sync sync-all   Sync ALL active FUB tasks to Todoist
-    python -m modules.task_sync run        Start sync service
-    python -m modules.task_sync setup      Setup pipeline → project mapping
-    python -m modules.task_sync mappings   Show current mappings
+    python -m modules.task_sync test         Test connections
+    python -m modules.task_sync status       Show sync status
+    python -m modules.task_sync sync-once    Run one sync cycle (changes only)
+    python -m modules.task_sync sync-all     Sync ALL active FUB tasks to Todoist
+    python -m modules.task_sync sync-todoist Sync Todoist tasks to FUB
+    python -m modules.task_sync run          Start sync service
+    python -m modules.task_sync setup        Setup pipeline → project mapping
+    python -m modules.task_sync mappings     Show current mappings
+
+To create FUB tasks from Todoist, add person context to your task:
+    - @fub:12345      Direct FUB person ID
+    - [Person Name]   Name to search in FUB (e.g., "Call back [John Smith]")
 """
 
 import argparse
@@ -298,9 +303,71 @@ def cmd_mappings():
     return 0
 
 
+def cmd_sync_todoist():
+    """Sync new Todoist tasks to FUB."""
+    print("=" * 60)
+    print("Sync Todoist → FUB")
+    print("=" * 60)
+
+    from .sync_engine import sync_engine
+    from .todoist_client import todoist_client
+
+    # Get all active Todoist tasks
+    print("\n[Fetching Todoist tasks...]")
+    all_tasks = todoist_client.get_tasks()
+    active_tasks = [t for t in all_tasks if not t.is_completed]
+    print(f"  Found {len(all_tasks)} total tasks, {len(active_tasks)} active")
+
+    # Filter to tasks that might need syncing
+    print("\n[Checking for unsynced tasks...]")
+    unsynced = []
+    for task in active_tasks:
+        mapping = db.get_mapping_by_todoist_id(task.id)
+        if not mapping:
+            # Check if task has person context (likely syncable)
+            has_fub_id = '@fub:' in task.content
+            has_name_bracket = task.content.endswith(']') and '[' in task.content
+            if has_fub_id or has_name_bracket:
+                unsynced.append(task)
+                context = '@fub:ID' if has_fub_id else '[Name]'
+                print(f"  • {task.content[:50]} ({context})")
+
+    if not unsynced:
+        print("  No unsynced tasks with person context found.")
+        print("\n  To sync a Todoist task to FUB, add one of:")
+        print("    @fub:12345 - Direct FUB person ID")
+        print("    [Person Name] - Name to search in FUB")
+        return 0
+
+    print(f"\n[Syncing {len(unsynced)} tasks...]")
+    synced = []
+    errors = []
+
+    for task in unsynced:
+        try:
+            result = sync_engine.sync_todoist_task_to_fub(task)
+            if result:
+                synced.append(task.id)
+                print(f"  ✓  Created FUB task {result}")
+            else:
+                print(f"  ⏭️  {task.content[:40]} (no person found)")
+        except Exception as e:
+            errors.append((task.id, str(e)))
+            print(f"  ✗  {task.content[:40]} - {e}")
+
+    # Summary
+    print("\n" + "=" * 60)
+    print(f"Todoist → FUB Sync Complete")
+    print("=" * 60)
+    print(f"  Synced: {len(synced)} tasks")
+    print(f"  Errors: {len(errors)}")
+
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser(description='Task Sync - Todoist ↔ FUB')
-    parser.add_argument('command', choices=['test', 'status', 'sync-once', 'sync-all', 'run', 'setup', 'mappings'],
+    parser.add_argument('command', choices=['test', 'status', 'sync-once', 'sync-all', 'sync-todoist', 'run', 'setup', 'mappings'],
                         help='Command to run')
 
     args = parser.parse_args()
@@ -310,6 +377,7 @@ def main():
         'status': cmd_status,
         'sync-once': cmd_sync_once,
         'sync-all': cmd_sync_all,
+        'sync-todoist': cmd_sync_todoist,
         'run': cmd_run,
         'setup': cmd_setup,
         'mappings': cmd_mappings,

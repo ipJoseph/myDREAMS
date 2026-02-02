@@ -262,9 +262,145 @@ class SyncEngine:
             # Existing mapping - check if Todoist changed
             return self._update_fub_from_todoist(todoist_task, mapping)
         else:
-            # New task from Todoist - need person context to create in FUB
-            # For now, skip tasks without existing mapping
-            logger.debug(f"Skipping Todoist task {todoist_task.id} - no FUB mapping (Todoist-originated tasks not yet supported)")
+            # New task from Todoist - try to create in FUB
+            return self._create_fub_from_todoist(todoist_task)
+
+    def _create_fub_from_todoist(self, todoist_task: TodoistTask) -> Optional[int]:
+        """
+        Create a FUB task from a Todoist task.
+
+        Extracts person context from:
+        1. @fub:12345 in task content (direct FUB ID)
+        2. [Person Name] in task content (name search)
+        3. Project mapping to deal stage (finds deals in that stage)
+
+        Returns FUB task ID if created, None if no person context found.
+        """
+        import re
+
+        content = todoist_task.content
+        person_id = None
+        deal_id = None
+
+        # Method 1: Direct FUB ID with @fub:12345 syntax
+        fub_match = re.search(r'@fub:(\d+)', content)
+        if fub_match:
+            person_id = int(fub_match.group(1))
+            content = re.sub(r'\s*@fub:\d+', '', content)  # Remove from content
+            logger.debug(f"Found direct FUB ID {person_id} in task content")
+
+        # Method 2: Person name in brackets [Person Name]
+        if not person_id:
+            name_match = re.search(r'\[([^\]]+)\]$', content)
+            if name_match:
+                person_name = name_match.group(1)
+                content = content.rsplit(' [', 1)[0]  # Remove from content
+
+                # Search FUB for this person
+                try:
+                    matches = self.fub.search_people(person_name, limit=5)
+                    if matches:
+                        # Use exact match if available, otherwise first result
+                        for m in matches:
+                            if m['name'].lower() == person_name.lower():
+                                person_id = m['id']
+                                break
+                        if not person_id:
+                            person_id = matches[0]['id']
+                        logger.debug(f"Found FUB person {person_id} by name search: {person_name}")
+                except Exception as e:
+                    logger.warning(f"Failed to search for person '{person_name}': {e}")
+
+        # Method 3: Project-based - find deals in the mapped stage
+        if not person_id and todoist_task.project_id:
+            from .setup import get_existing_mappings
+
+            # Look up which pipeline stage this project maps to
+            mappings = get_existing_mappings()
+            for m in mappings:
+                if m['todoist_project_id'] == todoist_task.project_id:
+                    pipeline_id = m['fub_pipeline_id']
+                    stage_id = m['fub_stage_id']
+
+                    # Find deals in this stage
+                    try:
+                        all_deals = self.fub.get_deals()
+                        stage_deals = [d for d in all_deals
+                                      if d.pipeline_id == pipeline_id and d.stage_id == stage_id]
+                        if stage_deals:
+                            # Use the most recently updated deal
+                            deal = stage_deals[0]
+                            person_id = deal.person_id
+                            deal_id = deal.id
+                            logger.debug(f"Found person {person_id} from deal {deal_id} in stage {m['project_name']}")
+                    except Exception as e:
+                        logger.warning(f"Failed to get deals for stage mapping: {e}")
+                    break
+
+        # Cannot create FUB task without person context
+        if not person_id:
+            logger.debug(f"Skipping Todoist task {todoist_task.id} - no person context found")
+            logger.debug("  Hint: Add @fub:12345 or [Person Name] to associate with a contact")
+            return None
+
+        # Map Todoist priority to FUB task type
+        type_map = {
+            4: 'Call',       # P1 (highest) -> Call
+            3: 'Follow Up',  # P2 -> Follow Up
+            2: 'Follow Up',  # P3 -> Follow Up
+            1: 'Other',      # P4 (lowest) -> Other
+        }
+        task_type = type_map.get(todoist_task.priority, 'Follow Up')
+
+        # Create FUB task
+        try:
+            fub_task = self.fub.create_task(
+                person_id=person_id,
+                name=content,
+                task_type=task_type,
+                due_date=todoist_task.due_date,
+            )
+
+            # Create mapping
+            db.create_mapping(
+                fub_task_id=fub_task.id,
+                todoist_task_id=todoist_task.id,
+                fub_person_id=person_id,
+                fub_deal_id=deal_id,
+                todoist_project_id=todoist_task.project_id,
+                origin='todoist',
+            )
+
+            # Update mapping timestamps
+            mapping = db.get_mapping_by_todoist_id(todoist_task.id)
+            db.update_mapping(
+                mapping['id'],
+                fub_updated_at=fub_task.updated,
+                todoist_updated_at=todoist_task.created_at,
+                last_synced_at=datetime.now().isoformat(),
+            )
+
+            # Log sync
+            db.log_sync(
+                direction='todoist_to_fub',
+                action='create',
+                fub_task_id=fub_task.id,
+                todoist_task_id=todoist_task.id,
+                details=json.dumps({'name': content, 'person_id': person_id}),
+            )
+
+            logger.info(f"Created FUB task {fub_task.id} from Todoist task {todoist_task.id}")
+            return fub_task.id
+
+        except Exception as e:
+            logger.error(f"Failed to create FUB task from Todoist: {e}")
+            db.log_sync(
+                direction='todoist_to_fub',
+                action='error',
+                todoist_task_id=todoist_task.id,
+                details=str(e),
+                status='error',
+            )
             return None
 
     def _update_fub_from_todoist(self, todoist_task: TodoistTask, mapping: dict) -> Optional[int]:
