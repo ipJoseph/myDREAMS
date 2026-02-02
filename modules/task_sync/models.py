@@ -210,19 +210,24 @@ class FUBDeal:
     @classmethod
     def from_api(cls, data: dict) -> 'FUBDeal':
         """Create from FUB API response."""
+        # Person ID can be in 'personId' field or extracted from 'people' array
+        person_id = data.get('personId')
+        if not person_id and data.get('people'):
+            person_id = data['people'][0].get('id')
+
         return cls(
             id=data['id'],
-            person_id=data['personId'],
+            person_id=person_id,
             pipeline_id=data.get('pipelineId'),
             stage_id=data.get('stageId'),
             stage_name=data.get('stageName'),
             name=data.get('name'),
-            deal_value=data.get('dealValue'),
+            deal_value=data.get('price') or data.get('dealValue'),
             property_address=data.get('propertyAddress'),
             property_city=data.get('propertyCity'),
             property_state=data.get('propertyState'),
             property_zip=data.get('propertyZip'),
-            created=data.get('created'),
+            created=data.get('createdAt') or data.get('created'),
             updated=data.get('updated'),
         )
 
