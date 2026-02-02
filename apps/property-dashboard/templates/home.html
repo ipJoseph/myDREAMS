@@ -973,12 +973,21 @@
                         </div>
                         <div class="action-meta">
                             {% if task.person_name %}{{ task.person_name }}{% endif %}
-                            {% if task.deal_stage %} &middot; {{ task.deal_stage }}{% endif %}
+                            {% if task.deal_stage %} &middot; <span style="color: #2563eb;">{{ task.deal_stage }}</span>{% endif %}
+                            {% if task.deal_value %} &middot; ${{ "{:,.0f}".format(task.deal_value) }}{% endif %}
                             {% if task.due_date %} &middot; {{ task.due_date[:10] }}{% endif %}
                         </div>
+                        {% if task.property_address %}
+                        <div class="action-meta" style="font-size: 10px; color: var(--text-secondary);">
+                            📍 {{ task.property_address }}{% if task.property_city %}, {{ task.property_city }}{% endif %}
+                        </div>
+                        {% endif %}
                         <div class="action-contact-links">
                             {% if task.fub_person_id %}
                             <a href="https://JonTharpTeam.followupboss.com/2/people/view/{{ task.fub_person_id }}" target="_blank">FUB</a>
+                            {% endif %}
+                            {% if task.fub_deal_id %}
+                            <a href="https://JonTharpTeam.followupboss.com/2/deals/view/{{ task.fub_deal_id }}" target="_blank">Deal</a>
                             {% endif %}
                         </div>
                     </div>
@@ -1043,7 +1052,51 @@
         </div>
     </div>
 
-    <!-- Section 3: Hottest Leads + Overnight Changes -->
+    <!-- Section 3: Active Deals -->
+    {% if active_deals %}
+    <div class="dashboard-section" style="margin-bottom: 20px;">
+        <div class="section-header">
+            <h3 class="section-title">Active Deals</h3>
+            <span class="section-count">{{ active_deals|length }}</span>
+            <a href="https://JonTharpTeam.followupboss.com/2/deals" target="_blank" class="section-link" style="margin-left: auto;">Open FUB Deals</a>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px;">
+            {% for deal in active_deals %}
+            <div class="card" style="padding: 12px; border-left: 4px solid {% if 'pending' in (deal.stage_name or '')|lower %}#3b82f6{% elif 'offer' in (deal.stage_name or '')|lower %}#f97316{% elif 'contract' in (deal.stage_name or '')|lower %}#eab308{% elif 'new' in (deal.stage_name or '')|lower %}#22c55e{% else %}#6b7280{% endif %};">
+                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
+                    <div>
+                        <div style="font-weight: 600; font-size: 14px;">
+                            <a href="https://JonTharpTeam.followupboss.com/2/people/view/{{ deal.person_id }}" target="_blank">{{ deal.person_name }}</a>
+                        </div>
+                        <div style="font-size: 12px; color: var(--text-secondary);">
+                            {{ deal.stage_name }}
+                        </div>
+                    </div>
+                    {% if deal.deal_value %}
+                    <div style="font-weight: 600; color: #16a34a;">${{ "{:,.0f}".format(deal.deal_value) }}</div>
+                    {% endif %}
+                </div>
+                {% if deal.property_address %}
+                <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">
+                    📍 {{ deal.property_address }}{% if deal.property_city %}, {{ deal.property_city }}{% endif %}
+                </div>
+                {% endif %}
+                <div style="display: flex; gap: 8px; font-size: 11px;">
+                    <a href="https://JonTharpTeam.followupboss.com/2/deals/view/{{ deal.id }}" target="_blank" style="color: var(--accent-blue);">View Deal</a>
+                    {% if deal.person_phone %}
+                    <a href="tel:{{ deal.person_phone }}" style="color: var(--text-secondary);">📞 Call</a>
+                    {% endif %}
+                    {% if deal.person_email %}
+                    <a href="mailto:{{ deal.person_email }}" style="color: var(--text-secondary);">✉️ Email</a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Section 4: Hottest Leads + Overnight Changes -->
     <div class="dashboard-columns">
         <!-- Left: Hottest Leads -->
         <div class="dashboard-section">

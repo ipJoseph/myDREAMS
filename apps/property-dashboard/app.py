@@ -36,13 +36,14 @@ db = DREAMSDatabase(DB_PATH)
 
 # Import task sync dashboard integration (optional - graceful degradation if not available)
 try:
-    from modules.task_sync import get_grouped_tasks, get_task_stats, get_tasks_by_project
+    from modules.task_sync import get_grouped_tasks, get_task_stats, get_tasks_by_project, get_active_deals
     TASK_SYNC_AVAILABLE = True
 except ImportError:
     TASK_SYNC_AVAILABLE = False
     get_grouped_tasks = None
     get_task_stats = None
     get_tasks_by_project = None
+    get_active_deals = None
 
 # Load environment variables
 def load_env_file():
@@ -645,11 +646,16 @@ def home():
     # ===== TODOIST TASKS =====
     # Fetch tasks from Todoist grouped by project
     todoist_tasks = {'projects': [], 'total_count': 0, 'overdue_count': 0}
+    active_deals = []
     if TASK_SYNC_AVAILABLE:
         try:
             todoist_tasks = get_tasks_by_project(limit=20)
         except Exception as e:
             logger.warning(f"Failed to fetch Todoist tasks: {e}")
+        try:
+            active_deals = get_active_deals()
+        except Exception as e:
+            logger.warning(f"Failed to fetch active deals: {e}")
 
     # ===== PIPELINE SNAPSHOT =====
     # Dual-input funnel: Leads + Properties -> Pursuits -> Contracts
@@ -700,6 +706,7 @@ def home():
                          # New dashboard data
                          todays_actions=todays_actions,
                          todoist_tasks=todoist_tasks,
+                         active_deals=active_deals,
                          pipeline=pipeline,
                          hottest_leads=hottest_leads,
                          overnight=overnight,

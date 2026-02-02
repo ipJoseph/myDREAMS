@@ -12,4 +12,5 @@ from .dashboard import (
     get_task_stats,
     get_grouped_tasks,
     get_tasks_by_project,
+    get_active_deals,
 )

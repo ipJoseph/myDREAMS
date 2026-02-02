@@ -62,6 +62,9 @@ def get_todoist_tasks_for_dashboard(limit: int = 10) -> list[dict]:
                 'fub_deal_id': None,
                 'person_name': None,
                 'deal_stage': None,
+                'deal_value': None,
+                'property_address': None,
+                'property_city': None,
             }
 
             # Check if overdue
@@ -79,12 +82,15 @@ def get_todoist_tasks_for_dashboard(limit: int = 10) -> list[dict]:
                 task_data['fub_person_id'] = mapping.get('fub_person_id')
                 task_data['fub_deal_id'] = mapping.get('fub_deal_id')
 
-                # Try to get person name from cache
+                # Try to get deal info from cache
                 if mapping.get('fub_deal_id'):
                     deal = db.get_cached_deal(mapping['fub_deal_id'])
                     if deal:
                         task_data['person_name'] = deal.get('person_name')
                         task_data['deal_stage'] = deal.get('stage_name')
+                        task_data['deal_value'] = deal.get('deal_value')
+                        task_data['property_address'] = deal.get('property_address')
+                        task_data['property_city'] = deal.get('property_city')
 
             # Extract person name from task content if not found
             # Format is "Task Name [Person Name]"
@@ -242,6 +248,68 @@ def get_tasks_by_project(limit: int = 20) -> dict:
             'total_count': 0,
             'overdue_count': 0,
         }
+
+
+def get_active_deals() -> list[dict]:
+    """
+    Get active deals from FUB for dashboard display.
+
+    Returns deals in active pipeline stages (not closed/terminated).
+    """
+    try:
+        deals = fub_client.get_deals()
+
+        # Filter to active deals (not closed)
+        active_deals = []
+        for deal in deals:
+            stage_lower = (deal.stage_name or '').lower()
+            if 'closed' in stage_lower or 'terminated' in stage_lower:
+                continue
+
+            # Cache the deal
+            deal_data = {
+                'id': deal.id,
+                'person_id': deal.person_id,
+                'pipeline_id': deal.pipeline_id,
+                'stage_id': deal.stage_id,
+                'stage_name': deal.stage_name,
+                'deal_name': deal.name,
+                'deal_value': deal.deal_value,
+                'property_address': deal.property_address,
+                'property_city': deal.property_city,
+                'property_state': deal.property_state,
+                'property_zip': deal.property_zip,
+                'updated': deal.updated,
+            }
+
+            # Try to get person name
+            try:
+                person = fub_client.get_person(deal.person_id)
+                deal_data['person_name'] = f"{person.get('firstName', '')} {person.get('lastName', '')}".strip()
+                deal_data['person_email'] = person.get('emails', [{}])[0].get('value') if person.get('emails') else None
+                deal_data['person_phone'] = person.get('phones', [{}])[0].get('value') if person.get('phones') else None
+            except:
+                deal_data['person_name'] = 'Unknown'
+
+            # Cache for later use
+            db.cache_deal(deal_data)
+            active_deals.append(deal_data)
+
+        # Sort by stage (New Deal first, then Pending last)
+        stage_order = {'new': 0, 'contract': 1, 'offer': 2, 'listed': 3, 'pending': 4}
+        def sort_key(d):
+            stage = (d.get('stage_name') or '').lower()
+            for keyword, order in stage_order.items():
+                if keyword in stage:
+                    return (order, -(d.get('deal_value') or 0))
+            return (99, -(d.get('deal_value') or 0))
+
+        active_deals.sort(key=sort_key)
+        return active_deals
+
+    except Exception as e:
+        logger.error(f"Failed to fetch active deals: {e}")
+        return []
 
 
 def enrich_task_with_deal(fub_task_id: int, person_id: int) -> Optional[dict]:

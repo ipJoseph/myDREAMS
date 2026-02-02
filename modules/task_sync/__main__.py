@@ -4,7 +4,8 @@ Task Sync CLI entry point.
 Usage:
     python -m modules.task_sync test       Test connections
     python -m modules.task_sync status     Show sync status
-    python -m modules.task_sync sync-once  Run one sync cycle
+    python -m modules.task_sync sync-once  Run one sync cycle (changes only)
+    python -m modules.task_sync sync-all   Sync ALL active FUB tasks to Todoist
     python -m modules.task_sync run        Start sync service
     python -m modules.task_sync setup      Setup pipeline → project mapping
     python -m modules.task_sync mappings   Show current mappings
@@ -176,6 +177,60 @@ def cmd_sync_once():
     return 0
 
 
+def cmd_sync_all():
+    """Sync all active FUB tasks to Todoist (full sync)."""
+    print("=" * 60)
+    print("Full Sync: All Active FUB Tasks → Todoist")
+    print("=" * 60)
+
+    from .sync_engine import sync_engine
+    from .fub_client import fub_client
+
+    # Get all active FUB tasks (not completed)
+    print("\n[Fetching all FUB tasks...]")
+    all_tasks = fub_client.get_tasks(limit=100)
+    active_tasks = [t for t in all_tasks if not t.is_completed]
+    print(f"  Found {len(all_tasks)} total tasks, {len(active_tasks)} active")
+
+    # Sync each task
+    print("\n[Syncing tasks...]")
+    synced = []
+    skipped = []
+    errors = []
+
+    for task in active_tasks:
+        try:
+            # Check if already mapped
+            mapping = db.get_mapping_by_fub_id(task.id)
+            if mapping:
+                skipped.append(task.id)
+                print(f"  ⏭️  [{task.type}] {task.name[:40]} (already synced)")
+                continue
+
+            result = sync_engine.sync_fub_task_to_todoist(task)
+            if result:
+                synced.append(task.id)
+                print(f"  ✓  [{task.type}] {task.name[:40]}")
+        except Exception as e:
+            errors.append((task.id, str(e)))
+            print(f"  ✗  [{task.type}] {task.name[:40]} - {e}")
+
+    # Summary
+    print("\n" + "=" * 60)
+    print(f"Full Sync Complete")
+    print("=" * 60)
+    print(f"  Synced:  {len(synced)} new tasks")
+    print(f"  Skipped: {len(skipped)} already synced")
+    print(f"  Errors:  {len(errors)}")
+
+    if errors:
+        print("\n[Errors]")
+        for task_id, error in errors[:5]:
+            print(f"  Task {task_id}: {error[:60]}")
+
+    return 0
+
+
 def cmd_run():
     """Start the sync service (continuous polling)."""
     from .poller import run_poller
@@ -245,7 +300,7 @@ def cmd_mappings():
 
 def main():
     parser = argparse.ArgumentParser(description='Task Sync - Todoist ↔ FUB')
-    parser.add_argument('command', choices=['test', 'status', 'sync-once', 'run', 'setup', 'mappings'],
+    parser.add_argument('command', choices=['test', 'status', 'sync-once', 'sync-all', 'run', 'setup', 'mappings'],
                         help='Command to run')
 
     args = parser.parse_args()
@@ -254,6 +309,7 @@ def main():
         'test': cmd_test,
         'status': cmd_status,
         'sync-once': cmd_sync_once,
+        'sync-all': cmd_sync_all,
         'run': cmd_run,
         'setup': cmd_setup,
         'mappings': cmd_mappings,
