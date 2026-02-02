@@ -51,7 +51,7 @@ class SyncEngine:
     def _create_todoist_from_fub(self, fub_task: FUBTask) -> str:
         """Create a new Todoist task from FUB task."""
         # Import setup here to avoid circular imports
-        from .setup import get_project_for_stage, get_default_project
+        from .setup import get_process_for_stage, get_project_for_process, get_default_project
 
         # Get person info for context
         person = self.fub.get_person(fub_task.person_id)
@@ -61,8 +61,6 @@ class SyncEngine:
         deal_id = None
         deal_stage = None
         todoist_project_id = None
-        pipeline_id = None
-        stage_id = None
 
         try:
             deals = self.fub.get_deals(person_id=fub_task.person_id)
@@ -70,14 +68,12 @@ class SyncEngine:
                 deal = deals[0]  # Most recent deal
                 deal_id = deal.id
                 deal_stage = deal.stage_name
-                pipeline_id = deal.pipeline_id
-                stage_id = deal.stage_id
 
-                # Look up Todoist project for this deal's stage
-                if pipeline_id and stage_id:
-                    todoist_project_id = get_project_for_stage(pipeline_id, stage_id)
-                    if todoist_project_id:
-                        logger.debug(f"Routing task to project for stage {deal_stage}")
+                # Route to process-based project (QUALIFY, CURATE, ACQUIRE, CLOSE)
+                process = get_process_for_stage(deal_stage)
+                todoist_project_id = get_project_for_process(process)
+                if todoist_project_id:
+                    logger.debug(f"Routing task to {process} for stage '{deal_stage}'")
 
                 # Cache the deal for dashboard use
                 deal_data = {

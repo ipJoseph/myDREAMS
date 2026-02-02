@@ -1,8 +1,13 @@
 """
-Task Sync Setup Wizard - Pipeline to Project Mapping.
+Task Sync Setup - Process-based Project Routing.
 
-Creates Todoist projects that mirror FUB pipeline stages
-and stores the mapping for automatic task routing.
+Routes FUB tasks to Todoist projects based on the client's stage
+in the sales process:
+
+    QUALIFY  - Lead → Buyer (calls, qualification)
+    CURATE   - Buyer → Pursuit (requirements, property search)
+    ACQUIRE  - Pursuit → Contract (offers, negotiation)
+    CLOSE    - Contract → Close (inspections, due diligence)
 """
 
 import logging
@@ -15,26 +20,57 @@ from .todoist_client import todoist_client
 
 logger = logging.getLogger(__name__)
 
-# Todoist project colors by stage type
-STAGE_COLORS = {
-    'new': 'red',
-    'contract': 'orange',
-    'offer': 'yellow',
-    'pending': 'blue',
-    'listed': 'grape',
-    'closed': 'green',
-    'terminated': 'grey',
-    'default': 'charcoal',
+# Process project IDs (set after creation)
+PROCESS_PROJECTS = {
+    'QUALIFY': '6fvm9JfRGCx3J79G',
+    'CURATE': '6fvm9Jq8qxgCrH3P',
+    'ACQUIRE': '6fvm9JwFrM5hHCP3',
+    'CLOSE': '6fvm9M28wGFj76Hr',
+}
+
+# Map deal stage keywords to process
+STAGE_TO_PROCESS = {
+    # QUALIFY - Lead to Buyer
+    'new deal': 'QUALIFY',
+    'lead': 'QUALIFY',
+
+    # CURATE - Buyer to Pursuit
+    'buyer contract': 'CURATE',
+    'listing contract': 'CURATE',
+    'referral contract': 'CURATE',
+    'listed': 'CURATE',
+
+    # ACQUIRE - Pursuit to Contract
+    'offer': 'ACQUIRE',
+
+    # CLOSE - Contract to Close
+    'pending': 'CLOSE',
+    'under contract': 'CLOSE',
 }
 
 
-def get_color_for_stage(stage_name: str) -> str:
-    """Get appropriate Todoist color for a stage name."""
-    name_lower = stage_name.lower()
-    for keyword, color in STAGE_COLORS.items():
-        if keyword in name_lower:
-            return color
-    return STAGE_COLORS['default']
+def get_process_for_stage(stage_name: str) -> str:
+    """
+    Determine which process a deal stage belongs to.
+
+    Returns process name: QUALIFY, CURATE, ACQUIRE, or CLOSE
+    """
+    if not stage_name:
+        return 'QUALIFY'  # Default for no stage
+
+    stage_lower = stage_name.lower()
+
+    for keyword, process in STAGE_TO_PROCESS.items():
+        if keyword in stage_lower:
+            return process
+
+    # Default to QUALIFY for unknown stages
+    return 'QUALIFY'
+
+
+def get_project_for_process(process: str) -> Optional[str]:
+    """Get Todoist project ID for a process."""
+    return PROCESS_PROJECTS.get(process)
 
 
 def get_existing_todoist_projects() -> dict:
@@ -234,11 +270,8 @@ def show_current_mappings():
 
 
 def get_default_project() -> Optional[str]:
-    """Get a default Todoist project for tasks without deals."""
-    # Look for an "Inbox" or general project
-    projects = todoist_client.get_projects()
-    for p in projects:
-        if p.get('inbox_project') or p['name'].lower() == 'inbox':
-            return p['id']
-    # Return first project if no inbox
-    return projects[0]['id'] if projects else None
+    """Get default Todoist project for tasks without deals.
+
+    Returns QUALIFY project as default (new leads start here).
+    """
+    return PROCESS_PROJECTS.get('QUALIFY')

@@ -106,6 +106,12 @@ class TodoistClient:
         logger.info(f"Created Todoist project {project['id']}: {name}")
         return project
 
+    def delete_project(self, project_id: str) -> bool:
+        """Delete a project."""
+        self._rest_request('DELETE', f'projects/{project_id}')
+        logger.info(f"Deleted Todoist project {project_id}")
+        return True
+
     # ==========================================================================
     # Sections
     # ==========================================================================
