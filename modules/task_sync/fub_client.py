@@ -213,10 +213,14 @@ class FUBClient:
         Search for people by name, email, or phone.
 
         Returns list of matching people with id, name, email, phone.
+        Handles common name variations (apostrophes, etc.)
         """
+        # Normalize query - remove apostrophes and other special chars that cause issues
+        normalized = query.replace("'", "").replace("'", "")
+
         # FUB API uses 'name' filter, not 'query'
         params = {
-            'name': query,
+            'name': normalized,
             'limit': min(limit, 100)
         }
         data = self._request('GET', 'people', params=params)
