@@ -317,25 +317,38 @@ class FUBDeal:
 
 # FUB Deal Stage to Linear Team/State Mapping
 FUB_STAGE_TO_TEAM = {
-    # DEVELOP team (Qualify + Curate)
+    # =========================================================================
+    # DEVELOP team (Qualify + Curate) - Lead nurturing, pre-offer
+    # =========================================================================
     'new deal': ProcessGroup.DEVELOP,
     'lead': ProcessGroup.DEVELOP,
     'new': ProcessGroup.DEVELOP,
     'buyer contract': ProcessGroup.DEVELOP,
+    'listing contract': ProcessGroup.DEVELOP,
+    'listed': ProcessGroup.DEVELOP,
     'contract': ProcessGroup.DEVELOP,
     'qualified': ProcessGroup.DEVELOP,
     'searching': ProcessGroup.DEVELOP,
     'showing': ProcessGroup.DEVELOP,
+    'referral contract': ProcessGroup.DEVELOP,
 
-    # TRANSACT team (Acquire + Close)
+    # =========================================================================
+    # TRANSACT team (Acquire + Close) - Active offers through closing
+    # =========================================================================
     'offer': ProcessGroup.TRANSACT,
     'pending': ProcessGroup.TRANSACT,
     'under contract': ProcessGroup.TRANSACT,
     'inspection': ProcessGroup.TRANSACT,
     'appraisal': ProcessGroup.TRANSACT,
     'closing': ProcessGroup.TRANSACT,
+    'closed': ProcessGroup.TRANSACT,
+    'closed 2025': ProcessGroup.TRANSACT,
+    'closed old': ProcessGroup.TRANSACT,
 
-    # GENERAL team (default)
+    # =========================================================================
+    # GENERAL team - Non-active, admin
+    # =========================================================================
+    'terminated': ProcessGroup.GENERAL,
     'referral': ProcessGroup.GENERAL,
 }
 
