@@ -5,6 +5,7 @@ Usage:
     python -m modules.linear_sync status        Show sync status
     python -m modules.linear_sync setup         Run setup wizard
     python -m modules.linear_sync config        Show current config
+    python -m modules.linear_sync create-teams  Create DEVELOP, TRANSACT, GENERAL teams
     python -m modules.linear_sync sync-once     Run single sync cycle
     python -m modules.linear_sync sync-all      Full sync of all FUB tasks
     python -m modules.linear_sync run           Start continuous sync service
@@ -124,6 +125,14 @@ def cmd_config() -> int:
 
     show_current_config()
     return 0
+
+
+def cmd_create_teams() -> int:
+    """Create DEVELOP, TRANSACT, GENERAL teams with workflow states."""
+    from .create_teams import run_create_teams
+
+    success = run_create_teams()
+    return 0 if success else 1
 
 
 def cmd_sync_once() -> int:
@@ -272,7 +281,7 @@ def main():
     )
     parser.add_argument(
         'command',
-        choices=['test', 'status', 'setup', 'config', 'sync-once', 'sync-all',
+        choices=['test', 'status', 'setup', 'config', 'create-teams', 'sync-once', 'sync-all',
                  'run', 'create-test', 'teams', 'labels', 'mappings'],
         help='Command to run'
     )
@@ -284,6 +293,7 @@ def main():
         'status': cmd_status,
         'setup': cmd_setup,
         'config': cmd_config,
+        'create-teams': cmd_create_teams,
         'sync-once': cmd_sync_once,
         'sync-all': cmd_sync_all,
         'run': cmd_run,

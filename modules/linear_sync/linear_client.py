@@ -130,6 +130,39 @@ class LinearClient:
                 return team
         return None
 
+    def create_team(self, name: str, key: str, description: str = '') -> LinearTeam:
+        """Create a new team."""
+        mutation = """
+        mutation CreateTeam($input: TeamCreateInput!) {
+            teamCreate(input: $input) {
+                success
+                team {
+                    id
+                    name
+                    key
+                    states {
+                        nodes {
+                            id
+                            name
+                            type
+                            position
+                        }
+                    }
+                }
+            }
+        }
+        """
+        input_data = {'name': name, 'key': key}
+        if description:
+            input_data['description'] = description
+
+        data = self._request(mutation, {'input': input_data})
+        result = data.get('teamCreate', {})
+        if not result.get('success'):
+            raise Exception(f"Failed to create team: {name}")
+
+        return LinearTeam.from_api(result['team'])
+
     # =========================================================================
     # WORKFLOW STATES
     # =========================================================================
@@ -181,6 +214,104 @@ class LinearClient:
             if state.type == 'completed':
                 return state
         return None
+
+    def create_workflow_state(
+        self,
+        team_id: str,
+        name: str,
+        state_type: str,
+        color: str = '#95a2b3',
+        position: Optional[float] = None,
+        description: str = '',
+    ) -> LinearWorkflowState:
+        """Create a new workflow state.
+
+        state_type must be one of: 'triage', 'backlog', 'unstarted', 'started', 'completed', 'canceled'
+        """
+        mutation = """
+        mutation CreateWorkflowState($input: WorkflowStateCreateInput!) {
+            workflowStateCreate(input: $input) {
+                success
+                workflowState {
+                    id
+                    name
+                    type
+                    position
+                    team {
+                        id
+                    }
+                }
+            }
+        }
+        """
+        input_data = {
+            'teamId': team_id,
+            'name': name,
+            'type': state_type,
+            'color': color,
+        }
+        if position is not None:
+            input_data['position'] = position
+        if description:
+            input_data['description'] = description
+
+        data = self._request(mutation, {'input': input_data})
+        result = data.get('workflowStateCreate', {})
+        if not result.get('success'):
+            raise Exception(f"Failed to create workflow state: {name}")
+
+        return LinearWorkflowState.from_api(result['workflowState'])
+
+    def update_workflow_state(
+        self,
+        state_id: str,
+        name: Optional[str] = None,
+        color: Optional[str] = None,
+        position: Optional[float] = None,
+    ) -> LinearWorkflowState:
+        """Update an existing workflow state."""
+        mutation = """
+        mutation UpdateWorkflowState($id: String!, $input: WorkflowStateUpdateInput!) {
+            workflowStateUpdate(id: $id, input: $input) {
+                success
+                workflowState {
+                    id
+                    name
+                    type
+                    position
+                    team {
+                        id
+                    }
+                }
+            }
+        }
+        """
+        input_data = {}
+        if name is not None:
+            input_data['name'] = name
+        if color is not None:
+            input_data['color'] = color
+        if position is not None:
+            input_data['position'] = position
+
+        data = self._request(mutation, {'id': state_id, 'input': input_data})
+        result = data.get('workflowStateUpdate', {})
+        if not result.get('success'):
+            raise Exception(f"Failed to update workflow state: {state_id}")
+
+        return LinearWorkflowState.from_api(result['workflowState'])
+
+    def archive_workflow_state(self, state_id: str) -> bool:
+        """Archive a workflow state."""
+        mutation = """
+        mutation ArchiveWorkflowState($id: String!) {
+            workflowStateArchive(id: $id) {
+                success
+            }
+        }
+        """
+        data = self._request(mutation, {'id': state_id})
+        return data.get('workflowStateArchive', {}).get('success', False)
 
     # =========================================================================
     # LABELS
