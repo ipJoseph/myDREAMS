@@ -9,6 +9,31 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Linear Project Templates for Buyer Journey** (`modules/linear_sync/templates.py`)
+  - **Approach D Implementation**: Each buyer journey phase becomes a project from a template
+  - **Four Phase Templates**:
+    - **QUALIFY**: 3 milestones, 10 issues (lead qualification)
+    - **CURATE**: 3 milestones, 10 issues (property search)
+    - **ACQUIRE**: 2 milestones, 8 issues (offer/negotiation)
+    - **CLOSE**: 5 milestones, 22 issues (contract to closing)
+  - **Project Factory** (`project_factory.py`):
+    - Instantiate projects from templates with milestones and pre-populated issues
+    - Automatic person label creation and application
+    - Duplicate detection (skip if project exists for person/phase)
+    - Support for property address in ACQUIRE/CLOSE phases
+  - **Enhanced Linear API** (`linear_client.py`):
+    - Project milestones: create, get, update, delete
+    - Extended project operations with description and state
+    - Issue creation with project_milestone_id attachment
+  - **Database Tracking** (`db.py`):
+    - `project_instances` table - tracks projects per person/phase
+    - `project_milestones` table - caches milestone data
+    - Query methods for person journey, active projects, stats
+  - **CLI Commands**:
+    - `templates` - Show available templates with issues
+    - `create-qualify/curate/acquire/close` - Create projects from templates
+    - `list-projects` - Show all active project instances
+
 - **Linear ↔ FUB Task Sync** (`modules/linear_sync/`)
   - Bidirectional task synchronization between Linear and Follow Up Boss
   - **Process Group Architecture** - Teams mapped to buyer journey phases:
@@ -30,7 +55,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - **Sync Engine** - Change detection, anti-loop protection, completion sync
   - **Poller Service** - Async polling with configurable intervals
   - **Setup Wizard** - Auto-configure teams and labels from Linear workspace
-  - **CLI Interface** - `python -m modules.linear_sync <test|status|setup|config|sync-once|sync-all|run|teams|labels|mappings>`
+  - **CLI Interface** - `python -m modules.linear_sync <command>`
   - **Bridge Database** - SQLite tables for issue mapping, team config, person labels, sync state, audit logs
   - **Systemd Integration** - Service file for production deployment
   - Configuration: `LINEAR_API_KEY`, `LINEAR_POLL_INTERVAL`, team IDs

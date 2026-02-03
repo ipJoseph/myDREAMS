@@ -275,6 +275,39 @@ See: `docs/DATA_QUALITY_TRACKING.md` for full details.
 
 ---
 
+## Linear ↔ FUB Task Sync (February 2026)
+
+Linear integration for task management with buyer journey phase tracking.
+
+### Core Sync Engine
+| Task | Status | Notes |
+|------|--------|-------|
+| Linear GraphQL client | Done | Teams, issues, projects, labels, milestones |
+| FUB task client | Done | CRUD operations, person/deal queries |
+| Bidirectional sync | Done | FUB → Linear and Linear → FUB |
+| Completion sync | Done | Complete in one system → complete in other |
+| Person labels | Done | Track buyer across teams/phases |
+| Team routing | Done | DEVELOP (Qualify+Curate), TRANSACT (Acquire+Close) |
+
+### Project Templates (Approach D)
+| Task | Status | Notes |
+|------|--------|-------|
+| Template definitions | Done | QUALIFY, CURATE, ACQUIRE, CLOSE |
+| Project factory | Done | Create projects from templates |
+| Milestone creation | Done | Predefined milestones per phase |
+| Issue population | Done | Pre-populated tasks per milestone |
+| Duplicate detection | Done | Skip if project exists for person/phase |
+| CLI commands | Done | create-qualify, create-curate, create-acquire, create-close |
+| Database tracking | Done | project_instances, project_milestones tables |
+
+### Future Enhancements
+- [ ] Automatic project creation on FUB deal stage change
+- [ ] Progress sync (completed issues → project progress)
+- [ ] Seller journey templates (LIST, MARKET, NEGOTIATE, CLOSE)
+- [ ] Webhook-based sync (real-time instead of polling)
+
+---
+
 ## Rollback Points
 
 | Commit | Date | Description |
@@ -309,4 +342,4 @@ The tension between personal workflow optimization vs. building a configurable p
 ---
 
 *Roadmap maintained by Joseph & Claude*
-*Last updated: January 31, 2026 - Property Database Bulletproof Plan (MLS Grid integration, data quality dashboard)*
+*Last updated: February 3, 2026 - Linear Project Templates (Approach D buyer journey phases)*
