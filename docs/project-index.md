@@ -93,6 +93,44 @@ Shared FUB API SDK used by fub-to-sheets and other FUB integrations.
 
 ---
 
+### modules/task_sync
+**Status:** Production
+
+Bidirectional Todoist ↔ Follow Up Boss task synchronization.
+
+Features:
+- FUB → Todoist: Tasks sync with person name, deal stage, project routing
+- Todoist → FUB: Tasks sync with person context extraction
+- Change detection, anti-loop protection
+- Async polling service
+
+Commands:
+- `python -m modules.task_sync run` - Start continuous sync
+- `python -m modules.task_sync sync-once` - Single sync cycle
+- `python -m modules.task_sync status` - Show sync status
+
+---
+
+### modules/linear_sync
+**Status:** Development
+
+Bidirectional Linear ↔ Follow Up Boss task synchronization.
+
+Features:
+- Process Group Teams: DEVELOP (Qualify+Curate), TRANSACT (Acquire+Close), GENERAL
+- FUB → Linear: Tasks sync to issues with team routing based on deal stage
+- Linear → FUB: Issues sync with person label lookup
+- Person labels for cross-team journey tracking
+- Projects in TRANSACT for concrete deals
+
+Commands:
+- `python -m modules.linear_sync run` - Start continuous sync
+- `python -m modules.linear_sync setup` - Configure teams and labels
+- `python -m modules.linear_sync sync-once` - Single sync cycle
+- `python -m modules.linear_sync teams` - List Linear teams
+
+---
+
 ### fub-dashboard-appsscript
 **Status:** Production
 

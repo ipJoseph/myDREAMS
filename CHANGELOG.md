@@ -9,6 +9,32 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Linear ↔ FUB Task Sync** (`modules/linear_sync/`)
+  - Bidirectional task synchronization between Linear and Follow Up Boss
+  - **Process Group Architecture** - Teams mapped to buyer journey phases:
+    - **DEVELOP team**: Lead development (Qualify + Curate phases)
+    - **TRANSACT team**: Active deals (Acquire + Close phases)
+    - **GENERAL team**: Admin, marketing, operations
+  - **FUB → Linear**: Tasks auto-sync to issues with:
+    - Team routing based on deal stage
+    - Person labels for cross-team journey tracking
+    - Projects in TRANSACT for concrete deals
+    - Priority mapping from FUB task types
+  - **Linear → FUB**: Create FUB tasks from Linear issues with:
+    - Person label lookup for contact association
+    - Task type inference from Linear labels
+  - **Linear GraphQL Client** - Full API support:
+    - Teams, workflow states, labels, projects, issues
+    - Create/update/complete operations
+    - Updated-since queries for efficient polling
+  - **Sync Engine** - Change detection, anti-loop protection, completion sync
+  - **Poller Service** - Async polling with configurable intervals
+  - **Setup Wizard** - Auto-configure teams and labels from Linear workspace
+  - **CLI Interface** - `python -m modules.linear_sync <test|status|setup|config|sync-once|sync-all|run|teams|labels|mappings>`
+  - **Bridge Database** - SQLite tables for issue mapping, team config, person labels, sync state, audit logs
+  - **Systemd Integration** - Service file for production deployment
+  - Configuration: `LINEAR_API_KEY`, `LINEAR_POLL_INTERVAL`, team IDs
+
 - **Todoist ↔ FUB Task Sync** (`modules/task_sync/`)
   - Bidirectional task synchronization between Todoist and Follow Up Boss
   - **FUB → Todoist**: Tasks auto-sync with person name, deal stage, and project routing
