@@ -350,13 +350,19 @@ class SyncEngine:
                 task_type = label_name.title()
                 break
 
-        # Create FUB task
+        # Create FUB task (assignedUserId required by FUB API)
+        import os
+        assigned_user_id = int(os.getenv('FUB_MY_USER_ID', '8'))
+
+        # Append Linear reference to task name since FUB doesn't support notes on create
+        task_name = f"{issue.title} [{issue.identifier}]"
+
         task = self.fub.create_task(
             person_id=person.id,
-            name=issue.title,
+            name=task_name,
             task_type=task_type,
             due_date=issue.due_date,
-            note=f"Synced from Linear: {issue.identifier}",
+            assigned_user_id=assigned_user_id,
         )
 
         # Get deal if any

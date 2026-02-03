@@ -106,10 +106,12 @@ class FUBClient:
         name: str,
         task_type: str = 'Todo',
         due_date: Optional[str] = None,
-        note: str = '',
         assigned_user_id: Optional[int] = None,
     ) -> FUBTask:
-        """Create a new task."""
+        """Create a new task.
+
+        Note: FUB API does not support 'note' field on task creation.
+        """
         payload = {
             'personId': person_id,
             'name': name,
@@ -117,8 +119,6 @@ class FUBClient:
         }
         if due_date:
             payload['dueDate'] = due_date
-        if note:
-            payload['note'] = note
         if assigned_user_id:
             payload['assignedUserId'] = assigned_user_id
 
