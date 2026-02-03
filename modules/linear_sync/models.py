@@ -118,6 +118,9 @@ class LinearProject:
     team_ids: list[str] = field(default_factory=list)
     target_date: Optional[str] = None
     lead_id: Optional[str] = None
+    description: str = ''
+    progress: float = 0.0  # 0.0 to 1.0
+    milestone_ids: list[str] = field(default_factory=list)
 
     @classmethod
     def from_api(cls, data: dict) -> 'LinearProject':
@@ -126,6 +129,10 @@ class LinearProject:
         if 'teams' in data and 'nodes' in data['teams']:
             team_ids = [t['id'] for t in data['teams']['nodes']]
 
+        milestone_ids = []
+        if 'projectMilestones' in data and 'nodes' in data['projectMilestones']:
+            milestone_ids = [m['id'] for m in data['projectMilestones']['nodes']]
+
         return cls(
             id=data['id'],
             name=data['name'],
@@ -133,6 +140,32 @@ class LinearProject:
             team_ids=team_ids,
             target_date=data.get('targetDate'),
             lead_id=data.get('lead', {}).get('id') if data.get('lead') else None,
+            description=data.get('description', '') or '',
+            progress=data.get('progress', 0.0) or 0.0,
+            milestone_ids=milestone_ids,
+        )
+
+
+@dataclass
+class LinearMilestone:
+    """Linear project milestone."""
+    id: str
+    name: str
+    project_id: str
+    target_date: Optional[str] = None
+    sort_order: float = 0.0
+    description: str = ''
+
+    @classmethod
+    def from_api(cls, data: dict) -> 'LinearMilestone':
+        """Create from Linear API response."""
+        return cls(
+            id=data['id'],
+            name=data['name'],
+            project_id=data.get('project', {}).get('id', '') if data.get('project') else '',
+            target_date=data.get('targetDate'),
+            sort_order=data.get('sortOrder', 0.0) or 0.0,
+            description=data.get('description', '') or '',
         )
 
 

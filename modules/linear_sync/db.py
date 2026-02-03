@@ -165,6 +165,39 @@ class Database:
                 )
             """)
 
+            # Project instances - tracks Linear projects created from templates
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS project_instances (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    linear_project_id TEXT UNIQUE NOT NULL,
+                    linear_project_name TEXT NOT NULL,
+                    fub_person_id INTEGER NOT NULL,
+                    fub_person_name TEXT,
+                    phase TEXT NOT NULL,
+                    property_address TEXT,
+                    linear_team_id TEXT NOT NULL,
+                    person_label_id TEXT,
+                    status TEXT DEFAULT 'active',
+                    issue_count INTEGER DEFAULT 0,
+                    completed_count INTEGER DEFAULT 0,
+                    created_at TEXT DEFAULT (datetime('now')),
+                    updated_at TEXT DEFAULT (datetime('now'))
+                )
+            """)
+
+            # Project milestones cache - tracks milestones for projects
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS project_milestones (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    linear_milestone_id TEXT UNIQUE NOT NULL,
+                    linear_project_id TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    sort_order REAL DEFAULT 0,
+                    created_at TEXT DEFAULT (datetime('now')),
+                    FOREIGN KEY (linear_project_id) REFERENCES project_instances(linear_project_id)
+                )
+            """)
+
             # Indexes
             conn.execute("CREATE INDEX IF NOT EXISTS idx_issue_map_linear ON issue_map(linear_issue_id)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_issue_map_fub ON issue_map(fub_task_id)")
@@ -173,6 +206,9 @@ class Database:
             conn.execute("CREATE INDEX IF NOT EXISTS idx_deal_cache_person ON deal_cache(person_id)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_person_labels_fub ON person_labels(fub_person_id)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_sync_log_time ON sync_log(timestamp)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_project_instances_person ON project_instances(fub_person_id)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_project_instances_phase ON project_instances(phase)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_project_milestones_project ON project_milestones(linear_project_id)")
 
     # =========================================================================
     # SYNC STATE
@@ -541,6 +577,188 @@ class Database:
                 'by_origin': {r['origin']: r['c'] for r in by_origin},
                 'by_status': {r['sync_status']: r['c'] for r in by_status},
                 'today_actions': {r['action']: r['c'] for r in today_logs},
+            }
+
+    # =========================================================================
+    # PROJECT INSTANCES (Template-based projects)
+    # =========================================================================
+
+    def create_project_instance(
+        self,
+        linear_project_id: str,
+        linear_project_name: str,
+        fub_person_id: int,
+        fub_person_name: str,
+        phase: str,
+        linear_team_id: str,
+        property_address: str = None,
+        person_label_id: str = None,
+        issue_count: int = 0,
+    ) -> int:
+        """Create a project instance record."""
+        with self.connection() as conn:
+            cursor = conn.execute("""
+                INSERT INTO project_instances (
+                    linear_project_id, linear_project_name, fub_person_id, fub_person_name,
+                    phase, property_address, linear_team_id, person_label_id,
+                    issue_count, status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
+            """, (
+                linear_project_id, linear_project_name, fub_person_id, fub_person_name,
+                phase, property_address, linear_team_id, person_label_id, issue_count
+            ))
+            return cursor.lastrowid
+
+    def get_project_instance(self, linear_project_id: str) -> Optional[dict]:
+        """Get a project instance by Linear project ID."""
+        with self.connection() as conn:
+            row = conn.execute(
+                "SELECT * FROM project_instances WHERE linear_project_id = ?",
+                (linear_project_id,)
+            ).fetchone()
+            return dict(row) if row else None
+
+    def get_project_for_person_phase(
+        self,
+        fub_person_id: int,
+        phase: str,
+        property_address: str = None,
+    ) -> Optional[dict]:
+        """Get a project for a person and phase.
+
+        For ACQUIRE/CLOSE phases, property_address is used to distinguish multiple deals.
+        """
+        with self.connection() as conn:
+            if property_address:
+                row = conn.execute("""
+                    SELECT * FROM project_instances
+                    WHERE fub_person_id = ? AND phase = ? AND property_address = ?
+                    AND status = 'active'
+                """, (fub_person_id, phase, property_address)).fetchone()
+            else:
+                row = conn.execute("""
+                    SELECT * FROM project_instances
+                    WHERE fub_person_id = ? AND phase = ? AND status = 'active'
+                """, (fub_person_id, phase)).fetchone()
+            return dict(row) if row else None
+
+    def get_all_projects_for_person(self, fub_person_id: int) -> list[dict]:
+        """Get all projects for a person across all phases."""
+        with self.connection() as conn:
+            rows = conn.execute("""
+                SELECT * FROM project_instances
+                WHERE fub_person_id = ?
+                ORDER BY created_at ASC
+            """, (fub_person_id,)).fetchall()
+            return [dict(r) for r in rows]
+
+    def get_active_projects(self, phase: str = None) -> list[dict]:
+        """Get all active projects, optionally filtered by phase."""
+        with self.connection() as conn:
+            if phase:
+                rows = conn.execute("""
+                    SELECT * FROM project_instances
+                    WHERE status = 'active' AND phase = ?
+                    ORDER BY created_at DESC
+                """, (phase,)).fetchall()
+            else:
+                rows = conn.execute("""
+                    SELECT * FROM project_instances
+                    WHERE status = 'active'
+                    ORDER BY created_at DESC
+                """).fetchall()
+            return [dict(r) for r in rows]
+
+    def update_project_instance(
+        self,
+        linear_project_id: str,
+        status: str = None,
+        completed_count: int = None,
+    ):
+        """Update a project instance."""
+        updates = ["updated_at = datetime('now')"]
+        params = []
+
+        if status is not None:
+            updates.append("status = ?")
+            params.append(status)
+        if completed_count is not None:
+            updates.append("completed_count = ?")
+            params.append(completed_count)
+
+        params.append(linear_project_id)
+
+        with self.connection() as conn:
+            conn.execute(
+                f"UPDATE project_instances SET {', '.join(updates)} WHERE linear_project_id = ?",
+                params
+            )
+
+    def delete_project_instance(self, linear_project_id: str):
+        """Delete a project instance (and its milestones)."""
+        with self.connection() as conn:
+            conn.execute(
+                "DELETE FROM project_milestones WHERE linear_project_id = ?",
+                (linear_project_id,)
+            )
+            conn.execute(
+                "DELETE FROM project_instances WHERE linear_project_id = ?",
+                (linear_project_id,)
+            )
+
+    # =========================================================================
+    # PROJECT MILESTONES
+    # =========================================================================
+
+    def create_milestone_record(
+        self,
+        linear_milestone_id: str,
+        linear_project_id: str,
+        name: str,
+        sort_order: float = 0,
+    ) -> int:
+        """Create a milestone record."""
+        with self.connection() as conn:
+            cursor = conn.execute("""
+                INSERT INTO project_milestones (
+                    linear_milestone_id, linear_project_id, name, sort_order
+                ) VALUES (?, ?, ?, ?)
+            """, (linear_milestone_id, linear_project_id, name, sort_order))
+            return cursor.lastrowid
+
+    def get_milestones_for_project(self, linear_project_id: str) -> list[dict]:
+        """Get all milestones for a project."""
+        with self.connection() as conn:
+            rows = conn.execute("""
+                SELECT * FROM project_milestones
+                WHERE linear_project_id = ?
+                ORDER BY sort_order ASC
+            """, (linear_project_id,)).fetchall()
+            return [dict(r) for r in rows]
+
+    def get_project_stats(self) -> dict:
+        """Get project statistics."""
+        with self.connection() as conn:
+            # Total active projects
+            total_active = conn.execute(
+                "SELECT COUNT(*) as c FROM project_instances WHERE status = 'active'"
+            ).fetchone()['c']
+
+            # By phase
+            by_phase = conn.execute("""
+                SELECT phase, COUNT(*) as c FROM project_instances
+                WHERE status = 'active' GROUP BY phase
+            """).fetchall()
+
+            # Total completed
+            total_completed = conn.execute(
+                "SELECT COUNT(*) as c FROM project_instances WHERE status = 'completed'"
+            ).fetchone()['c']
+
+            return {
+                'total_active': total_active,
+                'total_completed': total_completed,
+                'by_phase': {r['phase']: r['c'] for r in by_phase},
             }
 
 

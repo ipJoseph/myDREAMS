@@ -9,6 +9,7 @@ from .models import (
     LinearIssue,
     LinearTeam,
     LinearProject,
+    LinearMilestone,
     LinearLabel,
     LinearWorkflowState,
 )
@@ -404,88 +405,139 @@ class LinearClient:
     # PROJECTS
     # =========================================================================
 
+    PROJECT_FIELDS = """
+        id
+        name
+        description
+        state
+        progress
+        targetDate
+        lead {
+            id
+        }
+        teams {
+            nodes {
+                id
+            }
+        }
+        projectMilestones {
+            nodes {
+                id
+            }
+        }
+    """
+
+    def get_project(self, project_id: str) -> Optional[LinearProject]:
+        """Get a specific project by ID."""
+        query = f"""
+        query GetProject($id: String!) {{
+            project(id: $id) {{
+                {self.PROJECT_FIELDS}
+            }}
+        }}
+        """
+        data = self._request(query, {'id': project_id})
+        project_data = data.get('project')
+        return LinearProject.from_api(project_data) if project_data else None
+
     def get_projects(self, team_id: Optional[str] = None) -> list[LinearProject]:
         """Get projects, optionally filtered by team."""
         if team_id:
-            query = """
-            query GetProjects($teamId: String!) {
-                team(id: $teamId) {
-                    projects {
-                        nodes {
-                            id
-                            name
-                            state
-                            targetDate
-                            lead {
-                                id
-                            }
-                            teams {
-                                nodes {
-                                    id
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            query = f"""
+            query GetProjects($teamId: String!) {{
+                team(id: $teamId) {{
+                    projects {{
+                        nodes {{
+                            {self.PROJECT_FIELDS}
+                        }}
+                    }}
+                }}
+            }}
             """
             data = self._request(query, {'teamId': team_id})
             nodes = data.get('team', {}).get('projects', {}).get('nodes', [])
         else:
-            query = """
-            query {
-                projects {
-                    nodes {
-                        id
-                        name
-                        state
-                        targetDate
-                        lead {
-                            id
-                        }
-                        teams {
-                            nodes {
-                                id
-                            }
-                        }
-                    }
-                }
-            }
+            query = f"""
+            query {{
+                projects {{
+                    nodes {{
+                        {self.PROJECT_FIELDS}
+                    }}
+                }}
+            }}
             """
             data = self._request(query)
             nodes = data.get('projects', {}).get('nodes', [])
 
         return [LinearProject.from_api(p) for p in nodes]
 
-    def create_project(self, name: str, team_ids: list[str],
-                       target_date: Optional[str] = None) -> LinearProject:
+    def create_project(
+        self,
+        name: str,
+        team_ids: list[str],
+        description: str = '',
+        target_date: Optional[str] = None,
+        state: str = 'started',  # 'planned', 'started', 'paused', 'completed', 'canceled'
+    ) -> LinearProject:
         """Create a new project."""
-        mutation = """
-        mutation CreateProject($input: ProjectCreateInput!) {
-            projectCreate(input: $input) {
+        mutation = f"""
+        mutation CreateProject($input: ProjectCreateInput!) {{
+            projectCreate(input: $input) {{
                 success
-                project {
-                    id
-                    name
-                    state
-                    targetDate
-                    teams {
-                        nodes {
-                            id
-                        }
-                    }
-                }
-            }
-        }
+                project {{
+                    {self.PROJECT_FIELDS}
+                }}
+            }}
+        }}
         """
         input_data = {'name': name, 'teamIds': team_ids}
+        if description:
+            input_data['description'] = description
         if target_date:
             input_data['targetDate'] = target_date
+        if state:
+            input_data['state'] = state
 
         data = self._request(mutation, {'input': input_data})
         result = data.get('projectCreate', {})
         if not result.get('success'):
             raise Exception(f"Failed to create project: {name}")
+
+        return LinearProject.from_api(result['project'])
+
+    def update_project(
+        self,
+        project_id: str,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        state: Optional[str] = None,
+        target_date: Optional[str] = None,
+    ) -> LinearProject:
+        """Update an existing project."""
+        mutation = f"""
+        mutation UpdateProject($id: String!, $input: ProjectUpdateInput!) {{
+            projectUpdate(id: $id, input: $input) {{
+                success
+                project {{
+                    {self.PROJECT_FIELDS}
+                }}
+            }}
+        }}
+        """
+        input_data = {}
+        if name is not None:
+            input_data['name'] = name
+        if description is not None:
+            input_data['description'] = description
+        if state is not None:
+            input_data['state'] = state
+        if target_date is not None:
+            input_data['targetDate'] = target_date
+
+        data = self._request(mutation, {'id': project_id, 'input': input_data})
+        result = data.get('projectUpdate', {})
+        if not result.get('success'):
+            raise Exception(f"Failed to update project: {project_id}")
 
         return LinearProject.from_api(result['project'])
 
@@ -497,6 +549,132 @@ class LinearClient:
                 return project
 
         return self.create_project(name, [team_id])
+
+    def archive_project(self, project_id: str) -> bool:
+        """Archive (soft delete) a project."""
+        mutation = """
+        mutation ArchiveProject($id: String!) {
+            projectArchive(id: $id) {
+                success
+            }
+        }
+        """
+        data = self._request(mutation, {'id': project_id})
+        return data.get('projectArchive', {}).get('success', False)
+
+    # =========================================================================
+    # PROJECT MILESTONES
+    # =========================================================================
+
+    MILESTONE_FIELDS = """
+        id
+        name
+        description
+        targetDate
+        sortOrder
+        project {
+            id
+        }
+    """
+
+    def get_milestones(self, project_id: str) -> list[LinearMilestone]:
+        """Get milestones for a project."""
+        query = f"""
+        query GetMilestones($projectId: String!) {{
+            project(id: $projectId) {{
+                projectMilestones {{
+                    nodes {{
+                        {self.MILESTONE_FIELDS}
+                    }}
+                }}
+            }}
+        }}
+        """
+        data = self._request(query, {'projectId': project_id})
+        nodes = data.get('project', {}).get('projectMilestones', {}).get('nodes', [])
+        return [LinearMilestone.from_api(m) for m in nodes]
+
+    def create_milestone(
+        self,
+        project_id: str,
+        name: str,
+        description: str = '',
+        target_date: Optional[str] = None,
+        sort_order: Optional[float] = None,
+    ) -> LinearMilestone:
+        """Create a milestone in a project."""
+        mutation = f"""
+        mutation CreateMilestone($input: ProjectMilestoneCreateInput!) {{
+            projectMilestoneCreate(input: $input) {{
+                success
+                projectMilestone {{
+                    {self.MILESTONE_FIELDS}
+                }}
+            }}
+        }}
+        """
+        input_data = {'projectId': project_id, 'name': name}
+        if description:
+            input_data['description'] = description
+        if target_date:
+            input_data['targetDate'] = target_date
+        if sort_order is not None:
+            input_data['sortOrder'] = sort_order
+
+        data = self._request(mutation, {'input': input_data})
+        result = data.get('projectMilestoneCreate', {})
+        if not result.get('success'):
+            raise Exception(f"Failed to create milestone: {name}")
+
+        return LinearMilestone.from_api(result['projectMilestone'])
+
+    def update_milestone(
+        self,
+        milestone_id: str,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        target_date: Optional[str] = None,
+        sort_order: Optional[float] = None,
+    ) -> LinearMilestone:
+        """Update an existing milestone."""
+        mutation = f"""
+        mutation UpdateMilestone($id: String!, $input: ProjectMilestoneUpdateInput!) {{
+            projectMilestoneUpdate(id: $id, input: $input) {{
+                success
+                projectMilestone {{
+                    {self.MILESTONE_FIELDS}
+                }}
+            }}
+        }}
+        """
+        input_data = {}
+        if name is not None:
+            input_data['name'] = name
+        if description is not None:
+            input_data['description'] = description
+        if target_date is not None:
+            input_data['targetDate'] = target_date
+        if sort_order is not None:
+            input_data['sortOrder'] = sort_order
+
+        data = self._request(mutation, {'id': milestone_id, 'input': input_data})
+        result = data.get('projectMilestoneUpdate', {})
+        if not result.get('success'):
+            raise Exception(f"Failed to update milestone: {milestone_id}")
+
+        return LinearMilestone.from_api(result['projectMilestone'])
+
+    def delete_milestone(self, milestone_id: str) -> bool:
+        """Delete a milestone."""
+        mutation = """
+        mutation DeleteMilestone($id: String!) {
+            projectMilestoneDelete(id: $id) {
+                success
+            }
+        }
+        """
+        data = self._request(mutation, {'id': milestone_id})
+        return data.get('projectMilestoneDelete', {}).get('success', False)
 
     # =========================================================================
     # ISSUES
@@ -640,12 +818,27 @@ class LinearClient:
         priority: int = 0,
         state_id: Optional[str] = None,
         project_id: Optional[str] = None,
+        project_milestone_id: Optional[str] = None,
         label_ids: Optional[list[str]] = None,
         due_date: Optional[str] = None,
         assignee_id: Optional[str] = None,
         parent_id: Optional[str] = None,
     ) -> LinearIssue:
-        """Create a new issue."""
+        """Create a new issue.
+
+        Args:
+            title: Issue title
+            team_id: Team ID to create issue in
+            description: Issue description (markdown supported)
+            priority: Priority level (0=none, 1=urgent, 2=high, 3=medium, 4=low)
+            state_id: Workflow state ID
+            project_id: Project ID to attach issue to
+            project_milestone_id: Project milestone ID to attach issue to
+            label_ids: List of label IDs to apply
+            due_date: Due date (ISO format: YYYY-MM-DD)
+            assignee_id: User ID to assign issue to
+            parent_id: Parent issue ID (for sub-issues)
+        """
         mutation = """
         mutation CreateIssue($input: IssueCreateInput!) {
             issueCreate(input: $input) {
@@ -666,6 +859,10 @@ class LinearClient:
                         name
                     }
                     project {
+                        id
+                        name
+                    }
+                    projectMilestone {
                         id
                         name
                     }
@@ -698,6 +895,8 @@ class LinearClient:
             input_data['stateId'] = state_id
         if project_id:
             input_data['projectId'] = project_id
+        if project_milestone_id:
+            input_data['projectMilestoneId'] = project_milestone_id
         if label_ids:
             input_data['labelIds'] = label_ids
         if due_date:
