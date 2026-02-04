@@ -19,6 +19,14 @@
 | IDX Portfolio | Done | Bulk portfolio creation on IDX site |
 | Lead Management | Done | FUB to Google Sheets sync |
 
+### Recent Additions (February 2026)
+
+| Feature | Commit | Description |
+|---------|--------|-------------|
+| **Pipeline Framework** | - | `docs/PIPELINE_FRAMEWORK.md` - QUALIFY → CURATE → CLOSE → NURTURE canonical pipeline documentation |
+| **Buyer Requirements Sync** | - | `templates/buyer_requirements.md` + sync scripts for markdown ↔ database sync |
+| **Buyers Needing Work** | - | Dashboard section showing buyers with requirements but no recent property packages |
+
 ### Recent Additions (January 2026)
 
 | Feature | Commit | Description |

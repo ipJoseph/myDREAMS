@@ -3708,6 +3708,74 @@ class DREAMSDatabase:
 
             return [dict(row) for row in results]
 
+    def get_buyers_needing_property_work(self, user_id: Optional[int] = None, days_since_package: int = 7, limit: int = 10) -> List[Dict]:
+        """
+        Get buyers in CURATE phase who need property work.
+
+        These are buyers who have:
+        - Active intake forms with requirements
+        - No property packages created in the last N days
+        - Are in Active Buyer or similar stages
+
+        This powers the "Needs Property Work" section on the dashboard.
+        """
+        with self._get_connection() as conn:
+            cutoff = (datetime.now() - timedelta(days=days_since_package)).isoformat()
+
+            user_filter = ""
+            user_params = []
+            if user_id:
+                user_filter = "AND l.assigned_user_id = ?"
+                user_params = [user_id]
+
+            results = conn.execute(f'''
+                SELECT
+                    l.id,
+                    l.first_name || ' ' || COALESCE(l.last_name, '') as name,
+                    l.email,
+                    l.phone,
+                    l.stage,
+                    l.heat_score,
+                    l.priority_score,
+                    l.fub_id,
+                    i.id as intake_form_id,
+                    i.form_name,
+                    i.need_type,
+                    i.min_price,
+                    i.max_price,
+                    i.counties as preferred_counties,
+                    i.cities as preferred_cities,
+                    i.created_at as requirements_captured_at,
+                    MAX(pp.created_at) as last_package_date,
+                    COUNT(DISTINCT pp.id) as total_packages
+                FROM leads l
+                JOIN intake_forms i ON l.id = i.lead_id AND i.status = 'active'
+                LEFT JOIN property_packages pp ON l.id = pp.lead_id
+                WHERE l.stage IN ('Prospect', 'Active Client', 'Active Buyer', 'Qualified', 'Hot Lead')
+                {user_filter}
+                GROUP BY l.id, i.id
+                HAVING last_package_date IS NULL OR last_package_date < ?
+                ORDER BY l.priority_score DESC, i.created_at ASC
+                LIMIT ?
+            ''', user_params + [cutoff, limit]).fetchall()
+
+            buyers = []
+            for row in results:
+                buyer = dict(row)
+                buyer['contact_id'] = buyer['id']  # Alias for template compatibility
+                # Calculate days since last package
+                if buyer.get('last_package_date'):
+                    try:
+                        last_date = datetime.fromisoformat(buyer['last_package_date'])
+                        buyer['days_since_package'] = (datetime.now() - last_date).days
+                    except:
+                        buyer['days_since_package'] = None
+                else:
+                    buyer['days_since_package'] = None  # Never had a package
+                buyers.append(buyer)
+
+            return buyers
+
     def get_pursuit_with_properties(self, pursuit_id: str) -> Optional[Dict]:
         """
         Get a single pursuit with all its properties.

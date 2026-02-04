@@ -9,6 +9,25 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Pipeline Infrastructure & Buyer Requirements** (`docs/PIPELINE_FRAMEWORK.md`, `scripts/`, `templates/`)
+  - **QUALIFY → CURATE → CLOSE → NURTURE Pipeline Documentation**
+    - Canonical pipeline reference with phase definitions and exit criteria
+    - Google Drive folder structure conventions
+    - FUB stage mapping for each phase
+    - Database integration points
+  - **Markdown-Based Buyer Requirements** (`templates/buyer_requirements.md`)
+    - YAML frontmatter for machine-parseable sync with database
+    - Human-readable sections for agents to fill in
+    - Syncs bidirectionally with `intake_forms` table
+  - **Sync Scripts** (`scripts/sync_requirements_to_drive.py`, `scripts/sync_requirements_from_drive.py`)
+    - Export intake forms to markdown files in client folders
+    - Import markdown frontmatter back to database
+    - Preserves manual edits outside frontmatter
+  - **Dashboard Integration** - "Buyers Needing Property Work" section on home page
+    - Shows buyers with active requirements but no recent property packages
+    - Quick links to property search and workspace
+    - New database method `get_buyers_needing_property_work()`
+
 - **Linear Project Templates for Buyer Journey** (`modules/linear_sync/templates.py`)
   - **Approach D Implementation**: Each buyer journey phase becomes a project from a template
   - **Four Phase Templates**:

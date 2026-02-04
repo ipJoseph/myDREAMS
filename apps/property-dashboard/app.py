@@ -673,6 +673,10 @@ def home():
     # Buyer + property portfolio combinations
     active_pursuits = db.get_active_pursuits(limit=5)
 
+    # ===== BUYERS NEEDING PROPERTY WORK =====
+    # Buyers in CURATE phase with requirements but no recent packages
+    buyers_needing_work = db.get_buyers_needing_property_work(user_id=CURRENT_USER_ID, limit=5)
+
     # ===== LEGACY DATA (for backward compatibility) =====
     # Get property stats
     all_properties = fetch_properties()
@@ -711,6 +715,7 @@ def home():
                          hottest_leads=hottest_leads,
                          overnight=overnight,
                          active_pursuits=active_pursuits,
+                         buyers_needing_work=buyers_needing_work,
                          # Legacy data
                          property_stats=property_stats,
                          contact_stats=contact_stats,

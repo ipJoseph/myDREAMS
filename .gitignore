@@ -95,3 +95,6 @@ config/config.yaml
 .env.*
 apps/property-extension-v3.zip
 *.zip
+
+# Client files (synced from Google Drive)
+clients/
