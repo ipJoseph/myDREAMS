@@ -3968,6 +3968,121 @@ class DREAMSDatabase:
 
             return conn.execute(query, params).fetchone()[0]
 
+    def get_fub_style_lists(self, user_id: Optional[int] = None, limit: int = 50) -> Dict[str, List[Dict]]:
+        """
+        Get contacts grouped by FUB-style smartlist categories.
+
+        Categories:
+        - new_leads: Stage=Lead, created in last 7 days
+        - hot: Heat score >= 70
+        - warm: Heat score 40-69
+        - cool: Heat score 10-39
+        - unresponsive: Relationship score < 15, stage not Trash/Closed
+        - timeframe_empty: No intake form (missing requirements/timeline)
+        - priority: Top priority contacts not in above categories
+        """
+        with self._get_connection() as conn:
+            user_filter = ""
+            user_params = []
+            if user_id:
+                user_filter = "AND l.assigned_user_id = ?"
+                user_params = [user_id]
+
+            base_select = '''
+                SELECT
+                    l.id,
+                    l.first_name,
+                    l.last_name,
+                    l.phone,
+                    l.stage,
+                    l.heat_score,
+                    l.priority_score,
+                    l.relationship_score,
+                    l.fub_id,
+                    l.created_at
+                FROM leads l
+                WHERE l.stage NOT IN ('Trash', 'Closed', 'Past Client', 'DNC', 'Agents/Vendors/Lendors')
+            '''
+
+            lists = {}
+
+            # 1. New Leads (last 7 days)
+            cutoff = (datetime.now() - timedelta(days=7)).isoformat()
+            rows = conn.execute(base_select + f'''
+                AND l.stage = 'Lead'
+                AND l.created_at >= ?
+                {user_filter}
+                ORDER BY l.created_at DESC
+                LIMIT ?
+            ''', [cutoff] + user_params + [limit]).fetchall()
+            lists['new_leads'] = [dict(r) for r in rows]
+
+            # 2. Hot (heat >= 70)
+            rows = conn.execute(base_select + f'''
+                AND l.heat_score >= 70
+                {user_filter}
+                ORDER BY l.heat_score DESC
+                LIMIT ?
+            ''', user_params + [limit]).fetchall()
+            lists['hot'] = [dict(r) for r in rows]
+
+            # 3. Warm (heat 40-69)
+            rows = conn.execute(base_select + f'''
+                AND l.heat_score >= 40 AND l.heat_score < 70
+                {user_filter}
+                ORDER BY l.heat_score DESC
+                LIMIT ?
+            ''', user_params + [limit]).fetchall()
+            lists['warm'] = [dict(r) for r in rows]
+
+            # 4. Cool (heat 10-39)
+            rows = conn.execute(base_select + f'''
+                AND l.heat_score >= 10 AND l.heat_score < 40
+                {user_filter}
+                ORDER BY l.heat_score DESC
+                LIMIT ?
+            ''', user_params + [limit]).fetchall()
+            lists['cool'] = [dict(r) for r in rows]
+
+            # 5. Unresponsive (low relationship, not new)
+            rows = conn.execute(base_select + f'''
+                AND l.relationship_score < 15
+                AND l.heat_score > 5
+                AND l.created_at < ?
+                {user_filter}
+                ORDER BY l.heat_score DESC
+                LIMIT ?
+            ''', [cutoff] + user_params + [limit]).fetchall()
+            lists['unresponsive'] = [dict(r) for r in rows]
+
+            # 6. Timeframe Empty (no intake form)
+            rows = conn.execute('''
+                SELECT
+                    l.id,
+                    l.first_name,
+                    l.last_name,
+                    l.phone,
+                    l.stage,
+                    l.heat_score,
+                    l.priority_score,
+                    l.relationship_score,
+                    l.fub_id,
+                    l.created_at
+                FROM leads l
+                WHERE l.stage NOT IN ('Trash', 'Closed', 'Past Client', 'DNC', 'Agents/Vendors/Lendors')
+                AND l.heat_score >= 30
+                AND NOT EXISTS (
+                    SELECT 1 FROM intake_forms i WHERE i.lead_id = l.id AND i.status = 'active'
+                )
+            ''' + f'''
+                {user_filter}
+                ORDER BY l.priority_score DESC
+                LIMIT ?
+            ''', user_params + [limit]).fetchall()
+            lists['timeframe_empty'] = [dict(r) for r in rows]
+
+            return lists
+
     def get_pursuit_with_properties(self, pursuit_id: str) -> Optional[Dict]:
         """
         Get a single pursuit with all its properties.

@@ -754,6 +754,15 @@ def call_list():
                          counts=counts)
 
 
+@app.route('/fub-list')
+@requires_auth
+def fub_list():
+    """FUB-style call list grouped by category."""
+    db = get_db()
+    lists = db.get_fub_style_lists(user_id=CURRENT_USER_ID, limit=50)
+    return render_template('fub_list.html', lists=lists)
+
+
 @app.route('/pursuits')
 @requires_auth
 def pursuits_list():

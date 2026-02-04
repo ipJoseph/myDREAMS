@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FUB List | DREAMS</title>
+    <link rel="icon" type="image/svg+xml" href="{{ favicon }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='shared/css/dreams.css') }}">
+    <style>
+        .fub-list-page {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        .page-header {
+            margin-bottom: 32px;
+        }
+
+        .page-title {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .page-subtitle {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .list-section {
+            margin-bottom: 32px;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .section-count {
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-weight: 600;
+            padding: 2px 10px;
+            border-radius: 10px;
+        }
+
+        .section-freq {
+            font-size: 12px;
+            color: var(--text-tertiary, #9ca3af);
+            margin-left: auto;
+        }
+
+        /* Color-coded section headers */
+        .section-header.new-leads { border-bottom-color: #3b82f6; }
+        .section-header.hot { border-bottom-color: #ef4444; }
+        .section-header.warm { border-bottom-color: #f59e0b; }
+        .section-header.cool { border-bottom-color: #6366f1; }
+        .section-header.unresponsive { border-bottom-color: #6b7280; }
+        .section-header.timeframe-empty { border-bottom-color: #8b5cf6; }
+
+        .section-title.new-leads { color: #3b82f6; }
+        .section-title.hot { color: #ef4444; }
+        .section-title.warm { color: #f59e0b; }
+        .section-title.cool { color: #6366f1; }
+        .section-title.unresponsive { color: #6b7280; }
+        .section-title.timeframe-empty { color: #8b5cf6; }
+
+        /* Contact rows */
+        .contact-row {
+            display: flex;
+            align-items: center;
+            padding: 10px 12px;
+            border-radius: 6px;
+            transition: background 0.15s;
+        }
+
+        .contact-row:hover {
+            background: var(--bg-secondary);
+        }
+
+        .row-number {
+            width: 28px;
+            font-size: 13px;
+            color: var(--text-tertiary, #9ca3af);
+            font-weight: 500;
+            flex-shrink: 0;
+        }
+
+        .contact-name {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .contact-name a {
+            color: var(--text-primary);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 15px;
+        }
+
+        .contact-name a:hover {
+            color: var(--primary);
+        }
+
+        .contact-stage {
+            font-size: 11px;
+            color: var(--text-tertiary, #9ca3af);
+            margin-left: 8px;
+        }
+
+        .contact-phone {
+            flex-shrink: 0;
+            margin-left: 16px;
+        }
+
+        .contact-phone a {
+            color: var(--primary);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .contact-phone a:hover {
+            text-decoration: underline;
+        }
+
+        .contact-phone .no-phone {
+            color: var(--text-tertiary, #9ca3af);
+            font-size: 13px;
+        }
+
+        .empty-section {
+            padding: 12px;
+            color: var(--text-tertiary, #9ca3af);
+            font-size: 14px;
+            font-style: italic;
+        }
+
+        .total-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 0;
+            margin-top: 16px;
+            border-top: 2px solid var(--text-primary);
+            font-weight: 700;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="dreams-nav">
+        <div class="dreams-nav-brand">DREAMS</div>
+        <div class="dreams-nav-links">
+            <a href="/">Dashboard</a>
+            <a href="/contacts">Contacts</a>
+            <a href="/call-list">Call List</a>
+            <a href="/fub-list" class="active">FUB List</a>
+            <a href="/properties">Properties</a>
+        </div>
+        <div class="dreams-nav-user">{{ current_user_name }}</div>
+    </nav>
+
+    <div class="fub-list-page">
+        <div class="page-header">
+            <h1 class="page-title">FUB List</h1>
+            <p class="page-subtitle">Daily hygiene - call to zero</p>
+        </div>
+
+        {% set counter = namespace(n=0) %}
+        {% set total = 0 %}
+
+        {% set sections = [
+            ('new_leads', 'New Leads', 'daily', 'new-leads'),
+            ('hot', 'Hot', 'weekly', 'hot'),
+            ('warm', 'Warm', 'monthly', 'warm'),
+            ('cool', 'Cool', 'quarterly', 'cool'),
+            ('unresponsive', 'Unresponsive', 'biweekly', 'unresponsive'),
+            ('timeframe_empty', 'Timeframe Empty', 'needs intake', 'timeframe-empty'),
+        ] %}
+
+        {% for key, label, freq, css_class in sections %}
+        {% set contacts = lists.get(key, []) %}
+        <div class="list-section">
+            <div class="section-header {{ css_class }}">
+                <span class="section-title {{ css_class }}">{{ label }}</span>
+                <span class="section-count">{{ contacts|length }}</span>
+                <span class="section-freq">{{ freq }}</span>
+            </div>
+
+            {% if contacts %}
+                {% for c in contacts %}
+                {% set counter.n = counter.n + 1 %}
+                <div class="contact-row">
+                    <span class="row-number">{{ counter.n }}.</span>
+                    <span class="contact-name">
+                        <a href="/contacts/{{ c.id }}">{{ c.first_name }} {{ c.last_name }}</a>
+                        <span class="contact-stage">{{ c.stage }}</span>
+                    </span>
+                    <span class="contact-phone">
+                        {% if c.phone and c.fub_id %}
+                        <a href="https://jontharp.followupboss.com/2/people/view/{{ c.fub_id }}"
+                           target="_blank"
+                           title="Open in FUB to dial">{{ c.phone|phone }}</a>
+                        {% elif c.phone %}
+                        <span>{{ c.phone|phone }}</span>
+                        {% else %}
+                        <span class="no-phone">no phone</span>
+                        {% endif %}
+                    </span>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-section">None right now</div>
+            {% endif %}
+        </div>
+        {% endfor %}
+
+        <div class="total-bar">
+            <span>Total Contacts</span>
+            <span>{{ counter.n }}</span>
+        </div>
+    </div>
+</body>
+</html>
