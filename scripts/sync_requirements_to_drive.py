@@ -249,7 +249,12 @@ def export_intake_form(form, lead, dry_run=False):
     phase_folder = get_phase_folder(form.get('status'))
 
     output_dir = CLIENTS_DIR / phase_folder / client_folder
-    output_file = output_dir / 'requirements.md'
+
+    # Use form name or need_type to create unique filename for multiple forms
+    form_name = form.get('form_name') or form.get('need_type') or 'requirements'
+    # Sanitize filename
+    safe_name = form_name.replace(' ', '_').replace('/', '-').replace('\\', '-')
+    output_file = output_dir / f'{safe_name}.md'
 
     # Build content
     frontmatter = build_frontmatter(form, lead)

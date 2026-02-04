@@ -179,12 +179,16 @@ def import_requirements_file(conn, file_path, dry_run=False):
 
 
 def find_requirements_files(base_dir):
-    """Find all requirements.md files in the client folder structure."""
+    """Find all requirements markdown files in the client folder structure."""
     files = []
     for phase_dir in ['01_QUALIFY', '02_CURATE', '03_CLOSE', '04_NURTURE']:
         phase_path = base_dir / phase_dir
         if phase_path.exists():
-            for req_file in phase_path.glob('*/requirements.md'):
+            # Find all .md files in client folders (not just requirements.md)
+            for req_file in phase_path.glob('*/*.md'):
+                # Skip README files
+                if req_file.name.lower() == 'readme.md':
+                    continue
                 files.append(req_file)
     return files
 
