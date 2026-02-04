@@ -3776,6 +3776,198 @@ class DREAMSDatabase:
 
             return buyers
 
+    def get_call_list_contacts(self, list_type: str, user_id: Optional[int] = None, limit: int = 50) -> List[Dict]:
+        """
+        Get contacts for the call list based on list type.
+
+        List types:
+        - priority: Top priority contacts (high score, active stages)
+        - new_leads: New leads (created in last 7 days)
+        - hot: Hot leads with high heat scores
+        - follow_up: Contacts with follow-up actions due
+        - going_cold: Contacts going inactive (no activity in 14+ days)
+        """
+        with self._get_connection() as conn:
+            user_filter = ""
+            user_params = []
+            if user_id:
+                user_filter = "AND l.assigned_user_id = ?"
+                user_params = [user_id]
+
+            # Base query with intake form check
+            base_select = '''
+                SELECT
+                    l.id,
+                    l.first_name,
+                    l.last_name,
+                    l.email,
+                    l.phone,
+                    l.stage,
+                    l.source,
+                    l.heat_score,
+                    l.priority_score,
+                    l.fub_id,
+                    l.created_at,
+                    l.days_since_activity,
+                    CASE WHEN EXISTS (
+                        SELECT 1 FROM intake_forms i WHERE i.lead_id = l.id AND i.status = 'active'
+                    ) THEN 1 ELSE 0 END as has_intake
+                FROM leads l
+                WHERE l.stage NOT IN ('Trash', 'Closed', 'Past Client', 'DNC')
+            '''
+
+            if list_type == 'priority':
+                query = base_select + f'''
+                    {user_filter}
+                    ORDER BY l.priority_score DESC
+                    LIMIT ?
+                '''
+                params = user_params + [limit]
+
+            elif list_type == 'new_leads':
+                cutoff = (datetime.now() - timedelta(days=7)).isoformat()
+                query = base_select + f'''
+                    AND l.stage = 'Lead'
+                    AND l.created_at >= ?
+                    {user_filter}
+                    ORDER BY l.created_at DESC
+                    LIMIT ?
+                '''
+                params = [cutoff] + user_params + [limit]
+
+            elif list_type == 'hot':
+                query = base_select + f'''
+                    AND l.heat_score >= 30
+                    {user_filter}
+                    ORDER BY l.heat_score DESC
+                    LIMIT ?
+                '''
+                params = user_params + [limit]
+
+            elif list_type == 'follow_up':
+                today = datetime.now().strftime('%Y-%m-%d')
+                query = '''
+                    SELECT
+                        l.id,
+                        l.first_name,
+                        l.last_name,
+                        l.email,
+                        l.phone,
+                        l.stage,
+                        l.source,
+                        l.heat_score,
+                        l.priority_score,
+                        l.fub_id,
+                        l.created_at,
+                        l.days_since_activity,
+                        CASE WHEN EXISTS (
+                            SELECT 1 FROM intake_forms i WHERE i.lead_id = l.id AND i.status = 'active'
+                        ) THEN 1 ELSE 0 END as has_intake
+                    FROM leads l
+                    JOIN contact_actions ca ON l.id = ca.contact_id
+                    WHERE ca.completed_at IS NULL
+                    AND ca.due_date <= ?
+                    AND l.stage NOT IN ('Trash', 'Closed', 'Past Client', 'DNC')
+                ''' + f'''
+                    {user_filter}
+                    ORDER BY ca.due_date ASC, l.priority_score DESC
+                    LIMIT ?
+                '''
+                params = [today] + user_params + [limit]
+
+            elif list_type == 'going_cold':
+                query = base_select + f'''
+                    AND l.days_since_activity >= 14
+                    AND l.days_since_activity < 60
+                    AND l.stage IN ('Lead', 'Prospect', 'Active Buyer', 'Nurture')
+                    {user_filter}
+                    ORDER BY l.days_since_activity ASC, l.priority_score DESC
+                    LIMIT ?
+                '''
+                params = user_params + [limit]
+
+            else:
+                # Default to priority
+                query = base_select + f'''
+                    {user_filter}
+                    ORDER BY l.priority_score DESC
+                    LIMIT ?
+                '''
+                params = user_params + [limit]
+
+            results = conn.execute(query, params).fetchall()
+            return [dict(row) for row in results]
+
+    def count_call_list_contacts(self, list_type: str, user_id: Optional[int] = None) -> int:
+        """Count contacts for a call list type."""
+        with self._get_connection() as conn:
+            user_filter = ""
+            user_params = []
+            if user_id:
+                user_filter = "AND l.assigned_user_id = ?"
+                user_params = [user_id]
+
+            base_where = "l.stage NOT IN ('Trash', 'Closed', 'Past Client', 'DNC')"
+
+            if list_type == 'priority':
+                query = f'''
+                    SELECT COUNT(*) FROM leads l
+                    WHERE {base_where} {user_filter}
+                '''
+                params = user_params
+
+            elif list_type == 'new_leads':
+                cutoff = (datetime.now() - timedelta(days=7)).isoformat()
+                query = f'''
+                    SELECT COUNT(*) FROM leads l
+                    WHERE {base_where}
+                    AND l.stage = 'Lead'
+                    AND l.created_at >= ?
+                    {user_filter}
+                '''
+                params = [cutoff] + user_params
+
+            elif list_type == 'hot':
+                query = f'''
+                    SELECT COUNT(*) FROM leads l
+                    WHERE {base_where}
+                    AND l.heat_score >= 30
+                    {user_filter}
+                '''
+                params = user_params
+
+            elif list_type == 'follow_up':
+                today = datetime.now().strftime('%Y-%m-%d')
+                query = f'''
+                    SELECT COUNT(DISTINCT l.id) FROM leads l
+                    JOIN contact_actions ca ON l.id = ca.contact_id
+                    WHERE {base_where}
+                    AND ca.completed_at IS NULL
+                    AND ca.due_date <= ?
+                    {user_filter}
+                '''
+                params = [today] + user_params
+
+            elif list_type == 'going_cold':
+                query = f'''
+                    SELECT COUNT(*) FROM leads l
+                    WHERE {base_where}
+                    AND l.days_since_activity >= 14
+                    AND l.days_since_activity < 60
+                    AND l.stage IN ('Lead', 'Prospect', 'Active Buyer', 'Nurture')
+                    {user_filter}
+                '''
+                params = user_params
+
+            else:
+                query = f'''
+                    SELECT COUNT(*) FROM leads l
+                    WHERE {base_where} {user_filter}
+                '''
+                params = user_params
+
+            return conn.execute(query, params).fetchone()[0]
+
     def get_pursuit_with_properties(self, pursuit_id: str) -> Optional[Dict]:
         """
         Get a single pursuit with all its properties.

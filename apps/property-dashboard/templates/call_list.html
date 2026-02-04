@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Call List | DREAMS</title>
+    <link rel="icon" type="image/svg+xml" href="{{ favicon }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='shared/css/dreams.css') }}">
+    <style>
+        /* Call List specific styles */
+        .call-list-header {
+            background: white;
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .call-list-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .call-list-subtitle {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        /* Filter tabs */
+        .filter-tabs {
+            display: flex;
+            gap: 8px;
+            padding: 16px 24px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            flex-wrap: wrap;
+        }
+
+        .filter-tab {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+            text-decoration: none;
+            color: var(--text-secondary);
+            background: white;
+            border: 1px solid var(--border);
+            transition: all 0.2s;
+        }
+
+        .filter-tab:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .filter-tab.active {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+
+        .filter-tab .count {
+            display: inline-block;
+            background: rgba(0,0,0,0.1);
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+            margin-left: 6px;
+        }
+
+        .filter-tab.active .count {
+            background: rgba(255,255,255,0.3);
+        }
+
+        /* Contact rows */
+        .call-list-container {
+            padding: 16px 24px;
+        }
+
+        .contact-row {
+            display: grid;
+            grid-template-columns: 1fr 180px 150px 200px;
+            gap: 16px;
+            align-items: center;
+            padding: 16px 20px;
+            background: white;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            transition: all 0.2s;
+        }
+
+        .contact-row:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+            transform: translateY(-1px);
+        }
+
+        .contact-row.calling {
+            border-left: 4px solid var(--primary);
+            background: #f0f9ff;
+        }
+
+        .contact-info {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .contact-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .contact-details {
+            min-width: 0;
+        }
+
+        .contact-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .contact-name a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        .contact-name a:hover {
+            color: var(--primary);
+        }
+
+        .contact-meta {
+            font-size: 13px;
+            color: var(--text-secondary);
+            display: flex;
+            gap: 12px;
+            margin-top: 4px;
+        }
+
+        .contact-score {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .score-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .score-badge.heat {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+
+        .score-badge.priority {
+            background: #e0e7ff;
+            color: #4338ca;
+        }
+
+        .stage-badge {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+            background: #f3f4f6;
+            color: #374151;
+        }
+
+        .stage-badge.lead { background: #dbeafe; color: #1e40af; }
+        .stage-badge.prospect { background: #fef3c7; color: #92400e; }
+        .stage-badge.active-buyer { background: #d1fae5; color: #065f46; }
+        .stage-badge.nurture { background: #f3e8ff; color: #7c3aed; }
+
+        /* Intake status */
+        .intake-status {
+            text-align: center;
+        }
+
+        .intake-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .intake-badge.has-intake {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .intake-badge.no-intake {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        /* Action buttons */
+        .contact-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+
+        .action-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .action-btn.call-fub {
+            background: #4f46e5;
+            color: white;
+        }
+
+        .action-btn.call-fub:hover {
+            background: #4338ca;
+        }
+
+        .action-btn.intake {
+            background: white;
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+
+        .action-btn.intake:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .action-btn.intake.create {
+            background: #fef3c7;
+            border-color: #fbbf24;
+            color: #92400e;
+        }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            .contact-row {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+
+            .contact-actions {
+                justify-content: flex-start;
+            }
+        }
+
+        /* Intake modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            background: white;
+            z-index: 10;
+        }
+
+        .modal-title {
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            border: none;
+            background: var(--bg-secondary);
+            cursor: pointer;
+            font-size: 18px;
+        }
+
+        .modal-close:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .modal-body {
+            padding: 24px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="dreams-nav">
+        <div class="dreams-nav-brand">DREAMS</div>
+        <div class="dreams-nav-links">
+            <a href="/">Dashboard</a>
+            <a href="/contacts">Contacts</a>
+            <a href="/call-list" class="active">Call List</a>
+            <a href="/properties">Properties</a>
+        </div>
+        <div class="dreams-nav-user">{{ current_user_name }}</div>
+    </nav>
+
+    <!-- Header -->
+    <div class="call-list-header">
+        <div>
+            <h1 class="call-list-title">Call List</h1>
+            <p class="call-list-subtitle">{{ contacts|length }} contacts ready to call</p>
+        </div>
+        <div style="display: flex; gap: 12px;">
+            <a href="/contacts?view=my_leads" class="action-btn intake">All My Contacts</a>
+        </div>
+    </div>
+
+    <!-- Filter Tabs -->
+    <div class="filter-tabs">
+        <a href="?list=priority" class="filter-tab {{ 'active' if current_list == 'priority' else '' }}">
+            Priority <span class="count">{{ counts.priority or 0 }}</span>
+        </a>
+        <a href="?list=new_leads" class="filter-tab {{ 'active' if current_list == 'new_leads' else '' }}">
+            New Leads <span class="count">{{ counts.new_leads or 0 }}</span>
+        </a>
+        <a href="?list=hot" class="filter-tab {{ 'active' if current_list == 'hot' else '' }}">
+            Hot (Active) <span class="count">{{ counts.hot or 0 }}</span>
+        </a>
+        <a href="?list=follow_up" class="filter-tab {{ 'active' if current_list == 'follow_up' else '' }}">
+            Follow Up Due <span class="count">{{ counts.follow_up or 0 }}</span>
+        </a>
+        <a href="?list=going_cold" class="filter-tab {{ 'active' if current_list == 'going_cold' else '' }}">
+            Going Cold <span class="count">{{ counts.going_cold or 0 }}</span>
+        </a>
+    </div>
+
+    <!-- Contact List -->
+    <div class="call-list-container">
+        {% if contacts %}
+            {% for contact in contacts %}
+            <div class="contact-row" id="contact-{{ contact.id }}">
+                <div class="contact-info">
+                    <div class="contact-avatar">
+                        {{ (contact.first_name or '?')[0] }}{{ (contact.last_name or '')[0] }}
+                    </div>
+                    <div class="contact-details">
+                        <div class="contact-name">
+                            <a href="/contacts/{{ contact.id }}">{{ contact.first_name }} {{ contact.last_name }}</a>
+                        </div>
+                        <div class="contact-meta">
+                            {% if contact.phone %}
+                            <span>{{ contact.phone|phone }}</span>
+                            {% endif %}
+                            <span class="stage-badge {{ (contact.stage or '')|lower|replace(' ', '-') }}">
+                                {{ contact.stage or 'Unknown' }}
+                            </span>
+                            {% if contact.source %}
+                            <span>via {{ contact.source[:20] }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="contact-score">
+                    <span class="score-badge priority" title="Priority Score">
+                        P {{ "%.0f"|format(contact.priority_score or 0) }}
+                    </span>
+                    <span class="score-badge heat" title="Heat Score">
+                        H {{ "%.0f"|format(contact.heat_score or 0) }}
+                    </span>
+                </div>
+
+                <div class="intake-status">
+                    {% if contact.has_intake %}
+                    <span class="intake-badge has-intake">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                        Has Requirements
+                    </span>
+                    {% else %}
+                    <span class="intake-badge no-intake">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="12"></line>
+                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        </svg>
+                        Needs Intake
+                    </span>
+                    {% endif %}
+                </div>
+
+                <div class="contact-actions">
+                    {% if contact.fub_id %}
+                    <a href="https://jontharp.followupboss.com/2/people/view/{{ contact.fub_id }}"
+                       target="_blank"
+                       class="action-btn call-fub"
+                       onclick="markCalling('{{ contact.id }}')">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+                        </svg>
+                        Call in FUB
+                    </a>
+                    {% endif %}
+
+                    {% if contact.has_intake %}
+                    <a href="/contacts/{{ contact.id }}/workspace" class="action-btn intake">
+                        View Intake
+                    </a>
+                    {% else %}
+                    <a href="/contacts/{{ contact.id }}/workspace#intake" class="action-btn intake create">
+                        + Create Intake
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state">
+                <div class="empty-state-icon">&#128222;</div>
+                <h3>No contacts in this list</h3>
+                <p>Try a different filter or check back later</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <script>
+        // Mark row as "calling" when FUB is opened
+        function markCalling(contactId) {
+            const row = document.getElementById('contact-' + contactId);
+            if (row) {
+                row.classList.add('calling');
+            }
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            // Press 1-5 to switch tabs
+            if (e.key >= '1' && e.key <= '5' && !e.ctrlKey && !e.metaKey) {
+                const tabs = document.querySelectorAll('.filter-tab');
+                const idx = parseInt(e.key) - 1;
+                if (tabs[idx]) {
+                    tabs[idx].click();
+                }
+            }
+        });
+    </script>
+</body>
+</html>

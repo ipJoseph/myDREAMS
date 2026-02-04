@@ -727,6 +727,33 @@ def home():
                          refresh_time=datetime.now().strftime('%B %d, %Y %I:%M %p'))
 
 
+@app.route('/call-list')
+@requires_auth
+def call_list():
+    """Call List view - contacts ready to call with quick actions."""
+    db = get_db()
+
+    # Get list type from query params
+    current_list = request.args.get('list', 'priority')
+
+    # Get counts for all lists
+    counts = {
+        'priority': db.count_call_list_contacts('priority', user_id=CURRENT_USER_ID),
+        'new_leads': db.count_call_list_contacts('new_leads', user_id=CURRENT_USER_ID),
+        'hot': db.count_call_list_contacts('hot', user_id=CURRENT_USER_ID),
+        'follow_up': db.count_call_list_contacts('follow_up', user_id=CURRENT_USER_ID),
+        'going_cold': db.count_call_list_contacts('going_cold', user_id=CURRENT_USER_ID),
+    }
+
+    # Get contacts for current list
+    contacts = db.get_call_list_contacts(current_list, user_id=CURRENT_USER_ID, limit=50)
+
+    return render_template('call_list.html',
+                         contacts=contacts,
+                         current_list=current_list,
+                         counts=counts)
+
+
 @app.route('/pursuits')
 @requires_auth
 def pursuits_list():
