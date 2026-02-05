@@ -14,7 +14,7 @@ import math
 import json
 from collections import defaultdict
 from datetime import date, datetime, timezone, timedelta
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Optional, Set, Tuple, Any
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -644,11 +644,21 @@ def build_person_stats(
     calls: List[Dict],
     texts: List[Dict],
     events: List[Dict],
-    emails: List[Dict] = None
+    emails: List[Dict] = None,
+    excluded_pids: Set[str] = None
 ) -> Dict[str, Dict]:
-    """Build per-person statistics from activities"""
+    """Build per-person statistics from activities.
+
+    Args:
+        excluded_pids: Person IDs to exclude from IDX event counting.
+            These people's website visits, property views, favorites, and
+            shares will NOT be counted. Calls/texts/emails are still counted
+            since those are real interactions, not cookie-based attribution.
+    """
     logger.info("Building person statistics...")
     emails = emails or []
+    excluded_pids = excluded_pids or set()
+    excluded_event_count = 0
 
     stats = defaultdict(lambda: {
         "calls_outbound": 0,
@@ -719,7 +729,7 @@ def build_person_stats(
         elif status == "sent":
             stats[pid]["emails_sent"] += 1
 
-    # Process events
+    # Process events (with scoring guard: skip excluded people)
     for event in events:
         pid = event.get("personId")
         if not pid:
@@ -727,6 +737,11 @@ def build_person_stats(
 
         # Ensure pid is string for consistency
         pid = str(pid)
+
+        # Guard: Skip IDX events from excluded people (stale cookie prevention)
+        if pid in excluded_pids:
+            excluded_event_count += 1
+            continue
 
         # Normalize event type (FUB uses "Viewed Property" not "property_viewed")
         event_type_raw = event.get("type", "")
@@ -759,6 +774,11 @@ def build_person_stats(
             continue
 
         pid = str(pid)
+
+        # Guard: Skip excluded people
+        if pid in excluded_pids:
+            continue
+
         event_type = event.get("type", "").lower().replace(" ", "_")
 
         if event_type != "viewed_property":
@@ -804,6 +824,10 @@ def build_person_stats(
     for event in events:
         pid = event.get("personId")
         if not pid:
+            continue
+
+        # Guard: Skip excluded people
+        if str(pid) in excluded_pids:
             continue
 
         event_time = parse_datetime_safe(event.get("created"))
@@ -867,16 +891,30 @@ def build_person_stats(
         logger.info(f"=== END DEBUG ===")
 
 
+    if excluded_event_count > 0:
+        logger.info(
+            f"⛔ Excluded {excluded_event_count} events from "
+            f"{len(excluded_pids)} filtered people in person stats"
+        )
     logger.info(f"✓ Built statistics for {len(stats)} people")
     return dict(stats)
 
 
 def compute_daily_activity_stats(
     events: List[Dict],
-    people_by_id: Dict[str, Dict]
+    people_by_id: Dict[str, Dict],
+    excluded_pids: Set[str] = None,
+    person_stats: Dict[str, Dict] = None
 ) -> Dict:
-    """Compute daily activity statistics for email reporting"""
+    """Compute daily activity statistics for email reporting.
+
+    Includes scoring guards to prevent false attribution from stale cookies.
+    Events from excluded person IDs (stage/tag filter) are skipped entirely.
+    After counting, anomaly detection flags high-activity people with zero
+    inbound communication as suspicious (likely stale cookie attribution).
+    """
     logger.info("Computing daily activity statistics...")
+    excluded_pids = excluded_pids or set()
 
     today = datetime.now(timezone.utc).date()
 
@@ -886,6 +924,9 @@ def compute_daily_activity_stats(
         "properties_viewed_today": 0,
         "unique_visitors_today": set(),
         "top_active_leads": [],
+        "excluded_event_count": 0,
+        "suspicious_pids": set(),
+        "excluded_pids": excluded_pids,
     }
 
     activity_by_person = defaultdict(int)
@@ -895,14 +936,20 @@ def compute_daily_activity_stats(
         if not event_time or event_time.date() != today:
             continue
 
+        pid = event.get("personId")
+        if pid:
+            pid = str(pid)
+
+        # Guard: Skip events from excluded people (stage/tag filter)
+        if pid and pid in excluded_pids:
+            stats["excluded_event_count"] += 1
+            continue
+
         stats["total_events_today"] += 1
 
         # Normalize event type
         event_type_raw = event.get("type", "")
         event_type = event_type_raw.lower().replace(" ", "_")
-        pid = event.get("personId")
-        if pid:
-            pid = str(pid)
 
         if event_type == "visited_website":
             stats["website_visits_today"] += 1
@@ -915,9 +962,24 @@ def compute_daily_activity_stats(
         if pid:
             activity_by_person[pid] += 1
 
-    # Top 5 most active today
+    # Guard: Anomaly detection - flag suspicious attribution patterns
+    suspicious_pids = set()
+    if person_stats:
+        suspicious_pids, suspicious_reasons = detect_suspicious_attribution(
+            activity_by_person, people_by_id, person_stats
+        )
+        stats["suspicious_pids"] = suspicious_pids
+
+    # Combine all filtered person IDs
+    all_filtered = excluded_pids | suspicious_pids
+
+    # Top 5 most active today (excluding filtered people)
+    filtered_activity = {
+        pid: count for pid, count in activity_by_person.items()
+        if pid not in all_filtered
+    }
     top_active = sorted(
-        activity_by_person.items(),
+        filtered_activity.items(),
         key=lambda x: x[1],
         reverse=True
     )[:5]
@@ -930,7 +992,13 @@ def compute_daily_activity_stats(
             "activity_count": count
         })
 
-    stats["unique_visitors_today"] = len(stats["unique_visitors_today"])
+    stats["unique_visitors_today"] = len(stats["unique_visitors_today"] - all_filtered)
+
+    if stats["excluded_event_count"] > 0:
+        logger.info(
+            f"⛔ Excluded {stats['excluded_event_count']} events from "
+            f"{len(excluded_pids)} filtered people"
+        )
 
     # Get new contacts from the last 3 days (from SQLite)
     try:
@@ -1047,6 +1115,133 @@ def should_exclude_person(person: Dict, excluded_ids: set, excluded_emails: set)
                     return True
     
     return False
+
+
+# === SCORING GUARDS: False Attribution Prevention ===
+# Prevents stale RealGeeks cookies from inflating scores for opted-out contacts.
+# See: Barbara O'Hara incident (2026-02-04) - 30 false events from stale cookie.
+
+# Stages whose IDX events should not count toward scoring
+SCORING_EXCLUDED_STAGES = {"Trash"}
+
+# Tags that indicate the person should be excluded from event-based scoring
+SCORING_EXCLUDED_TAGS = {"unsubscribed", "dnc", "do not contact", "do not call"}
+
+# Minimum events/day to trigger anomaly detection
+ACTIVITY_SPIKE_THRESHOLD = 15
+
+
+def build_scoring_exclusions(
+    people_by_id: Dict[str, Dict]
+) -> Tuple[Set[str], Dict[str, str]]:
+    """
+    Build set of person IDs whose IDX events should be excluded from scoring.
+
+    Catches opted-out contacts, DNC contacts, and trashed leads whose stale
+    browser cookies may still generate false activity via RealGeeks/IDX.
+
+    Returns:
+        (excluded_ids, reasons) - set of excluded person IDs and reason mapping
+    """
+    excluded = set()
+    reasons = {}
+
+    for pid, person in people_by_id.items():
+        # Guard 1: Stage exclusion
+        stage = (person.get("stage") or "").strip()
+        if stage in SCORING_EXCLUDED_STAGES:
+            name = f"{person.get('firstName', '')} {person.get('lastName', '')}".strip()
+            excluded.add(pid)
+            reasons[pid] = f"excluded_stage:{stage}"
+            logger.info(f"  Excluding {name or pid}: stage={stage}")
+            continue
+
+        # Guard 2: Tag exclusion (case-insensitive)
+        tags = person.get("tags") or []
+        tag_names = set()
+        if isinstance(tags, list):
+            for t in tags:
+                if isinstance(t, str):
+                    tag_names.add(t.strip().lower())
+                elif isinstance(t, dict):
+                    tag_names.add((t.get("name", "") or "").strip().lower())
+        elif isinstance(tags, str):
+            tag_names = {t.strip().lower() for t in tags.split(",")}
+
+        matched = tag_names & SCORING_EXCLUDED_TAGS
+        if matched:
+            name = f"{person.get('firstName', '')} {person.get('lastName', '')}".strip()
+            excluded.add(pid)
+            reasons[pid] = f"excluded_tags:{','.join(matched)}"
+            logger.info(f"  Excluding {name or pid}: tags={','.join(matched)}")
+            continue
+
+    if excluded:
+        logger.info(f"⛔ Scoring exclusions: {len(excluded)} people excluded by stage/tags")
+    else:
+        logger.info("✓ No scoring exclusions from stage/tags")
+
+    return excluded, reasons
+
+
+def detect_suspicious_attribution(
+    activity_by_person: Dict[str, int],
+    people_by_id: Dict[str, Dict],
+    person_stats: Dict[str, Dict],
+    threshold: int = ACTIVITY_SPIKE_THRESHOLD
+) -> Tuple[Set[str], Dict[str, str]]:
+    """
+    Detect anomalous activity patterns suggesting false cookie-based attribution.
+
+    Flags people who have high event counts but ZERO inbound communication,
+    which indicates stale RealGeeks cookie attribution rather than genuine
+    engagement. Example: Barbara O'Hara had 30 property views in one day
+    attributed via stale cookie, despite having opted out a month prior.
+
+    Args:
+        activity_by_person: {pid: event_count} for today
+        people_by_id: FUB person records
+        person_stats: Per-person communication stats from build_person_stats
+        threshold: Minimum events/day to trigger anomaly check
+
+    Returns:
+        (suspicious_ids, reasons)
+    """
+    suspicious = set()
+    reasons = {}
+
+    for pid, count in activity_by_person.items():
+        if count < threshold:
+            continue
+
+        # Check for ANY inbound communication (calls, texts, emails)
+        stats = person_stats.get(pid, {})
+        has_inbound = (
+            stats.get("calls_inbound", 0) > 0
+            or stats.get("texts_inbound", 0) > 0
+            or stats.get("emails_received", 0) > 0
+        )
+
+        if not has_inbound:
+            person = people_by_id.get(pid, {})
+            name = f"{person.get('firstName', '')} {person.get('lastName', '')}".strip()
+            stage = person.get("stage", "")
+            suspicious.add(pid)
+            reasons[pid] = (
+                f"anomaly:{count}_events_zero_inbound_communication"
+            )
+            logger.warning(
+                f"⚠️ SUSPICIOUS ATTRIBUTION: {name or pid} (stage={stage}) "
+                f"has {count} events today with zero inbound communication - "
+                f"likely stale cookie attribution"
+            )
+
+    if suspicious:
+        logger.warning(
+            f"⚠️ {len(suspicious)} people flagged for suspicious activity attribution"
+        )
+
+    return suspicious, reasons
 
 
 def build_contact_rows(
@@ -1708,7 +1903,8 @@ def sync_communications_to_sqlite(
 
 def sync_events_to_sqlite(
     events: List[Dict],
-    db
+    db,
+    excluded_pids: Set[str] = None
 ) -> int:
     """
     Sync individual event records to SQLite.
@@ -1716,6 +1912,7 @@ def sync_events_to_sqlite(
     Args:
         events: List of event records from FUB
         db: DREAMSDatabase instance
+        excluded_pids: Person IDs to skip (excluded by scoring guards)
 
     Returns:
         Number of events synced
@@ -1723,6 +1920,8 @@ def sync_events_to_sqlite(
     import uuid
 
     events_synced = 0
+    events_excluded = 0
+    excluded_pids = excluded_pids or set()
 
     # Map FUB event types to our normalized types
     event_type_map = {
@@ -1740,6 +1939,11 @@ def sync_events_to_sqlite(
                 continue
 
             person_id = str(person_id)
+
+            # Guard: Skip events from excluded people (false attribution prevention)
+            if person_id in excluded_pids:
+                events_excluded += 1
+                continue
 
             # Normalize event type
             event_type_raw = event.get("type", "")
@@ -1789,6 +1993,11 @@ def sync_events_to_sqlite(
         except Exception as e:
             logger.debug(f"Error syncing event: {e}")
 
+    if events_excluded > 0:
+        logger.info(
+            f"⛔ Skipped {events_excluded} events from "
+            f"{len(excluded_pids)} excluded people"
+        )
     logger.info(f"✓ Events synced: {events_synced} events")
     return events_synced
 
@@ -2327,9 +2536,50 @@ def main():
         # Build lookups
         people_by_id = {str(p.get("id")): p for p in people if p.get("id")}
 
-        # Compute statistics
-        daily_stats = compute_daily_activity_stats(events, people_by_id)
-        person_stats = build_person_stats(calls, texts, events, emails)
+        # === SCORING GUARDS ===
+        # Guard 1 & 2: Build exclusion set from stage and tags
+        # Prevents stale cookies from inflating scores for opted-out/DNC contacts
+        scoring_excluded_pids, exclusion_reasons = build_scoring_exclusions(people_by_id)
+
+        # Compute statistics (order matters: person_stats needed for anomaly detection)
+        person_stats = build_person_stats(
+            calls, texts, events, emails,
+            excluded_pids=scoring_excluded_pids
+        )
+
+        # Guard 3 & 4: Anomaly detection runs inside compute_daily_activity_stats
+        # Flags high-activity people with zero inbound communication
+        daily_stats = compute_daily_activity_stats(
+            events, people_by_id,
+            excluded_pids=scoring_excluded_pids,
+            person_stats=person_stats
+        )
+
+        # Combine all filtered person IDs for event sync
+        suspicious_pids = daily_stats.get("suspicious_pids", set())
+        all_filtered_pids = scoring_excluded_pids | suspicious_pids
+
+        # Guard: Zero out event-based stats for suspicious people
+        # Their events were counted in build_person_stats (before anomaly detection),
+        # so we need to neutralize them to prevent inflated heat scores.
+        if suspicious_pids:
+            for pid in suspicious_pids:
+                if pid in person_stats:
+                    person = people_by_id.get(pid, {})
+                    name = f"{person.get('firstName', '')} {person.get('lastName', '')}".strip()
+                    logger.info(
+                        f"  Zeroing event stats for {name or pid} (suspicious attribution)"
+                    )
+                    person_stats[pid]["website_visits"] = 0
+                    person_stats[pid]["website_visits_last_7"] = 0
+                    person_stats[pid]["properties_viewed"] = 0
+                    person_stats[pid]["properties_viewed_last_7"] = 0
+                    person_stats[pid]["properties_favorited"] = 0
+                    person_stats[pid]["properties_shared"] = 0
+                    person_stats[pid]["repeat_property_views"] = False
+                    person_stats[pid]["recent_activity_burst"] = False
+                    person_stats[pid]["high_favorite_count"] = False
+                    person_stats[pid]["active_property_sharing"] = False
 
         # Initialize Google Sheets
         logger.info("Connecting to Google Sheets...")
@@ -2426,8 +2676,8 @@ def main():
                 # Sync individual communications (calls/texts)
                 sync_communications_to_sqlite(calls, texts, db)
 
-                # Sync individual events
-                sync_events_to_sqlite(events, db)
+                # Sync individual events (with scoring guard exclusions)
+                sync_events_to_sqlite(events, db, excluded_pids=all_filtered_pids)
 
                 # Sync scoring history (once per day per contact)
                 sync_scoring_history_to_sqlite(contact_rows, person_stats, db)
