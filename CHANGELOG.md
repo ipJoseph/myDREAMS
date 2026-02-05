@@ -9,6 +9,21 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **FUB List Dashboard Page** (`/fub-list`)
+  - Grouped call list organized by heat tier (New Leads, Hot, Warm, Cool, Unresponsive, Timeframe Empty)
+  - Click name → DREAMS contact page, click phone → FUB contact for dialing
+  - Added FUB List + Call List navigation links to all dashboard templates
+
+### Fixed
+- **Scoring Guards: False Attribution Prevention** (`fub_to_sheets_v2.py`)
+  - Fixed critical data integrity issue where stale RealGeeks cookies inflated scores for opted-out contacts
+  - Barbara O'Hara incident: 30 false property views from stale cookie showed her as #1 most active
+  - **Guard 1 - Stage filter**: Skip IDX events from Trash stage contacts
+  - **Guard 2 - Tag filter**: Skip events from Unsubscribed/DNC/Do Not Contact tagged contacts
+  - **Guard 3 - Anomaly detection**: Flag people with 15+ events/day and zero inbound communication
+  - **Guard 4 - Score neutralization**: Zero out event-based stats for suspicious attribution
+  - Guards applied across full pipeline: `build_person_stats`, `compute_daily_activity_stats`, `sync_events_to_sqlite`
+
 - **Pipeline Infrastructure & Buyer Requirements** (`docs/PIPELINE_FRAMEWORK.md`, `scripts/`, `templates/`)
   - **QUALIFY → CURATE → CLOSE → NURTURE Pipeline Documentation**
     - Canonical pipeline reference with phase definitions and exit criteria
