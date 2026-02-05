@@ -1244,6 +1244,64 @@ def detect_suspicious_attribution(
     return suspicious, reasons
 
 
+def detect_ghost_activity(
+    person_stats: Dict[str, Dict],
+    people_by_id: Dict[str, Dict],
+    min_views: int = 15
+) -> Tuple[Set[str], Dict[str, str]]:
+    """
+    Detect 'ghost' activity: high property views across the full event window
+    with ZERO inbound communication. This catches stale cookie attribution
+    that the daily anomaly check misses (e.g., events spread across multiple days).
+
+    Unlike detect_suspicious_attribution (which checks one day), this examines
+    the full person_stats accumulated from all fetched events.
+
+    Args:
+        person_stats: Per-person stats from build_person_stats (all events)
+        people_by_id: FUB person records
+        min_views: Minimum total property views to trigger the check
+
+    Returns:
+        (ghost_ids, reasons)
+    """
+    ghosts = set()
+    reasons = {}
+
+    for pid, stats in person_stats.items():
+        total_views = stats.get("properties_viewed", 0) + stats.get("website_visits", 0)
+        if total_views < min_views:
+            continue
+
+        # Check for ANY inbound communication
+        has_inbound = (
+            stats.get("calls_inbound", 0) > 0
+            or stats.get("texts_inbound", 0) > 0
+            or stats.get("emails_received", 0) > 0
+        )
+
+        if not has_inbound:
+            person = people_by_id.get(pid, {})
+            name = f"{person.get('firstName', '')} {person.get('lastName', '')}".strip()
+            stage = person.get("stage", "")
+            ghosts.add(pid)
+            reasons[pid] = (
+                f"ghost_activity:{total_views}_views_zero_inbound"
+            )
+            logger.warning(
+                f"⚠️ GHOST ACTIVITY: {name or pid} (stage={stage}) "
+                f"has {total_views} views/visits with zero inbound communication - "
+                f"likely stale cookie, not genuine engagement"
+            )
+
+    if ghosts:
+        logger.warning(
+            f"⚠️ {len(ghosts)} people flagged as ghost activity (high views, zero communication)"
+        )
+
+    return ghosts, reasons
+
+
 def build_contact_rows(
     people: List[Dict],
     person_stats: Dict[str, Dict],
@@ -2547,16 +2605,22 @@ def main():
             excluded_pids=scoring_excluded_pids
         )
 
-        # Guard 3 & 4: Anomaly detection runs inside compute_daily_activity_stats
-        # Flags high-activity people with zero inbound communication
+        # Guard 3: Ghost activity detection across full event window
+        # Catches people with high views but zero communication (like Barbara O'Hara)
+        ghost_pids, ghost_reasons = detect_ghost_activity(
+            person_stats, people_by_id
+        )
+
+        # Guard 4: Daily anomaly detection (inside compute_daily_activity_stats)
+        # Flags single-day spikes with zero inbound communication
         daily_stats = compute_daily_activity_stats(
             events, people_by_id,
-            excluded_pids=scoring_excluded_pids,
+            excluded_pids=scoring_excluded_pids | ghost_pids,
             person_stats=person_stats
         )
 
-        # Combine all filtered person IDs for event sync
-        suspicious_pids = daily_stats.get("suspicious_pids", set())
+        # Combine all filtered person IDs
+        suspicious_pids = daily_stats.get("suspicious_pids", set()) | ghost_pids
         all_filtered_pids = scoring_excluded_pids | suspicious_pids
 
         # Guard: Zero out event-based stats for suspicious people
