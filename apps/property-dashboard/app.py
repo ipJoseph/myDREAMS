@@ -758,9 +758,41 @@ def call_list():
 @requires_auth
 def fub_list():
     """FUB-style call list grouped by category."""
+    return render_template('fub_list.html')
+
+
+@app.route('/api/fub-list')
+@requires_auth
+def api_fub_list():
+    """API endpoint returning FUB list data as JSON for live refresh."""
     db = get_db()
     lists = db.get_fub_style_lists(user_id=CURRENT_USER_ID, limit=50)
-    return render_template('fub_list.html', lists=lists)
+
+    # Convert to serializable format and add totals
+    result = {}
+    total = 0
+    for key, contacts in lists.items():
+        result[key] = []
+        for c in contacts:
+            result[key].append({
+                'id': c['id'],
+                'first_name': c['first_name'],
+                'last_name': c['last_name'],
+                'phone': c.get('phone'),
+                'stage': c.get('stage'),
+                'heat_score': c.get('heat_score'),
+                'priority_score': c.get('priority_score'),
+                'relationship_score': c.get('relationship_score'),
+                'fub_id': c.get('fub_id'),
+            })
+        total += len(contacts)
+
+    return jsonify({
+        'success': True,
+        'lists': result,
+        'total': total,
+        'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+    })
 
 
 @app.route('/pursuits')

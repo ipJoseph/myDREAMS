@@ -14,6 +14,9 @@
         }
 
         .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
             margin-bottom: 32px;
         }
 
@@ -27,6 +30,44 @@
             font-size: 14px;
             color: var(--text-secondary);
             margin-top: 4px;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-shrink: 0;
+        }
+
+        .refresh-btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            border: 1px solid var(--border);
+            background: white;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .refresh-btn:hover {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+        }
+
+        .refresh-btn.loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .freshness {
+            font-size: 12px;
+            color: var(--text-tertiary, #9ca3af);
+        }
+
+        .freshness.stale {
+            color: #d97706;
         }
 
         .list-section {
@@ -160,6 +201,26 @@
             font-weight: 700;
             font-size: 16px;
         }
+
+        /* Loading skeleton */
+        .skeleton-row {
+            display: flex;
+            align-items: center;
+            padding: 10px 12px;
+            gap: 12px;
+        }
+
+        .skeleton-bar {
+            height: 16px;
+            background: var(--bg-secondary);
+            border-radius: 4px;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
     </style>
 </head>
 <body>
@@ -178,63 +239,168 @@
 
     <div class="fub-list-page">
         <div class="page-header">
-            <h1 class="page-title">FUB List</h1>
-            <p class="page-subtitle">Daily hygiene - call to zero</p>
-        </div>
-
-        {% set counter = namespace(n=0) %}
-        {% set total = 0 %}
-
-        {% set sections = [
-            ('new_leads', 'New Leads', 'daily', 'new-leads'),
-            ('hot', 'Hot', 'weekly', 'hot'),
-            ('warm', 'Warm', 'monthly', 'warm'),
-            ('cool', 'Cool', 'quarterly', 'cool'),
-            ('unresponsive', 'Unresponsive', 'biweekly', 'unresponsive'),
-            ('timeframe_empty', 'Timeframe Empty', 'needs intake', 'timeframe-empty'),
-        ] %}
-
-        {% for key, label, freq, css_class in sections %}
-        {% set contacts = lists.get(key, []) %}
-        <div class="list-section">
-            <div class="section-header {{ css_class }}">
-                <span class="section-title {{ css_class }}">{{ label }}</span>
-                <span class="section-count">{{ contacts|length }}</span>
-                <span class="section-freq">{{ freq }}</span>
+            <div>
+                <h1 class="page-title">FUB List</h1>
+                <p class="page-subtitle">Daily hygiene - call to zero</p>
             </div>
-
-            {% if contacts %}
-                {% for c in contacts %}
-                {% set counter.n = counter.n + 1 %}
-                <div class="contact-row">
-                    <span class="row-number">{{ counter.n }}.</span>
-                    <span class="contact-name">
-                        <a href="/contacts/{{ c.id }}">{{ c.first_name }} {{ c.last_name }}</a>
-                        <span class="contact-stage">{{ c.stage }}</span>
-                    </span>
-                    <span class="contact-phone">
-                        {% if c.phone and c.fub_id %}
-                        <a href="https://jontharp.followupboss.com/2/people/view/{{ c.fub_id }}"
-                           target="_blank"
-                           title="Open in FUB to dial">{{ c.phone|phone }}</a>
-                        {% elif c.phone %}
-                        <span>{{ c.phone|phone }}</span>
-                        {% else %}
-                        <span class="no-phone">no phone</span>
-                        {% endif %}
-                    </span>
-                </div>
-                {% endfor %}
-            {% else %}
-                <div class="empty-section">None right now</div>
-            {% endif %}
+            <div class="header-actions">
+                <span class="freshness" id="freshness"></span>
+                <button class="refresh-btn" id="refreshBtn" onclick="refreshList()">Refresh</button>
+            </div>
         </div>
-        {% endfor %}
 
-        <div class="total-bar">
+        <div id="list-container">
+            <!-- Loading skeleton shown on initial load -->
+            <div id="loading-skeleton">
+                <div class="list-section">
+                    <div class="section-header hot">
+                        <span class="section-title hot">Loading...</span>
+                    </div>
+                    <div class="skeleton-row"><div class="skeleton-bar" style="width:28px"></div><div class="skeleton-bar" style="flex:1"></div><div class="skeleton-bar" style="width:120px"></div></div>
+                    <div class="skeleton-row"><div class="skeleton-bar" style="width:28px"></div><div class="skeleton-bar" style="flex:1"></div><div class="skeleton-bar" style="width:120px"></div></div>
+                    <div class="skeleton-row"><div class="skeleton-bar" style="width:28px"></div><div class="skeleton-bar" style="flex:1"></div><div class="skeleton-bar" style="width:120px"></div></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="total-bar" id="total-bar" style="display:none;">
             <span>Total Contacts</span>
-            <span>{{ counter.n }}</span>
+            <span id="total-count">0</span>
         </div>
     </div>
+
+    <script>
+        const SECTIONS = [
+            { key: 'new_leads', label: 'New Leads', freq: 'daily', css: 'new-leads' },
+            { key: 'hot', label: 'Hot', freq: 'weekly', css: 'hot' },
+            { key: 'warm', label: 'Warm', freq: 'monthly', css: 'warm' },
+            { key: 'cool', label: 'Cool', freq: 'quarterly', css: 'cool' },
+            { key: 'unresponsive', label: 'Unresponsive', freq: 'biweekly', css: 'unresponsive' },
+            { key: 'timeframe_empty', label: 'Timeframe Empty', freq: 'needs intake', css: 'timeframe-empty' },
+        ];
+
+        let lastUpdated = null;
+
+        function formatPhone(value) {
+            if (!value) return null;
+            const digits = value.replace(/\D/g, '');
+            if (digits.length === 10) {
+                return `(${digits.slice(0,3)}) ${digits.slice(3,6)}-${digits.slice(6)}`;
+            }
+            return value;
+        }
+
+        function renderLists(data) {
+            const container = document.getElementById('list-container');
+            let html = '';
+            let counter = 0;
+
+            for (const section of SECTIONS) {
+                const contacts = data.lists[section.key] || [];
+                html += `<div class="list-section">`;
+                html += `<div class="section-header ${section.css}">`;
+                html += `<span class="section-title ${section.css}">${section.label}</span>`;
+                html += `<span class="section-count">${contacts.length}</span>`;
+                html += `<span class="section-freq">${section.freq}</span>`;
+                html += `</div>`;
+
+                if (contacts.length > 0) {
+                    for (const c of contacts) {
+                        counter++;
+                        const name = `${c.first_name || ''} ${c.last_name || ''}`.trim();
+                        const phone = formatPhone(c.phone);
+                        let phoneHtml;
+                        if (phone && c.fub_id) {
+                            phoneHtml = `<a href="https://jontharp.followupboss.com/2/people/view/${c.fub_id}" target="_blank" title="Open in FUB to dial">${phone}</a>`;
+                        } else if (phone) {
+                            phoneHtml = `<span>${phone}</span>`;
+                        } else {
+                            phoneHtml = `<span class="no-phone">no phone</span>`;
+                        }
+
+                        html += `<div class="contact-row">`;
+                        html += `<span class="row-number">${counter}.</span>`;
+                        html += `<span class="contact-name">`;
+                        html += `<a href="/contacts/${c.id}">${name}</a>`;
+                        html += `<span class="contact-stage">${c.stage || ''}</span>`;
+                        html += `</span>`;
+                        html += `<span class="contact-phone">${phoneHtml}</span>`;
+                        html += `</div>`;
+                    }
+                } else {
+                    html += `<div class="empty-section">None right now</div>`;
+                }
+                html += `</div>`;
+            }
+
+            container.innerHTML = html;
+            document.getElementById('total-count').textContent = counter;
+            document.getElementById('total-bar').style.display = 'flex';
+        }
+
+        function updateFreshness() {
+            const el = document.getElementById('freshness');
+            if (!lastUpdated) {
+                el.textContent = '';
+                return;
+            }
+
+            const now = new Date();
+            const diff = Math.floor((now - lastUpdated) / 1000);
+
+            if (diff < 60) {
+                el.textContent = 'Updated just now';
+                el.className = 'freshness';
+            } else if (diff < 3600) {
+                const mins = Math.floor(diff / 60);
+                el.textContent = `Updated ${mins}m ago`;
+                el.className = 'freshness' + (mins > 30 ? ' stale' : '');
+            } else {
+                const hrs = Math.floor(diff / 3600);
+                el.textContent = `Updated ${hrs}h ago`;
+                el.className = 'freshness stale';
+            }
+        }
+
+        async function refreshList() {
+            const btn = document.getElementById('refreshBtn');
+            btn.classList.add('loading');
+            btn.textContent = 'Refreshing...';
+
+            try {
+                const resp = await fetch('/api/fub-list');
+                const data = await resp.json();
+
+                if (data.success) {
+                    renderLists(data);
+                    lastUpdated = new Date();
+                    updateFreshness();
+                }
+            } catch (err) {
+                console.error('Failed to refresh FUB list:', err);
+            } finally {
+                btn.classList.remove('loading');
+                btn.textContent = 'Refresh';
+            }
+        }
+
+        // Load on page ready
+        refreshList();
+
+        // Refresh when user returns to this tab
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && lastUpdated) {
+                const staleAfterMs = 5 * 60 * 1000; // 5 minutes
+                if (Date.now() - lastUpdated.getTime() > staleAfterMs) {
+                    refreshList();
+                } else {
+                    updateFreshness();
+                }
+            }
+        });
+
+        // Update freshness indicator every 30 seconds
+        setInterval(updateFreshness, 30000);
+    </script>
 </body>
 </html>
