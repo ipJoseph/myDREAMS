@@ -3774,6 +3774,7 @@ def api_listing_detail(listing_id):
 
 
 @app.route('/photos/<path:filename>')
+@requires_auth
 def serve_photo(filename):
     """Serve MLS photos from data/photos directory."""
     photos_dir = PROJECT_ROOT / 'data' / 'photos'

@@ -23,6 +23,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Added WARNING log for development mode
 - **Hardcoded Secret Removed** (`.claude/settings.local.json`)
   - Replaced plaintext Apify API token with env var reference `$APIFY_TOKEN`
+- **CORS Restricted** (`property-api/app.py`)
+  - Replaced wildcard `*` with allowlist: dashboard + localhost (configurable via `CORS_ALLOWED_ORIGINS` env var)
+- **Photos Route Auth** (`property-dashboard/app.py`)
+  - Added `@requires_auth` to `/photos/<path:filename>` route
 
 ### Added
 - **FUB List Dashboard Page** (`/fub-list`)

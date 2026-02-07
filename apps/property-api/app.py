@@ -29,9 +29,9 @@ load_dotenv(PROJECT_ROOT / '.env')
 
 app = Flask(__name__)
 
-# Enable CORS for Chrome extension
-# Allow all origins since we're running locally - Chrome extension IDs vary
-CORS(app, resources={r"/*": {"origins": "*"}})
+# Enable CORS for Chrome extension and dashboard
+ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', 'https://app.wncmountain.homes,http://localhost:5001').split(',')
+CORS(app, resources={r"/*": {"origins": ALLOWED_ORIGINS}})
 
 # API Key Authentication
 API_KEY = os.getenv('DREAMS_API_KEY')
