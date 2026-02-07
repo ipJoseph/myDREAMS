@@ -6,6 +6,7 @@ Falls back to address search if MLS# not found.
 """
 
 import asyncio
+import json
 import threading
 import time
 import logging
@@ -260,8 +261,9 @@ class IDXValidationService:
             await page.wait_for_timeout(2000)
 
             # Try to find an exact address match in results
+            safe_address = json.dumps(address.lower())
             result = await page.evaluate(f'''() => {{
-                const searchAddress = "{address.lower()}";
+                const searchAddress = {safe_address};
 
                 // Look for property cards/links
                 const propertyLinks = document.querySelectorAll('a[href*="/property/"]');

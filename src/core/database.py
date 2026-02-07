@@ -1055,6 +1055,23 @@ class DREAMSDatabase:
             rows = conn.execute(query, params).fetchall()
             return [dict(row) for row in rows]
 
+    # Whitelist of valid column names for the leads table
+    LEADS_COLUMNS = {
+        'id', 'external_id', 'external_source', 'fub_id', 'first_name', 'last_name',
+        'email', 'phone', 'stage', 'type', 'source', 'lead_type_tags',
+        'heat_score', 'value_score', 'relationship_score', 'priority_score',
+        'min_price', 'max_price', 'min_beds', 'min_baths', 'min_sqft', 'min_acreage',
+        'preferred_cities', 'preferred_features', 'deal_breakers',
+        'requirements_confidence', 'requirements_updated_at',
+        'website_visits', 'properties_viewed', 'properties_favorited',
+        'calls_inbound', 'calls_outbound', 'texts_total', 'avg_price_viewed',
+        'days_since_activity', 'last_activity_at',
+        'intent_repeat_views', 'intent_high_favorites', 'intent_activity_burst',
+        'intent_sharing', 'intent_signal_count',
+        'next_action', 'next_action_date', 'assigned_agent', 'tags', 'notes',
+        'created_at', 'updated_at', 'last_synced_at',
+    }
+
     def upsert_contact_dict(self, data: Dict[str, Any]) -> bool:
         """Insert or update a contact/lead from a dictionary (FUB sync)."""
         with self._get_connection() as conn:
@@ -1083,6 +1100,12 @@ class DREAMSDatabase:
 
             # Filter out None values for cleaner storage
             data = {k: v for k, v in data.items() if v is not None}
+
+            # Validate column names against whitelist to prevent SQL injection
+            invalid_cols = set(data.keys()) - self.LEADS_COLUMNS
+            if invalid_cols:
+                logging.getLogger(__name__).warning(f"Rejected invalid lead columns: {invalid_cols}")
+                data = {k: v for k, v in data.items() if k in self.LEADS_COLUMNS}
 
             columns = list(data.keys())
             placeholders = ', '.join(['?' for _ in columns])
@@ -1781,6 +1804,29 @@ class DREAMSDatabase:
         else:
             return 0.4
 
+    # Whitelist of valid column names for the properties table
+    PROPERTIES_COLUMNS = {
+        'id', 'mls_number', 'mls_source', 'parcel_id', 'zillow_id', 'realtor_id',
+        'redfin_id', 'address', 'city', 'state', 'zip', 'county', 'price', 'beds',
+        'baths', 'sqft', 'acreage', 'year_built', 'property_type', 'style', 'views',
+        'water_features', 'amenities', 'status', 'days_on_market', 'list_date',
+        'initial_price', 'price_history', 'status_history', 'listing_agent_name',
+        'listing_agent_phone', 'listing_agent_email', 'listing_brokerage',
+        'hoa_fee', 'tax_assessed_value', 'tax_annual_amount', 'zestimate',
+        'rent_zestimate', 'page_views', 'favorites_count', 'heating', 'cooling',
+        'garage', 'sewer', 'roof', 'stories', 'subdivision', 'latitude', 'longitude',
+        'school_elementary_rating', 'school_middle_rating', 'school_high_rating',
+        'school_district', 'flood_zone', 'flood_zone_subtype', 'flood_factor',
+        'flood_sfha', 'elevation_feet', 'slope_percent', 'aspect', 'view_potential',
+        'wildfire_risk', 'wildfire_score', 'spatial_enriched_at', 'zillow_url',
+        'realtor_url', 'redfin_url', 'mls_url', 'idx_url', 'photo_urls',
+        'virtual_tour_url', 'source', 'notes', 'captured_by', 'added_for',
+        'added_by', 'notion_page_id', 'notion_synced_at', 'sync_status',
+        'sync_error', 'idx_mls_number', 'original_mls_number',
+        'idx_validation_status', 'idx_validated_at', 'idx_mls_source',
+        'created_at', 'updated_at', 'last_monitored_at', 'primary_photo',
+    }
+
     def upsert_property_dict(self, data: Dict[str, Any]) -> bool:
         """Insert or update a property from a dictionary."""
         with self._get_connection() as conn:
@@ -1789,6 +1835,12 @@ class DREAMSDatabase:
 
             if 'id' not in data:
                 return False
+
+            # Validate column names against whitelist to prevent SQL injection
+            invalid_cols = set(data.keys()) - self.PROPERTIES_COLUMNS
+            if invalid_cols:
+                logging.getLogger(__name__).warning(f"Rejected invalid property columns: {invalid_cols}")
+                data = {k: v for k, v in data.items() if k in self.PROPERTIES_COLUMNS}
 
             # Build upsert query
             columns = list(data.keys())

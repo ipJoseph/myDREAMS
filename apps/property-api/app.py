@@ -35,6 +35,15 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 
 # API Key Authentication
 API_KEY = os.getenv('DREAMS_API_KEY')
+DREAMS_ENV = os.getenv('DREAMS_ENV', 'dev').lower()
+
+if not API_KEY:
+    import logging as _logging
+    _auth_logger = _logging.getLogger('dreams.auth')
+    if DREAMS_ENV == 'prd':
+        _auth_logger.critical("DREAMS_API_KEY is not set! API is running WITHOUT authentication in PRODUCTION.")
+    else:
+        _auth_logger.warning("DREAMS_API_KEY is not set. API authentication is disabled (dev mode).")
 
 
 def require_api_key(f):
@@ -134,4 +143,5 @@ def index():
 if __name__ == '__main__':
     init_services()
     # Disable reloader to prevent duplicate background sync threads
-    app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False)
+    is_debug = os.getenv('FLASK_DEBUG', 'false').lower() == 'true'
+    app.run(host='0.0.0.0', port=5000, debug=is_debug, use_reloader=False)

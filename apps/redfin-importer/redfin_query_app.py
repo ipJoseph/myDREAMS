@@ -304,4 +304,5 @@ def export_csv():
 if __name__ == '__main__':
     print(f"Database: {DB_PATH}")
     print(f"Starting Redfin Query App on http://localhost:5002")
-    app.run(host='0.0.0.0', port=5002, debug=True)
+    is_debug = os.getenv('FLASK_DEBUG', 'false').lower() == 'true'
+    app.run(host='0.0.0.0', port=5002, debug=is_debug)

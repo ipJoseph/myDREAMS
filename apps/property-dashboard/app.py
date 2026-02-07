@@ -82,6 +82,12 @@ DASHBOARD_PASSWORD = os.getenv('DASHBOARD_PASSWORD')
 # Environment detection (dev/prd) - defaults to 'dev'
 DREAMS_ENV = os.getenv('DREAMS_ENV', 'dev').lower()
 
+if not DASHBOARD_USERNAME or not DASHBOARD_PASSWORD:
+    if DREAMS_ENV == 'prd':
+        logger.critical("DASHBOARD_USERNAME/PASSWORD not set! Dashboard is running WITHOUT authentication in PRODUCTION.")
+    else:
+        logger.warning("DASHBOARD_USERNAME/PASSWORD not set. Dashboard authentication is disabled (dev mode).")
+
 # Client Portfolio Password (simple key-based access)
 CLIENT_PORTFOLIO_KEY = os.getenv('CLIENT_PORTFOLIO_KEY', 'dreams2026')
 
@@ -3925,4 +3931,5 @@ def api_data_quality():
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5001, debug=True)
+    is_debug = os.getenv('FLASK_DEBUG', 'false').lower() == 'true'
+    app.run(host='0.0.0.0', port=5001, debug=is_debug)

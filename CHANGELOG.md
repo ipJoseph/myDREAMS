@@ -8,6 +8,22 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Security
+- **SQL Injection Prevention** (`src/core/database.py`)
+  - Added column whitelists (PROPERTIES_COLUMNS, LEADS_COLUMNS) to `upsert_property_dict()` and `upsert_contact_dict()`
+  - Dictionary keys from API requests are now validated against known table columns before SQL interpolation
+  - Invalid columns are logged and stripped rather than injected into queries
+- **JS Injection Fix** (`services/idx_validation_service.py`)
+  - Address values now escaped via `json.dumps()` before interpolation into `page.evaluate()` JavaScript
+- **Debug Mode Guarded** (all 4 Flask apps)
+  - Changed hardcoded `debug=True` to `os.getenv('FLASK_DEBUG')` — disabled by default
+  - Affects: property-api, property-dashboard, buyer-workflow, redfin-importer
+- **Auth Bypass Warnings** (property-api, property-dashboard)
+  - Added CRITICAL log when auth env vars are missing in production (`DREAMS_ENV=prd`)
+  - Added WARNING log for development mode
+- **Hardcoded Secret Removed** (`.claude/settings.local.json`)
+  - Replaced plaintext Apify API token with env var reference `$APIFY_TOKEN`
+
 ### Added
 - **FUB List Dashboard Page** (`/fub-list`)
   - Grouped call list organized by heat tier (New Leads, Hot, Warm, Cool, Unresponsive, Timeframe Empty)
