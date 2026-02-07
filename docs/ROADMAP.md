@@ -91,7 +91,7 @@
 - [x] Multi-dimensional scoring: Heat, Value, Relationship, Priority
 - [x] Behavioral signal processing from CRM activities (intent signals)
 - [x] Daily priority contact list generation
-- [ ] Score decay for inactive leads
+- [x] Score decay for inactive leads (6-tier decay multipliers)
 
 ### Unified Dashboard
 - [x] Contacts list view with filtering by stage/heat
@@ -102,9 +102,9 @@
 ### Buyer-Property Matching
 - [x] Contact-property relationship table (contact_properties)
 - [x] Linked properties in contact detail view
-- [ ] Weighted matching algorithm implementation
-- [ ] Stated requirements vs. behavioral preferences
-- [ ] Match score breakdown visualization
+- [x] Weighted matching algorithm (4-factor: Price 30%, Location 25%, Size 25%, Recency 20%)
+- [x] Stated requirements vs. behavioral preferences (60/40 blend)
+- [x] Match score breakdown visualization (visual bars per factor)
 
 ### Enhanced FUB Data Architecture (New - January 2026)
 | Task | Status | Notes |
@@ -135,8 +135,8 @@
 - [x] Activity timeline in dashboard (communications + events)
 - [x] Score trend tracking and visualization
 - [x] **Email tracking from FUB API** - Now fetches emails and includes in relationship scoring
-- [ ] Lead requirements extraction from CRM notes
-- [ ] Automatic note push on property matches
+- [x] Lead requirements extraction from CRM notes (regex parsing for price, beds, baths, acreage, counties, cities)
+- [x] Automatic note push on property matches (FUB API integration)
 
 ---
 
@@ -147,14 +147,14 @@
 - [x] Status change alerts (logged to SQLite)
 - [x] VPS deployment scripts (`vps_setup.sh`, `run_monitor.sh`)
 - [x] New listing alerts for buyers (matches to contact_requirements)
-- [ ] Historical price chart generation
+- [x] Historical price chart generation (Chart.js on property detail page)
 
 **Scraper Status:**
 | Source | Status | Notes |
 |--------|--------|-------|
 | Redfin | Working | Primary scraper via Playwright |
 | Zillow | Broken | Code exists, blocked in practice |
-| Realtor.com | Not Implemented | Falls back to Redfin scraper |
+| Realtor.com | Working | Dedicated scraper with __NEXT_DATA__ + DOM extraction |
 
 ### Automated Reports (January 2026)
 - [x] Daily priority call list email
@@ -163,7 +163,7 @@
 - [x] Weekly market summary (Monday 6:30 AM email with week-over-week stats)
 - [x] Monthly lead activity report (1st of month, includes trends and stage transitions)
 - [x] New listing alerts (Daily 8:00 AM digest to buyers with matching properties)
-- [ ] Customizable alert thresholds
+- [x] Customizable alert thresholds (`/admin/settings` with DB-stored thresholds)
 
 ### Automation Infrastructure (January 2026)
 | Task | Status | Notes |
@@ -186,12 +186,12 @@
 | View count tracking | Done | Count of views per property |
 | Favorited/Shared status | Done | Icons for favorites and shares |
 
-### Configuration Page (Planned)
-- [ ] Admin settings page for dashboard
+### Configuration Page
+- [x] Admin settings page for dashboard (`/admin/settings`)
 - [ ] Configurable sync intervals
 - [ ] API key management
 - [ ] User preferences storage
-- [ ] Feature toggles
+- [x] Feature toggles (toggle switches for alerts/reports)
 
 ### Package Generation
 - [x] PDF showing packages (WeasyPrint with agent branding)
@@ -215,16 +215,12 @@
 - [ ] Bulk actions interface
 - [ ] Mobile-responsive dashboard
 
-### Click-to-Call / FUB Dialer Integration (Planned)
+### Click-to-Call / FUB Dialer Integration (Done)
 Deep-link phone numbers in dashboard to FUB contact pages for dialing.
-- [ ] Add FUB person ID to contact records (already have from sync)
-- [ ] Make phone numbers clickable links: `https://app.followupboss.com/2/people/{id}`
-- [ ] Implement in contact list and contact detail views
-- [ ] Calls logged automatically in FUB timeline
-
-**Rationale**: Team prefers FUB dialer over custom VoIP. Deep linking keeps workflow unified.
-- Cost: $0 (uses existing FUB subscription)
-- Alternative considered: KDE Connect passthrough, Twilio VoIP (not needed)
+- [x] Add FUB person ID to contact records (already have from sync)
+- [x] Make phone numbers clickable links: `https://app.followupboss.com/2/people/{id}`
+- [x] Implement in contact list and contact detail views
+- [x] Calls logged automatically in FUB timeline
 
 ### Infrastructure
 - [ ] Backup automation
@@ -277,7 +273,7 @@ See: `docs/DATA_QUALITY_TRACKING.md` for full details.
 | **Low MLS# coverage (32.8%)** | High | MLS Grid integration built, awaiting API access |
 | **Low photo coverage (11.2%)** | High | Need MLS photos via API + enhanced scraping |
 | Zillow scraper blocked | Medium | Code exists but site blocks scraping |
-| Realtor.com scraper not implemented | Low | Falls back to Redfin pattern |
+| ~~Realtor.com scraper not implemented~~ | Low | Done - Dedicated scraper with __NEXT_DATA__ + DOM extraction |
 | Inconsistent error handling | Medium | Standardize patterns |
 | Missing unit tests | Medium | Add test coverage |
 
@@ -350,4 +346,4 @@ The tension between personal workflow optimization vs. building a configurable p
 ---
 
 *Roadmap maintained by Joseph & Claude*
-*Last updated: February 3, 2026 - Linear Project Templates (Approach D buyer journey phases)*
+*Last updated: February 7, 2026 - Cleaned up stale items, synced with TODO.md*
