@@ -140,6 +140,13 @@ def index():
     })
 
 
+# Start background services when running under gunicorn in production.
+# gunicorn with preload_app=True imports this module but skips __main__,
+# so we need a module-level trigger for the daemon threads.
+if DREAMS_ENV == 'prd' and __name__ != '__main__':
+    init_services()
+
+
 if __name__ == '__main__':
     init_services()
     # Disable reloader to prevent duplicate background sync threads

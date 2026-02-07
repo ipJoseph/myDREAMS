@@ -8,6 +8,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Changed
+- **Production Gunicorn Switch** - Replaced Flask development server with gunicorn for production
+  - 2 sync workers with 120s timeout for PDF/import operations
+  - `preload_app = True` ensures background threads (Notion sync, IDX validation) start once in master
+  - Services bind to `127.0.0.1` only (Caddy handles external traffic)
+  - Shared config at `deploy/gunicorn.conf.py`
+  - Deploy script now auto-copies service files and runs `daemon-reload`
+  - Local dev (`python app.py`) continues to work unchanged
+
 ### Security
 - **SQL Injection Prevention** (`src/core/database.py`)
   - Added column whitelists (PROPERTIES_COLUMNS, LEADS_COLUMNS) to `upsert_property_dict()` and `upsert_contact_dict()`

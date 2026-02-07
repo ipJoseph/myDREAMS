@@ -11,6 +11,9 @@ pyyaml>=6.0
 flask>=3.0.0
 flask-cors>=4.0.0
 
+# Production WSGI Server
+gunicorn>=22.0.0
+
 # HTTP & APIs
 requests>=2.31.0
 httpx>=0.25.0

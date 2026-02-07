@@ -9,7 +9,10 @@ Group=dreams
 WorkingDirectory=/opt/mydreams/apps/property-dashboard
 Environment="PATH=/opt/mydreams/venv/bin:/usr/local/bin:/usr/bin:/bin"
 Environment="PYTHONUNBUFFERED=1"
-ExecStart=/opt/mydreams/venv/bin/python app.py
+ExecStart=/opt/mydreams/venv/bin/gunicorn \
+    --config /opt/mydreams/deploy/gunicorn.conf.py \
+    --bind 127.0.0.1:5001 \
+    app:app
 Restart=always
 RestartSec=5
 

@@ -61,6 +61,14 @@ if git diff HEAD@{1} --name-only | grep -q "requirements.txt"; then
     deactivate
 fi
 
+# Copy systemd service files and reload if they changed
+if git diff HEAD@{1} --name-only | grep -q "deploy/systemd/"; then
+    log "Systemd service files changed, updating..."
+    sudo cp "$DEPLOY_DIR/deploy/systemd/"*.service /etc/systemd/system/
+    sudo systemctl daemon-reload
+    log "Systemd daemon reloaded"
+fi
+
 # Run any database migrations (if we add them later)
 # log "Running database migrations..."
 # source "$DEPLOY_DIR/venv/bin/activate"
@@ -73,8 +81,8 @@ if [[ "$NO_RESTART" == false ]]; then
     sudo systemctl restart mydreams-api
     sudo systemctl restart mydreams-dashboard
 
-    # Wait for services to start
-    sleep 3
+    # Wait for services to start (gunicorn workers need a moment)
+    sleep 5
 
     # Check service status
     log "Checking service status..."
