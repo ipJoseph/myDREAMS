@@ -97,11 +97,12 @@ CURRENT_USER_NAME = os.getenv('FUB_MY_USER_NAME', 'Joseph Williams')
 
 # View definitions for contact filtering
 CONTACT_VIEWS = {
-    'my_leads': {'label': 'My Leads', 'description': 'Contacts assigned to you'},
-    'team': {'label': 'Team', 'description': 'All team contacts (excl. ponds)'},
-    'ponds': {'label': 'Ponds', 'description': 'Pond contacts (Ava Cares)'},
-    'agents': {'label': 'Agents/Vendors', 'description': 'Agents, vendors, and lenders'},
-    'all': {'label': 'All Contacts', 'description': 'Everyone in the database'},
+    'my_leads':       {'label': 'My Leads',        'description': 'Your scored contacts'},
+    'brand_new':      {'label': 'Brand New',        'description': 'Brand new leads (Pond)'},
+    'hand_raised':    {'label': 'Hand Raised',      'description': 'Made inquiry — needs action (Pond)'},
+    'warm_pond':      {'label': 'Warm Pond',        'description': 'Slipped off radar (Pond)'},
+    'agents_vendors': {'label': 'Agents/Vendors',   'description': 'Agents, vendors, and lenders (Pond)'},
+    'all':            {'label': 'All Contacts',     'description': 'Everyone in the database'},
 }
 
 

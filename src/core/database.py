@@ -110,6 +110,8 @@ class DREAMSDatabase:
             ("reassigned_at", "TEXT"),                  # When lead was reassigned away from user
             ("reassigned_from_user_id", "INTEGER"),     # Previous user ID before reassignment
             ("reassigned_reason", "TEXT"),              # 'round_robin', 'transfer', 'deleted', 'unknown'
+            # Contact group: scored, brand_new, hand_raised, agents_vendors, warm_pond
+            ("contact_group", "TEXT DEFAULT 'scored'"),
         ]
 
         for col_name, col_type in new_lead_columns:
@@ -119,6 +121,15 @@ class DREAMSDatabase:
                     logger.info(f"Added column {col_name} to leads table")
                 except sqlite3.OperationalError:
                     pass  # Column already exists
+
+        # Backfill contact_group for existing data (one-time migration)
+        if 'contact_group' not in existing_cols:
+            # Order matters: agents_vendors first (most specific), then warm_pond, then scored
+            conn.execute("UPDATE leads SET contact_group = 'agents_vendors' WHERE stage = 'Agents/Vendors/Lendors'")
+            conn.execute("UPDATE leads SET contact_group = 'warm_pond' WHERE assigned_user_id = 12 AND contact_group != 'agents_vendors'")
+            conn.execute("UPDATE leads SET contact_group = 'scored' WHERE assigned_user_id = 8")
+            # Default column value handles the rest ('scored')
+            logger.info("Backfilled contact_group column for existing leads")
 
         # Apply migrations for properties table (spatial enrichment columns)
         cursor = conn.execute("PRAGMA table_info(properties)")
@@ -853,6 +864,8 @@ class DREAMSDatabase:
         CREATE INDEX IF NOT EXISTS idx_market_snapshots_county ON market_snapshots(county);
         -- System settings indexes
         CREATE INDEX IF NOT EXISTS idx_system_settings_category ON system_settings(category);
+        -- Contact group index
+        CREATE INDEX IF NOT EXISTS idx_leads_contact_group ON leads(contact_group);
         -- Assignment tracking indexes
         CREATE INDEX IF NOT EXISTS idx_leads_assigned_user ON leads(assigned_user_id);
         CREATE INDEX IF NOT EXISTS idx_leads_assigned_at ON leads(assigned_at DESC);
@@ -1122,6 +1135,13 @@ class DREAMSDatabase:
         'intent_sharing', 'intent_signal_count',
         'next_action', 'next_action_date', 'assigned_agent', 'tags', 'notes',
         'created_at', 'updated_at', 'last_synced_at',
+        # Assignment tracking (previously missing from whitelist)
+        'assigned_user_id', 'assigned_user_name', 'assigned_at',
+        # Contact group
+        'contact_group',
+        # Enhanced FUB data columns (previously missing from whitelist)
+        'properties_shared', 'emails_received', 'emails_sent',
+        'score_trend', 'heat_score_7d_avg', 'total_communications', 'total_events',
     }
 
     def upsert_contact_dict(self, data: Dict[str, Any]) -> bool:
@@ -1190,11 +1210,12 @@ class DREAMSDatabase:
         min_heat: float = 50.0,
         limit: int = 50
     ) -> List[Dict[str, Any]]:
-        """Get contacts sorted by heat score."""
+        """Get contacts sorted by heat score (scored contacts only)."""
         with self._get_connection() as conn:
             rows = conn.execute('''
                 SELECT * FROM leads
-                WHERE heat_score >= ?
+                WHERE contact_group = 'scored'
+                AND heat_score >= ?
                 ORDER BY heat_score DESC, priority_score DESC
                 LIMIT ?
             ''', (min_heat, limit)).fetchall()
@@ -1214,30 +1235,32 @@ class DREAMSDatabase:
             min_priority: Minimum priority score
             limit: Maximum contacts to return
             user_id: Filter by assigned user ID (required for 'my_leads' view)
-            view: Filter view - 'all', 'my_leads', 'ponds', 'agents', 'unassigned'
+            view: Filter view - 'all', 'my_leads', 'brand_new', 'hand_raised', 'warm_pond', 'agents_vendors'
         """
         with self._get_connection() as conn:
-            query = 'SELECT * FROM leads WHERE priority_score >= ?'
-            params = [min_priority]
+            query = 'SELECT * FROM leads WHERE 1=1'
+            params = []
+
+            # Pond views don't filter by priority
+            is_pond_view = view in ('brand_new', 'hand_raised', 'warm_pond', 'agents_vendors')
+            if not is_pond_view:
+                query += ' AND priority_score >= ?'
+                params.append(min_priority)
 
             # Apply view filter
             if view == 'my_leads' and user_id:
-                query += ' AND assigned_user_id = ?'
-                params.append(user_id)
-            elif view == 'ponds':
-                # Ponds = contacts assigned to Ava Cares (user 12) or other pond managers
-                query += ' AND assigned_user_id = 12'
-            elif view == 'agents':
-                # Agents/Vendors/Lenders stage
-                query += " AND stage = 'Agents/Vendors/Lendors'"
-            elif view == 'unassigned':
-                query += ' AND (assigned_user_id IS NULL OR assigned_user_id = 0)'
-            elif view == 'team':
-                # All team contacts except ponds and unassigned
-                query += ' AND assigned_user_id IS NOT NULL AND assigned_user_id != 12'
+                query += ' AND contact_group = ? AND assigned_user_id = ?'
+                params.extend(['scored', user_id])
+            elif view in ('brand_new', 'hand_raised', 'warm_pond', 'agents_vendors'):
+                query += ' AND contact_group = ?'
+                params.append(view)
             # 'all' = no additional filter
 
-            query += ' ORDER BY priority_score DESC LIMIT ?'
+            # Pond views sort by last activity; scored views sort by priority
+            if is_pond_view:
+                query += ' ORDER BY last_activity_at DESC LIMIT ?'
+            else:
+                query += ' ORDER BY priority_score DESC LIMIT ?'
             params.append(limit)
 
             rows = conn.execute(query, params).fetchall()
@@ -1253,7 +1276,7 @@ class DREAMSDatabase:
 
         Args:
             user_id: Filter by assigned user ID (required for 'my_leads' view)
-            view: Filter view - 'all', 'my_leads', 'ponds', 'agents', 'unassigned', 'team'
+            view: Filter view - 'all', 'my_leads', 'brand_new', 'hand_raised', 'warm_pond', 'agents_vendors'
         """
         with self._get_connection() as conn:
             # Build WHERE clause based on view
@@ -1261,16 +1284,12 @@ class DREAMSDatabase:
             params = []
 
             if view == 'my_leads' and user_id:
-                where_clause = 'assigned_user_id = ?'
-                params = [user_id]
-            elif view == 'ponds':
-                where_clause = 'assigned_user_id = 12'
-            elif view == 'agents':
-                where_clause = "stage = 'Agents/Vendors/Lendors'"
-            elif view == 'unassigned':
-                where_clause = '(assigned_user_id IS NULL OR assigned_user_id = 0)'
-            elif view == 'team':
-                where_clause = 'assigned_user_id IS NOT NULL AND assigned_user_id != 12'
+                where_clause = 'contact_group = ? AND assigned_user_id = ?'
+                params = ['scored', user_id]
+            elif view in ('brand_new', 'hand_raised', 'warm_pond', 'agents_vendors'):
+                where_clause = 'contact_group = ?'
+                params = [view]
+            # 'all' = no additional filter
 
             total = conn.execute(
                 f'SELECT COUNT(*) FROM leads WHERE {where_clause}', params
@@ -3354,32 +3373,35 @@ class DREAMSDatabase:
                 user_filter = "AND assigned_user_id = ?"
                 user_params = [user_id]
 
-            # LEADS: All contacts excluding Agents/Vendors and Trash
-            # These are all potential buyers in the funnel
+            # LEADS: Only scored contacts excluding Agents/Vendors and Trash
             leads_count = conn.execute(f'''
                 SELECT COUNT(*) FROM leads
-                WHERE (stage IS NULL OR stage NOT IN ('Agents/Vendors/Lendors', 'Trash', 'Closed'))
+                WHERE contact_group = 'scored'
+                AND (stage IS NULL OR stage NOT IN ('Agents/Vendors/Lendors', 'Trash', 'Closed'))
                 {user_filter}
             ''', user_params).fetchone()[0]
 
             leads_week_ago = conn.execute(f'''
                 SELECT COUNT(*) FROM leads
-                WHERE (stage IS NULL OR stage NOT IN ('Agents/Vendors/Lendors', 'Trash', 'Closed'))
+                WHERE contact_group = 'scored'
+                AND (stage IS NULL OR stage NOT IN ('Agents/Vendors/Lendors', 'Trash', 'Closed'))
                 AND created_at <= ?
                 {user_filter}
             ''', [week_ago] + user_params).fetchone()[0]
 
-            # BUYERS: Qualified/active leads ready to purchase
+            # BUYERS: Qualified/active scored leads ready to purchase
             buyers_count = conn.execute(f'''
                 SELECT COUNT(*) FROM leads
-                WHERE stage IN ('Active Client', 'Active Buyer', 'Hot Prospect', 'Qualified', 'Prospect')
+                WHERE contact_group = 'scored'
+                AND stage IN ('Active Client', 'Active Buyer', 'Hot Prospect', 'Qualified', 'Prospect')
                 {user_filter}
             ''', user_params).fetchone()[0]
 
             # Buyers needing intake (no requirements captured)
             buyers_need_intake = conn.execute(f'''
                 SELECT COUNT(*) FROM leads
-                WHERE stage IN ('Active Client', 'Active Buyer', 'Hot Prospect', 'Qualified', 'Prospect')
+                WHERE contact_group = 'scored'
+                AND stage IN ('Active Client', 'Active Buyer', 'Hot Prospect', 'Qualified', 'Prospect')
                 AND (min_price IS NULL OR max_price IS NULL OR preferred_cities IS NULL)
                 {user_filter}
             ''', user_params).fetchone()[0]
@@ -3609,7 +3631,8 @@ class DREAMSDatabase:
                     id, first_name, last_name, email, phone, stage,
                     heat_score, priority_score, last_activity_at, days_since_activity
                 FROM leads
-                WHERE stage IN ('Lead', 'Prospect', 'Active Client', 'Active Buyer')
+                WHERE contact_group = 'scored'
+                AND stage IN ('Lead', 'Prospect', 'Active Client', 'Active Buyer')
                 AND heat_score >= 30
                 AND (days_since_activity >= 7 OR last_activity_at IS NULL OR last_activity_at <= ?)
                 ORDER BY priority_score DESC
@@ -3643,7 +3666,8 @@ class DREAMSDatabase:
                     min_price, max_price, preferred_cities,
                     fub_id
                 FROM leads
-                WHERE heat_score > 0
+                WHERE contact_group = 'scored'
+                AND heat_score > 0
                 AND stage NOT IN ('Past Client', 'Trash', 'Agents/Vendors/Lendors')
                 {user_filter}
                 ORDER BY heat_score DESC
@@ -3855,7 +3879,8 @@ class DREAMSDatabase:
                 FROM leads l
                 JOIN intake_forms i ON l.id = i.lead_id AND i.status = 'active'
                 LEFT JOIN property_packages pp ON l.id = pp.lead_id
-                WHERE l.stage IN ('Prospect', 'Active Client', 'Active Buyer', 'Qualified', 'Hot Lead')
+                WHERE l.contact_group = 'scored'
+                AND l.stage IN ('Prospect', 'Active Client', 'Active Buyer', 'Qualified', 'Hot Lead')
                 {user_filter}
                 GROUP BY l.id, i.id
                 HAVING last_package_date IS NULL OR last_package_date < ?
@@ -3898,7 +3923,7 @@ class DREAMSDatabase:
                 user_filter = "AND l.assigned_user_id = ?"
                 user_params = [user_id]
 
-            # Base query with intake form check
+            # Base query with intake form check (scored contacts only)
             base_select = '''
                 SELECT
                     l.id,
@@ -3917,7 +3942,8 @@ class DREAMSDatabase:
                         SELECT 1 FROM intake_forms i WHERE i.lead_id = l.id AND i.status = 'active'
                     ) THEN 1 ELSE 0 END as has_intake
                 FROM leads l
-                WHERE l.stage NOT IN ('Trash', 'Closed', 'Past Client', 'DNC')
+                WHERE l.contact_group = 'scored'
+                AND l.stage NOT IN ('Trash', 'Closed', 'Past Client', 'DNC')
             '''
 
             if list_type == 'priority':
@@ -3969,7 +3995,8 @@ class DREAMSDatabase:
                         ) THEN 1 ELSE 0 END as has_intake
                     FROM leads l
                     JOIN contact_actions ca ON l.id = ca.contact_id
-                    WHERE ca.completed_at IS NULL
+                    WHERE l.contact_group = 'scored'
+                    AND ca.completed_at IS NULL
                     AND ca.due_date <= ?
                     AND l.stage NOT IN ('Trash', 'Closed', 'Past Client', 'DNC')
                 ''' + f'''
@@ -4011,7 +4038,7 @@ class DREAMSDatabase:
                 user_filter = "AND l.assigned_user_id = ?"
                 user_params = [user_id]
 
-            base_where = "l.stage NOT IN ('Trash', 'Closed', 'Past Client', 'DNC')"
+            base_where = "l.contact_group = 'scored' AND l.stage NOT IN ('Trash', 'Closed', 'Past Client', 'DNC')"
 
             if list_type == 'priority':
                 query = f'''

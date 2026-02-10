@@ -146,6 +146,7 @@ class FUBClient:
         pond_id_capped: int = None,
         pond_cap: int = 300,
         event_person_ids: set = None,
+        pond_group_map: Dict[int, str] = None,
     ) -> List[Dict]:
         """
         Fetch people from specific sources and deduplicate.
@@ -156,37 +157,41 @@ class FUBClient:
             pond_id_capped: Fetch contacts from this pond, but only the most active
             pond_cap: Max contacts to take from the capped pond (default 300)
             event_person_ids: Set of person IDs with recent website activity (used for capped pond)
+            pond_group_map: Maps pond_id → contact_group value (e.g. {4: 'brand_new', 7: 'warm_pond'})
 
         Returns:
-            Deduplicated list of people dicts
+            Deduplicated list of people dicts, each tagged with '_contact_group'
         """
+        pond_group_map = pond_group_map or {}
         seen_ids = set()
         all_people = []
 
-        def _add_people(people: List[Dict], label: str):
+        def _add_people(people: List[Dict], label: str, contact_group: str = 'scored'):
             added = 0
             for p in people:
                 pid = p.get("id")
                 if pid and pid not in seen_ids:
                     seen_ids.add(pid)
+                    p['_contact_group'] = contact_group
                     all_people.append(p)
                     added += 1
             if self.logger:
                 self.logger.info(f"  {label}: {len(people)} fetched, {added} new (total: {len(all_people)})")
 
-        # 1) Contacts assigned to user
+        # 1) Contacts assigned to user (always 'scored' — agent owns them)
         if user_id:
             people = self.fetch_collection("/people", "people", {"assignedUserId": user_id}, use_cache=False)
-            _add_people(people, f"Assigned to user {user_id}")
+            _add_people(people, f"Assigned to user {user_id}", "scored")
 
         # 2) Full ponds (fetch all)
         for pond_id in (pond_ids_all or []):
             people = self.fetch_collection("/people", "people", {"assignedPondId": pond_id}, use_cache=False)
-            _add_people(people, f"Pond {pond_id}")
+            _add_people(people, f"Pond {pond_id}", pond_group_map.get(pond_id, "scored"))
 
         # 3) Capped pond (only most active based on events)
         if pond_id_capped is not None:
             people = self.fetch_collection("/people", "people", {"assignedPondId": pond_id_capped}, use_cache=False)
+            group = pond_group_map.get(pond_id_capped, "warm_pond")
 
             if event_person_ids and len(people) > pond_cap:
                 # Split into active (has events) and inactive
@@ -202,9 +207,9 @@ class FUBClient:
                 if self.logger:
                     self.logger.info(f"  Pond {pond_id_capped} (capped): {len(people)} total, "
                                      f"{len(active)} active, taking {len(to_add)} (cap={pond_cap})")
-                _add_people(to_add, f"Pond {pond_id_capped} (capped)")
+                _add_people(to_add, f"Pond {pond_id_capped} (capped)", group)
             else:
-                _add_people(people, f"Pond {pond_id_capped}")
+                _add_people(people, f"Pond {pond_id_capped}", group)
 
         if self.logger:
             self.logger.info(f"✓ Targeted fetch complete: {len(all_people)} unique contacts")

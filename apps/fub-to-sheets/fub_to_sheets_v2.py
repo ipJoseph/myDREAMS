@@ -196,6 +196,9 @@ class Config:
     FETCH_POND_ID_CAPPED = int(os.getenv("FETCH_POND_ID_CAPPED", "7"))
     FETCH_POND_CAP = int(os.getenv("FETCH_POND_CAP", "300"))
 
+    # Pond ID → contact_group mapping (scored contacts are assigned to the user, not a pond)
+    POND_GROUP_MAP = {4: 'brand_new', 5: 'hand_raised', 16: 'agents_vendors', 7: 'warm_pond'}
+
     @classmethod
     def get_pond_ids_all(cls) -> List[int]:
         """Parse comma-separated pond IDs for full fetch"""
@@ -1058,7 +1061,8 @@ CONTACTS_HEADER = [
     "emails_sent", "heat_score", "value_score", "relationship_score",
     "priority_score",
     "intent_repeat_views", "intent_high_favorites", "intent_activity_burst", "intent_sharing",
-    "next_action", "next_action_date"
+    "next_action", "next_action_date",
+    "contact_group"
 ]
 
 def get_sheets_client():
@@ -1344,6 +1348,7 @@ def build_contact_rows(
         base = flatten_person_base(person)
         pid = person.get("id")
         pid_str = str(pid)
+        contact_group = person.get('_contact_group', 'scored')
 
         stats = person_stats.get(pid_str, {})
         saved = persisted_actions.get(pid_str, {})
@@ -1359,48 +1364,53 @@ def build_contact_rows(
         else:
             days_since = 365
 
-        # Calculate scores
-        # Build intent signals dict
-        intent_signals = {
-            "repeat_property_views": stats.get("repeat_property_views", False),
-            "high_favorite_count": stats.get("high_favorite_count", False),
-            "recent_activity_burst": stats.get("recent_activity_burst", False),
-            "active_property_sharing": stats.get("active_property_sharing", False),
-        }
+        # Only score contacts in the 'scored' group; pond contacts get zeroes
+        if contact_group == 'scored':
+            # Build intent signals dict
+            intent_signals = {
+                "repeat_property_views": stats.get("repeat_property_views", False),
+                "high_favorite_count": stats.get("high_favorite_count", False),
+                "recent_activity_burst": stats.get("recent_activity_burst", False),
+                "active_property_sharing": stats.get("active_property_sharing", False),
+            }
 
-        heat_score, _ = scorer.calculate_heat_score(
-            website_visits_7d=int(stats.get("website_visits_last_7", 0)),
-            properties_viewed_7d=int(stats.get("properties_viewed_last_7", 0)),
-            properties_favorited=int(stats.get("properties_favorited", 0)),
-            properties_shared=int(stats.get("properties_shared", 0)),
-            calls_inbound=int(stats.get("calls_inbound", 0)),
-            texts_inbound=int(stats.get("texts_inbound", 0)),
-            days_since_last_touch=days_since,
-            intent_signals=intent_signals
-        )
+            heat_score, _ = scorer.calculate_heat_score(
+                website_visits_7d=int(stats.get("website_visits_last_7", 0)),
+                properties_viewed_7d=int(stats.get("properties_viewed_last_7", 0)),
+                properties_favorited=int(stats.get("properties_favorited", 0)),
+                properties_shared=int(stats.get("properties_shared", 0)),
+                calls_inbound=int(stats.get("calls_inbound", 0)),
+                texts_inbound=int(stats.get("texts_inbound", 0)),
+                days_since_last_touch=days_since,
+                intent_signals=intent_signals
+            )
 
+            value_score, _ = scorer.calculate_value_score(
+                avg_price_viewed=float(stats.get("avg_price_viewed", 0) or 0),
+                price_std_dev=float(stats.get("price_view_std_dev", 0) or 0),
+                max_avg_price=max_avg_price
+            )
 
-        value_score, _ = scorer.calculate_value_score(
-            avg_price_viewed=float(stats.get("avg_price_viewed", 0) or 0),
-            price_std_dev=float(stats.get("price_view_std_dev", 0) or 0),
-            max_avg_price=max_avg_price
-        )
+            relationship_score, _ = scorer.calculate_relationship_score(
+                calls_inbound=int(stats.get("calls_inbound", 0)),
+                calls_outbound=int(stats.get("calls_outbound", 0)),
+                texts_inbound=int(stats.get("texts_inbound", 0)),
+                texts_total=int(stats.get("texts_total", 0)),
+                emails_received=int(stats.get("emails_received", 0)),
+                emails_sent=int(stats.get("emails_sent", 0))
+            )
 
-        relationship_score, _ = scorer.calculate_relationship_score(
-            calls_inbound=int(stats.get("calls_inbound", 0)),
-            calls_outbound=int(stats.get("calls_outbound", 0)),
-            texts_inbound=int(stats.get("texts_inbound", 0)),
-            texts_total=int(stats.get("texts_total", 0)),
-            emails_received=int(stats.get("emails_received", 0)),
-            emails_sent=int(stats.get("emails_sent", 0))
-        )
-
-        priority_score, _ = scorer.calculate_priority_score(
-            heat_score=heat_score,
-            value_score=value_score,
-            relationship_score=relationship_score,
-            stage=base.get("stage", "")
-        )
+            priority_score, _ = scorer.calculate_priority_score(
+                heat_score=heat_score,
+                value_score=value_score,
+                relationship_score=relationship_score,
+                stage=base.get("stage", "")
+            )
+        else:
+            heat_score = 0
+            value_score = 0
+            relationship_score = 0
+            priority_score = 0
 
         # Build row
         row = [
@@ -1440,6 +1450,7 @@ def build_contact_rows(
             "✓" if stats.get("active_property_sharing") else "",
             saved.get("next_action", ""),
             saved.get("next_action_date", ""),
+            contact_group,
         ]
 
         rows.append(row)
@@ -1503,7 +1514,15 @@ def build_call_list_rows(
     today = date.today()
     candidates = []
 
+    group_i = idx.get("contact_group")
+
     for row in contact_rows:
+        # Only scored contacts appear on the call list
+        if group_i is not None:
+            group = (row[group_i] or "scored").strip()
+            if group != "scored":
+                continue
+
         # Stage filter
         stage = (row[stage_i] or "").strip()
         if stage in ("Closed", "Trash"):
@@ -2097,11 +2116,19 @@ def sync_scoring_history_to_sqlite(
     idx = {name: i for i, name in enumerate(CONTACTS_HEADER)}
     scores_recorded = 0
 
+    group_i = idx.get("contact_group")
+
     for row in contact_rows:
         try:
             fub_id = str(row[idx["id"]]) if row[idx["id"]] else None
             if not fub_id:
                 continue
+
+            # Skip scoring history for pond contacts (they have zero scores)
+            if group_i is not None:
+                contact_group = (row[group_i] or "scored").strip()
+                if contact_group != "scored":
+                    continue
 
             stats = person_stats.get(fub_id, {})
 
@@ -2233,6 +2260,8 @@ def sync_to_sqlite(contact_rows: List[List], person_stats: Dict[str, Dict], user
                 # Action tracking
                 "next_action": row[idx["next_action"]] or None,
                 "next_action_date": row[idx["next_action_date"]] or None,
+                # Contact group
+                "contact_group": row[idx["contact_group"]] or "scored",
             }
 
             # Calculate days since activity
@@ -2589,6 +2618,7 @@ def main():
             pond_id_capped=Config.FETCH_POND_ID_CAPPED,
             pond_cap=Config.FETCH_POND_CAP,
             event_person_ids=event_person_ids,
+            pond_group_map=Config.POND_GROUP_MAP,
         )
 
         # Sync users to database cache

@@ -9,6 +9,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Contact Group Separation** — Scored leads vs pond watchlists are now distinct
+  - New `contact_group` column on `leads` table: `scored`, `brand_new`, `hand_raised`, `agents_vendors`, `warm_pond`
+  - Only contacts assigned to the agent are scored; pond contacts imported with zero scores
+  - Dashboard views replaced: My Leads, Brand New, Hand Raised, Warm Pond, Agents/Vendors, All
+  - Pond views sort by last activity (not priority score)
+  - Call list, hottest leads, pipeline, and going-cold all filter to scored contacts only
+  - FUB client tags `_contact_group` during fetch for proper group assignment
+  - Fixed LEADS_COLUMNS whitelist — `assigned_user_id`, `assigned_user_name`, and 7 other columns were silently stripped from every upsert
+
 - **Daily Dashboard v2** (`home_v2.html`) — Redesigned home page optimized for morning workflow
   - Overnight summary cards: new leads, price drops, status changes, going cold (with "quiet night" fallback)
   - Embedded call list with 5 tabs (Priority, New, Hot, Follow-Up, Going Cold) — no page navigation needed
