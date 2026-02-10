@@ -547,43 +547,32 @@
             background: var(--bg-secondary);
         }
 
-        /* View Switcher */
-        .view-switcher {
+        /* View Pills */
+        .view-pills {
             display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-left: 16px;
+            gap: 6px;
+            padding: 6px;
+            background: var(--bg-secondary);
+            border-radius: 10px;
+            margin: 0 var(--space-lg, 24px) 16px;
+            overflow-x: auto;
         }
-        .view-switcher-label {
+        .view-pill {
+            padding: 8px 18px;
+            border-radius: 8px;
             font-size: 13px;
-            color: var(--text-secondary);
-        }
-        .view-switcher select {
-            padding: 6px 28px 6px 12px;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            font-size: 13px;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            cursor: pointer;
-            appearance: none;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M3 4.5L6 7.5L9 4.5'/%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: right 8px center;
-        }
-        .view-switcher select:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
-        }
-        .view-badge {
-            display: inline-block;
-            background: var(--primary);
-            color: white;
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-size: 11px;
             font-weight: 600;
+            color: var(--text-secondary);
+            text-decoration: none;
+            white-space: nowrap;
+            transition: all 0.15s;
+        }
+        .view-pill:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+        .view-pill.active { background: var(--primary); color: white; }
+
+        /* Table container — taller offset for header + pills + metrics + tabs + filters */
+        .dreams-table-container {
+            max-height: calc(100vh - 480px);
         }
 
         /* Search box */
@@ -732,25 +721,20 @@
     <header class="dreams-header">
         <div>
             <h1>DREAMS Contacts</h1>
-            <div class="dreams-header-subtitle">
-                Lead Scoring & Prioritization
-                {% if current_view != 'my_leads' %}
-                <span class="view-badge">{{ contact_views[current_view].label }}</span>
-                {% endif %}
-            </div>
+            <div class="dreams-header-subtitle">Lead Scoring & Prioritization</div>
         </div>
-        <div style="display: flex; gap: 16px; align-items: center;">
-            <div class="view-switcher">
-                <span class="view-switcher-label">View:</span>
-                <select onchange="window.location.href='/contacts?view=' + this.value + '{{ '&tab=' + active_tab if active_tab else '' }}'">
-                    {% for key, view in contact_views.items() %}
-                    <option value="{{ key }}" {% if current_view == key %}selected{% endif %}>{{ view.label }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <span style="font-size: 13px; opacity: 0.8;">Last refreshed: {{ refresh_time }}</span>
-        </div>
+        <span style="font-size: 13px; opacity: 0.8;">Last refreshed: {{ refresh_time }}</span>
     </header>
+
+    <!-- View Pills -->
+    <div class="view-pills">
+        {% for key, view in contact_views.items() %}
+        <a href="/contacts?view={{ key }}{{ '&tab=' + active_tab if active_tab else '' }}"
+           class="view-pill {% if current_view == key %}active{% endif %}">
+            {{ view.label }}
+        </a>
+        {% endfor %}
+    </div>
 
     <!-- Metrics Cards -->
     <div class="dreams-metrics">
