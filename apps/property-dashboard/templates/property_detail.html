@@ -104,8 +104,8 @@
 
         .content-grid {
             display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 24px;
+            grid-template-columns: 65% 33%;
+            gap: 2%;
         }
 
         .chart-container {
@@ -134,7 +134,7 @@
             font-size: 14px;
         }
 
-        .sidebar-section {
+        .detail-panel {
             background: white;
             border-radius: 12px;
             padding: 20px;
@@ -142,7 +142,7 @@
             margin-bottom: 16px;
         }
 
-        .sidebar-section h3 {
+        .detail-panel h3 {
             margin: 0 0 16px 0;
             font-size: 14px;
             color: var(--text-secondary);
@@ -449,7 +449,7 @@
 
         <!-- Breadcrumb -->
         <div class="breadcrumb">
-            <a href="/">Properties</a>
+            <a href="/properties">Properties</a>
             <span>&rarr;</span>
             {{ property.address }}
         </div>
@@ -547,23 +547,9 @@
 
         <!-- Content Grid -->
         <div class="content-grid">
-            <div class="main-content">
-                <!-- Price History Chart -->
+            <div class="left-column">
+                <!-- Property Details (above price history) -->
                 <div class="chart-container">
-                    <h3>Price History</h3>
-                    {% if price_history and price_history|length > 1 %}
-                    <div class="chart-wrapper">
-                        <canvas id="priceChart"></canvas>
-                    </div>
-                    {% else %}
-                    <div class="no-chart-data">
-                        No price changes recorded for this property
-                    </div>
-                    {% endif %}
-                </div>
-
-                <!-- Property Details -->
-                <div class="chart-container" style="margin-top: 24px;">
                     <h3>Property Details</h3>
                     <div class="details-grid">
                         <div class="detail-item">
@@ -608,12 +594,26 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Price History Chart -->
+                <div class="chart-container" style="margin-top: 24px;">
+                    <h3>Price History</h3>
+                    {% if price_history and price_history|length > 1 %}
+                    <div class="chart-wrapper">
+                        <canvas id="priceChart"></canvas>
+                    </div>
+                    {% else %}
+                    <div class="no-chart-data">
+                        No price changes recorded for this property
+                    </div>
+                    {% endif %}
+                </div>
             </div>
 
-            <div class="sidebar">
+            <div class="right-column">
                 <!-- Location Map -->
                 {% if property.latitude and property.longitude %}
-                <div class="sidebar-section">
+                <div class="detail-panel">
                     <h3>Location</h3>
                     <div id="propertyMap" class="property-map"></div>
                 </div>
@@ -621,7 +621,7 @@
 
                 <!-- Spatial Data Section -->
                 {% if property.flood_zone or property.elevation_feet or property.wildfire_risk %}
-                <div class="sidebar-section">
+                <div class="detail-panel">
                     <h3>Property Analysis</h3>
                     <div class="spatial-grid">
                         {% if property.flood_zone %}
@@ -678,7 +678,7 @@
 
                 <!-- Price Changes -->
                 {% if changes %}
-                <div class="sidebar-section">
+                <div class="detail-panel">
                     <h3>Recent Changes</h3>
                     {% for change in changes %}
                     <div class="change-item">
@@ -706,7 +706,7 @@
                 {% endif %}
 
                 <!-- Interested Contacts -->
-                <div class="sidebar-section">
+                <div class="detail-panel">
                     <h3>Interested Contacts ({{ interested_contacts|length }})</h3>
                     {% if interested_contacts %}
                     {% for contact in interested_contacts %}
