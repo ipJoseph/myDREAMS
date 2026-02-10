@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Automation Rules | DREAMS</title>
+    <link rel="icon" type="image/svg+xml" href="{{ favicon }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='shared/css/dreams.css') }}">
+    <style>
+        .automation-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .alert {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .alert-success {
+            background: #dcfce7;
+            color: #166534;
+            border: 1px solid #86efac;
+        }
+
+        .alert-error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fca5a5;
+        }
+
+        /* Stats bar */
+        .stats-bar {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 10px;
+            padding: 16px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 4px;
+        }
+
+        /* Master switch */
+        .master-switch {
+            background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
+            color: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+
+        .master-switch h2 {
+            margin: 0;
+            font-size: 18px;
+        }
+
+        .master-switch p {
+            margin: 4px 0 0 0;
+            opacity: 0.8;
+            font-size: 13px;
+        }
+
+        /* Rule cards */
+        .rule-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            margin-bottom: 16px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+
+        .rule-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .rule-title {
+            font-weight: 600;
+            font-size: 15px;
+            color: var(--text-primary);
+        }
+
+        .rule-desc {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        .rule-body {
+            padding: 16px 20px;
+        }
+
+        .rule-settings-row {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 12px;
+        }
+
+        .rule-settings-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .rule-setting-label {
+            flex: 1;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .rule-setting-key {
+            font-family: monospace;
+            font-size: 10px;
+            color: var(--text-tertiary);
+            display: block;
+            margin-top: 2px;
+        }
+
+        /* Toggle switch */
+        .toggle-switch {
+            position: relative;
+            width: 48px;
+            height: 26px;
+            flex-shrink: 0;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #cbd5e1;
+            transition: 0.3s;
+            border-radius: 26px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .toggle-switch input:checked + .toggle-slider {
+            background-color: var(--primary);
+        }
+
+        .toggle-switch input:checked + .toggle-slider:before {
+            transform: translateX(22px);
+        }
+
+        /* Number inputs */
+        .number-input {
+            width: 80px;
+            padding: 6px 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 13px;
+            text-align: right;
+            flex-shrink: 0;
+        }
+
+        .number-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(30, 64, 175, 0.1);
+        }
+
+        .input-suffix {
+            font-size: 12px;
+            color: var(--text-secondary);
+            flex-shrink: 0;
+        }
+
+        .text-input {
+            width: 220px;
+            padding: 6px 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 13px;
+            flex-shrink: 0;
+        }
+
+        .text-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(30, 64, 175, 0.1);
+        }
+
+        /* Action buttons */
+        .actions-bar {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            margin: 24px 0;
+        }
+
+        .btn-save {
+            padding: 10px 28px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn-save:hover { background: #1e3a5f; }
+
+        /* Log table */
+        .log-section {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            overflow: hidden;
+            margin-top: 32px;
+        }
+
+        .log-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .log-header h2 {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .log-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        .log-table th {
+            background: var(--bg-secondary);
+            padding: 10px 16px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 11px;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            letter-spacing: 0.5px;
+        }
+
+        .log-table td {
+            padding: 10px 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .log-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+
+        .badge-email { background: #dbeafe; color: #1e40af; }
+        .badge-task { background: #fef3c7; color: #92400e; }
+        .badge-note { background: #f3e8ff; color: #6b21a8; }
+        .badge-success { background: #dcfce7; color: #166534; }
+        .badge-failed { background: #fee2e2; color: #991b1b; }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-secondary);
+        }
+
+        .rule-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .rule-activity_burst { background: #fef3c7; color: #92400e; }
+        .rule-going_cold { background: #dbeafe; color: #1e40af; }
+        .rule-hot_lead { background: #fee2e2; color: #991b1b; }
+        .rule-warming_lead { background: #dcfce7; color: #166534; }
+        .rule-new_lead { background: #f3e8ff; color: #6b21a8; }
+    </style>
+</head>
+<body>
+    <header class="dreams-header">
+        <div>
+            <h1>Automation Rules</h1>
+            <div class="dreams-header-subtitle">
+                Configure rules that act on behavioral signals automatically
+            </div>
+        </div>
+        <nav style="display: flex; gap: 16px; align-items: center;">
+            <a href="/" class="dreams-btn dreams-btn-secondary">Main</a>
+            <a href="/admin/settings" class="dreams-btn dreams-btn-secondary">Settings</a>
+            <a href="/contacts" class="dreams-btn dreams-btn-secondary">Contacts</a>
+        </nav>
+    </header>
+
+    <div class="automation-container">
+        {% if request.args.get('saved') %}
+        <div class="alert alert-success">
+            Automation settings saved successfully!
+        </div>
+        {% endif %}
+
+        {% if request.args.get('error') %}
+        <div class="alert alert-error">
+            Error: {{ request.args.get('error') }}
+        </div>
+        {% endif %}
+
+        <!-- Stats -->
+        <div class="stats-bar">
+            <div class="stat-card">
+                <div class="stat-value">{{ stats.total_firings }}</div>
+                <div class="stat-label">Total Firings</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ stats.last_24h }}</div>
+                <div class="stat-label">Last 24h</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ stats.succeeded }}</div>
+                <div class="stat-label">Succeeded</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ stats.failed }}</div>
+                <div class="stat-label">Failed</div>
+            </div>
+        </div>
+
+        <form method="POST" action="{{ url_for('admin_automation_save') }}">
+
+        <!-- Master Switch -->
+        <div class="master-switch">
+            <div>
+                <h2>Rules Engine</h2>
+                <p>Master switch — disables all rules when off</p>
+            </div>
+            <label class="toggle-switch">
+                <input type="checkbox" name="rules_engine_enabled"
+                       {% if settings.get('rules_engine_enabled', true) %}checked{% endif %}>
+                <span class="toggle-slider"></span>
+            </label>
+        </div>
+
+        <!-- Agent Email -->
+        <div class="rule-card">
+            <div class="rule-header">
+                <div>
+                    <div class="rule-title">Agent Notification Email</div>
+                    <div class="rule-desc">Where rule alerts are sent (falls back to AGENT_EMAIL env var)</div>
+                </div>
+            </div>
+            <div class="rule-body">
+                <div class="rule-settings-row">
+                    <div class="rule-setting-label">
+                        Email address
+                        <span class="rule-setting-key">rules_agent_email</span>
+                    </div>
+                    <input type="email" name="rules_agent_email"
+                           value="{{ settings.get('rules_agent_email', '') }}"
+                           class="text-input" placeholder="e.g. agent@example.com">
+                </div>
+            </div>
+        </div>
+
+        <!-- Activity Burst Rule -->
+        <div class="rule-card">
+            <div class="rule-header">
+                <div>
+                    <div class="rule-title">
+                        <span class="rule-badge rule-activity_burst">Activity Burst</span>
+                    </div>
+                    <div class="rule-desc">Alert when a contact has multiple events in 24 hours</div>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" name="rule_activity_burst_enabled"
+                           {% if settings.get('rule_activity_burst_enabled', true) %}checked{% endif %}>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <div class="rule-body">
+                <div class="rule-settings-row">
+                    <div class="rule-setting-label">
+                        Event threshold
+                        <span class="rule-setting-key">rule_activity_burst_threshold</span>
+                    </div>
+                    <input type="number" name="rule_activity_burst_threshold"
+                           value="{{ settings.get('rule_activity_burst_threshold', 3) }}"
+                           class="number-input" min="1" max="50">
+                    <span class="input-suffix">events/24h</span>
+                </div>
+                <div class="rule-settings-row">
+                    <div class="rule-setting-label">
+                        Cooldown period
+                        <span class="rule-setting-key">rule_activity_burst_cooldown_hours</span>
+                    </div>
+                    <input type="number" name="rule_activity_burst_cooldown_hours"
+                           value="{{ settings.get('rule_activity_burst_cooldown_hours', 24) }}"
+                           class="number-input" min="1">
+                    <span class="input-suffix">hours</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Going Cold Rule -->
+        <div class="rule-card">
+            <div class="rule-header">
+                <div>
+                    <div class="rule-title">
+                        <span class="rule-badge rule-going_cold">Going Cold</span>
+                    </div>
+                    <div class="rule-desc">Follow-up task when previously active contacts go silent</div>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" name="rule_going_cold_enabled"
+                           {% if settings.get('rule_going_cold_enabled', true) %}checked{% endif %}>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <div class="rule-body">
+                <div class="rule-settings-row">
+                    <div class="rule-setting-label">
+                        Inactivity threshold
+                        <span class="rule-setting-key">rule_going_cold_days</span>
+                    </div>
+                    <input type="number" name="rule_going_cold_days"
+                           value="{{ settings.get('rule_going_cold_days', 14) }}"
+                           class="number-input" min="1">
+                    <span class="input-suffix">days</span>
+                </div>
+                <div class="rule-settings-row">
+                    <div class="rule-setting-label">
+                        Minimum prior heat score
+                        <span class="rule-setting-key">rule_going_cold_min_heat</span>
+                    </div>
+                    <input type="number" name="rule_going_cold_min_heat"
+                           value="{{ settings.get('rule_going_cold_min_heat', 30) }}"
+                           class="number-input" min="0" max="100">
+                </div>
+                <div class="rule-settings-row">
+                    <div class="rule-setting-label">
+                        Cooldown period
+                        <span class="rule-setting-key">rule_going_cold_cooldown_hours</span>
+                    </div>
+                    <input type="number" name="rule_going_cold_cooldown_hours"
+                           value="{{ settings.get('rule_going_cold_cooldown_hours', 168) }}"
+                           class="number-input" min="1">
+                    <span class="input-suffix">hours</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Hot Lead Rule -->
+        <div class="rule-card">
+            <div class="rule-header">
+                <div>
+                    <div class="rule-title">
+                        <span class="rule-badge rule-hot_lead">Hot Lead</span>
+                    </div>
+                    <div class="rule-desc">Alert when heat score crosses threshold</div>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" name="rule_hot_lead_enabled"
+                           {% if settings.get('rule_hot_lead_enabled', true) %}checked{% endif %}>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <div class="rule-body">
+                <div class="rule-settings-row">
+                    <div class="rule-setting-label">
+                        Heat score threshold
+                        <span class="rule-setting-key">rule_hot_lead_threshold</span>
+                    </div>
+                    <input type="number" name="rule_hot_lead_threshold"
+                           value="{{ settings.get('rule_hot_lead_threshold', 70) }}"
+                           class="number-input" min="0" max="100">
+                </div>
+                <div class="rule-settings-row">
+                    <div class="rule-setting-label">
+                        Cooldown period
+                        <span class="rule-setting-key">rule_hot_lead_cooldown_hours</span>
+                    </div>
+                    <input type="number" name="rule_hot_lead_cooldown_hours"
+                           value="{{ settings.get('rule_hot_lead_cooldown_hours', 48) }}"
+                           class="number-input" min="1">
+                    <span class="input-suffix">hours</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Warming Lead Rule -->
+        <div class="rule-card">
+            <div class="rule-header">
+                <div>
+                    <div class="rule-title">
+                        <span class="rule-badge rule-warming_lead">Warming Lead</span>
+                    </div>
+                    <div class="rule-desc">Alert when a lead's trend is warming with significant delta</div>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" name="rule_warming_lead_enabled"
+                           {% if settings.get('rule_warming_lead_enabled', true) %}checked{% endif %}>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <div class="rule-body">
+                <div class="rule-settings-row">
+                    <div class="rule-setting-label">
+                        Minimum heat delta
+                        <span class="rule-setting-key">rule_warming_lead_min_delta</span>
+                    </div>
+                    <input type="number" name="rule_warming_lead_min_delta"
+                           value="{{ settings.get('rule_warming_lead_min_delta', 15) }}"
+                           class="number-input" min="1" max="100">
+                </div>
+                <div class="rule-settings-row">
+                    <div class="rule-setting-label">
+                        Cooldown period
+                        <span class="rule-setting-key">rule_warming_lead_cooldown_hours</span>
+                    </div>
+                    <input type="number" name="rule_warming_lead_cooldown_hours"
+                           value="{{ settings.get('rule_warming_lead_cooldown_hours', 48) }}"
+                           class="number-input" min="1">
+                    <span class="input-suffix">hours</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- New Lead Rule -->
+        <div class="rule-card">
+            <div class="rule-header">
+                <div>
+                    <div class="rule-title">
+                        <span class="rule-badge rule-new_lead">New Lead</span>
+                    </div>
+                    <div class="rule-desc">Create call task for newly created leads (fires once per contact)</div>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" name="rule_new_lead_enabled"
+                           {% if settings.get('rule_new_lead_enabled', true) %}checked{% endif %}>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <div class="rule-body">
+                <div class="rule-settings-row">
+                    <div class="rule-setting-label">
+                        "New" window
+                        <span class="rule-setting-key">rule_new_lead_hours</span>
+                    </div>
+                    <input type="number" name="rule_new_lead_hours"
+                           value="{{ settings.get('rule_new_lead_hours', 24) }}"
+                           class="number-input" min="1" max="168">
+                    <span class="input-suffix">hours</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Save Button -->
+        <div class="actions-bar">
+            <button type="submit" class="btn-save">Save Settings</button>
+        </div>
+
+        </form>
+
+        <!-- Recent Log -->
+        <div class="log-section">
+            <div class="log-header">
+                <h2>Recent Activity</h2>
+                <span style="font-size: 12px; color: var(--text-secondary);">Last 50 firings</span>
+            </div>
+            {% if log_entries %}
+            <table class="log-table">
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Rule</th>
+                        <th>Contact</th>
+                        <th>Action</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for entry in log_entries %}
+                    <tr>
+                        <td style="white-space: nowrap;">{{ entry.fired_at[:16] | replace('T', ' ') }}</td>
+                        <td>
+                            <span class="rule-badge rule-{{ entry.rule_name }}">
+                                {{ entry.rule_name | replace('_', ' ') }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if entry.contact_id %}
+                            <a href="/contacts/{{ entry.contact_id }}" style="color: var(--primary); text-decoration: none;">
+                                {{ entry.contact_name or entry.contact_id[:8] }}
+                            </a>
+                            {% else %}
+                            {{ entry.contact_name or '—' }}
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if entry.action_type == 'email_agent' %}
+                            <span class="badge badge-email">Email</span>
+                            {% elif entry.action_type == 'fub_task' %}
+                            <span class="badge badge-task">Task</span>
+                            {% elif entry.action_type == 'fub_note' %}
+                            <span class="badge badge-note">Note</span>
+                            {% else %}
+                            {{ entry.action_type }}
+                            {% endif %}
+                            <span style="font-size: 12px; color: var(--text-secondary); margin-left: 4px;">
+                                {{ entry.action_detail[:60] }}{% if entry.action_detail|length > 60 %}...{% endif %}
+                            </span>
+                        </td>
+                        <td>
+                            {% if entry.success %}
+                            <span class="badge badge-success">OK</span>
+                            {% else %}
+                            <span class="badge badge-failed">Failed</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state">
+                <p>No automation activity yet.</p>
+                <p style="font-size: 12px;">Rules will fire after the next sync run.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

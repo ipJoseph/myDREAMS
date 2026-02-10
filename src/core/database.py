@@ -679,6 +679,19 @@ class DREAMSDatabase:
             UNIQUE(alert_type, contact_id, property_id)
         );
 
+        -- Automation rule execution log (track rule firings with cooldowns)
+        CREATE TABLE IF NOT EXISTS automation_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            rule_name TEXT NOT NULL,
+            contact_id TEXT NOT NULL,
+            contact_name TEXT,
+            fired_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            action_type TEXT NOT NULL,      -- 'email_agent', 'fub_task', 'fub_note'
+            action_detail TEXT,             -- JSON: task name, email subject, etc.
+            cooldown_until TEXT,            -- ISO timestamp when rule can fire again
+            success INTEGER DEFAULT 1
+        );
+
         -- Market snapshots (weekly market state for trend comparison)
         CREATE TABLE IF NOT EXISTS market_snapshots (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -831,6 +844,10 @@ class DREAMSDatabase:
         CREATE INDEX IF NOT EXISTS idx_alert_log_contact ON alert_log(contact_id);
         CREATE INDEX IF NOT EXISTS idx_alert_log_property ON alert_log(property_id);
         CREATE INDEX IF NOT EXISTS idx_alert_log_sent ON alert_log(sent_at DESC);
+        -- Automation log indexes
+        CREATE INDEX IF NOT EXISTS idx_automation_log_rule_contact ON automation_log(rule_name, contact_id);
+        CREATE INDEX IF NOT EXISTS idx_automation_log_cooldown ON automation_log(rule_name, contact_id, cooldown_until);
+        CREATE INDEX IF NOT EXISTS idx_automation_log_fired ON automation_log(fired_at DESC);
         -- Market snapshots indexes
         CREATE INDEX IF NOT EXISTS idx_market_snapshots_date ON market_snapshots(snapshot_date DESC);
         CREATE INDEX IF NOT EXISTS idx_market_snapshots_county ON market_snapshots(county);
@@ -879,6 +896,41 @@ class DREAMSDatabase:
             # Integration settings
             ('fub_note_push_enabled', 'true', 'boolean', 'integrations',
              'Push matched properties as notes to FUB contacts'),
+            # Automation rules engine settings
+            ('rules_engine_enabled', 'true', 'boolean', 'automation',
+             'Master switch for the automation rules engine'),
+            ('rules_agent_email', '', 'string', 'automation',
+             'Agent email for rule alert notifications (falls back to AGENT_EMAIL env)'),
+            ('rule_activity_burst_enabled', 'true', 'boolean', 'automation',
+             'Enable activity burst detection rule'),
+            ('rule_activity_burst_threshold', '3', 'integer', 'automation',
+             'Minimum events in 24 hours to trigger activity burst'),
+            ('rule_activity_burst_cooldown_hours', '24', 'integer', 'automation',
+             'Hours before activity burst can re-fire for same contact'),
+            ('rule_going_cold_enabled', 'true', 'boolean', 'automation',
+             'Enable going cold detection rule'),
+            ('rule_going_cold_days', '14', 'integer', 'automation',
+             'Days of inactivity before triggering going cold'),
+            ('rule_going_cold_min_heat', '30', 'integer', 'automation',
+             'Minimum historical heat score to qualify as "was active"'),
+            ('rule_going_cold_cooldown_hours', '168', 'integer', 'automation',
+             'Hours before going cold can re-fire for same contact (168 = 7 days)'),
+            ('rule_hot_lead_enabled', 'true', 'boolean', 'automation',
+             'Enable hot lead threshold rule'),
+            ('rule_hot_lead_threshold', '70', 'integer', 'automation',
+             'Heat score threshold to trigger hot lead alert'),
+            ('rule_hot_lead_cooldown_hours', '48', 'integer', 'automation',
+             'Hours before hot lead can re-fire for same contact'),
+            ('rule_warming_lead_enabled', 'true', 'boolean', 'automation',
+             'Enable warming lead trend rule'),
+            ('rule_warming_lead_min_delta', '15', 'integer', 'automation',
+             'Minimum heat delta to trigger warming lead alert'),
+            ('rule_warming_lead_cooldown_hours', '48', 'integer', 'automation',
+             'Hours before warming lead can re-fire for same contact'),
+            ('rule_new_lead_enabled', 'true', 'boolean', 'automation',
+             'Enable new lead call task rule'),
+            ('rule_new_lead_hours', '24', 'integer', 'automation',
+             'Hours since creation to qualify as a "new" lead'),
         ]
 
         for key, value, value_type, category, description in default_settings:
@@ -6255,4 +6307,99 @@ class DREAMSDatabase:
             return {
                 'total_reassigned': total['count'] if total else 0,
                 'by_reason': {row['reassigned_reason']: row['count'] for row in by_reason}
+            }
+
+    # ==========================================
+    # AUTOMATION LOG OPERATIONS
+    # ==========================================
+
+    def check_automation_cooldown(self, rule_name: str, contact_id: str) -> bool:
+        """
+        Check if a rule is in cooldown for a contact.
+
+        Returns:
+            True if the rule is BLOCKED (in cooldown), False if it can fire.
+        """
+        with self._get_connection() as conn:
+            row = conn.execute('''
+                SELECT 1 FROM automation_log
+                WHERE rule_name = ? AND contact_id = ? AND cooldown_until > datetime('now')
+                LIMIT 1
+            ''', (rule_name, contact_id)).fetchone()
+            return row is not None
+
+    def log_automation_firing(
+        self,
+        rule_name: str,
+        contact_id: str,
+        contact_name: str,
+        action_type: str,
+        action_detail: str,
+        cooldown_until: str,
+        success: bool = True
+    ) -> int:
+        """Log a rule firing to the automation_log table."""
+        with self._get_connection() as conn:
+            cursor = conn.execute('''
+                INSERT INTO automation_log
+                (rule_name, contact_id, contact_name, action_type, action_detail, cooldown_until, success)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (rule_name, contact_id, contact_name, action_type, action_detail,
+                  cooldown_until, 1 if success else 0))
+            conn.commit()
+            return cursor.lastrowid
+
+    def get_automation_log(self, limit: int = 50, rule_name: str = None) -> List[Dict[str, Any]]:
+        """Get recent automation log entries."""
+        with self._get_connection() as conn:
+            if rule_name:
+                rows = conn.execute('''
+                    SELECT * FROM automation_log
+                    WHERE rule_name = ?
+                    ORDER BY fired_at DESC LIMIT ?
+                ''', (rule_name, limit)).fetchall()
+            else:
+                rows = conn.execute('''
+                    SELECT * FROM automation_log
+                    ORDER BY fired_at DESC LIMIT ?
+                ''', (limit,)).fetchall()
+            return [dict(row) for row in rows]
+
+    def get_automation_stats(self) -> Dict[str, Any]:
+        """Get automation firing statistics."""
+        with self._get_connection() as conn:
+            # Total firings
+            total = conn.execute(
+                'SELECT COUNT(*) as count FROM automation_log'
+            ).fetchone()
+
+            # Firings in last 24h
+            recent = conn.execute('''
+                SELECT COUNT(*) as count FROM automation_log
+                WHERE fired_at >= datetime('now', '-1 day')
+            ''').fetchone()
+
+            # By rule
+            by_rule = conn.execute('''
+                SELECT rule_name, COUNT(*) as count,
+                       MAX(fired_at) as last_fired
+                FROM automation_log
+                GROUP BY rule_name
+                ORDER BY count DESC
+            ''').fetchall()
+
+            # Success rate
+            success = conn.execute('''
+                SELECT
+                    SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) as succeeded,
+                    SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) as failed
+                FROM automation_log
+            ''').fetchone()
+
+            return {
+                'total_firings': total['count'] if total else 0,
+                'last_24h': recent['count'] if recent else 0,
+                'by_rule': [dict(row) for row in by_rule],
+                'succeeded': success['succeeded'] or 0 if success else 0,
+                'failed': success['failed'] or 0 if success else 0,
             }

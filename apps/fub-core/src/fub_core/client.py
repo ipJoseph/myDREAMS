@@ -286,6 +286,76 @@ class FUBClient:
                 self.logger.error(f"Unexpected error creating note for {person_id}: {e}")
             return None
 
+    def create_task(
+        self,
+        person_id: int,
+        name: str,
+        task_type: str = 'Follow Up',
+        due_date: Optional[str] = None,
+        assigned_user_id: Optional[int] = None,
+        priority: Optional[int] = None
+    ) -> Optional[Dict]:
+        """
+        Create a task for a person in Follow Up Boss.
+
+        Args:
+            person_id: FUB person ID
+            name: Task name/description
+            task_type: Task type ('Follow Up', 'Call', 'Email', 'Text', 'Meeting', 'Other')
+            due_date: Due date in YYYY-MM-DD format
+            assigned_user_id: FUB user ID to assign to
+            priority: Task priority (0=none, 1=high, 2=medium, 3=low)
+
+        Returns:
+            Created task dict on success, None on failure
+        """
+        url = f"{self.base_url}/tasks"
+        payload = {
+            "personId": int(person_id),
+            "name": name,
+            "type": task_type,
+        }
+
+        if due_date:
+            payload["dueDate"] = due_date
+        if assigned_user_id:
+            payload["assignedUserId"] = int(assigned_user_id)
+        if priority is not None:
+            payload["priority"] = priority
+
+        try:
+            if self.logger:
+                self.logger.debug(f"Creating task for person {person_id}: {name}")
+
+            response = self.session.post(url, json=payload, timeout=30)
+
+            if response.status_code == 429:
+                retry_after = response.headers.get("Retry-After", "5")
+                if self.logger:
+                    self.logger.warning(f"Rate limited creating task. Retry after {retry_after}s")
+                return None
+
+            response.raise_for_status()
+            result = response.json()
+
+            if self.logger:
+                self.logger.info(f"Created task for person {person_id}: {name}")
+
+            return result
+
+        except requests.exceptions.HTTPError as e:
+            if self.logger:
+                self.logger.error(f"HTTP error creating task for {person_id}: {e}")
+            return None
+        except requests.exceptions.RequestException as e:
+            if self.logger:
+                self.logger.error(f"Request error creating task for {person_id}: {e}")
+            return None
+        except Exception as e:
+            if self.logger:
+                self.logger.error(f"Unexpected error creating task for {person_id}: {e}")
+            return None
+
     def fetch_users(self) -> List[Dict]:
         """
         Fetch all users (team members) from Follow Up Boss.

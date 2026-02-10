@@ -8,6 +8,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+- **Automation Rules Engine** — Code-defined rules with DB-configurable thresholds that act on behavioral signals
+  - 5 initial rules: Activity Burst, Going Cold, Hot Lead, Warming Lead, New Lead
+  - Each rule evaluates conditions, checks per-contact cooldowns, and dispatches actions (email alerts, FUB tasks)
+  - `automation_log` table tracks all rule firings with cooldown enforcement
+  - CLI runner: `python -m apps.automation.run_rules` (supports `--dry-run`, `--rule`, `--verbose`)
+  - Admin UI at `/admin/automation` with per-rule toggles, threshold config, and activity log viewer
+  - `create_task()` added to `fub_core.FUBClient` for FUB task creation
+  - 18 new `system_settings` entries (category: automation) for rule configuration
+  - Navigation link added to dashboard menu
+
 ### Changed
 - **Production Gunicorn Switch** - Replaced Flask development server with gunicorn for production
   - 2 sync workers with 120s timeout for PDF/import operations

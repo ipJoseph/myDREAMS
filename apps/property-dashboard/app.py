@@ -3931,6 +3931,82 @@ def api_data_quality():
     })
 
 
+# ==========================================
+# Automation Rules Admin Routes
+# ==========================================
+
+@app.route('/admin/automation')
+@requires_auth
+def admin_automation():
+    """Automation rules configuration and log viewer."""
+    db = get_db()
+
+    # Build settings dict for template
+    all_settings = db.get_all_settings()
+    settings = {}
+    for s in all_settings:
+        settings[s['key']] = s['converted_value']
+
+    # Get automation stats and log
+    stats = db.get_automation_stats()
+    log_entries = db.get_automation_log(limit=50)
+
+    return render_template('admin_automation.html',
+                           settings=settings,
+                           stats=stats,
+                           log_entries=log_entries)
+
+
+@app.route('/admin/automation', methods=['POST'])
+@requires_auth
+def admin_automation_save():
+    """Save automation rule settings."""
+    db = get_db()
+
+    # All automation setting keys and their types
+    automation_settings = {
+        # Booleans (checkboxes)
+        'rules_engine_enabled': 'boolean',
+        'rule_activity_burst_enabled': 'boolean',
+        'rule_going_cold_enabled': 'boolean',
+        'rule_hot_lead_enabled': 'boolean',
+        'rule_warming_lead_enabled': 'boolean',
+        'rule_new_lead_enabled': 'boolean',
+        # Integers
+        'rule_activity_burst_threshold': 'integer',
+        'rule_activity_burst_cooldown_hours': 'integer',
+        'rule_going_cold_days': 'integer',
+        'rule_going_cold_min_heat': 'integer',
+        'rule_going_cold_cooldown_hours': 'integer',
+        'rule_hot_lead_threshold': 'integer',
+        'rule_hot_lead_cooldown_hours': 'integer',
+        'rule_warming_lead_min_delta': 'integer',
+        'rule_warming_lead_cooldown_hours': 'integer',
+        'rule_new_lead_hours': 'integer',
+        # Strings
+        'rules_agent_email': 'string',
+    }
+
+    try:
+        for key, value_type in automation_settings.items():
+            if value_type == 'boolean':
+                new_value = key in request.form
+            elif value_type == 'integer':
+                raw = request.form.get(key)
+                if raw is None:
+                    continue
+                new_value = int(raw)
+            else:
+                new_value = request.form.get(key, '')
+
+            db.set_setting(key, new_value, updated_by='admin')
+
+        return redirect(url_for('admin_automation') + '?saved=1')
+    except Exception as e:
+        logger.error(f"Error saving automation settings: {e}")
+        return redirect(url_for('admin_automation') + '?error=' + str(e))
+
+
 if __name__ == '__main__':
     is_debug = os.getenv('FLASK_DEBUG', 'false').lower() == 'true'
     app.run(host='0.0.0.0', port=5001, debug=is_debug)
