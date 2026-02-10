@@ -304,17 +304,15 @@
             color: var(--text-primary);
         }
     </style>
+{% set active_nav = 'contacts' %}
 </head>
 <body style="background: var(--bg-secondary);">
+    {% include 'partials/sidebar.html' %}
+    <div class="main-content">
     <div class="page-header">
         <div>
             <div class="page-title">My Leads</div>
             <div class="page-subtitle">Leads assigned to {{ user_name }} (ID: {{ user_id }})</div>
-        </div>
-        <div class="nav-links">
-            <a href="/">Dashboard</a>
-            <a href="/contacts">All Contacts</a>
-            <a href="/actions">My Actions</a>
         </div>
     </div>
 
@@ -498,5 +496,6 @@
             }
         }
     </script>
+    </div>
 </body>
 </html>

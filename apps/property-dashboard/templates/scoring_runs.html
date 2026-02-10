@@ -185,8 +185,11 @@
             margin-bottom: 16px;
         }
     </style>
+{% set active_nav = 'scoring' %}
 </head>
 <body>
+    {% include 'partials/sidebar.html' %}
+    <div class="main-content">
     <header class="dreams-header">
         <div>
             <h1>Scoring History</h1>
@@ -194,11 +197,6 @@
                 FUB sync and scoring run audit trail
             </div>
         </div>
-        <nav style="display: flex; gap: 16px; align-items: center;">
-            <a href="/" class="dreams-btn dreams-btn-secondary">Main</a>
-            <a href="/contacts" class="dreams-btn dreams-btn-secondary">Contacts</a>
-            <a href="/actions" class="dreams-btn dreams-btn-secondary">Actions</a>
-        </nav>
     </header>
 
     <div class="runs-header">
@@ -329,5 +327,6 @@
             }
         }
     </script>
+    </div>
 </body>
 </html>

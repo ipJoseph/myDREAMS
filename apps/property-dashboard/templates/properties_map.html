@@ -339,7 +339,10 @@
         }
     </style>
 </head>
+{% set active_nav = 'properties' %}
 <body>
+    {% include 'partials/sidebar.html' %}
+    <div class="main-content">
     <div class="container">
         <!-- Header -->
         <header class="header">
@@ -347,12 +350,6 @@
                 <h1>Property Map</h1>
                 <span class="env-badge {{ dreams_env }}">{{ dreams_env }}</span>
             </div>
-            <nav class="header-nav">
-                <a href="/">Home</a>
-                <a href="/properties">Properties</a>
-                <a href="/listings">Listings</a>
-                <a href="/properties/map" class="active">Map View</a>
-            </nav>
         </header>
     </div>
 
@@ -664,5 +661,6 @@
         // Initial load
         filterProperties();
     </script>
+    </div>
 </body>
 </html>

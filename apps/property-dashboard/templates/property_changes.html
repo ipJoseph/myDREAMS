@@ -251,17 +251,10 @@
         }
     </style>
 </head>
+{% set active_nav = 'properties' %}
 <body>
-    <!-- Admin Navigation -->
-    <nav class="admin-nav">
-        <a href="/">Home</a>
-        <a href="/properties">Properties</a>
-        <a href="/properties/changes" class="active">Changes</a>
-        <a href="/contacts">Contacts</a>
-        <a href="/pipeline">Pipeline</a>
-        <a href="/actions">Actions</a>
-        <a href="/admin/settings">Settings</a>
-    </nav>
+    {% include 'partials/sidebar.html' %}
+    <div class="main-content">
 
     <div class="container">
         <header class="page-header">
@@ -543,5 +536,6 @@
             window.location.href = url;
         }
     </script>
+    </div>
 </body>
 </html>

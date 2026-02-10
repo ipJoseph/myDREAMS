@@ -723,8 +723,11 @@
             color: var(--text-primary);
         }
     </style>
+    {% set active_nav = 'contacts' %}
 </head>
 <body>
+    {% include 'partials/sidebar.html' %}
+    <div class="main-content">
     <!-- Header -->
     <header class="dreams-header">
         <div>
@@ -736,7 +739,7 @@
                 {% endif %}
             </div>
         </div>
-        <nav style="display: flex; gap: 16px; align-items: center;">
+        <div style="display: flex; gap: 16px; align-items: center;">
             <div class="view-switcher">
                 <span class="view-switcher-label">View:</span>
                 <select onchange="window.location.href='/contacts?view=' + this.value + '{{ '&tab=' + active_tab if active_tab else '' }}'">
@@ -745,13 +748,8 @@
                     {% endfor %}
                 </select>
             </div>
-            <a href="/pipeline" class="dreams-btn dreams-btn-primary">Pipeline</a>
-            <a href="/" class="dreams-btn dreams-btn-secondary">Main</a>
-            <a href="/call-list" class="dreams-btn dreams-btn-secondary">Call List</a>
-            <a href="/fub-list" class="dreams-btn dreams-btn-secondary">FUB List</a>
-            <a href="/actions" class="dreams-btn dreams-btn-secondary">Actions</a>
             <span style="font-size: 13px; opacity: 0.8;">Last refreshed: {{ refresh_time }}</span>
-        </nav>
+        </div>
     </header>
 
     <!-- Metrics Cards -->
@@ -1469,5 +1467,6 @@
             });
         }
     </script>
+    </div>
 </body>
 </html>

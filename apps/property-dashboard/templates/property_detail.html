@@ -434,7 +434,10 @@
         }
     </style>
 </head>
+{% set active_nav = 'properties' %}
 <body>
+    {% include 'partials/sidebar.html' %}
+    <div class="main-content">
     <div class="dreams-container">
         <!-- Header -->
         <header class="dreams-header">
@@ -442,11 +445,6 @@
                 <h1 class="header-title">DREAMS</h1>
                 <span class="header-subtitle">Property Details</span>
             </div>
-            <nav class="header-nav">
-                <a href="/">Properties</a>
-                <a href="/contacts">Contacts</a>
-                <a href="/pipeline">Pipeline</a>
-            </nav>
         </header>
 
         <!-- Breadcrumb -->
@@ -827,5 +825,6 @@
         });
     </script>
     {% endif %}
+    </div>
 </body>
 </html>

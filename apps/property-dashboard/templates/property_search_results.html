@@ -294,7 +294,10 @@
         }
     </style>
 </head>
+{% set active_nav = 'properties' %}
 <body>
+    {% include 'partials/sidebar.html' %}
+    <div class="main-content">
     <!-- Header -->
     <header class="dreams-header">
         <div>
@@ -303,10 +306,6 @@
                 {{ contact.first_name }} {{ contact.last_name }}
             </div>
         </div>
-        <nav style="display: flex; gap: 16px; align-items: center;">
-            <a href="/contacts/{{ contact.id }}/workspace" class="dreams-btn dreams-btn-secondary">Back to Workspace</a>
-            <a href="/contacts/{{ contact.id }}/workspace?tab=requirements" class="dreams-btn dreams-btn-secondary">Edit Requirements</a>
-        </nav>
     </header>
 
     <!-- Search Criteria Summary -->
@@ -540,5 +539,6 @@
         });
         {% endif %}
     </script>
+    </div>
 </body>
 </html>

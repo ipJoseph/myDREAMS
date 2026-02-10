@@ -667,8 +667,11 @@
             color: var(--text-primary);
         }
     </style>
+{% set active_nav = 'contacts' %}
 </head>
 <body>
+    {% include 'partials/sidebar.html' %}
+    <div class="main-content">
     <!-- Header -->
     <header class="dreams-header">
         <div>
@@ -677,13 +680,6 @@
                 {{ contact.first_name }} {{ contact.last_name }}
             </div>
         </div>
-        <nav style="display: flex; gap: 16px; align-items: center;">
-            <a href="/" class="dreams-btn dreams-btn-secondary">Home</a>
-            <a href="/contacts" class="dreams-btn dreams-btn-secondary">Contacts</a>
-            <a href="/call-list" class="dreams-btn dreams-btn-secondary">Call List</a>
-            <a href="/fub-list" class="dreams-btn dreams-btn-secondary">FUB List</a>
-            <a href="/contacts/{{ contact.id }}" class="dreams-btn dreams-btn-secondary">Classic View</a>
-        </nav>
     </header>
 
     <div class="workspace-container">
@@ -1972,5 +1968,6 @@
             }
         }
     </script>
+    </div>
 </body>
 </html>

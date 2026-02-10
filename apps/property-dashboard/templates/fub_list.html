@@ -222,20 +222,11 @@
             50% { opacity: 0.4; }
         }
     </style>
+    {% set active_nav = 'deals' %}
 </head>
 <body>
-    <!-- Navigation -->
-    <nav class="dreams-nav">
-        <div class="dreams-nav-brand">DREAMS</div>
-        <div class="dreams-nav-links">
-            <a href="/">Dashboard</a>
-            <a href="/contacts">Contacts</a>
-            <a href="/call-list">Call List</a>
-            <a href="/fub-list" class="active">FUB List</a>
-            <a href="/properties">Properties</a>
-        </div>
-        <div class="dreams-nav-user">{{ current_user_name }}</div>
-    </nav>
+    {% include 'partials/sidebar.html' %}
+    <div class="main-content">
 
     <div class="fub-list-page">
         <div class="page-header">
@@ -402,5 +393,6 @@
         // Update freshness indicator every 30 seconds
         setInterval(updateFreshness, 30000);
     </script>
+    </div>
 </body>
 </html>

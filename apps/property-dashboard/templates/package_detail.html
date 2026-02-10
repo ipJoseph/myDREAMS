@@ -233,7 +233,10 @@
         }
     </style>
 </head>
+{% set active_nav = 'properties' %}
 <body>
+    {% include 'partials/sidebar.html' %}
+    <div class="main-content">
     <!-- Header -->
     <header class="dreams-header">
         <div>
@@ -242,10 +245,6 @@
                 {{ contact.first_name }} {{ contact.last_name }}
             </div>
         </div>
-        <nav style="display: flex; gap: 16px; align-items: center;">
-            <a href="/contacts/{{ contact.id }}/workspace?tab=packages" class="dreams-btn dreams-btn-secondary">Back to Workspace</a>
-            <a href="/contacts/{{ contact.id }}/search" class="dreams-btn dreams-btn-secondary">Add More Properties</a>
-        </nav>
     </header>
 
     <!-- Package Header -->
@@ -411,5 +410,6 @@
             }
         }
     </script>
+    </div>
 </body>
 </html>

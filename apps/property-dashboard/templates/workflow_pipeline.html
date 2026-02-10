@@ -260,8 +260,11 @@
             background: #991b1b;
         }
     </style>
+{% set active_nav = 'pursuits' %}
 </head>
 <body>
+    {% include 'partials/sidebar.html' %}
+    <div class="main-content">
     <!-- Header -->
     <header class="dreams-header">
         <div>
@@ -274,10 +277,6 @@
             <button onclick="initializeWorkflows()" class="dreams-btn dreams-btn-secondary" title="Create workflow records for contacts without one">
                 Initialize All
             </button>
-            <a href="/" class="dreams-btn dreams-btn-secondary">Home</a>
-            <a href="/contacts" class="dreams-btn dreams-btn-secondary">Contacts</a>
-            <a href="/call-list" class="dreams-btn dreams-btn-secondary">Call List</a>
-            <a href="/fub-list" class="dreams-btn dreams-btn-secondary">FUB List</a>
         </nav>
     </header>
 
@@ -495,5 +494,6 @@
             }, 3000);
         }
     </script>
+    </div>
 </body>
 </html>

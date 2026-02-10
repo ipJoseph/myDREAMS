@@ -32,8 +32,11 @@
             min-width: 1100px;
         }
     </style>
+{% set active_nav = 'contacts' %}
 </head>
 <body>
+    {% include 'partials/sidebar.html' %}
+    <div class="main-content">
     <!-- Header -->
     <header class="dreams-header dreams-header-centered">
         <h1>Properties Curated for {{ client_name }}</h1>
@@ -255,5 +258,6 @@
             });
         }
     </script>
+    </div>
 </body>
 </html>

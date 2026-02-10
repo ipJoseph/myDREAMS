@@ -386,8 +386,11 @@
             .view-tabs { margin-left: 0; width: 100%; }
         }
     </style>
+{% set active_nav = 'properties' %}
 </head>
 <body>
+    {% include 'partials/sidebar.html' %}
+    <div class="main-content">
     <div class="container">
         <!-- Header -->
         <header class="header">
@@ -395,12 +398,6 @@
                 <h1>MLS Listings</h1>
                 <span class="env-badge {{ dreams_env }}">{{ dreams_env }}</span>
             </div>
-            <nav class="header-nav">
-                <a href="/">Home</a>
-                <a href="/listings">Gallery</a>
-                <a href="/photos" class="active">MLS View</a>
-                <a href="/contacts">Contacts</a>
-            </nav>
         </header>
 
         <!-- Compact Stats Bar -->
@@ -684,5 +681,6 @@
                 });
         }
     </script>
+    </div>
 </body>
 </html>

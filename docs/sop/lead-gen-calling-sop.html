@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Lead Generation Calling SOP | Jon Tharp Homes</title>
+<style>
+    @page {
+        size: letter;
+        margin: 0.75in 0.85in;
+        @top-right {
+            content: "Jon Tharp Homes | Lead Generation SOP";
+            font-size: 8pt;
+            color: #64748b;
+            font-family: 'Segoe UI', Arial, sans-serif;
+        }
+        @bottom-center {
+            content: "Page " counter(page) " of " counter(pages);
+            font-size: 8pt;
+            color: #64748b;
+            font-family: 'Segoe UI', Arial, sans-serif;
+        }
+        @bottom-right {
+            content: "Confidential — Internal Use Only";
+            font-size: 7pt;
+            color: #9ca3af;
+            font-family: 'Segoe UI', Arial, sans-serif;
+        }
+    }
+    @page :first {
+        margin-top: 0;
+        @top-right { content: none; }
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+        font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+        font-size: 10.5pt;
+        line-height: 1.55;
+        color: #1a1a1a;
+    }
+
+    /* === COVER HEADER === */
+    .cover-header {
+        background: linear-gradient(135deg, #1a365d 0%, #2b6cb0 100%);
+        color: white;
+        padding: 48px 40px 36px;
+        margin: 0 -0.85in;
+        margin-top: 0;
+        page-break-after: avoid;
+    }
+    .cover-header h1 {
+        font-size: 26pt;
+        font-weight: 700;
+        letter-spacing: -0.5px;
+        margin-bottom: 6px;
+    }
+    .cover-header .subtitle {
+        font-size: 13pt;
+        font-weight: 300;
+        opacity: 0.9;
+        margin-bottom: 20px;
+    }
+    .cover-meta {
+        display: flex;
+        gap: 32px;
+        font-size: 9pt;
+        opacity: 0.8;
+        border-top: 1px solid rgba(255,255,255,0.25);
+        padding-top: 14px;
+        margin-top: 8px;
+    }
+    .cover-meta span { white-space: nowrap; }
+    .cover-meta strong { font-weight: 600; }
+
+    /* === SECTION STYLES === */
+    h2 {
+        font-size: 15pt;
+        font-weight: 700;
+        color: #1a365d;
+        border-bottom: 2.5px solid #2b6cb0;
+        padding-bottom: 5px;
+        margin: 28px 0 14px;
+        page-break-after: avoid;
+    }
+    h3 {
+        font-size: 12pt;
+        font-weight: 600;
+        color: #14294a;
+        margin: 18px 0 8px;
+        page-break-after: avoid;
+    }
+    h4 {
+        font-size: 10.5pt;
+        font-weight: 600;
+        color: #2b6cb0;
+        margin: 12px 0 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    p { margin-bottom: 8px; }
+
+    /* === TABLE OF CONTENTS === */
+    .toc {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 20px 24px;
+        margin: 24px 0;
+    }
+    .toc h3 {
+        margin-top: 0;
+        color: #1a365d;
+        font-size: 11pt;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    .toc ol {
+        margin: 8px 0 0 18px;
+        font-size: 10pt;
+    }
+    .toc li {
+        margin-bottom: 4px;
+        color: #2b6cb0;
+    }
+
+    /* === PURPOSE BOX === */
+    .purpose-box {
+        background: linear-gradient(135deg, #eff6ff 0%, #f0f9ff 100%);
+        border-left: 4px solid #2b6cb0;
+        border-radius: 0 8px 8px 0;
+        padding: 16px 20px;
+        margin: 16px 0;
+    }
+    .purpose-box strong {
+        color: #1a365d;
+        font-size: 11pt;
+    }
+
+    /* === TABLES === */
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 10px 0 16px;
+        font-size: 9.5pt;
+    }
+    th {
+        background: #1a365d;
+        color: white;
+        font-weight: 600;
+        text-align: left;
+        padding: 8px 12px;
+        font-size: 9pt;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    th:first-child { border-radius: 6px 0 0 0; }
+    th:last-child { border-radius: 0 6px 0 0; }
+    td {
+        padding: 8px 12px;
+        border-bottom: 1px solid #e2e8f0;
+        vertical-align: top;
+    }
+    tr:nth-child(even) { background: #f8fafc; }
+    tr:hover { background: #eff6ff; }
+
+    /* === CALLOUT BOXES === */
+    .callout {
+        border-radius: 8px;
+        padding: 14px 18px;
+        margin: 12px 0;
+        page-break-inside: avoid;
+    }
+    .callout-tip {
+        background: #f0fdf4;
+        border: 1px solid #bbf7d0;
+        border-left: 4px solid #137333;
+    }
+    .callout-warning {
+        background: #fefce8;
+        border: 1px solid #fde68a;
+        border-left: 4px solid #f59e0b;
+    }
+    .callout-important {
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        border-left: 4px solid #dc2626;
+    }
+    .callout-info {
+        background: #eff6ff;
+        border: 1px solid #bfdbfe;
+        border-left: 4px solid #2b6cb0;
+    }
+    .callout-label {
+        font-weight: 700;
+        font-size: 9pt;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 4px;
+    }
+    .callout-tip .callout-label { color: #137333; }
+    .callout-warning .callout-label { color: #92400e; }
+    .callout-important .callout-label { color: #dc2626; }
+    .callout-info .callout-label { color: #1e40af; }
+
+    /* === SCRIPT BOXES === */
+    .script-block {
+        background: #fafafa;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 16px 20px;
+        margin: 10px 0;
+        page-break-inside: avoid;
+    }
+    .script-block .speaker {
+        font-weight: 700;
+        color: #1a365d;
+        font-size: 9pt;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .script-block .line {
+        font-style: italic;
+        color: #334155;
+        margin: 6px 0;
+        padding-left: 12px;
+        border-left: 2px solid #cbd5e1;
+    }
+    .script-block .direction {
+        font-size: 9pt;
+        color: #64748b;
+        margin: 4px 0 4px 12px;
+    }
+
+    /* === CHECKLIST === */
+    .checklist {
+        list-style: none;
+        padding: 0;
+        margin: 8px 0;
+    }
+    .checklist li {
+        padding: 5px 0 5px 28px;
+        position: relative;
+        border-bottom: 1px solid #f1f5f9;
+    }
+    .checklist li::before {
+        content: "☐";
+        position: absolute;
+        left: 4px;
+        font-size: 13pt;
+        color: #94a3b8;
+        top: 3px;
+    }
+
+    /* === NUMBERED STEPS === */
+    .steps {
+        counter-reset: step;
+        list-style: none;
+        padding: 0;
+    }
+    .steps li {
+        counter-increment: step;
+        padding: 8px 0 8px 42px;
+        position: relative;
+        margin-bottom: 4px;
+    }
+    .steps li::before {
+        content: counter(step);
+        position: absolute;
+        left: 0;
+        top: 6px;
+        width: 28px;
+        height: 28px;
+        background: #1a365d;
+        color: white;
+        border-radius: 50%;
+        font-size: 10pt;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        line-height: 28px;
+    }
+
+    /* === TIME BLOCKS === */
+    .time-block {
+        display: flex;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        margin: 8px 0;
+        overflow: hidden;
+        page-break-inside: avoid;
+    }
+    .time-block-time {
+        background: #1a365d;
+        color: white;
+        padding: 12px 14px;
+        font-weight: 700;
+        font-size: 10pt;
+        min-width: 90px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+    }
+    .time-block-content {
+        padding: 10px 16px;
+        flex: 1;
+    }
+    .time-block-content strong {
+        color: #1a365d;
+    }
+
+    /* === SCORECARD === */
+    .scorecard {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin: 12px 0;
+    }
+    .score-item {
+        flex: 1;
+        min-width: 140px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 12px 16px;
+        text-align: center;
+    }
+    .score-item .metric-label {
+        font-size: 8pt;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: #64748b;
+        font-weight: 600;
+    }
+    .score-item .metric-target {
+        font-size: 20pt;
+        font-weight: 700;
+        color: #1a365d;
+        margin: 4px 0;
+    }
+    .score-item .metric-note {
+        font-size: 8pt;
+        color: #94a3b8;
+    }
+
+    /* === FLOW DIAGRAM === */
+    .flow {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        margin: 16px 0;
+        flex-wrap: wrap;
+    }
+    .flow-step {
+        background: #eff6ff;
+        border: 1px solid #bfdbfe;
+        border-radius: 8px;
+        padding: 8px 14px;
+        text-align: center;
+        font-size: 9pt;
+        font-weight: 600;
+        color: #1a365d;
+    }
+    .flow-step.active {
+        background: #1a365d;
+        color: white;
+        border-color: #1a365d;
+    }
+    .flow-arrow {
+        font-size: 14pt;
+        color: #94a3b8;
+    }
+
+    /* === MISC === */
+    ul { margin: 6px 0 10px 20px; }
+    li { margin-bottom: 3px; }
+    strong { color: #1a365d; }
+    em { color: #64748b; }
+    .page-break { page-break-before: always; }
+    .no-break { page-break-inside: avoid; }
+
+    .two-col {
+        display: flex;
+        gap: 16px;
+    }
+    .two-col > div { flex: 1; }
+
+    .badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 8pt;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .badge-hot { background: #fef2f2; color: #dc2626; }
+    .badge-warm { background: #fefce8; color: #92400e; }
+    .badge-new { background: #eff6ff; color: #1e40af; }
+    .badge-nurture { background: #f0fdf4; color: #137333; }
+
+    .footer-note {
+        margin-top: 30px;
+        padding-top: 16px;
+        border-top: 1px solid #e2e8f0;
+        font-size: 8.5pt;
+        color: #94a3b8;
+        text-align: center;
+    }
+</style>
+</head>
+<body>
+
+<!-- ===== COVER / HEADER ===== -->
+<div class="cover-header">
+    <h1>Lead Generation Calling SOP</h1>
+    <div class="subtitle">Morning Power Hour &mdash; Systematic Prospecting for Maximum Conversion</div>
+    <div class="cover-meta">
+        <span><strong>Team:</strong> Jon Tharp Homes &bull; Keller Williams</span>
+        <span><strong>Version:</strong> 2.0</span>
+        <span><strong>Effective:</strong> February 2026</span>
+        <span><strong>Owner:</strong> Joseph &ldquo;Eugy&rdquo; Williams</span>
+    </div>
+</div>
+
+<!-- ===== TABLE OF CONTENTS ===== -->
+<div class="toc">
+    <h3>Contents</h3>
+    <ol>
+        <li>Purpose &amp; Pipeline Alignment</li>
+        <li>Pre-Session Setup</li>
+        <li>Session Structure &amp; Time Blocks</li>
+        <li>Call List Priority Order</li>
+        <li>Call Handling Workflow</li>
+        <li>Conversation Framework &amp; Scripts</li>
+        <li>Objection Handling</li>
+        <li>Lead Claiming Rules</li>
+        <li>Post-Session Workflow</li>
+        <li>Daily Scorecard &amp; KPIs</li>
+        <li>Weekly &amp; Monthly Review</li>
+        <li>Quick Reference Card</li>
+    </ol>
+</div>
+
+<!-- ===== 1. PURPOSE ===== -->
+<h2>1. Purpose &amp; Pipeline Alignment</h2>
+
+<div class="purpose-box">
+    <strong>Mission:</strong> Systematically contact as many leads as possible during each Power Hour session to identify qualified buyers, build relationships, and fill the sales pipeline.
+</div>
+
+<p>This SOP governs the <strong>QUALIFY</strong> phase of our sales pipeline &mdash; converting raw leads into qualified buyers with clear requirements and intent.</p>
+
+<div class="flow">
+    <div class="flow-step active">QUALIFY</div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-step">CURATE</div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-step">CLOSE</div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-step">NURTURE</div>
+</div>
+
+<p>Every conversation during Power Hour should move a lead further down this pipeline. The primary outcomes we are working toward on each call:</p>
+<ul>
+    <li><strong>Appointment set</strong> &mdash; Best outcome. Face-to-face or video meeting scheduled.</li>
+    <li><strong>Requirements captured</strong> &mdash; We know what they want (area, price, timeline).</li>
+    <li><strong>Email obtained</strong> &mdash; Added to drip campaign for ongoing nurture.</li>
+    <li><strong>Status clarified</strong> &mdash; Not ready, working with someone, or no longer interested.</li>
+</ul>
+
+<!-- ===== 2. PRE-SESSION SETUP ===== -->
+<h2>2. Pre-Session Setup</h2>
+
+<p>Arrive at your workstation by <strong>8:55 AM</strong>. Complete all setup before the 9:00 AM start so you can begin dialing immediately.</p>
+
+<ul class="checklist">
+    <li>Log into Follow Up Boss (FUB)</li>
+    <li>Open SmartLists in separate browser tabs:
+        <ul style="margin-top: 4px; margin-left: 0;">
+            <li><span class="badge badge-new">Priority 1</span> New Leads</li>
+            <li><span class="badge badge-new">Priority 2</span> Brand New Leads</li>
+            <li><span class="badge badge-hot">Priority 3</span> Hand Raised</li>
+            <li><span class="badge badge-warm">Priority 4</span> Warm Pond</li>
+        </ul>
+    </li>
+    <li>Launch the FUB dialer (test audio if needed)</li>
+    <li>Open a notepad for quick call notes</li>
+    <li>Silence phone notifications and close unrelated tabs</li>
+    <li>Review any overnight lead activity in the myDREAMS dashboard</li>
+</ul>
+
+<div class="callout callout-tip">
+    <div class="callout-label">Pro Tip</div>
+    Check the myDREAMS priority call list before starting &mdash; it surfaces leads ranked by heat score, recent activity, and engagement signals that may not appear in FUB SmartLists.
+</div>
+
+<!-- ===== 3. SESSION STRUCTURE ===== -->
+<h2>3. Session Structure &amp; Time Blocks</h2>
+
+<p>The Morning Power Hour runs <strong>9:00 AM &ndash; 12:00 PM</strong> (3 hours). Structure your time for sustained energy and maximum output.</p>
+
+<div class="time-block">
+    <div class="time-block-time">8:55 &ndash;<br>9:00</div>
+    <div class="time-block-content">
+        <strong>Prep</strong> &mdash; Log in, open SmartLists, launch dialer, review overnight activity.
+    </div>
+</div>
+<div class="time-block">
+    <div class="time-block-time">9:00 &ndash;<br>10:00</div>
+    <div class="time-block-content">
+        <strong>Block 1: High-Priority Lists</strong> &mdash; New Leads and Brand New Leads. These are your hottest opportunities. Dial straight through without skipping.
+    </div>
+</div>
+<div class="time-block">
+    <div class="time-block-time">10:00 &ndash;<br>10:02</div>
+    <div class="time-block-content">
+        <strong>Break</strong> &mdash; Stand, stretch, refill water. Do not check email or messages.
+    </div>
+</div>
+<div class="time-block">
+    <div class="time-block-time">10:02 &ndash;<br>11:00</div>
+    <div class="time-block-content">
+        <strong>Block 2: Engaged Leads</strong> &mdash; Hand Raised list. These leads have shown intent signals. Review what they interacted with before dialing.
+    </div>
+</div>
+<div class="time-block">
+    <div class="time-block-time">11:00 &ndash;<br>11:02</div>
+    <div class="time-block-content">
+        <strong>Break</strong> &mdash; Quick reset. Review your stats so far.
+    </div>
+</div>
+<div class="time-block">
+    <div class="time-block-time">11:02 &ndash;<br>12:00</div>
+    <div class="time-block-content">
+        <strong>Block 3: Warm Pond &amp; Sphere</strong> &mdash; Past contacts, nurture list, sphere of influence. &ldquo;Just checking in&rdquo; approach works well here.
+    </div>
+</div>
+
+<div class="callout callout-warning">
+    <div class="callout-label">Pacing Rule</div>
+    Do not spend more than <strong>3 minutes</strong> on any single lead unless they are actively engaged in conversation. If you are talking, keep talking. But do not linger on research, notes, or unanswered calls.
+</div>
+
+<!-- ===== 4. CALL LIST PRIORITY ORDER ===== -->
+<div class="page-break"></div>
+<h2>4. Call List Priority Order</h2>
+
+<p>Work these lists <strong>in order</strong>. Do not skip around or cherry-pick. Discipline in list order ensures no lead falls through the cracks.</p>
+
+<table>
+    <thead>
+        <tr>
+            <th>Priority</th>
+            <th>SmartList</th>
+            <th>Description</th>
+            <th>Approach</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><span class="badge badge-hot">P1</span></td>
+            <td><strong>New Leads</strong></td>
+            <td>Fresh inquiries from the last 24&ndash;48 hours. Highest conversion potential.</td>
+            <td>Speed-to-lead is critical. Be the first agent they talk to. Direct and enthusiastic.</td>
+        </tr>
+        <tr>
+            <td><span class="badge badge-new">P2</span></td>
+            <td><strong>Brand New Leads</strong></td>
+            <td>Leads from the past week with no contact yet. Still warm.</td>
+            <td>Move quickly through the list. First contact establishes position.</td>
+        </tr>
+        <tr>
+            <td><span class="badge badge-warm">P3</span></td>
+            <td><strong>Hand Raised</strong></td>
+            <td>Leads who clicked, responded to a campaign, or showed behavioral interest.</td>
+            <td>Reference their specific activity. &ldquo;I noticed you were looking at homes in [area]&hellip;&rdquo;</td>
+        </tr>
+        <tr>
+            <td><span class="badge badge-nurture">P4</span></td>
+            <td><strong>Warm Pond</strong></td>
+            <td>Past contacts, sphere, previously nurtured leads.</td>
+            <td>Relationship-first. Check in, provide value, ask for referrals.</td>
+        </tr>
+    </tbody>
+</table>
+
+<div class="callout callout-info">
+    <div class="callout-label">myDREAMS Integration</div>
+    The myDREAMS scoring system surfaces leads by <strong>Heat</strong> (IDX activity), <strong>Value</strong> (revenue potential), and <strong>Relationship</strong> (communication frequency). Cross-reference the myDREAMS priority call list with FUB SmartLists to catch high-intent leads that may not appear in standard CRM filters.
+</div>
+
+<!-- ===== 5. CALL HANDLING WORKFLOW ===== -->
+<h2>5. Call Handling Workflow</h2>
+
+<h3>5.1 Making the Call</h3>
+<ol class="steps">
+    <li><strong>Dial using FUB dialer only.</strong> Never dial manually &mdash; all calls must be logged in the CRM automatically.</li>
+    <li><strong>Let it ring 5&ndash;6 times.</strong> Give them a chance to pick up. Don&rsquo;t hang up early.</li>
+    <li><strong>Follow the appropriate path below</strong> based on the outcome.</li>
+</ol>
+
+<h3>5.2 Call Outcomes</h3>
+
+<div class="no-break">
+<h4>If They Answer</h4>
+<ol class="steps">
+    <li>Follow the Conversation Framework (Section 6)</li>
+    <li>Qualify: timeline, motivation, area, budget, financing</li>
+    <li>Log concise notes immediately after the call</li>
+    <li>Set a follow-up task if appropriate</li>
+    <li><strong>Claim the lead</strong> (see Section 8 for claiming rules)</li>
+    <li>Move to next call</li>
+</ol>
+</div>
+
+<div class="no-break">
+<h4>If You Reach Voicemail</h4>
+<div class="script-block">
+    <div class="speaker">Voicemail Script</div>
+    <div class="line">&ldquo;Hi [Name], this is [Your Name] with Jon Tharp Homes. I wanted to reach out and connect with you about real estate in the [area] area. Give me a call back when you get a chance &mdash; my number is [Your Number]. Have a great day!&rdquo;</div>
+    <div class="direction">Keep it under 20 seconds. Warm, professional, no pressure.</div>
+</div>
+<ul>
+    <li>Log as <strong>&ldquo;Left Voicemail&rdquo;</strong> in FUB</li>
+    <li>Move to next call immediately</li>
+</ul>
+</div>
+
+<div class="no-break">
+<h4>If No Answer (No Voicemail)</h4>
+<ul>
+    <li>Log as <strong>&ldquo;No Answer&rdquo;</strong> in FUB</li>
+    <li>Move to next call immediately</li>
+</ul>
+</div>
+
+<!-- ===== 6. CONVERSATION FRAMEWORK ===== -->
+<div class="page-break"></div>
+<h2>6. Conversation Framework &amp; Scripts</h2>
+
+<p>These scripts are <strong>frameworks, not word-for-word recitations</strong>. The goal is natural conversation. Adapt your tone and language to match the person you are speaking with. Be yourself &mdash; be genuine.</p>
+
+<h3>6.1 Opening &mdash; Build Comfort</h3>
+
+<div class="script-block">
+    <div class="speaker">You</div>
+    <div class="line">&ldquo;Hey, is this [Mr./Mrs. Name]?&rdquo;</div>
+    <div class="direction">Wait for confirmation. Use their name correctly.</div>
+
+    <div class="speaker">You</div>
+    <div class="line">&ldquo;Hi [Name], this is [Your Name] with Jon Tharp Homes. How are you doing today?&rdquo;</div>
+    <div class="direction">Let them answer. Be present and listen.</div>
+
+    <div class="speaker">You</div>
+    <div class="line">&ldquo;That&rsquo;s great to hear. Just enjoying this beautiful weather we&rsquo;ve been having &mdash; can&rsquo;t beat it, right?&rdquo;</div>
+    <div class="direction">Keep it real. Match the weather, the season, whatever feels natural. 15&ndash;20 seconds of small talk.</div>
+</div>
+
+<h3>6.2 Transition &mdash; Open the Door</h3>
+
+<div class="two-col">
+<div>
+<div class="script-block">
+    <div class="speaker">Approach A: Open-Ended <em>(Recommended)</em></div>
+    <div class="line">&ldquo;Well look, I don&rsquo;t want to take up too much of your time, but I was calling to see if there was anything in the world I could do for you?&rdquo;</div>
+    <div class="direction">Disarming. Most people don&rsquo;t expect this question. Let the silence work for you.</div>
+</div>
+</div>
+<div>
+<div class="script-block">
+    <div class="speaker">Approach B: Direct</div>
+    <div class="line">&ldquo;I was calling because you recently [inquired about / expressed interest in] real estate in [Area]. Wanted to see how I could help you with that.&rdquo;</div>
+    <div class="direction">More direct. Best for leads who took a specific action (property inquiry, form fill).</div>
+</div>
+</div>
+</div>
+
+<h3>6.3 Qualify &mdash; Gather Requirements</h3>
+
+<p>Ask these questions conversationally, not as an interrogation. Weave them into the dialogue naturally.</p>
+
+<table>
+    <thead>
+        <tr>
+            <th>Category</th>
+            <th>Question</th>
+            <th>What You&rsquo;re Learning</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>Intent</td>
+            <td>&ldquo;Are you currently looking to buy, sell, or both?&rdquo;</td>
+            <td>Lead type classification</td>
+        </tr>
+        <tr>
+            <td>Timeline</td>
+            <td>&ldquo;What&rsquo;s your timeline looking like?&rdquo;</td>
+            <td>Urgency and heat level</td>
+        </tr>
+        <tr>
+            <td>Location</td>
+            <td>&ldquo;What area are you focused on?&rdquo;</td>
+            <td>Geographic requirements for property matching</td>
+        </tr>
+        <tr>
+            <td>Budget</td>
+            <td>&ldquo;Do you have a price range in mind?&rdquo;</td>
+            <td>Value score, property search parameters</td>
+        </tr>
+        <tr>
+            <td>Financing</td>
+            <td>&ldquo;Have you been pre-approved yet, or is that something I can help with?&rdquo;</td>
+            <td>Readiness level; opportunity to add value</td>
+        </tr>
+        <tr>
+            <td>Blockers</td>
+            <td>&ldquo;What&rsquo;s stopped you from [buying/selling] so far?&rdquo;</td>
+            <td>Objections to address, obstacles to solve</td>
+        </tr>
+    </tbody>
+</table>
+
+<h3>6.4 Build Rapport &amp; Close</h3>
+
+<div class="script-block">
+    <div class="speaker">Build Rapport</div>
+    <div class="line">&ldquo;That&rsquo;s exciting! I&rsquo;m curious &mdash; when were you planning on interviewing an agent like myself for the job of [selling your home / helping you find the right place]?&rdquo;</div>
+    <div class="direction">Frames you as a professional being hired, not a salesperson chasing. Confident but not pushy.</div>
+</div>
+
+<div class="two-col">
+<div>
+<div class="script-block">
+    <div class="speaker">Close: Set Appointment</div>
+    <div class="line">&ldquo;I&rsquo;d love to help however I can. Can we set up a time to meet this week and go over what you&rsquo;re looking for?&rdquo;</div>
+    <div class="direction">Always aim for a specific day/time. &ldquo;This week&rdquo; creates urgency.</div>
+</div>
+</div>
+<div>
+<div class="script-block">
+    <div class="speaker">Close: Send Properties</div>
+    <div class="line">&ldquo;I&rsquo;d love to send you some properties that match what you&rsquo;re describing. What&rsquo;s the best email to send those to?&rdquo;</div>
+    <div class="direction">Getting an email = a win. Add to drip campaign and property alerts.</div>
+</div>
+</div>
+</div>
+
+<div class="script-block">
+    <div class="speaker">If They&rsquo;re Not Ready</div>
+    <div class="line">&ldquo;No problem at all! I completely understand. I&rsquo;d be happy to send you some options in the meantime so you can get a feel for what&rsquo;s out there. What&rsquo;s the best email for you?&rdquo;</div>
+    <div class="direction">Never burn a bridge. Email capture keeps the lead alive for nurture campaigns.</div>
+</div>
+
+<!-- ===== 7. OBJECTION HANDLING ===== -->
+<h2>7. Objection Handling</h2>
+
+<p>Objections are not rejections &mdash; they are requests for more information. Respond with empathy first, then redirect.</p>
+
+<table>
+    <thead>
+        <tr>
+            <th style="width: 30%;">Objection</th>
+            <th>Response</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>&ldquo;I&rsquo;m already working with an agent.&rdquo;</td>
+            <td>&ldquo;That&rsquo;s great! I hope they&rsquo;re taking good care of you. If anything changes or you ever want a second opinion, don&rsquo;t hesitate to reach out.&rdquo; <em>Log it. Move on. Don&rsquo;t compete.</em></td>
+        </tr>
+        <tr>
+            <td>&ldquo;I&rsquo;m just browsing / not ready yet.&rdquo;</td>
+            <td>&ldquo;Totally understand! A lot of my clients start the same way. I&rsquo;d love to send you some listings so you can see what&rsquo;s out there. What&rsquo;s a good email?&rdquo;</td>
+        </tr>
+        <tr>
+            <td>&ldquo;How did you get my number?&rdquo;</td>
+            <td>&ldquo;You [registered on our website / inquired about a property / filled out a form]. I just wanted to follow up and see if I could help.&rdquo; <em>Be transparent and calm.</em></td>
+        </tr>
+        <tr>
+            <td>&ldquo;I can&rsquo;t talk right now.&rdquo;</td>
+            <td>&ldquo;No worries! When would be a better time for a quick call?&rdquo; <em>Schedule the callback and log it immediately.</em></td>
+        </tr>
+        <tr>
+            <td>&ldquo;Take me off your list.&rdquo;</td>
+            <td>&ldquo;Absolutely, I&rsquo;ll take care of that right now. I apologize for the inconvenience.&rdquo; <em>Remove immediately. Mark as Do Not Call in FUB. Comply promptly and professionally.</em></td>
+        </tr>
+    </tbody>
+</table>
+
+<!-- ===== 8. LEAD CLAIMING RULES ===== -->
+<div class="page-break"></div>
+<h2>8. Lead Claiming Rules</h2>
+
+<p>Clear, consistent rules for lead ownership prevent conflicts and ensure fair distribution.</p>
+
+<table>
+    <thead>
+        <tr>
+            <th>Rule</th>
+            <th>Details</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><strong>Claiming Trigger</strong></td>
+            <td>A lead is claimed <strong>only</strong> when you make actual contact (live conversation). Leaving a voicemail or getting no answer does <strong>not</strong> constitute a claim.</td>
+        </tr>
+        <tr>
+            <td><strong>Morning Hold</strong></td>
+            <td>New leads may <strong>not</strong> be claimed before 12:00 PM unless it is your assigned shift. This ensures fair access across the team.</td>
+        </tr>
+        <tr>
+            <td><strong>Response Position</strong></td>
+            <td>If a lead responds to a previous agent&rsquo;s outreach (call, text, or email), the <strong>original contacting agent</strong> holds position one. Honor system applies.</td>
+        </tr>
+        <tr>
+            <td><strong>After Claiming</strong></td>
+            <td>Update the lead&rsquo;s stage in FUB, assign to yourself, and update your Super Saved Search in the CRM.</td>
+        </tr>
+    </tbody>
+</table>
+
+<div class="callout callout-important">
+    <div class="callout-label">Integrity Standard</div>
+    Lead claiming operates on the honor system. When in doubt, defer to the agent who made the first outreach attempt. Disputes should be escalated to the team lead promptly.
+</div>
+
+<!-- ===== 9. POST-SESSION WORKFLOW ===== -->
+<h2>9. Post-Session Workflow</h2>
+
+<p>Complete these steps immediately after your 12:00 PM session end. Budget 15&ndash;20 minutes for post-session wrap-up.</p>
+
+<ol class="steps">
+    <li><strong>Enrich your notes.</strong> Go back through every conversation from the session. Add detail, context, and next steps while it&rsquo;s fresh.</li>
+    <li><strong>Set follow-up tasks.</strong> Every hot lead should have a dated follow-up task in FUB. No lead should leave the session without a next action.</li>
+    <li><strong>Update lead stages.</strong> Move any lead you made contact with to the appropriate FUB stage (Prospect, Active Buyer, etc.).</li>
+    <li><strong>Claim your leads.</strong> Assign leads you connected with to yourself in FUB.</li>
+    <li><strong>Update Super Saved Search.</strong> Add new buyer criteria to your CRM saved searches for matching.</li>
+    <li><strong>Submit your scorecard.</strong> Send your daily numbers to the team lead (calls made, conversations, appointments, follow-ups).</li>
+</ol>
+
+<div class="callout callout-tip">
+    <div class="callout-label">myDREAMS Workflow</div>
+    After Power Hour, capture buyer requirements from your conversations into the myDREAMS intake form. This feeds the automated property matching system &mdash; your qualified buyers will automatically receive matched property alerts.
+</div>
+
+<!-- ===== 10. DAILY SCORECARD ===== -->
+<h2>10. Daily Scorecard &amp; KPIs</h2>
+
+<p>Track these metrics <strong>every session</strong>. Consistency in measurement drives consistency in results.</p>
+
+<div class="scorecard">
+    <div class="score-item">
+        <div class="metric-label">Calls Made</div>
+        <div class="metric-target">100+</div>
+        <div class="metric-note">Volume is the engine</div>
+    </div>
+    <div class="score-item">
+        <div class="metric-label">Conversations</div>
+        <div class="metric-target">10+</div>
+        <div class="metric-note">Live two-way dialogue</div>
+    </div>
+    <div class="score-item">
+        <div class="metric-label">Appointments Set</div>
+        <div class="metric-target">2&ndash;5</div>
+        <div class="metric-note">Primary conversion metric</div>
+    </div>
+    <div class="score-item">
+        <div class="metric-label">Follow-Ups Set</div>
+        <div class="metric-target">Track All</div>
+        <div class="metric-note">Future pipeline</div>
+    </div>
+</div>
+
+<h3>Conversion Benchmarks</h3>
+<table>
+    <thead>
+        <tr>
+            <th>Metric</th>
+            <th>Target Ratio</th>
+            <th>What It Tells You</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>Contact Rate</td>
+            <td>10&ndash;15% of dials</td>
+            <td>If below 10%, check list quality and call times</td>
+        </tr>
+        <tr>
+            <td>Conversation &rarr; Appointment</td>
+            <td>20&ndash;30% of conversations</td>
+            <td>If below 20%, review your qualification and close technique</td>
+        </tr>
+        <tr>
+            <td>Appointment &rarr; Client</td>
+            <td>40&ndash;60% of appointments</td>
+            <td>If below 40%, review your meeting preparation and follow-up</td>
+        </tr>
+    </tbody>
+</table>
+
+<!-- ===== 11. WEEKLY & MONTHLY REVIEW ===== -->
+<h2>11. Weekly &amp; Monthly Review</h2>
+
+<div class="two-col">
+<div>
+<h3>Weekly Review (Friday)</h3>
+<ul class="checklist">
+    <li>Total calls, conversations, and appointments for the week</li>
+    <li>Conversion rates vs. benchmarks</li>
+    <li>Follow-up tasks completed vs. scheduled</li>
+    <li>Leads claimed and stages updated</li>
+    <li>Top 3 hottest leads to prioritize next week</li>
+</ul>
+</div>
+<div>
+<h3>Monthly Review (1st of Month)</h3>
+<ul class="checklist">
+    <li>Month-over-month trends in all KPIs</li>
+    <li>Pipeline health: leads in each stage</li>
+    <li>SmartList accuracy &mdash; are the right leads surfacing?</li>
+    <li>Script effectiveness &mdash; what&rsquo;s working, what needs adjustment?</li>
+    <li>Team-wide lead claiming and distribution review</li>
+</ul>
+</div>
+</div>
+
+<!-- ===== 12. QUICK REFERENCE CARD ===== -->
+<div class="page-break"></div>
+<h2>12. Quick Reference Card</h2>
+
+<p><em>Print this page and keep it at your desk during Power Hour.</em></p>
+
+<div class="callout callout-info" style="padding: 20px;">
+<h3 style="margin-top: 0; color: #1e40af;">Power Hour Cheat Sheet</h3>
+
+<h4>Session Rules</h4>
+<ul>
+    <li>Use FUB dialer only &mdash; no manual dialing</li>
+    <li><strong>Volume + Speed + Consistency</strong> = Results</li>
+    <li>3-minute max per lead (unless in active conversation)</li>
+    <li>Leads claimed only on live contact, not before noon (unless your shift)</li>
+    <li>Work lists in order: New &rarr; Brand New &rarr; Hand Raised &rarr; Warm Pond</li>
+</ul>
+
+<h4>Call Flow</h4>
+<ul>
+    <li><strong>Open:</strong> Greet by name &rarr; small talk (15&ndash;20 sec)</li>
+    <li><strong>Transition:</strong> &ldquo;Is there anything I could do for you?&rdquo;</li>
+    <li><strong>Qualify:</strong> Buy/sell? Timeline? Area? Budget? Financing?</li>
+    <li><strong>Close:</strong> Set appointment OR capture email</li>
+</ul>
+
+<h4>Mindset</h4>
+<ul>
+    <li>Make it conversational, not transactional</li>
+    <li>Make <strong>five new friends</strong> every day</li>
+    <li>Stand up while you dial &mdash; energy transfers through the phone</li>
+    <li>Don&rsquo;t overthink. Just dial.</li>
+</ul>
+
+<h4>Daily Targets</h4>
+<ul>
+    <li>100+ calls &nbsp;|&nbsp; 10+ conversations &nbsp;|&nbsp; 2&ndash;5 appointments</li>
+</ul>
+
+<h4>After Session</h4>
+<ul>
+    <li>Enrich notes &rarr; Set follow-ups &rarr; Update stages &rarr; Claim leads &rarr; Submit scorecard</li>
+</ul>
+</div>
+
+<!-- ===== FOOTER ===== -->
+<div class="footer-note">
+    <strong>Jon Tharp Homes</strong> &bull; Keller Williams &bull; Lead Generation Calling SOP v2.0<br>
+    This document is confidential and intended for internal team use only.<br>
+    For questions or updates, contact Joseph &ldquo;Eugy&rdquo; Williams.
+</div>
+
+</body>
+</html>

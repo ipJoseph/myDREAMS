@@ -315,18 +315,16 @@
             }
         }
     </style>
+{% set active_nav = 'admin' %}
 </head>
 <body>
+    {% include 'partials/sidebar.html' %}
+    <div class="main-content">
     <header class="dreams-header">
         <div>
             <h1>Data Quality Dashboard</h1>
             <div class="dreams-header-subtitle">Property Database Health & Coverage Metrics</div>
         </div>
-        <nav style="display: flex; gap: 16px; align-items: center;">
-            <a href="/" class="dreams-btn dreams-btn-secondary">Home</a>
-            <a href="/properties" class="dreams-btn dreams-btn-secondary">Properties</a>
-            <span style="font-size: 13px; opacity: 0.8;">{{ refresh_time }}</span>
-        </nav>
     </header>
 
     <!-- Summary Cards -->
@@ -610,5 +608,6 @@
     <footer class="dreams-footer">
         DREAMS - Desktop Real Estate Agent Management System | Data Quality Monitoring
     </footer>
+    </div>
 </body>
 </html>

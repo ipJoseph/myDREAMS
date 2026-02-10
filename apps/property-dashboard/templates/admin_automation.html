@@ -389,8 +389,11 @@
             z-index: 1;
         }
     </style>
+{% set active_nav = 'automation' %}
 </head>
 <body>
+    {% include 'partials/sidebar.html' %}
+    <div class="main-content">
     <header class="dreams-header">
         <div>
             <h1>Admin</h1>
@@ -398,11 +401,6 @@
                 System configuration and automation
             </div>
         </div>
-        <nav style="display: flex; gap: 16px; align-items: center;">
-            <a href="/" class="dreams-btn dreams-btn-secondary">Main</a>
-            <a href="/contacts" class="dreams-btn dreams-btn-secondary">Contacts</a>
-            <a href="/pipeline" class="dreams-btn dreams-btn-secondary">Pipeline</a>
-        </nav>
     </header>
 
     <div class="admin-tabs">
@@ -745,6 +743,7 @@
             </div>
             {% endif %}
         </div>
+    </div>
     </div>
 </body>
 </html>

@@ -16,152 +16,7 @@
             min-height: 100vh;
         }
 
-        /* ========== SIDEBAR ========== */
-        .sidebar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 220px;
-            height: 100vh;
-            background: #ffffff;
-            border-right: 1px solid #e2e8f0;
-            display: flex;
-            flex-direction: column;
-            z-index: 200;
-            transition: width 0.2s;
-        }
-        .sidebar-brand {
-            padding: 20px 20px 16px;
-            border-bottom: 1px solid #f1f5f9;
-        }
-        .sidebar-brand a {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            text-decoration: none;
-        }
-        .sidebar-logo {
-            width: 32px;
-            height: 32px;
-            background: var(--color-primary, #1a365d);
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .sidebar-logo svg { width: 18px; height: 18px; }
-        .sidebar-brand-text {
-            font-size: 18px;
-            font-weight: 800;
-            color: var(--color-primary, #1a365d);
-            letter-spacing: -0.5px;
-        }
-
-        .sidebar-nav {
-            flex: 1;
-            padding: 12px 10px;
-            overflow-y: auto;
-        }
-        .sidebar-section {
-            margin-bottom: 8px;
-        }
-        .sidebar-section-label {
-            font-size: 10px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            color: var(--text-muted, #9ca3af);
-            padding: 12px 12px 6px;
-        }
-        .nav-item {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 14px;
-            border-radius: 8px;
-            text-decoration: none;
-            color: var(--text-secondary, #64748b);
-            font-size: 14px;
-            font-weight: 500;
-            transition: all 0.15s;
-            position: relative;
-        }
-        .nav-item:hover {
-            background: #f1f5f9;
-            color: var(--text-primary, #1a1a1a);
-        }
-        .nav-item.active {
-            background: #eff6ff;
-            color: #2563eb;
-            font-weight: 600;
-        }
-        .nav-item.active::before {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: 6px;
-            bottom: 6px;
-            width: 3px;
-            background: #2563eb;
-            border-radius: 0 3px 3px 0;
-        }
-        .nav-item svg {
-            width: 20px;
-            height: 20px;
-            flex-shrink: 0;
-            opacity: 0.7;
-        }
-        .nav-item.active svg { opacity: 1; }
-        .nav-item .nav-label { white-space: nowrap; }
-        .nav-item .nav-badge {
-            margin-left: auto;
-            background: #fee2e2;
-            color: #dc2626;
-            font-size: 11px;
-            font-weight: 700;
-            padding: 2px 7px;
-            border-radius: 10px;
-        }
-
-        .sidebar-footer {
-            padding: 12px 16px;
-            border-top: 1px solid #f1f5f9;
-        }
-        .sidebar-user {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 8px;
-            border-radius: 8px;
-        }
-        .sidebar-user-avatar {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            background: var(--color-primary, #1a365d);
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 13px;
-            font-weight: 700;
-            flex-shrink: 0;
-        }
-        .sidebar-user-name {
-            font-size: 13px;
-            font-weight: 600;
-            color: var(--text-primary);
-        }
-        .sidebar-user-role {
-            font-size: 11px;
-            color: var(--text-muted);
-        }
-
-        /* ========== MAIN CONTENT ========== */
-        .main-content {
-            margin-left: 220px;
-            min-height: 100vh;
-        }
+        /* ========== MAIN CONTENT (sidebar CSS is in the partial) ========== */
 
         /* ========== TOP BAR ========== */
         .topbar {
@@ -639,44 +494,12 @@
             border-radius: 3px;
         }
 
-        /* ========== MOBILE SIDEBAR TOGGLE ========== */
-        .sidebar-toggle {
-            display: none;
-            position: fixed;
-            bottom: 20px;
-            left: 20px;
-            z-index: 300;
-            width: 44px;
-            height: 44px;
-            border-radius: 50%;
-            background: var(--color-primary, #1a365d);
-            color: white;
-            border: none;
-            cursor: pointer;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-            align-items: center;
-            justify-content: center;
-        }
-        .sidebar-toggle svg { width: 22px; height: 22px; }
-        .sidebar-overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.3);
-            z-index: 150;
-        }
-
         /* ========== RESPONSIVE ========== */
         @media (max-width: 1100px) {
             .main-grid { grid-template-columns: 1fr; }
             .bottom-grid { grid-template-columns: 1fr; }
         }
         @media (max-width: 900px) {
-            .sidebar { transform: translateX(-100%); }
-            .sidebar.open { transform: translateX(0); }
-            .sidebar-overlay.open { display: block; }
-            .sidebar-toggle { display: flex; }
-            .main-content { margin-left: 0; }
             .topbar { padding: 16px 20px; }
             .page-content { padding: 20px 20px 32px; }
             .overnight-row { grid-template-columns: repeat(2, 1fr); }
@@ -686,132 +509,10 @@
             .overnight-row { grid-template-columns: 1fr; }
         }
     </style>
+{% set active_nav = 'dashboard' %}
 </head>
 <body>
-
-<!-- ===== SIDEBAR ===== -->
-<aside class="sidebar" id="sidebar">
-    <div class="sidebar-brand">
-        <a href="/">
-            <div class="sidebar-logo">
-                <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
-                    <polyline points="9 22 9 12 15 12 15 22"/>
-                </svg>
-            </div>
-            <span class="sidebar-brand-text">DREAMS</span>
-        </a>
-    </div>
-
-    <nav class="sidebar-nav">
-        <div class="sidebar-section">
-            <div class="sidebar-section-label">Main</div>
-            <a href="/" class="nav-item active">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="3" y="3" width="7" height="7"/>
-                    <rect x="14" y="3" width="7" height="7"/>
-                    <rect x="14" y="14" width="7" height="7"/>
-                    <rect x="3" y="14" width="7" height="7"/>
-                </svg>
-                <span class="nav-label">Dashboard</span>
-            </a>
-            <a href="/contacts" class="nav-item">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4v2"/>
-                    <circle cx="9" cy="7" r="4"/>
-                    <path d="M23 21v-2a4 4 0 00-3-3.87"/>
-                    <path d="M16 3.13a4 4 0 010 7.75"/>
-                </svg>
-                <span class="nav-label">Contacts</span>
-            </a>
-            <a href="/call-list" class="nav-item">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
-                </svg>
-                <span class="nav-label">Call List</span>
-                {% set total_calls = (call_list_counts.get('priority', 0) or 0) %}
-                {% if total_calls > 0 %}
-                <span class="nav-badge">{{ total_calls }}</span>
-                {% endif %}
-            </a>
-        </div>
-
-        <div class="sidebar-section">
-            <div class="sidebar-section-label">Pipeline</div>
-            <a href="/properties" class="nav-item">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
-                    <polyline points="9 22 9 12 15 12 15 22"/>
-                </svg>
-                <span class="nav-label">Properties</span>
-            </a>
-            <a href="/pursuits" class="nav-item">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="10"/>
-                    <circle cx="12" cy="12" r="6"/>
-                    <circle cx="12" cy="12" r="2"/>
-                </svg>
-                <span class="nav-label">Pursuits</span>
-            </a>
-            <a href="/fub-list" class="nav-item">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
-                    <path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/>
-                </svg>
-                <span class="nav-label">Deals</span>
-            </a>
-        </div>
-
-        <div class="sidebar-section">
-            <div class="sidebar-section-label">System</div>
-            <a href="/admin" class="nav-item">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="3"/>
-                    <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/>
-                </svg>
-                <span class="nav-label">Settings</span>
-            </a>
-            <a href="/admin/automation" class="nav-item">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
-                </svg>
-                <span class="nav-label">Automation</span>
-            </a>
-            <a href="/system/scoring-runs" class="nav-item">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="18" y1="20" x2="18" y2="10"/>
-                    <line x1="12" y1="20" x2="12" y2="4"/>
-                    <line x1="6" y1="20" x2="6" y2="14"/>
-                </svg>
-                <span class="nav-label">Scoring History</span>
-            </a>
-        </div>
-    </nav>
-
-    <div class="sidebar-footer">
-        <div class="sidebar-user">
-            <div class="sidebar-user-avatar">{{ current_user_name.split(' ')[0][0] }}{{ current_user_name.split(' ')[-1][0] }}</div>
-            <div>
-                <div class="sidebar-user-name">{{ current_user_name }}</div>
-                <div class="sidebar-user-role">Agent</div>
-            </div>
-        </div>
-    </div>
-</aside>
-
-<!-- Mobile overlay -->
-<div class="sidebar-overlay" id="sidebarOverlay"></div>
-
-<!-- Mobile toggle button -->
-<button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle menu">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="3" y1="12" x2="21" y2="12"/>
-        <line x1="3" y1="6" x2="21" y2="6"/>
-        <line x1="3" y1="18" x2="21" y2="18"/>
-    </svg>
-</button>
-
-<!-- ===== MAIN CONTENT ===== -->
+{% include 'partials/sidebar.html' %}
 <div class="main-content">
 
     <!-- Top Bar -->
@@ -1215,24 +916,6 @@
         }
     };
 
-    // ===== MOBILE SIDEBAR TOGGLE =====
-    const sidebar = document.getElementById('sidebar');
-    const overlay = document.getElementById('sidebarOverlay');
-    const toggle = document.getElementById('sidebarToggle');
-
-    function openSidebar() {
-        sidebar.classList.add('open');
-        overlay.classList.add('open');
-    }
-    function closeSidebar() {
-        sidebar.classList.remove('open');
-        overlay.classList.remove('open');
-    }
-
-    toggle.addEventListener('click', () => {
-        sidebar.classList.contains('open') ? closeSidebar() : openSidebar();
-    });
-    overlay.addEventListener('click', closeSidebar);
 })();
 </script>
 

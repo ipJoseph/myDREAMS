@@ -356,8 +356,11 @@
             border-bottom: 1px solid var(--border);
         }
     </style>
+{% set active_nav = 'contacts' %}
 </head>
 <body>
+    {% include 'partials/sidebar.html' %}
+    <div class="main-content">
     <div class="generator-container">
         <a href="/" class="back-link">
             <span>←</span> Back to Dashboard
@@ -619,5 +622,6 @@
         // Load initial leads on page load
         loadInitialLeads();
     </script>
+    </div>
 </body>
 </html>

@@ -352,20 +352,11 @@
             padding: 24px;
         }
     </style>
+    {% set active_nav = 'call-list' %}
 </head>
 <body>
-    <!-- Navigation -->
-    <nav class="dreams-nav">
-        <div class="dreams-nav-brand">DREAMS</div>
-        <div class="dreams-nav-links">
-            <a href="/">Dashboard</a>
-            <a href="/contacts">Contacts</a>
-            <a href="/call-list" class="active">Call List</a>
-            <a href="/fub-list">FUB List</a>
-            <a href="/properties">Properties</a>
-        </div>
-        <div class="dreams-nav-user">{{ current_user_name }}</div>
-    </nav>
+    {% include 'partials/sidebar.html' %}
+    <div class="main-content">
 
     <!-- Header -->
     <div class="call-list-header">
@@ -508,5 +499,6 @@
             }
         });
     </script>
+    </div>
 </body>
 </html>

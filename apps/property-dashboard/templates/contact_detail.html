@@ -563,8 +563,11 @@
             font-size: 13px;
         }
     </style>
+    {% set active_nav = 'contacts' %}
 </head>
 <body>
+    {% include 'partials/sidebar.html' %}
+    <div class="main-content">
     <!-- Header -->
     <header class="dreams-header">
         <div>
@@ -573,14 +576,9 @@
                 {{ contact.first_name }} {{ contact.last_name }}
             </div>
         </div>
-        <nav style="display: flex; gap: 16px; align-items: center;">
+        <div style="display: flex; gap: 16px; align-items: center;">
             <a href="/contacts/{{ contact.id }}/workspace" class="dreams-btn dreams-btn-primary">Open Workspace</a>
-            <a href="/" class="dreams-btn dreams-btn-secondary">Main</a>
-            <a href="/contacts" class="dreams-btn dreams-btn-secondary">Contacts</a>
-            <a href="/call-list" class="dreams-btn dreams-btn-secondary">Call List</a>
-            <a href="/fub-list" class="dreams-btn dreams-btn-secondary">FUB List</a>
-            <a href="/actions" class="dreams-btn dreams-btn-secondary">Actions</a>
-        </nav>
+        </div>
     </header>
 
     <a href="/contacts" class="back-link">&larr; Back to Contacts</a>
@@ -1471,5 +1469,6 @@
             loadPropertyMatches();
         });
     </script>
+    </div>
 </body>
 </html>

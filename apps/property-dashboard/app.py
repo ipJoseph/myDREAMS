@@ -1124,13 +1124,26 @@ def api_properties():
 def property_detail(property_id):
     """Property detail page with price history chart."""
     with db._get_connection() as conn:
-        # Get property details
-        prop = conn.execute('''
-            SELECT p.*,
-                   (SELECT COUNT(*) FROM property_changes WHERE property_id = p.id) as change_count
-            FROM properties p
-            WHERE p.id = ?
-        ''', [property_id]).fetchone()
+        # Try properties_v2 view first (covers listings table with lst_* IDs),
+        # then fall back to legacy properties table (UUID IDs)
+        prop = None
+        try:
+            prop = conn.execute('''
+                SELECT p.*,
+                       (SELECT COUNT(*) FROM property_changes WHERE property_id = p.id) as change_count
+                FROM properties_v2 p
+                WHERE p.id = ?
+            ''', [property_id]).fetchone()
+        except Exception:
+            pass
+
+        if not prop:
+            prop = conn.execute('''
+                SELECT p.*,
+                       (SELECT COUNT(*) FROM property_changes WHERE property_id = p.id) as change_count
+                FROM properties p
+                WHERE p.id = ?
+            ''', [property_id]).fetchone()
 
         if not prop:
             return "Property not found", 404

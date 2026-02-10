@@ -310,7 +310,10 @@
         }
     </style>
 </head>
+{% set active_nav = 'properties' %}
 <body>
+    {% include 'partials/sidebar.html' %}
+    <div class="main-content">
     <div class="container">
         <!-- Header -->
         <header class="header">
@@ -318,12 +321,6 @@
                 <h1>Listings Gallery</h1>
                 <span class="env-badge {{ dreams_env }}">{{ dreams_env }}</span>
             </div>
-            <nav class="header-nav">
-                <a href="/">Home</a>
-                <a href="/listings" class="active">Listings</a>
-                <a href="/photos">Photos</a>
-                <a href="/contacts">Contacts</a>
-            </nav>
         </header>
 
         <!-- Filters -->
@@ -542,5 +539,6 @@
             if (e.key === 'Escape') closeModal();
         });
     </script>
+    </div>
 </body>
 </html>
