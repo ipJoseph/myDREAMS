@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard | DREAMS</title>
+    <link rel="icon" type="image/svg+xml" href="{{ favicon }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='shared/css/dreams.css') }}">
+    <style>
+        /* ========== LAYOUT ========== */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-page, #f8fafc);
+            color: var(--text-primary, #1a1a1a);
+            min-height: 100vh;
+        }
+
+        .page-wrap { max-width: 1440px; margin: 0 auto; padding: 0 24px 40px; }
+
+        /* ========== HEADER ========== */
+        .dash-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 24px 0 20px;
+            border-bottom: 1px solid var(--border-color, #e2e8f0);
+            margin-bottom: 24px;
+        }
+        .dash-greeting h1 {
+            font-size: 26px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        .dash-greeting .dash-date {
+            font-size: 14px;
+            color: var(--text-secondary, #64748b);
+            margin-top: 4px;
+        }
+        .dash-nav {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .dash-nav a {
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            text-decoration: none;
+            color: var(--text-secondary);
+            background: white;
+            border: 1px solid var(--border-color);
+            transition: all 0.15s;
+        }
+        .dash-nav a:hover { border-color: var(--color-primary); color: var(--color-primary); }
+        .dash-nav a.active { background: var(--color-primary); color: white; border-color: var(--color-primary); }
+
+        /* ========== SHARED: PANEL ========== */
+        .panel {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+            overflow: hidden;
+        }
+        .panel-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .panel-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text-primary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .panel-link {
+            font-size: 13px;
+            color: var(--color-primary-light, #2b6cb0);
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .panel-link:hover { text-decoration: underline; }
+        .panel-body { padding: 16px 20px; }
+
+        /* ========== ZONE A: OVERNIGHT CARDS ========== */
+        .overnight-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .overnight-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+            border-left: 4px solid transparent;
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        .overnight-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .overnight-card.new-leads { border-left-color: #22c55e; background: linear-gradient(135deg, #f0fdf4, white); }
+        .overnight-card.price-drops { border-left-color: #3b82f6; background: linear-gradient(135deg, #eff6ff, white); }
+        .overnight-card.status-changes { border-left-color: #a855f7; background: linear-gradient(135deg, #faf5ff, white); }
+        .overnight-card.going-cold { border-left-color: #f59e0b; background: linear-gradient(135deg, #fffbeb, white); }
+        .overnight-card.quiet-night { border-left-color: #94a3b8; grid-column: 1 / -1; text-align: center; }
+        .overnight-count {
+            font-size: 32px;
+            font-weight: 800;
+            line-height: 1;
+            margin-bottom: 6px;
+        }
+        .new-leads .overnight-count { color: #16a34a; }
+        .price-drops .overnight-count { color: #2563eb; }
+        .status-changes .overnight-count { color: #9333ea; }
+        .going-cold .overnight-count { color: #d97706; }
+        .overnight-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+        .overnight-detail {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 8px;
+        }
+
+        /* ========== ZONE B+C: TWO-COLUMN ========== */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 60% 40%;
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+        .side-col { display: flex; flex-direction: column; gap: 20px; }
+
+        /* ========== CALL LIST (ZONE B) ========== */
+        .cl-tabs {
+            display: flex;
+            gap: 4px;
+            padding: 12px 20px 0;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .cl-tab {
+            padding: 10px 16px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            transition: all 0.15s;
+            white-space: nowrap;
+        }
+        .cl-tab:hover { color: var(--text-primary); }
+        .cl-tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
+        .cl-tab .badge {
+            display: inline-block;
+            background: #e2e8f0;
+            color: var(--text-secondary);
+            font-size: 11px;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 10px;
+            margin-left: 5px;
+        }
+        .cl-tab.active .badge { background: var(--color-primary); color: white; }
+        .cl-pane { display: none; }
+        .cl-pane.active { display: block; }
+        .cl-body { padding: 12px 20px 16px; max-height: 520px; overflow-y: auto; }
+
+        /* Contact row (compact for embedded list) */
+        .cl-row {
+            display: grid;
+            grid-template-columns: 40px 1fr auto auto;
+            gap: 12px;
+            align-items: center;
+            padding: 10px 12px;
+            border-radius: 8px;
+            transition: background 0.15s;
+        }
+        .cl-row:hover { background: #f8fafc; }
+        .cl-row.calling { background: #eff6ff; border-left: 3px solid var(--color-primary); }
+        .cl-avatar {
+            width: 40px; height: 40px; border-radius: 50%;
+            background: var(--color-primary);
+            color: white;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px; font-weight: 700;
+            flex-shrink: 0;
+        }
+        .cl-info { min-width: 0; }
+        .cl-name {
+            font-size: 14px;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .cl-name a { color: inherit; text-decoration: none; }
+        .cl-name a:hover { color: var(--color-primary); }
+        .cl-meta {
+            font-size: 12px;
+            color: var(--text-secondary);
+            display: flex;
+            gap: 8px;
+            margin-top: 2px;
+        }
+        .cl-scores { display: flex; gap: 6px; }
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+        .pill-p { background: #e0e7ff; color: #4338ca; }
+        .pill-h { background: #fee2e2; color: #dc2626; }
+
+        .cl-action .fub-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 6px 12px;
+            border-radius: 6px;
+            background: #4f46e5;
+            color: white;
+            font-size: 12px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: background 0.15s;
+        }
+        .cl-action .fub-btn:hover { background: #4338ca; }
+
+        .cl-empty {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        /* ========== HOTTEST LEADS (ZONE C top) ========== */
+        .hot-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 0;
+            border-bottom: 1px solid #f8fafc;
+        }
+        .hot-row:last-child { border-bottom: none; }
+        .hot-rank {
+            width: 24px; height: 24px;
+            border-radius: 50%;
+            background: #fee2e2;
+            color: #dc2626;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 11px; font-weight: 800;
+            flex-shrink: 0;
+        }
+        .hot-info { flex: 1; min-width: 0; }
+        .hot-name {
+            font-size: 14px;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .hot-name a { color: inherit; text-decoration: none; }
+        .hot-name a:hover { color: var(--color-primary); }
+        .hot-activity {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 1px;
+        }
+        .hot-heat {
+            background: #fee2e2;
+            color: #dc2626;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        /* ========== SEND PROPERTIES (ZONE C bottom) ========== */
+        .sp-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 0;
+            border-bottom: 1px solid #f8fafc;
+        }
+        .sp-row:last-child { border-bottom: none; }
+        .sp-match-count {
+            background: #dcfce7;
+            color: #16a34a;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+        .sp-info { flex: 1; min-width: 0; }
+        .sp-name {
+            font-size: 14px;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .sp-name a { color: inherit; text-decoration: none; }
+        .sp-name a:hover { color: var(--color-primary); }
+        .sp-detail { font-size: 12px; color: var(--text-secondary); }
+
+        /* ========== ZONE D: PIPELINE BAR ========== */
+        .pipeline-bar {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 0;
+            margin-bottom: 24px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+            overflow: hidden;
+        }
+        .pipe-cell {
+            text-align: center;
+            padding: 16px 12px;
+            border-right: 1px solid #f1f5f9;
+            position: relative;
+        }
+        .pipe-cell:last-child { border-right: none; }
+        .pipe-cell::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+        }
+        .pipe-cell.leads::after { background: #3b82f6; }
+        .pipe-cell.buyers::after { background: #8b5cf6; }
+        .pipe-cell.properties::after { background: #22c55e; }
+        .pipe-cell.pursuits::after { background: #f59e0b; }
+        .pipe-cell.contracts::after { background: #ef4444; }
+        .pipe-count {
+            font-size: 28px;
+            font-weight: 800;
+            line-height: 1;
+        }
+        .pipe-cell.leads .pipe-count { color: #2563eb; }
+        .pipe-cell.buyers .pipe-count { color: #7c3aed; }
+        .pipe-cell.properties .pipe-count { color: #16a34a; }
+        .pipe-cell.pursuits .pipe-count { color: #d97706; }
+        .pipe-cell.contracts .pipe-count { color: #dc2626; }
+        .pipe-label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+            margin-top: 6px;
+        }
+        .pipe-detail {
+            font-size: 11px;
+            color: var(--text-muted, #9ca3af);
+            margin-top: 3px;
+        }
+        .pipe-delta {
+            font-size: 11px;
+            font-weight: 600;
+            margin-top: 4px;
+        }
+        .pipe-delta.up { color: #16a34a; }
+        .pipe-delta.down { color: #dc2626; }
+
+        /* ========== ZONE E+F: BOTTOM TWO-COLUMN ========== */
+        .bottom-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        /* Active Deals */
+        .deal-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 0;
+            border-bottom: 1px solid #f8fafc;
+        }
+        .deal-row:last-child { border-bottom: none; }
+        .deal-stage {
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            flex-shrink: 0;
+            white-space: nowrap;
+        }
+        .deal-stage.new-deal { background: #dbeafe; color: #1e40af; }
+        .deal-stage.offer { background: #fef3c7; color: #92400e; }
+        .deal-stage.contract { background: #d1fae5; color: #065f46; }
+        .deal-stage.listed { background: #f3e8ff; color: #7c3aed; }
+        .deal-stage.pending { background: #fee2e2; color: #dc2626; }
+        .deal-stage.default { background: #f3f4f6; color: #374151; }
+        .deal-info { flex: 1; min-width: 0; }
+        .deal-name {
+            font-size: 14px;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .deal-detail { font-size: 12px; color: var(--text-secondary); }
+        .deal-value {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--color-primary);
+            flex-shrink: 0;
+        }
+
+        /* Buyers needing work */
+        .buyer-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 0;
+            border-bottom: 1px solid #f8fafc;
+        }
+        .buyer-row:last-child { border-bottom: none; }
+        .buyer-days {
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            background: #fef3c7;
+            color: #92400e;
+            flex-shrink: 0;
+            white-space: nowrap;
+        }
+        .buyer-days.urgent { background: #fee2e2; color: #dc2626; }
+        .buyer-info { flex: 1; min-width: 0; }
+        .buyer-name {
+            font-size: 14px;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .buyer-name a { color: inherit; text-decoration: none; }
+        .buyer-name a:hover { color: var(--color-primary); }
+        .buyer-criteria { font-size: 12px; color: var(--text-secondary); }
+
+        /* ========== EMPTY STATE ========== */
+        .empty-msg {
+            text-align: center;
+            padding: 30px 16px;
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+        .empty-icon { font-size: 32px; margin-bottom: 8px; }
+
+        /* ========== KEYBOARD HINT ========== */
+        .kb-hint {
+            font-size: 11px;
+            color: var(--text-muted);
+            padding: 8px 20px 12px;
+            border-top: 1px solid #f1f5f9;
+        }
+        kbd {
+            display: inline-block;
+            padding: 1px 5px;
+            font-size: 11px;
+            font-family: inherit;
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            border-radius: 3px;
+        }
+
+        /* ========== RESPONSIVE ========== */
+        @media (max-width: 1100px) {
+            .main-grid { grid-template-columns: 1fr; }
+            .bottom-grid { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 768px) {
+            .overnight-row { grid-template-columns: repeat(2, 1fr); }
+            .pipeline-bar { grid-template-columns: repeat(3, 1fr); }
+            .dash-header { flex-direction: column; align-items: flex-start; gap: 12px; }
+            .page-wrap { padding: 0 16px 32px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="page-wrap">
+
+    <!-- ===== HEADER ===== -->
+    <header class="dash-header">
+        <div class="dash-greeting">
+            {% set hour = refresh_time.split(' ')[-2].split(':')[0]|int %}
+            <h1>
+                {% if hour < 12 %}Good morning{% elif hour < 17 %}Good afternoon{% else %}Good evening{% endif %}, {{ current_user_name.split(' ')[0] }}
+            </h1>
+            <div class="dash-date">{{ refresh_time }}</div>
+        </div>
+        <nav class="dash-nav">
+            <a href="/" class="active">Dashboard</a>
+            <a href="/contacts">Contacts</a>
+            <a href="/call-list">Call List</a>
+            <a href="/properties">Properties</a>
+            <a href="/pursuits">Pursuits</a>
+            <a href="/admin">Admin</a>
+        </nav>
+    </header>
+
+    <!-- ===== ZONE A: OVERNIGHT SUMMARY ===== -->
+    {% set new_count = overnight.new_leads|length %}
+    {% set drops_count = overnight.price_drops|length %}
+    {% set status_count = overnight.status_changes|length %}
+    {% set cold_count = overnight.going_cold|length %}
+    {% set total_overnight = new_count + drops_count + status_count + cold_count %}
+
+    {% if total_overnight > 0 %}
+    <div class="overnight-row">
+        <div class="overnight-card new-leads">
+            <div class="overnight-count">{{ new_count }}</div>
+            <div class="overnight-label">New Leads</div>
+            {% if new_count > 0 %}
+            <div class="overnight-detail">
+                {{ overnight.new_leads[0].first_name }} {{ overnight.new_leads[0].last_name }}{% if new_count > 1 %} + {{ new_count - 1 }} more{% endif %}
+            </div>
+            {% else %}
+            <div class="overnight-detail">No new leads overnight</div>
+            {% endif %}
+        </div>
+
+        <div class="overnight-card price-drops">
+            <div class="overnight-count">{{ drops_count }}</div>
+            <div class="overnight-label">Price Drops</div>
+            {% if drops_count > 0 %}
+            <div class="overnight-detail">
+                {% set drop = overnight.price_drops[0] %}
+                {{ drop.property_address[:30] }}{% if drop.property_address|length > 30 %}...{% endif %}
+            </div>
+            {% else %}
+            <div class="overnight-detail">No price drops detected</div>
+            {% endif %}
+        </div>
+
+        <div class="overnight-card status-changes">
+            <div class="overnight-count">{{ status_count }}</div>
+            <div class="overnight-label">Status Changes</div>
+            {% if status_count > 0 %}
+            <div class="overnight-detail">
+                {% set sc = overnight.status_changes[0] %}
+                {{ sc.old_value }} &rarr; {{ sc.new_value }}
+            </div>
+            {% else %}
+            <div class="overnight-detail">No status changes</div>
+            {% endif %}
+        </div>
+
+        <div class="overnight-card going-cold">
+            <div class="overnight-count">{{ cold_count }}</div>
+            <div class="overnight-label">Going Cold</div>
+            {% if cold_count > 0 %}
+            <div class="overnight-detail">
+                {{ overnight.going_cold[0].first_name }} {{ overnight.going_cold[0].last_name }}{% if cold_count > 1 %} + {{ cold_count - 1 }} more{% endif %}
+            </div>
+            {% else %}
+            <div class="overnight-detail">No one cooling off</div>
+            {% endif %}
+        </div>
+    </div>
+    {% else %}
+    <div class="overnight-row">
+        <div class="overnight-card quiet-night">
+            <div class="overnight-count" style="color: #94a3b8;">0</div>
+            <div class="overnight-label">Quiet Night</div>
+            <div class="overnight-detail">No new leads, price drops, status changes, or cold leads in the last 24 hours.</div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ===== ZONE B + C: MAIN GRID ===== -->
+    <div class="main-grid">
+
+        <!-- ZONE B: EMBEDDED CALL LIST -->
+        <div class="panel">
+            <div class="panel-head">
+                <span class="panel-title">Call List</span>
+                <a href="/call-list" class="panel-link">Full View &rarr;</a>
+            </div>
+
+            <div class="cl-tabs">
+                <button class="cl-tab active" data-tab="priority" title="Press 1">
+                    Priority <span class="badge">{{ call_list_counts.get('priority', 0) }}</span>
+                </button>
+                <button class="cl-tab" data-tab="new_leads" title="Press 2">
+                    New <span class="badge">{{ call_list_counts.get('new_leads', 0) }}</span>
+                </button>
+                <button class="cl-tab" data-tab="hot" title="Press 3">
+                    Hot <span class="badge">{{ call_list_counts.get('hot', 0) }}</span>
+                </button>
+                <button class="cl-tab" data-tab="follow_up" title="Press 4">
+                    Follow-Up <span class="badge">{{ call_list_counts.get('follow_up', 0) }}</span>
+                </button>
+                <button class="cl-tab" data-tab="going_cold" title="Press 5">
+                    Going Cold <span class="badge">{{ call_list_counts.get('going_cold', 0) }}</span>
+                </button>
+            </div>
+
+            {% for list_type in ['priority', 'new_leads', 'hot', 'follow_up', 'going_cold'] %}
+            <div class="cl-pane {{ 'active' if list_type == 'priority' else '' }}" data-pane="{{ list_type }}">
+                <div class="cl-body">
+                    {% set contacts = call_list_data.get(list_type, []) %}
+                    {% if contacts %}
+                        {% for c in contacts %}
+                        <div class="cl-row" id="cl-{{ c.id }}">
+                            <div class="cl-avatar">{{ (c.first_name or '?')[0] }}{{ (c.last_name or '')[0] }}</div>
+                            <div class="cl-info">
+                                <div class="cl-name">
+                                    <a href="/contacts/{{ c.id }}">{{ c.first_name }} {{ c.last_name }}</a>
+                                </div>
+                                <div class="cl-meta">
+                                    {% if c.phone %}<span>{{ c.phone|phone }}</span>{% endif %}
+                                    <span>{{ c.stage or 'Lead' }}</span>
+                                    {% if c.source %}<span>{{ c.source[:18] }}</span>{% endif %}
+                                </div>
+                            </div>
+                            <div class="cl-scores">
+                                <span class="pill pill-p" title="Priority">P{{ "%.0f"|format(c.priority_score or 0) }}</span>
+                                <span class="pill pill-h" title="Heat">H{{ "%.0f"|format(c.heat_score or 0) }}</span>
+                            </div>
+                            <div class="cl-action">
+                                {% if c.fub_id %}
+                                <a href="https://jontharp.followupboss.com/2/people/view/{{ c.fub_id }}"
+                                   target="_blank"
+                                   class="fub-btn"
+                                   onclick="markCalling('{{ c.id }}')">
+                                    Call in FUB
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="cl-empty">
+                            <div style="font-size: 24px; margin-bottom: 6px;">&#9745;</div>
+                            No contacts in this list
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+
+            <div class="kb-hint">
+                <kbd>1</kbd>-<kbd>5</kbd> switch tabs
+            </div>
+        </div>
+
+        <!-- ZONE C: SIDE COLUMN -->
+        <div class="side-col">
+
+            <!-- Hottest Leads -->
+            <div class="panel">
+                <div class="panel-head">
+                    <span class="panel-title">Hottest Leads</span>
+                    <a href="/contacts?sort=heat_score&order=desc" class="panel-link">All &rarr;</a>
+                </div>
+                <div class="panel-body">
+                    {% if hottest_leads %}
+                        {% for lead in hottest_leads %}
+                        <div class="hot-row">
+                            <div class="hot-rank">{{ loop.index }}</div>
+                            <div class="hot-info">
+                                <div class="hot-name">
+                                    <a href="/contacts/{{ lead.id }}">{{ lead.first_name }} {{ lead.last_name }}</a>
+                                </div>
+                                <div class="hot-activity">
+                                    {% if lead.website_visits %}{{ lead.website_visits }} visits{% endif %}
+                                    {% if lead.properties_viewed %} &middot; {{ lead.properties_viewed }} viewed{% endif %}
+                                    {% if lead.days_since_activity is not none and lead.days_since_activity >= 0 %} &middot; {{ lead.days_since_activity }}d ago{% endif %}
+                                </div>
+                            </div>
+                            <div class="hot-heat">{{ "%.0f"|format(lead.heat_score or 0) }}</div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="empty-msg">
+                            <div class="empty-icon">&#128293;</div>
+                            No hot leads right now
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Send Properties -->
+            <div class="panel">
+                <div class="panel-head">
+                    <span class="panel-title">Send Properties</span>
+                    <a href="/actions" class="panel-link">Actions &rarr;</a>
+                </div>
+                <div class="panel-body">
+                    {% set send_props = todays_actions.get('send_properties', []) %}
+                    {% if send_props %}
+                        {% for buyer in send_props %}
+                        <div class="sp-row">
+                            <div class="sp-match-count">{{ buyer.match_count or 0 }} match{{ 'es' if (buyer.match_count or 0) != 1 else '' }}</div>
+                            <div class="sp-info">
+                                <div class="sp-name">
+                                    <a href="/contacts/{{ buyer.contact_id or buyer.id }}">{{ buyer.name or (buyer.first_name ~ ' ' ~ (buyer.last_name or '')) }}</a>
+                                </div>
+                                <div class="sp-detail">
+                                    {% if buyer.preferred_cities %}{{ buyer.preferred_cities[:30] }}{% endif %}
+                                    {% if buyer.max_price %} &middot; up to ${{ "{:,.0f}".format(buyer.max_price) }}{% endif %}
+                                </div>
+                            </div>
+                            {% if buyer.fub_id %}
+                            <a href="https://jontharp.followupboss.com/2/people/view/{{ buyer.fub_id }}"
+                               target="_blank"
+                               class="fub-btn" style="font-size: 11px; padding: 4px 10px;">
+                                FUB
+                            </a>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="empty-msg">
+                            <div class="empty-icon">&#128230;</div>
+                            No property matches to send
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ===== ZONE D: PIPELINE BAR ===== -->
+    <div class="pipeline-bar">
+        <div class="pipe-cell leads">
+            <div class="pipe-count">{{ pipeline.leads.count }}</div>
+            <div class="pipe-label">Leads</div>
+            {% if pipeline.leads.delta and pipeline.leads.delta != 0 %}
+            <div class="pipe-delta {{ 'up' if pipeline.leads.delta > 0 else 'down' }}">
+                {{ '+' if pipeline.leads.delta > 0 else '' }}{{ pipeline.leads.delta }} / 7d
+            </div>
+            {% endif %}
+        </div>
+        <div class="pipe-cell buyers">
+            <div class="pipe-count">{{ pipeline.buyers.count }}</div>
+            <div class="pipe-label">Buyers</div>
+            {% if pipeline.buyers.need_intake %}
+            <div class="pipe-detail">{{ pipeline.buyers.need_intake }} need intake</div>
+            {% endif %}
+        </div>
+        <div class="pipe-cell properties">
+            <div class="pipe-count">{{ pipeline.properties.active }}</div>
+            <div class="pipe-label">Properties</div>
+            {% if pipeline.properties.new_today %}
+            <div class="pipe-detail">{{ pipeline.properties.new_today }} new today</div>
+            {% endif %}
+            {% if pipeline.properties.price_drops %}
+            <div class="pipe-detail">{{ pipeline.properties.price_drops }} price drop{{ 's' if pipeline.properties.price_drops != 1 else '' }}</div>
+            {% endif %}
+        </div>
+        <div class="pipe-cell pursuits">
+            <div class="pipe-count">{{ pipeline.pursuits.count }}</div>
+            <div class="pipe-label">Pursuits</div>
+            {% if pipeline.pursuits.properties_count %}
+            <div class="pipe-detail">{{ pipeline.pursuits.properties_count }} properties</div>
+            {% endif %}
+        </div>
+        <div class="pipe-cell contracts">
+            <div class="pipe-count">{{ pipeline.contracts.count }}</div>
+            <div class="pipe-label">Contracts</div>
+            {% if pipeline.contracts.value %}
+            <div class="pipe-detail">${{ "{:,.0f}".format(pipeline.contracts.value) }}</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- ===== ZONE E + F: BOTTOM GRID ===== -->
+    <div class="bottom-grid">
+
+        <!-- ZONE E: ACTIVE DEALS -->
+        <div class="panel">
+            <div class="panel-head">
+                <span class="panel-title">Active Deals</span>
+            </div>
+            <div class="panel-body">
+                {% if active_deals %}
+                    {% for deal in active_deals %}
+                    <div class="deal-row">
+                        {% set stage_lower = (deal.stage_name or '')|lower %}
+                        <div class="deal-stage {% if 'new' in stage_lower %}new-deal{% elif 'offer' in stage_lower %}offer{% elif 'contract' in stage_lower %}contract{% elif 'listed' in stage_lower %}listed{% elif 'pending' in stage_lower %}pending{% else %}default{% endif %}">
+                            {{ deal.stage_name or 'Unknown' }}
+                        </div>
+                        <div class="deal-info">
+                            <div class="deal-name">{{ deal.person_name or 'Unknown' }}</div>
+                            <div class="deal-detail">
+                                {% if deal.property_address %}{{ deal.property_address }}{% endif %}
+                                {% if deal.property_city %}, {{ deal.property_city }}{% endif %}
+                            </div>
+                        </div>
+                        {% if deal.deal_value %}
+                        <div class="deal-value">${{ "{:,.0f}".format(deal.deal_value) }}</div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-msg">
+                        <div class="empty-icon">&#128188;</div>
+                        No active deals in the pipeline
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- ZONE F: BUYERS NEEDING WORK -->
+        <div class="panel">
+            <div class="panel-head">
+                <span class="panel-title">Buyers Needing Properties</span>
+                <a href="/pursuits" class="panel-link">Pursuits &rarr;</a>
+            </div>
+            <div class="panel-body">
+                {% if buyers_needing_work %}
+                    {% for buyer in buyers_needing_work %}
+                    <div class="buyer-row">
+                        <div class="buyer-days {{ 'urgent' if buyer.days_since_package is none or (buyer.days_since_package is not none and buyer.days_since_package > 14) else '' }}">
+                            {% if buyer.days_since_package is not none %}
+                                {{ buyer.days_since_package }}d ago
+                            {% else %}
+                                Never
+                            {% endif %}
+                        </div>
+                        <div class="buyer-info">
+                            <div class="buyer-name">
+                                <a href="/contacts/{{ buyer.id }}">{{ buyer.name }}</a>
+                            </div>
+                            <div class="buyer-criteria">
+                                {{ buyer.need_type or 'Buying' }}
+                                {% if buyer.preferred_cities %} &middot; {{ buyer.preferred_cities[:25] }}{% endif %}
+                                {% if buyer.min_price and buyer.max_price %}
+                                    &middot; ${{ "{:,.0f}".format(buyer.min_price) }}-${{ "{:,.0f}".format(buyer.max_price) }}
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-msg">
+                        <div class="empty-icon">&#128269;</div>
+                        All buyers have recent property packages
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+<!-- ===== JAVASCRIPT ===== -->
+<script>
+(function() {
+    // ===== CALL LIST TAB SWITCHING =====
+    const tabs = document.querySelectorAll('.cl-tab');
+    const panes = document.querySelectorAll('.cl-pane');
+
+    function switchTab(tabName) {
+        tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === tabName));
+        panes.forEach(p => p.classList.toggle('active', p.dataset.pane === tabName));
+    }
+
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+    });
+
+    // ===== KEYBOARD SHORTCUTS =====
+    const tabOrder = ['priority', 'new_leads', 'hot', 'follow_up', 'going_cold'];
+    document.addEventListener('keydown', (e) => {
+        // Don't fire if user is typing in an input
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+        const num = parseInt(e.key);
+        if (num >= 1 && num <= 5) {
+            switchTab(tabOrder[num - 1]);
+        }
+    });
+
+    // ===== MARK AS CALLING =====
+    window.markCalling = function(contactId) {
+        const row = document.getElementById('cl-' + contactId);
+        if (row) {
+            row.classList.add('calling');
+        }
+    };
+})();
+</script>
+
+</body>
+</html>

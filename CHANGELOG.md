@@ -9,6 +9,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Daily Dashboard v2** (`home_v2.html`) — Redesigned home page optimized for morning workflow
+  - Overnight summary cards: new leads, price drops, status changes, going cold (with "quiet night" fallback)
+  - Embedded call list with 5 tabs (Priority, New, Hot, Follow-Up, Going Cold) — no page navigation needed
+  - Keyboard shortcuts: press 1-5 to switch call list tabs
+  - Hottest leads panel (top 8 by heat score with activity details)
+  - Send properties panel (buyers with matching properties)
+  - Compact pipeline bar: Leads → Buyers → Properties → Pursuits → Contracts
+  - Active deals panel (stage badges, values, addresses from FUB)
+  - Buyers needing properties panel (days since last package, criteria summary)
+  - Rollback: `/?v2=0` loads original dashboard; `home.html` untouched
 - **Automation Rules Engine** — Code-defined rules with DB-configurable thresholds that act on behavioral signals
   - 5 initial rules: Activity Burst, Going Cold, Hot Lead, Warming Lead, New Lead
   - Each rule evaluates conditions, checks per-contact cooldowns, and dispatches actions (email alerts, FUB tasks)

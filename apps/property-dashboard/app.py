@@ -640,6 +640,9 @@ def home():
     """Unified dashboard home (requires authentication)"""
     db = get_db()
 
+    # ===== V2 TOGGLE =====
+    use_v2 = request.args.get('v2', '1') != '0'
+
     # Get view filter from query params (default to 'my_leads')
     current_view = request.args.get('view', 'my_leads')
     if current_view not in CONTACT_VIEWS:
@@ -668,8 +671,7 @@ def home():
     pipeline = db.get_pipeline_snapshot(user_id=CURRENT_USER_ID)
 
     # ===== HOTTEST LEADS =====
-    # Top 5 by heat score for left column
-    hottest_leads = db.get_hottest_leads(limit=5, user_id=CURRENT_USER_ID)
+    hottest_leads = db.get_hottest_leads(limit=8, user_id=CURRENT_USER_ID)
 
     # ===== OVERNIGHT CHANGES =====
     # New leads, price drops, status changes, going cold
@@ -683,7 +685,30 @@ def home():
     # Buyers in CURATE phase with requirements but no recent packages
     buyers_needing_work = db.get_buyers_needing_property_work(user_id=CURRENT_USER_ID, limit=5)
 
-    # ===== LEGACY DATA (for backward compatibility) =====
+    # ===== CALL LIST DATA (for v2 embedded call list) =====
+    call_list_data = {}
+    call_list_counts = {}
+    if use_v2:
+        for list_type in ('priority', 'new_leads', 'hot', 'follow_up', 'going_cold'):
+            call_list_counts[list_type] = db.count_call_list_contacts(list_type, user_id=CURRENT_USER_ID)
+            call_list_data[list_type] = db.get_call_list_contacts(list_type, user_id=CURRENT_USER_ID, limit=25)
+
+    # ===== V2 DASHBOARD =====
+    if use_v2:
+        return render_template('home_v2.html',
+                             todays_actions=todays_actions,
+                             todoist_tasks=todoist_tasks,
+                             active_deals=active_deals,
+                             pipeline=pipeline,
+                             hottest_leads=hottest_leads,
+                             overnight=overnight,
+                             active_pursuits=active_pursuits,
+                             buyers_needing_work=buyers_needing_work,
+                             call_list_data=call_list_data,
+                             call_list_counts=call_list_counts,
+                             refresh_time=datetime.now().strftime('%B %d, %Y %I:%M %p'))
+
+    # ===== LEGACY DATA (for v1 backward compatibility) =====
     # Get property stats
     all_properties = fetch_properties()
     property_metrics = calculate_metrics(all_properties)
