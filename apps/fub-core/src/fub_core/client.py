@@ -134,19 +134,82 @@ class FUBClient:
 
         return all_items
 
-    def fetch_people(self, include_trash: bool = False, max_results: int = 0) -> List[Dict]:
+    def fetch_people(self, params: Dict = None) -> List[Dict]:
         # Note: "fields=allFields" breaks FUB pagination after ~199 results (API bug as of Feb 2026).
         # Default fields include all fields we use (id, name, stage, emails, phones, tags, etc.)
-        # Extra allFields data (lastCall, propertiesViewed, etc.) comes from events/calls/texts APIs instead.
-        params = {"sort": "-created"}
-        if include_trash:
-            params["includeTrash"] = "true"
-        results = self.fetch_collection("/people", "people", params)
-        if max_results and len(results) > max_results:
+        return self.fetch_collection("/people", "people", params or {})
+
+    def fetch_people_targeted(
+        self,
+        user_id: int = None,
+        pond_ids_all: List[int] = None,
+        pond_id_capped: int = None,
+        pond_cap: int = 300,
+        event_person_ids: set = None,
+    ) -> List[Dict]:
+        """
+        Fetch people from specific sources and deduplicate.
+
+        Args:
+            user_id: Fetch all contacts assigned to this user
+            pond_ids_all: Fetch ALL contacts from these pond IDs
+            pond_id_capped: Fetch contacts from this pond, but only the most active
+            pond_cap: Max contacts to take from the capped pond (default 300)
+            event_person_ids: Set of person IDs with recent website activity (used for capped pond)
+
+        Returns:
+            Deduplicated list of people dicts
+        """
+        seen_ids = set()
+        all_people = []
+
+        def _add_people(people: List[Dict], label: str):
+            added = 0
+            for p in people:
+                pid = p.get("id")
+                if pid and pid not in seen_ids:
+                    seen_ids.add(pid)
+                    all_people.append(p)
+                    added += 1
             if self.logger:
-                self.logger.info(f"Limiting people from {len(results)} to {max_results} (most recently created)")
-            results = results[:max_results]
-        return results
+                self.logger.info(f"  {label}: {len(people)} fetched, {added} new (total: {len(all_people)})")
+
+        # 1) Contacts assigned to user
+        if user_id:
+            people = self.fetch_collection("/people", "people", {"assignedUserId": user_id}, use_cache=False)
+            _add_people(people, f"Assigned to user {user_id}")
+
+        # 2) Full ponds (fetch all)
+        for pond_id in (pond_ids_all or []):
+            people = self.fetch_collection("/people", "people", {"assignedPondId": pond_id}, use_cache=False)
+            _add_people(people, f"Pond {pond_id}")
+
+        # 3) Capped pond (only most active based on events)
+        if pond_id_capped is not None:
+            people = self.fetch_collection("/people", "people", {"assignedPondId": pond_id_capped}, use_cache=False)
+
+            if event_person_ids and len(people) > pond_cap:
+                # Split into active (has events) and inactive
+                active = [p for p in people if p.get("id") in event_person_ids and p.get("id") not in seen_ids]
+                inactive = [p for p in people if p.get("id") not in event_person_ids and p.get("id") not in seen_ids]
+
+                # Take all active up to cap, fill remainder with inactive
+                to_add = active[:pond_cap]
+                remaining = pond_cap - len(to_add)
+                if remaining > 0:
+                    to_add.extend(inactive[:remaining])
+
+                if self.logger:
+                    self.logger.info(f"  Pond {pond_id_capped} (capped): {len(people)} total, "
+                                     f"{len(active)} active, taking {len(to_add)} (cap={pond_cap})")
+                _add_people(to_add, f"Pond {pond_id_capped} (capped)")
+            else:
+                _add_people(people, f"Pond {pond_id_capped}")
+
+        if self.logger:
+            self.logger.info(f"✓ Targeted fetch complete: {len(all_people)} unique contacts")
+
+        return all_people
 
     def fetch_calls(self) -> List[Dict]:
         return self.fetch_collection("/calls", "calls")

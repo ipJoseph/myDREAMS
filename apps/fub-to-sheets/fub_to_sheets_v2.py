@@ -185,6 +185,22 @@ class Config:
     EXCLUDE_LEAD_IDS = os.getenv("EXCLUDE_LEAD_IDS", "")
     EXCLUDE_EMAILS = os.getenv("EXCLUDE_EMAILS", "")
 
+    # Targeted People Fetch - only pull contacts from these sources
+    # Joseph Williams user ID
+    FUB_USER_ID = int(os.getenv("FUB_USER_ID", "8"))
+    # Ponds to fetch ALL contacts from (comma-separated IDs)
+    # 4=Brand New Leads, 5=Raised Hand/Made Inquiry, 16=Agents/Vendors/Lenders
+    FETCH_POND_IDS_ALL = os.getenv("FETCH_POND_IDS_ALL", "4,5,16")
+    # Pond to fetch with cap (only most website-active contacts)
+    # 7=Warm Leads Pond
+    FETCH_POND_ID_CAPPED = int(os.getenv("FETCH_POND_ID_CAPPED", "7"))
+    FETCH_POND_CAP = int(os.getenv("FETCH_POND_CAP", "300"))
+
+    @classmethod
+    def get_pond_ids_all(cls) -> List[int]:
+        """Parse comma-separated pond IDs for full fetch"""
+        return [int(x.strip()) for x in cls.FETCH_POND_IDS_ALL.split(",") if x.strip()]
+
     @classmethod
     def get_excluded_ids(cls) -> set:
         """Parse comma-separated excluded lead IDs into a set"""
@@ -2552,16 +2568,28 @@ def main():
             logger=logger,
         )
 
-        # Fetch data from FUB (exclude trash - they're filtered from scoring anyway).
-        # Note: Without the old "fields=allFields" bug, FUB returns ALL 10,600+ contacts.
-        # We sort by -created and cap at 2000 to keep API overhead manageable while
-        # covering all recent/active contacts. The old allFields bug accidentally capped at ~470.
-        people = fub.fetch_people(include_trash=False, max_results=2000)
-
-        # Fetch users and build lookup for assignment tracking
+        # Fetch users first (needed for assignment tracking)
         users = fub.fetch_users()
         user_lookup = {u['id']: u['name'] for u in users if u.get('id') and u.get('name')}
         logger.info(f"✓ Fetched {len(users)} team members")
+
+        # Fetch events first — we need active person IDs for the capped pond filter
+        events = fub.fetch_events()
+        event_person_ids = {e.get("personId") for e in events if e.get("personId")}
+        logger.info(f"✓ {len(event_person_ids)} unique people with website activity")
+
+        # Targeted people fetch:
+        # 1) All contacts assigned to me (Joseph Williams)
+        # 2) All contacts from Brand New Leads, Hand Raised, Agents/Vendors ponds
+        # 3) Most website-active contacts from Warm Leads pond (capped at 300)
+        logger.info("Fetching targeted contact groups...")
+        people = fub.fetch_people_targeted(
+            user_id=Config.FUB_USER_ID,
+            pond_ids_all=Config.get_pond_ids_all(),
+            pond_id_capped=Config.FETCH_POND_ID_CAPPED,
+            pond_cap=Config.FETCH_POND_CAP,
+            event_person_ids=event_person_ids,
+        )
 
         # Sync users to database cache
         if db:
@@ -2592,7 +2620,7 @@ def main():
         calls = fub.fetch_calls()
         texts = fub.fetch_text_messages_parallel(people)
         emails = fub.fetch_emails_parallel(people)
-        events = fub.fetch_events()
+        # events already fetched above (needed for targeted people fetch)
 
         # Build lookups
         people_by_id = {str(p.get("id")): p for p in people if p.get("id")}
