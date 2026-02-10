@@ -136,7 +136,8 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background-color: #cbd5e1;
+            background-color: #94a3b8;
+            border: 2px solid #94a3b8;
             transition: 0.3s;
             border-radius: 28px;
         }
@@ -146,8 +147,8 @@
             content: "";
             height: 22px;
             width: 22px;
-            left: 3px;
-            bottom: 3px;
+            left: 1px;
+            bottom: 1px;
             background-color: white;
             transition: 0.3s;
             border-radius: 50%;
@@ -155,11 +156,23 @@
         }
 
         .toggle-switch input:checked + .toggle-slider {
-            background-color: var(--primary);
+            background-color: #16a34a;
+            border-color: #16a34a;
         }
 
         .toggle-switch input:checked + .toggle-slider:before {
             transform: translateX(24px);
+        }
+
+        /* Make toggle visible on dark master switch background */
+        .master-switch .toggle-slider {
+            background-color: rgba(255,255,255,0.3);
+            border-color: rgba(255,255,255,0.4);
+        }
+
+        .master-switch input:checked + .toggle-slider {
+            background-color: #22c55e;
+            border-color: #22c55e;
         }
 
         /* Number inputs */
