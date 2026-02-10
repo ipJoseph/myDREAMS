@@ -143,28 +143,24 @@
             font-size: 10px;
         }
     </style>
+{% set active_nav = 'properties' %}
 </head>
 <body>
+    {% include 'partials/sidebar.html' %}
+    <div class="main-content">
     <!-- Header -->
     <header class="dreams-header">
         <div>
-            <h1>DREAMS Property Dashboard</h1>
+            <h1>Properties</h1>
             <div class="dreams-header-subtitle">
                 {% if selected_client %}
                     Properties for: {{ selected_client }}
                 {% else %}
                     All Properties
                 {% endif %}
+                &bull; {{ refresh_time }}
             </div>
         </div>
-        <nav style="display: flex; gap: 16px; align-items: center;">
-            <a href="/" class="dreams-btn dreams-btn-secondary">Main</a>
-            <a href="/contacts" class="dreams-btn dreams-btn-secondary">Contacts</a>
-            <a href="/call-list" class="dreams-btn dreams-btn-secondary">Call List</a>
-            <a href="/fub-list" class="dreams-btn dreams-btn-secondary">FUB List</a>
-            <a href="/properties/changes" class="dreams-btn dreams-btn-secondary">Changes</a>
-            <span style="font-size: 13px; opacity: 0.8;">{{ refresh_time }}</span>
-        </nav>
     </header>
 
     <!-- Filters -->
@@ -377,11 +373,6 @@
             <div id="progressDetails" class="progress-details"></div>
         </div>
     </div>
-
-    <!-- Footer -->
-    <footer class="dreams-footer">
-        DREAMS - Desktop Real Estate Agent Management System
-    </footer>
 
     <script>
         // Server-side sorting - preserves current filters
@@ -883,5 +874,6 @@
         });
 
     </script>
+    </div>
 </body>
 </html>
