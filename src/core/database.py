@@ -4864,7 +4864,9 @@ class DREAMSDatabase:
             duration = None
             if row:
                 start_time = datetime.fromisoformat(row['run_at'])
-                duration = (datetime.now() - start_time).total_seconds()
+                # run_at uses SQLite CURRENT_TIMESTAMP which is UTC,
+                # so we must compare against UTC now (not local time)
+                duration = (datetime.utcnow() - start_time).total_seconds()
 
             cursor = conn.execute('''
                 UPDATE scoring_runs SET
@@ -4880,7 +4882,7 @@ class DREAMSDatabase:
                     notes = ?
                 WHERE id = ?
             ''', (
-                datetime.now().isoformat(),
+                datetime.utcnow().isoformat(),
                 contacts_processed, contacts_scored, contacts_new, contacts_updated,
                 duration, fub_api_calls, status, error_message, notes, run_id
             ))
