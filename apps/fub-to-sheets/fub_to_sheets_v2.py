@@ -2552,9 +2552,11 @@ def main():
             logger=logger,
         )
 
-        # Fetch data from FUB (exclude trash - they're filtered from scoring anyway,
-        # and including them inflates the count from ~470 to 10,600+ with huge API overhead)
-        people = fub.fetch_people(include_trash=False)
+        # Fetch data from FUB (exclude trash - they're filtered from scoring anyway).
+        # Note: Without the old "fields=allFields" bug, FUB returns ALL 10,600+ contacts.
+        # We sort by -created and cap at 2000 to keep API overhead manageable while
+        # covering all recent/active contacts. The old allFields bug accidentally capped at ~470.
+        people = fub.fetch_people(include_trash=False, max_results=2000)
 
         # Fetch users and build lookup for assignment tracking
         users = fub.fetch_users()
