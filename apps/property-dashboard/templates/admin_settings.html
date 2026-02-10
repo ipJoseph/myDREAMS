@@ -234,14 +234,51 @@
         .category-icon {
             margin-right: 8px;
         }
+
+        /* Admin tabs */
+        .admin-tabs {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px 20px 0;
+            display: flex;
+            gap: 4px;
+        }
+
+        .admin-tab {
+            padding: 10px 24px;
+            border-radius: 8px 8px 0 0;
+            font-size: 14px;
+            font-weight: 500;
+            text-decoration: none;
+            color: var(--text-secondary);
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-bottom: none;
+            transition: background 0.15s, color 0.15s;
+        }
+
+        .admin-tab:hover {
+            background: #e2e8f0;
+            color: var(--text-primary);
+        }
+
+        .admin-tab.active {
+            background: white;
+            color: var(--primary);
+            font-weight: 600;
+            border-bottom: 2px solid white;
+            margin-bottom: -1px;
+            position: relative;
+            z-index: 1;
+        }
     </style>
 </head>
 <body>
     <header class="dreams-header">
         <div>
-            <h1>Admin Settings</h1>
+            <h1>Admin</h1>
             <div class="dreams-header-subtitle">
-                Configure alert thresholds and automation behavior
+                System configuration and automation
             </div>
         </div>
         <nav style="display: flex; gap: 16px; align-items: center;">
@@ -251,7 +288,12 @@
         </nav>
     </header>
 
-    <div class="settings-container">
+    <div class="admin-tabs">
+        <a href="/admin/settings" class="admin-tab active">Settings</a>
+        <a href="/admin/automation" class="admin-tab">Automation Rules</a>
+    </div>
+
+    <div class="settings-container" style="border-top: 1px solid var(--border);">
         {% if request.args.get('saved') %}
         <div class="alert alert-success">
             Settings saved successfully!

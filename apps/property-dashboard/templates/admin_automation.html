@@ -338,24 +338,66 @@
         .rule-hot_lead { background: #fee2e2; color: #991b1b; }
         .rule-warming_lead { background: #dcfce7; color: #166534; }
         .rule-new_lead { background: #f3e8ff; color: #6b21a8; }
+
+        /* Admin tabs */
+        .admin-tabs {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px 20px 0;
+            display: flex;
+            gap: 4px;
+        }
+
+        .admin-tab {
+            padding: 10px 24px;
+            border-radius: 8px 8px 0 0;
+            font-size: 14px;
+            font-weight: 500;
+            text-decoration: none;
+            color: var(--text-secondary);
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-bottom: none;
+            transition: background 0.15s, color 0.15s;
+        }
+
+        .admin-tab:hover {
+            background: #e2e8f0;
+            color: var(--text-primary);
+        }
+
+        .admin-tab.active {
+            background: white;
+            color: var(--primary);
+            font-weight: 600;
+            border-bottom: 2px solid white;
+            margin-bottom: -1px;
+            position: relative;
+            z-index: 1;
+        }
     </style>
 </head>
 <body>
     <header class="dreams-header">
         <div>
-            <h1>Automation Rules</h1>
+            <h1>Admin</h1>
             <div class="dreams-header-subtitle">
-                Configure rules that act on behavioral signals automatically
+                System configuration and automation
             </div>
         </div>
         <nav style="display: flex; gap: 16px; align-items: center;">
             <a href="/" class="dreams-btn dreams-btn-secondary">Main</a>
-            <a href="/admin/settings" class="dreams-btn dreams-btn-secondary">Settings</a>
             <a href="/contacts" class="dreams-btn dreams-btn-secondary">Contacts</a>
+            <a href="/pipeline" class="dreams-btn dreams-btn-secondary">Pipeline</a>
         </nav>
     </header>
 
-    <div class="automation-container">
+    <div class="admin-tabs">
+        <a href="/admin/settings" class="admin-tab">Settings</a>
+        <a href="/admin/automation" class="admin-tab active">Automation Rules</a>
+    </div>
+
+    <div class="automation-container" style="border-top: 1px solid var(--border);">
         {% if request.args.get('saved') %}
         <div class="alert alert-success">
             Automation settings saved successfully!
