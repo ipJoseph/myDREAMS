@@ -134,11 +134,14 @@ class FUBClient:
 
         return all_items
 
-    def fetch_people(self) -> List[Dict]:
+    def fetch_people(self, include_trash: bool = False) -> List[Dict]:
         # Note: "fields=allFields" breaks FUB pagination after ~199 results (API bug as of Feb 2026).
         # Default fields include all fields we use (id, name, stage, emails, phones, tags, etc.)
         # Extra allFields data (lastCall, propertiesViewed, etc.) comes from events/calls/texts APIs instead.
-        return self.fetch_collection("/people", "people", {"includeTrash": "true"})
+        params = {}
+        if include_trash:
+            params["includeTrash"] = "true"
+        return self.fetch_collection("/people", "people", params)
 
     def fetch_calls(self) -> List[Dict]:
         return self.fetch_collection("/calls", "calls")

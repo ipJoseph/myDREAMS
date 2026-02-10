@@ -2552,8 +2552,9 @@ def main():
             logger=logger,
         )
 
-        # Fetch data from FUB
-        people = fub.fetch_people()
+        # Fetch data from FUB (exclude trash - they're filtered from scoring anyway,
+        # and including them inflates the count from ~470 to 10,600+ with huge API overhead)
+        people = fub.fetch_people(include_trash=False)
 
         # Fetch users and build lookup for assignment tracking
         users = fub.fetch_users()
