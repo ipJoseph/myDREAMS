@@ -1,0 +1,1272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mission Control | DREAMS</title>
+    <link rel="icon" type="image/svg+xml" href="{{ favicon }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='shared/css/dreams.css') }}">
+    <style>
+        /* ========== RESET & BASE ========== */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-page, #f8fafc);
+            color: var(--text-primary, #1a1a1a);
+            min-height: 100vh;
+        }
+
+        /* ========== TOP BAR ========== */
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 32px;
+            background: white;
+            border-bottom: 1px solid #e2e8f0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .topbar-left {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+        .topbar-title {
+            font-size: 20px;
+            font-weight: 800;
+            color: var(--text-primary);
+            letter-spacing: -0.5px;
+        }
+
+        /* Mode pills */
+        .mode-pills {
+            display: flex;
+            gap: 4px;
+            background: #f1f5f9;
+            border-radius: 10px;
+            padding: 3px;
+        }
+        .mode-pill {
+            padding: 7px 16px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary, #64748b);
+            background: none;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.15s;
+            white-space: nowrap;
+        }
+        .mode-pill:hover { color: var(--text-primary); }
+        .mode-pill.active {
+            background: white;
+            color: var(--text-primary);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .mode-pill kbd {
+            font-size: 10px;
+            color: #94a3b8;
+            margin-left: 4px;
+            font-family: inherit;
+        }
+
+        /* Daily stats bar */
+        .daily-stats {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+        .daily-stat {
+            text-align: center;
+            min-width: 50px;
+        }
+        .daily-stat-value {
+            font-size: 18px;
+            font-weight: 800;
+            color: var(--text-primary);
+            line-height: 1;
+        }
+        .daily-stat-label {
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 2px;
+        }
+        .topbar-env {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 4px 10px;
+            border-radius: 4px;
+        }
+        .topbar-env.dev { background: #fef3c7; color: #92400e; }
+        .topbar-env.prd { background: #dcfce7; color: #16a34a; }
+
+        /* ========== PAGE CONTENT ========== */
+        .page-content {
+            padding: 24px 32px 40px;
+            max-width: 1280px;
+        }
+
+        /* ========== MODE PANELS ========== */
+        .mode-panel { display: none; }
+        .mode-panel.active { display: block; }
+
+        /* ========== WHILE YOU WERE AWAY ========== */
+        .away-section { margin-bottom: 28px; }
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 14px;
+        }
+        .section-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        .section-subtitle {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        .away-items {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .away-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            transition: transform 0.1s;
+        }
+        .away-item:hover { transform: translateX(4px); }
+        .away-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+        .away-icon.activity { background: #eff6ff; color: #2563eb; }
+        .away-icon.price_drop { background: #f0fdf4; color: #16a34a; }
+        .away-icon.going_cold { background: #fffbeb; color: #d97706; }
+        .away-icon.new_lead { background: #faf5ff; color: #9333ea; }
+        .away-text {
+            font-size: 14px;
+            color: var(--text-primary);
+            line-height: 1.4;
+        }
+
+        /* ========== TODAY'S MISSION ========== */
+        .mission-section { margin-bottom: 28px; }
+        .mission-group { margin-bottom: 20px; }
+        .group-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+            padding: 0 4px;
+        }
+        .group-badge {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 4px 10px;
+            border-radius: 6px;
+        }
+        .group-badge.act-now { background: #fef2f2; color: #dc2626; }
+        .group-badge.follow-up { background: #fffbeb; color: #d97706; }
+        .group-badge.touch-base { background: #f0fdf4; color: #16a34a; }
+        .group-count {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .contact-card {
+            display: grid;
+            grid-template-columns: 44px 1fr auto;
+            gap: 14px;
+            align-items: center;
+            padding: 14px 16px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            margin-bottom: 6px;
+            transition: all 0.15s;
+        }
+        .contact-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .contact-card.active-call { background: #eff6ff; box-shadow: 0 0 0 2px #3b82f6; }
+
+        .contact-avatar {
+            width: 44px; height: 44px;
+            border-radius: 50%;
+            background: var(--color-primary, #1a365d);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+        .contact-info { min-width: 0; }
+        .contact-name {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 2px;
+        }
+        .contact-name a {
+            color: inherit;
+            text-decoration: none;
+        }
+        .contact-name a:hover { text-decoration: underline; }
+        .contact-briefing {
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.4;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .contact-meta {
+            display: flex;
+            gap: 6px;
+            margin-top: 4px;
+        }
+        .meta-tag {
+            font-size: 10px;
+            font-weight: 600;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: #f1f5f9;
+            color: var(--text-secondary);
+        }
+        .meta-tag.hot { background: #fef2f2; color: #dc2626; }
+        .meta-tag.warm { background: #fffbeb; color: #d97706; }
+        .meta-tag.new { background: #faf5ff; color: #9333ea; }
+
+        .contact-actions {
+            display: flex;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+        .action-btn {
+            padding: 6px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            background: white;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.15s;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+        .action-btn:hover { background: #f8fafc; border-color: #cbd5e1; color: var(--text-primary); }
+        .action-btn.primary {
+            background: var(--color-primary, #1a365d);
+            color: white;
+            border-color: var(--color-primary, #1a365d);
+        }
+        .action-btn.primary:hover { opacity: 0.9; }
+
+        /* ========== PIPELINE PULSE ========== */
+        .pipeline-section { margin-bottom: 28px; }
+        .pipeline-items {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .pipeline-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .pipeline-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            flex-shrink: 0;
+            background: #f1f5f9;
+        }
+        .pipeline-text {
+            font-size: 14px;
+            color: var(--text-primary);
+        }
+
+        /* ========== POWER HOUR CTA ========== */
+        .power-hour-cta {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            padding: 24px;
+            background: linear-gradient(135deg, #1e3a5f, #2563eb);
+            border-radius: 14px;
+            margin-bottom: 28px;
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        .power-hour-cta:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(37,99,235,0.3); }
+        .power-hour-cta-text {
+            color: white;
+        }
+        .power-hour-cta-text h2 {
+            font-size: 20px;
+            font-weight: 800;
+            margin-bottom: 4px;
+        }
+        .power-hour-cta-text p {
+            font-size: 13px;
+            opacity: 0.8;
+        }
+        .power-hour-cta-btn {
+            padding: 12px 28px;
+            background: white;
+            color: #1e3a5f;
+            font-size: 15px;
+            font-weight: 700;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: transform 0.15s;
+            white-space: nowrap;
+        }
+        .power-hour-cta-btn:hover { transform: scale(1.05); }
+
+        /* ========== POWER HOUR MODE ========== */
+        .power-hour-container {
+            max-width: 700px;
+            margin: 0 auto;
+        }
+        .ph-scoreboard {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin-bottom: 28px;
+            padding: 16px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        }
+        .ph-score {
+            text-align: center;
+            min-width: 60px;
+        }
+        .ph-score-value {
+            font-size: 28px;
+            font-weight: 800;
+            color: var(--text-primary);
+            line-height: 1;
+        }
+        .ph-score-label {
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 4px;
+        }
+        .ph-timer {
+            font-size: 28px;
+            font-weight: 800;
+            color: #2563eb;
+        }
+
+        .ph-card {
+            background: white;
+            border-radius: 14px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        .ph-card-header {
+            padding: 24px 28px 16px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .ph-card-name {
+            font-size: 24px;
+            font-weight: 800;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+        .ph-card-briefing {
+            font-size: 15px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+        .ph-card-body { padding: 20px 28px; }
+        .ph-detail-row {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+        .ph-detail-label {
+            font-weight: 600;
+            color: var(--text-secondary);
+            min-width: 80px;
+        }
+        .ph-detail-value {
+            color: var(--text-primary);
+        }
+        .ph-opener {
+            margin-top: 16px;
+            padding: 14px 18px;
+            background: #f0f9ff;
+            border-radius: 10px;
+            border-left: 3px solid #3b82f6;
+        }
+        .ph-opener-label {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #3b82f6;
+            margin-bottom: 4px;
+        }
+        .ph-opener-text {
+            font-size: 14px;
+            color: var(--text-primary);
+            font-style: italic;
+            line-height: 1.4;
+        }
+
+        .ph-dispositions {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            padding: 20px 28px 24px;
+            flex-wrap: wrap;
+        }
+        .ph-dispo-btn {
+            padding: 12px 24px;
+            font-size: 14px;
+            font-weight: 700;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .ph-dispo-btn:hover { transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .ph-dispo-btn.called { border-color: #22c55e; color: #16a34a; }
+        .ph-dispo-btn.called:hover { background: #f0fdf4; }
+        .ph-dispo-btn.left-vm { border-color: #3b82f6; color: #2563eb; }
+        .ph-dispo-btn.left-vm:hover { background: #eff6ff; }
+        .ph-dispo-btn.texted { border-color: #a855f7; color: #9333ea; }
+        .ph-dispo-btn.texted:hover { background: #faf5ff; }
+        .ph-dispo-btn.no-answer { border-color: #f59e0b; color: #d97706; }
+        .ph-dispo-btn.no-answer:hover { background: #fffbeb; }
+        .ph-dispo-btn.appointment { border-color: #22c55e; color: white; background: #22c55e; }
+        .ph-dispo-btn.appointment:hover { background: #16a34a; }
+        .ph-dispo-btn.skip { border-color: #e2e8f0; color: #94a3b8; }
+
+        .ph-progress {
+            text-align: center;
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+        }
+        .ph-end-btn {
+            display: block;
+            margin: 20px auto;
+            padding: 10px 24px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #dc2626;
+            background: none;
+            border: 1px solid #fecaca;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .ph-end-btn:hover { background: #fef2f2; }
+
+        .ph-complete {
+            text-align: center;
+            padding: 40px;
+        }
+        .ph-complete h2 {
+            font-size: 24px;
+            font-weight: 800;
+            margin-bottom: 16px;
+        }
+        .ph-complete-stats {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin-bottom: 24px;
+        }
+
+        /* ========== COMMAND CENTER ========== */
+        .command-grid {
+            display: grid;
+            grid-template-columns: 1fr 340px;
+            gap: 20px;
+        }
+        .live-feed-panel {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+            max-height: 600px;
+            overflow: hidden;
+        }
+        .live-feed-header {
+            padding: 14px 18px;
+            border-bottom: 1px solid #f1f5f9;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .live-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: #22c55e;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+        .live-feed-title {
+            font-size: 14px;
+            font-weight: 700;
+        }
+        .live-feed-body {
+            padding: 10px 0;
+            max-height: 540px;
+            overflow-y: auto;
+        }
+        .feed-item {
+            padding: 10px 18px;
+            border-bottom: 1px solid #f8fafc;
+            font-size: 13px;
+            color: var(--text-primary);
+            line-height: 1.4;
+        }
+        .feed-item:last-child { border-bottom: none; }
+        .feed-time {
+            font-size: 11px;
+            color: #94a3b8;
+            margin-top: 2px;
+        }
+
+        /* Pipeline strip */
+        .pipeline-strip {
+            display: flex;
+            gap: 16px;
+            padding: 14px 20px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+            margin-bottom: 20px;
+        }
+        .pipe-item {
+            flex: 1;
+            text-align: center;
+        }
+        .pipe-value {
+            font-size: 20px;
+            font-weight: 800;
+            color: var(--text-primary);
+        }
+        .pipe-label {
+            font-size: 11px;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+
+        /* Expandable rows */
+        .contact-card.expandable { cursor: pointer; }
+        .contact-expanded {
+            display: none;
+            grid-column: 1 / -1;
+            padding: 12px 0 0;
+            border-top: 1px solid #f1f5f9;
+            margin-top: 8px;
+        }
+        .contact-card.expanded .contact-expanded { display: block; }
+
+        /* Empty states */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-secondary);
+        }
+        .empty-state-icon {
+            font-size: 32px;
+            margin-bottom: 12px;
+        }
+        .empty-state-text {
+            font-size: 14px;
+        }
+
+        /* ========== RESPONSIVE ========== */
+        @media (max-width: 1100px) {
+            .command-grid { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 900px) {
+            .topbar { padding: 12px 16px; flex-wrap: wrap; gap: 12px; }
+            .page-content { padding: 16px 16px 32px; }
+            .daily-stats { gap: 12px; }
+            .contact-card { grid-template-columns: 40px 1fr; }
+            .contact-actions { grid-column: 1 / -1; justify-content: flex-start; margin-top: 8px; }
+        }
+        @media (max-width: 600px) {
+            .mode-pill kbd { display: none; }
+            .daily-stats { display: none; }
+        }
+    </style>
+{% set active_nav = 'dashboard' %}
+</head>
+<body>
+{% include 'partials/sidebar.html' %}
+<div class="main-content">
+
+    <!-- ===== TOP BAR ===== -->
+    <div class="topbar">
+        <div class="topbar-left">
+            <div class="topbar-title">Mission Control</div>
+            <div class="mode-pills">
+                <button class="mode-pill active" data-mode="briefing" onclick="switchMode('briefing')">Briefing <kbd>B</kbd></button>
+                <button class="mode-pill" data-mode="power-hour" onclick="switchMode('power-hour')">Power Hour <kbd>P</kbd></button>
+                <button class="mode-pill" data-mode="command" onclick="switchMode('command')">Command <kbd>C</kbd></button>
+            </div>
+        </div>
+        <div class="daily-stats" id="daily-stats">
+            <div class="daily-stat">
+                <div class="daily-stat-value" id="stat-calls">{{ call_stats.calls_attempted }}</div>
+                <div class="daily-stat-label">Calls</div>
+            </div>
+            <div class="daily-stat">
+                <div class="daily-stat-value" id="stat-reached">{{ call_stats.calls_reached }}</div>
+                <div class="daily-stat-label">Reached</div>
+            </div>
+            <div class="daily-stat">
+                <div class="daily-stat-value" id="stat-appts">{{ call_stats.appointments }}</div>
+                <div class="daily-stat-label">Appts</div>
+            </div>
+            <div class="daily-stat">
+                <div class="daily-stat-value" id="stat-time">{{ call_stats.selling_time_minutes }}m</div>
+                <div class="daily-stat-label">Selling</div>
+            </div>
+            <span class="topbar-env {{ dreams_env }}">{{ dreams_env }}</span>
+        </div>
+    </div>
+
+    <div class="page-content">
+
+        <!-- ═══════════════════════════════════════════════ -->
+        <!-- MODE 1: MORNING BRIEFING                       -->
+        <!-- ═══════════════════════════════════════════════ -->
+        <div class="mode-panel active" id="mode-briefing">
+
+            <!-- While You Were Away -->
+            {% if narrative_items %}
+            <div class="away-section">
+                <div class="section-header">
+                    <div class="section-title">While You Were Away</div>
+                    <div class="section-subtitle">Last 24 hours</div>
+                </div>
+                <div class="away-items">
+                    {% for item in narrative_items %}
+                    <div class="away-item">
+                        <div class="away-icon {{ item.category }}">
+                            {% if item.category == 'activity' %}&#128065;
+                            {% elif item.category == 'price_drop' %}&#128181;
+                            {% elif item.category == 'going_cold' %}&#129398;
+                            {% elif item.category == 'new_lead' %}&#128100;
+                            {% else %}&#128276;{% endif %}
+                        </div>
+                        <div class="away-text">{{ item.text }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Today's Mission -->
+            <div class="mission-section">
+                <div class="section-header">
+                    <div class="section-title">Today's Mission</div>
+                    <div class="section-subtitle">{{ contacts|length }} contacts to reach</div>
+                </div>
+
+                {% for group_key, group_label, group_class in [
+                    ('act_now', 'Act Now', 'act-now'),
+                    ('follow_up', 'Follow Up', 'follow-up'),
+                    ('touch_base', 'Touch Base', 'touch-base')
+                ] %}
+                {% set group = contact_groups.get(group_key, []) %}
+                {% if group %}
+                <div class="mission-group">
+                    <div class="group-header">
+                        <span class="group-badge {{ group_class }}">{{ group_label }}</span>
+                        <span class="group-count">{{ group|length }}</span>
+                    </div>
+                    {% for c in group %}
+                    <div class="contact-card" id="cc-{{ c.id }}">
+                        <div class="contact-avatar">{{ (c.first_name or '?')[0] }}{{ (c.last_name or '?')[0] }}</div>
+                        <div class="contact-info">
+                            <div class="contact-name">
+                                <a href="/contacts/{{ c.id }}">{{ c.first_name }} {{ c.last_name }}</a>
+                            </div>
+                            <div class="contact-briefing">{{ c.briefing.text }}</div>
+                            <div class="contact-meta">
+                                {% if c.heat_score and c.heat_score >= 50 %}
+                                <span class="meta-tag hot">H:{{ c.heat_score|int }}</span>
+                                {% elif c.heat_score and c.heat_score >= 20 %}
+                                <span class="meta-tag warm">H:{{ c.heat_score|int }}</span>
+                                {% endif %}
+                                {% if c.stage %}
+                                <span class="meta-tag">{{ c.stage }}</span>
+                                {% endif %}
+                                {% if c.price_range_label %}
+                                <span class="meta-tag">{{ c.price_range_label }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="contact-actions">
+                            {% if c.phone %}
+                            <a href="tel:{{ c.phone }}" class="action-btn primary" title="Call">Call</a>
+                            <a href="sms:{{ c.phone }}" class="action-btn" title="Text">Text</a>
+                            {% endif %}
+                            {% if c.fub_id %}
+                            <a href="https://followupboss.com/2/people/view/{{ c.fub_id }}" target="_blank" class="action-btn" title="Open in FUB">FUB</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% endfor %}
+
+                {% if not contacts %}
+                <div class="empty-state">
+                    <div class="empty-state-icon">&#127775;</div>
+                    <div class="empty-state-text">All caught up! No contacts need attention right now.</div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Pipeline Pulse -->
+            <div class="pipeline-section">
+                <div class="section-header">
+                    <div class="section-title">Pipeline Pulse</div>
+                </div>
+                <div class="pipeline-items">
+                    {% if pipeline.pending_offers %}
+                    <div class="pipeline-item">
+                        <div class="pipeline-icon">&#128196;</div>
+                        <div class="pipeline-text">
+                            {{ pipeline.pending_offers|length }} offer{{ 's' if pipeline.pending_offers|length != 1 }} pending:
+                            {% for o in pipeline.pending_offers %}
+                                {{ o.first_name }} {{ o.last_name }}{% if o.max_price %} (${{ "{:,.0f}".format(o.max_price) }}){% endif %}{{ ', ' if not loop.last }}
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% if pipeline.buyers_needing_properties > 0 %}
+                    <div class="pipeline-item">
+                        <div class="pipeline-icon">&#128269;</div>
+                        <div class="pipeline-text">
+                            {{ pipeline.buyers_needing_properties }} buyer{{ 's' if pipeline.buyers_needing_properties != 1 }} need{{ '' if pipeline.buyers_needing_properties != 1 else 's' }} fresh property suggestions
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% if pipeline.active_pursuits > 0 %}
+                    <div class="pipeline-item">
+                        <div class="pipeline-icon">&#127968;</div>
+                        <div class="pipeline-text">{{ pipeline.active_pursuits }} active pursuit{{ 's' if pipeline.active_pursuits != 1 }}</div>
+                    </div>
+                    {% endif %}
+                    {% if pipeline.total_pipeline_value > 0 %}
+                    <div class="pipeline-item">
+                        <div class="pipeline-icon">&#128176;</div>
+                        <div class="pipeline-text">Pipeline value: ${{ "{:,.0f}".format(pipeline.total_pipeline_value) }}</div>
+                    </div>
+                    {% endif %}
+                    {% if not pipeline.pending_offers and pipeline.buyers_needing_properties == 0 and pipeline.active_pursuits == 0 %}
+                    <div class="empty-state">
+                        <div class="empty-state-text">Pipeline is quiet. Time to generate some activity!</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Power Hour CTA -->
+            <div class="power-hour-cta" onclick="switchMode('power-hour')">
+                <div class="power-hour-cta-text">
+                    <h2>Ready to make calls?</h2>
+                    <p>{{ contacts|length }} contacts briefed and ready. Start your Power Hour.</p>
+                </div>
+                <button class="power-hour-cta-btn">Start Power Hour</button>
+            </div>
+
+        </div><!-- /mode-briefing -->
+
+
+        <!-- ═══════════════════════════════════════════════ -->
+        <!-- MODE 2: POWER HOUR                             -->
+        <!-- ═══════════════════════════════════════════════ -->
+        <div class="mode-panel" id="mode-power-hour">
+            <div class="power-hour-container">
+
+                <!-- Pre-start state -->
+                <div id="ph-start-screen">
+                    <div style="text-align:center; padding: 60px 20px;">
+                        <h2 style="font-size:28px; font-weight:800; margin-bottom:8px;">Power Hour</h2>
+                        <p style="color:var(--text-secondary); margin-bottom:24px;">
+                            {{ contacts|length }} contacts ready. Dispositions are saved automatically.
+                        </p>
+                        <button class="power-hour-cta-btn" onclick="startPowerHour()" style="font-size:18px; padding:16px 40px;">
+                            Start Calling
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Active Power Hour -->
+                <div id="ph-active" style="display:none;">
+                    <!-- Scoreboard -->
+                    <div class="ph-scoreboard">
+                        <div class="ph-score">
+                            <div class="ph-score-value" id="ph-reached">0</div>
+                            <div class="ph-score-label">Reached</div>
+                        </div>
+                        <div class="ph-score">
+                            <div class="ph-score-value" id="ph-vms">0</div>
+                            <div class="ph-score-label">VMs</div>
+                        </div>
+                        <div class="ph-score">
+                            <div class="ph-score-value" id="ph-appts">0</div>
+                            <div class="ph-score-label">Appts</div>
+                        </div>
+                        <div class="ph-score">
+                            <div class="ph-timer" id="ph-timer">0:00</div>
+                            <div class="ph-score-label">Elapsed</div>
+                        </div>
+                    </div>
+
+                    <!-- Current contact card -->
+                    <div id="ph-card-container">
+                        <!-- Filled by JS -->
+                    </div>
+
+                    <div class="ph-progress" id="ph-progress"></div>
+                    <button class="ph-end-btn" onclick="endPowerHour()">End Power Hour</button>
+                </div>
+
+                <!-- Completed state -->
+                <div id="ph-complete" style="display:none;">
+                    <div class="ph-complete">
+                        <h2>Power Hour Complete!</h2>
+                        <div class="ph-complete-stats" id="ph-final-stats"></div>
+                        <button class="action-btn primary" onclick="switchMode('briefing')" style="padding:12px 32px; font-size:15px;">
+                            Back to Briefing
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </div><!-- /mode-power-hour -->
+
+
+        <!-- ═══════════════════════════════════════════════ -->
+        <!-- MODE 3: COMMAND CENTER                         -->
+        <!-- ═══════════════════════════════════════════════ -->
+        <div class="mode-panel" id="mode-command">
+
+            <!-- Pipeline strip -->
+            <div class="pipeline-strip">
+                <div class="pipe-item">
+                    <div class="pipe-value" id="stat-calls-cmd">{{ call_stats.calls_attempted }}</div>
+                    <div class="pipe-label">Calls Today</div>
+                </div>
+                <div class="pipe-item">
+                    <div class="pipe-value" id="stat-reached-cmd">{{ call_stats.calls_reached }}</div>
+                    <div class="pipe-label">Reached</div>
+                </div>
+                <div class="pipe-item">
+                    <div class="pipe-value">{{ pipeline.pending_offers|length }}</div>
+                    <div class="pipe-label">Pending Offers</div>
+                </div>
+                <div class="pipe-item">
+                    <div class="pipe-value">{{ pipeline.active_pursuits }}</div>
+                    <div class="pipe-label">Active Pursuits</div>
+                </div>
+                <div class="pipe-item">
+                    <div class="pipe-value">{{ pipeline.buyers_needing_properties }}</div>
+                    <div class="pipe-label">Need Properties</div>
+                </div>
+            </div>
+
+            <div class="command-grid">
+                <!-- Left: Expandable call list -->
+                <div>
+                    <div class="section-header">
+                        <div class="section-title">Today's Contacts</div>
+                        <div class="section-subtitle">Click to expand</div>
+                    </div>
+                    {% for group_key, group_label, group_class in [
+                        ('act_now', 'Act Now', 'act-now'),
+                        ('follow_up', 'Follow Up', 'follow-up'),
+                        ('touch_base', 'Touch Base', 'touch-base')
+                    ] %}
+                    {% set group = contact_groups.get(group_key, []) %}
+                    {% if group %}
+                    <div class="mission-group">
+                        <div class="group-header">
+                            <span class="group-badge {{ group_class }}">{{ group_label }}</span>
+                            <span class="group-count">{{ group|length }}</span>
+                        </div>
+                        {% for c in group %}
+                        <div class="contact-card expandable" onclick="toggleExpand(this)">
+                            <div class="contact-avatar">{{ (c.first_name or '?')[0] }}{{ (c.last_name or '?')[0] }}</div>
+                            <div class="contact-info">
+                                <div class="contact-name">{{ c.first_name }} {{ c.last_name }}</div>
+                                <div class="contact-briefing">{{ c.briefing.text }}</div>
+                                <div class="contact-expanded">
+                                    <div class="ph-detail-row">
+                                        <span class="ph-detail-label">Stage</span>
+                                        <span class="ph-detail-value">{{ c.stage or 'Unknown' }}</span>
+                                    </div>
+                                    <div class="ph-detail-row">
+                                        <span class="ph-detail-label">Source</span>
+                                        <span class="ph-detail-value">{{ c.source or 'Unknown' }}</span>
+                                    </div>
+                                    {% if c.heat_score %}
+                                    <div class="ph-detail-row">
+                                        <span class="ph-detail-label">Heat</span>
+                                        <span class="ph-detail-value">{{ c.heat_score|int }} {% if c.score_trend %}({{ c.score_trend }}){% endif %}</span>
+                                    </div>
+                                    {% endif %}
+                                    {% if c.price_range_label %}
+                                    <div class="ph-detail-row">
+                                        <span class="ph-detail-label">Price</span>
+                                        <span class="ph-detail-value">{{ c.price_range_label }}</span>
+                                    </div>
+                                    {% endif %}
+                                    {% if c.recent_cities %}
+                                    <div class="ph-detail-row">
+                                        <span class="ph-detail-label">Looking in</span>
+                                        <span class="ph-detail-value">{{ c.recent_cities|join(', ') if c.recent_cities is iterable and c.recent_cities is not string else c.recent_cities }}</span>
+                                    </div>
+                                    {% endif %}
+                                    <div style="margin-top:10px; display:flex; gap:6px;">
+                                        {% if c.phone %}
+                                        <a href="tel:{{ c.phone }}" class="action-btn primary" onclick="event.stopPropagation()">Call</a>
+                                        <a href="sms:{{ c.phone }}" class="action-btn" onclick="event.stopPropagation()">Text</a>
+                                        {% endif %}
+                                        <a href="/contacts/{{ c.id }}" class="action-btn" onclick="event.stopPropagation()">Profile</a>
+                                        {% if c.fub_id %}
+                                        <a href="https://followupboss.com/2/people/view/{{ c.fub_id }}" target="_blank" class="action-btn" onclick="event.stopPropagation()">FUB</a>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="contact-actions">
+                                {% if c.phone %}
+                                <a href="tel:{{ c.phone }}" class="action-btn primary" onclick="event.stopPropagation()">Call</a>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+
+                <!-- Right: Live Activity Feed -->
+                <div class="live-feed-panel">
+                    <div class="live-feed-header">
+                        <div class="live-dot"></div>
+                        <div class="live-feed-title">Live Activity</div>
+                    </div>
+                    <div class="live-feed-body" id="live-feed">
+                        {% for event in live_feed %}
+                        <div class="feed-item">
+                            <div>{{ event.description }}</div>
+                            <div class="feed-time">{{ event.occurred_at[:16].replace('T', ' ') if event.occurred_at else '' }}</div>
+                        </div>
+                        {% endfor %}
+                        {% if not live_feed %}
+                        <div class="feed-item" style="text-align:center; color:var(--text-secondary); padding:30px;">
+                            No recent activity
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+        </div><!-- /mode-command -->
+
+    </div><!-- /page-content -->
+</div><!-- /main-content -->
+
+
+<!-- ===== JAVASCRIPT ===== -->
+<script>
+(function() {
+    // ═══════════ PRE-SERIALIZED CONTACT DATA ═══════════
+    const CONTACTS = {{ contacts_json|safe }};
+    const CURRENT_USER_ID = {{ current_user_id }};
+    let currentSessionId = null;
+    let currentContactIdx = 0;
+    let timerInterval = null;
+    let startTime = null;
+    let phStats = { reached: 0, vms: 0, texts: 0, appts: 0, skipped: 0, noAnswer: 0 };
+
+    // ═══════════ MODE SWITCHING ═══════════
+    window.switchMode = function(mode) {
+        document.querySelectorAll('.mode-panel').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.mode-pill').forEach(p => p.classList.remove('active'));
+        document.getElementById('mode-' + mode).classList.add('active');
+        document.querySelector('[data-mode="' + mode + '"]').classList.add('active');
+
+        // Save mode to URL hash
+        window.location.hash = mode;
+    };
+
+    // Restore mode from hash
+    const hash = window.location.hash.slice(1);
+    if (['briefing', 'power-hour', 'command'].includes(hash)) {
+        switchMode(hash);
+    }
+
+    // ═══════════ KEYBOARD SHORTCUTS ═══════════
+    document.addEventListener('keydown', function(e) {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+        switch(e.key.toUpperCase()) {
+            case 'B': switchMode('briefing'); break;
+            case 'P': switchMode('power-hour'); break;
+            case 'C': switchMode('command'); break;
+        }
+
+        // Power Hour disposition shortcuts (when active)
+        if (currentSessionId && document.getElementById('ph-active').style.display !== 'none') {
+            switch(e.key) {
+                case '1': recordDisposition('called'); break;
+                case '2': recordDisposition('left_vm'); break;
+                case '3': recordDisposition('texted'); break;
+                case '4': recordDisposition('no_answer'); break;
+                case '5': recordDisposition('appointment'); break;
+                case '0': case 's': recordDisposition('skip'); break;
+            }
+        }
+    });
+
+    // ═══════════ POWER HOUR ═══════════
+    window.startPowerHour = async function() {
+        try {
+            const resp = await fetch('/api/power-hour/start', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({user_id: CURRENT_USER_ID})
+            });
+            const data = await resp.json();
+            currentSessionId = data.session_id;
+        } catch(e) {
+            console.error('Failed to start session:', e);
+            // Continue anyway — dispositions will queue
+            currentSessionId = -1;
+        }
+
+        currentContactIdx = 0;
+        phStats = { reached: 0, vms: 0, texts: 0, appts: 0, skipped: 0, noAnswer: 0 };
+        startTime = Date.now();
+
+        document.getElementById('ph-start-screen').style.display = 'none';
+        document.getElementById('ph-active').style.display = 'block';
+        document.getElementById('ph-complete').style.display = 'none';
+
+        // Start timer
+        timerInterval = setInterval(updateTimer, 1000);
+        showCurrentContact();
+    };
+
+    function updateTimer() {
+        if (!startTime) return;
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        const mins = Math.floor(elapsed / 60);
+        const secs = elapsed % 60;
+        document.getElementById('ph-timer').textContent = mins + ':' + (secs < 10 ? '0' : '') + secs;
+    }
+
+    function showCurrentContact() {
+        if (currentContactIdx >= CONTACTS.length) {
+            endPowerHour();
+            return;
+        }
+
+        const c = CONTACTS[currentContactIdx];
+        const b = c.briefing || {};
+
+        document.getElementById('ph-progress').textContent =
+            (currentContactIdx + 1) + ' of ' + CONTACTS.length;
+
+        const card = `
+            <div class="ph-card">
+                <div class="ph-card-header">
+                    <div class="ph-card-name">${c.first_name || ''} ${c.last_name || ''}</div>
+                    <div class="ph-card-briefing">${b.text || ''}</div>
+                </div>
+                <div class="ph-card-body">
+                    ${c.phone ? '<div class="ph-detail-row"><span class="ph-detail-label">Phone</span><span class="ph-detail-value"><a href="tel:' + c.phone + '">' + c.phone + '</a></span></div>' : ''}
+                    ${c.email ? '<div class="ph-detail-row"><span class="ph-detail-label">Email</span><span class="ph-detail-value">' + c.email + '</span></div>' : ''}
+                    <div class="ph-detail-row"><span class="ph-detail-label">Stage</span><span class="ph-detail-value">${c.stage || 'Unknown'}</span></div>
+                    ${c.heat_score ? '<div class="ph-detail-row"><span class="ph-detail-label">Heat</span><span class="ph-detail-value">' + Math.round(c.heat_score) + (c.score_trend ? ' (' + c.score_trend + ')' : '') + '</span></div>' : ''}
+                    ${c.price_range_label ? '<div class="ph-detail-row"><span class="ph-detail-label">Price</span><span class="ph-detail-value">' + c.price_range_label + '</span></div>' : ''}
+                    ${c.recent_cities && c.recent_cities.length ? '<div class="ph-detail-row"><span class="ph-detail-label">Looking in</span><span class="ph-detail-value">' + c.recent_cities.join(', ') + '</span></div>' : ''}
+                    ${b.opener ? '<div class="ph-opener"><div class="ph-opener-label">Conversation Opener</div><div class="ph-opener-text">"' + b.opener + '"</div></div>' : ''}
+                </div>
+                <div class="ph-dispositions">
+                    <button class="ph-dispo-btn called" onclick="recordDisposition('called')">Called <kbd>1</kbd></button>
+                    <button class="ph-dispo-btn left-vm" onclick="recordDisposition('left_vm')">Left VM <kbd>2</kbd></button>
+                    <button class="ph-dispo-btn texted" onclick="recordDisposition('texted')">Texted <kbd>3</kbd></button>
+                    <button class="ph-dispo-btn no-answer" onclick="recordDisposition('no_answer')">No Answer <kbd>4</kbd></button>
+                    <button class="ph-dispo-btn appointment" onclick="recordDisposition('appointment')">Appointment! <kbd>5</kbd></button>
+                    <button class="ph-dispo-btn skip" onclick="recordDisposition('skip')">Skip <kbd>0</kbd></button>
+                </div>
+            </div>
+        `;
+        document.getElementById('ph-card-container').innerHTML = card;
+    }
+
+    window.recordDisposition = async function(disposition) {
+        if (currentContactIdx >= CONTACTS.length) return;
+        const contact = CONTACTS[currentContactIdx];
+
+        // Update local scoreboard immediately (no waiting)
+        switch(disposition) {
+            case 'called': phStats.reached++; break;
+            case 'left_vm': phStats.vms++; break;
+            case 'texted': phStats.texts++; break;
+            case 'appointment': phStats.appts++; phStats.reached++; break;
+            case 'no_answer': phStats.noAnswer++; break;
+            case 'skip': phStats.skipped++; break;
+        }
+        updateScoreboard();
+
+        // Fire-and-forget API call
+        if (currentSessionId && currentSessionId > 0) {
+            fetch('/api/power-hour/disposition', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    session_id: currentSessionId,
+                    contact_id: contact.id,
+                    disposition: disposition
+                })
+            }).catch(e => console.error('Disposition save failed:', e));
+        }
+
+        // Next contact
+        currentContactIdx++;
+        showCurrentContact();
+    };
+
+    function updateScoreboard() {
+        document.getElementById('ph-reached').textContent = phStats.reached;
+        document.getElementById('ph-vms').textContent = phStats.vms;
+        document.getElementById('ph-appts').textContent = phStats.appts;
+
+        // Also update the top bar stats
+        const totalCalls = phStats.reached + phStats.vms + phStats.noAnswer;
+        document.getElementById('stat-calls').textContent =
+            parseInt(document.getElementById('stat-calls').dataset.base || 0) + totalCalls;
+        document.getElementById('stat-reached').textContent =
+            parseInt(document.getElementById('stat-reached').dataset.base || 0) + phStats.reached;
+        document.getElementById('stat-appts').textContent =
+            parseInt(document.getElementById('stat-appts').dataset.base || 0) + phStats.appts;
+    }
+
+    // Store base stats for accumulation
+    document.getElementById('stat-calls').dataset.base = '{{ call_stats.calls_attempted }}';
+    document.getElementById('stat-reached').dataset.base = '{{ call_stats.calls_reached }}';
+    document.getElementById('stat-appts').dataset.base = '{{ call_stats.appointments }}';
+
+    window.endPowerHour = async function() {
+        if (timerInterval) clearInterval(timerInterval);
+
+        // End session on server
+        if (currentSessionId && currentSessionId > 0) {
+            fetch('/api/power-hour/end', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({session_id: currentSessionId})
+            }).catch(e => console.error('End session failed:', e));
+        }
+
+        // Show completion screen
+        document.getElementById('ph-active').style.display = 'none';
+        document.getElementById('ph-complete').style.display = 'block';
+
+        const elapsed = startTime ? Math.floor((Date.now() - startTime) / 1000) : 0;
+        const mins = Math.floor(elapsed / 60);
+
+        document.getElementById('ph-final-stats').innerHTML = `
+            <div class="ph-score"><div class="ph-score-value">${phStats.reached}</div><div class="ph-score-label">Reached</div></div>
+            <div class="ph-score"><div class="ph-score-value">${phStats.vms}</div><div class="ph-score-label">VMs</div></div>
+            <div class="ph-score"><div class="ph-score-value">${phStats.appts}</div><div class="ph-score-label">Appts</div></div>
+            <div class="ph-score"><div class="ph-score-value">${mins}m</div><div class="ph-score-label">Duration</div></div>
+            <div class="ph-score"><div class="ph-score-value">${currentContactIdx}</div><div class="ph-score-label">Contacts</div></div>
+        `;
+
+        currentSessionId = null;
+    };
+
+    // ═══════════ COMMAND CENTER ═══════════
+    window.toggleExpand = function(el) {
+        el.classList.toggle('expanded');
+    };
+
+    // Live feed polling (every 60s)
+    function refreshLiveFeed() {
+        fetch('/api/live-activity')
+            .then(r => r.json())
+            .then(data => {
+                const feed = document.getElementById('live-feed');
+                if (!feed || !data.events || !data.events.length) return;
+                feed.innerHTML = data.events.map(e => `
+                    <div class="feed-item">
+                        <div>${e.description}</div>
+                        <div class="feed-time">${(e.occurred_at || '').slice(0, 16).replace('T', ' ')}</div>
+                    </div>
+                `).join('');
+            })
+            .catch(() => {});
+    }
+
+    setInterval(refreshLiveFeed, 60000);
+
+})();
+</script>
+
+</body>
+</html>

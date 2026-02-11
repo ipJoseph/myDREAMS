@@ -30,6 +30,15 @@ load_dotenv(PROJECT_ROOT / '.env')
 
 from src.core.database import DREAMSDatabase
 
+# Import intelligence briefing engine
+try:
+    sys.path.insert(0, str(Path(__file__).parent))
+    from intelligence import generate_briefings, group_by_urgency, generate_overnight_narrative
+    INTELLIGENCE_AVAILABLE = True
+except ImportError:
+    INTELLIGENCE_AVAILABLE = False
+    logger.warning("Intelligence module not available — Mission Control v3 will fall back to v2")
+
 # Initialize database connection
 DB_PATH = os.getenv('DREAMS_DB_PATH', str(PROJECT_ROOT / 'data' / 'dreams.db'))
 db = DREAMSDatabase(DB_PATH)
@@ -641,8 +650,49 @@ def home():
     """Unified dashboard home (requires authentication)"""
     db = get_db()
 
-    # ===== V2 TOGGLE =====
-    use_v2 = request.args.get('v2', '1') != '0'
+    # ===== VERSION TOGGLE =====
+    # v3 (Mission Control) is default; ?v2=1 rolls back
+    use_v2 = request.args.get('v2', '0') == '1'
+
+    # ===== V3 MISSION CONTROL =====
+    if not use_v2 and INTELLIGENCE_AVAILABLE:
+        try:
+            # Enriched contacts with subquery-computed intelligence fields
+            contacts = db.get_morning_briefing_contacts(user_id=CURRENT_USER_ID, limit=30)
+
+            # Generate intelligence briefings for each contact
+            contacts = generate_briefings(contacts)
+            contact_groups = group_by_urgency(contacts)
+
+            # Overnight narrative (names, not counts)
+            overnight_data = db.get_overnight_narrative(hours=24, user_id=CURRENT_USER_ID)
+            narrative_items = generate_overnight_narrative(overnight_data)
+
+            # Pipeline narrative
+            pipeline = db.get_pipeline_narrative(user_id=CURRENT_USER_ID)
+
+            # Today's call stats
+            call_stats = db.get_todays_call_stats(user_id=CURRENT_USER_ID)
+
+            # Live activity feed (for Command Center)
+            live_feed = db.get_live_activity_feed(hours=8, limit=20)
+
+            # Pre-serialize contacts for Power Hour JS
+            contacts_json = json.dumps(contacts, default=str)
+
+            return render_template('home_v3.html',
+                                 contacts=contacts,
+                                 contacts_json=contacts_json,
+                                 contact_groups=contact_groups,
+                                 narrative_items=narrative_items,
+                                 pipeline=pipeline,
+                                 call_stats=call_stats,
+                                 live_feed=live_feed,
+                                 current_user_id=CURRENT_USER_ID,
+                                 refresh_time=datetime.now().strftime('%B %d, %Y %I:%M %p'))
+        except Exception as e:
+            logger.error(f"Mission Control v3 failed, falling back to v2: {e}", exc_info=True)
+            # Fall through to v2
 
     # Get view filter from query params (default to 'my_leads')
     current_view = request.args.get('view', 'my_leads')
@@ -689,13 +739,12 @@ def home():
     # ===== CALL LIST DATA (for v2 embedded call list) =====
     call_list_data = {}
     call_list_counts = {}
-    if use_v2:
-        for list_type in ('priority', 'new_leads', 'hot', 'follow_up', 'going_cold'):
-            call_list_counts[list_type] = db.count_call_list_contacts(list_type, user_id=CURRENT_USER_ID)
-            call_list_data[list_type] = db.get_call_list_contacts(list_type, user_id=CURRENT_USER_ID, limit=25)
+    for list_type in ('priority', 'new_leads', 'hot', 'follow_up', 'going_cold'):
+        call_list_counts[list_type] = db.count_call_list_contacts(list_type, user_id=CURRENT_USER_ID)
+        call_list_data[list_type] = db.get_call_list_contacts(list_type, user_id=CURRENT_USER_ID, limit=25)
 
     # ===== V2 DASHBOARD =====
-    if use_v2:
+    if True:
         return render_template('home_v2.html',
                              todays_actions=todays_actions,
                              todoist_tasks=todoist_tasks,
@@ -757,6 +806,70 @@ def home():
                          change_summary=change_summary,
                          current_view=current_view,
                          refresh_time=datetime.now().strftime('%B %d, %Y %I:%M %p'))
+
+
+# ═══════════════════════════════════════════════════════════════
+# MISSION CONTROL: Power Hour & Live Activity API Endpoints
+# ═══════════════════════════════════════════════════════════════
+
+@app.route('/api/power-hour/start', methods=['POST'])
+@requires_auth
+def api_power_hour_start():
+    """Start a new Power Hour session."""
+    db = get_db()
+    data = request.get_json() or {}
+    user_id = data.get('user_id', CURRENT_USER_ID)
+    session_id = db.create_power_hour_session(user_id)
+    return jsonify({'session_id': session_id, 'status': 'active'})
+
+
+@app.route('/api/power-hour/disposition', methods=['POST'])
+@requires_auth
+def api_power_hour_disposition():
+    """Record a call disposition within a Power Hour session."""
+    db = get_db()
+    data = request.get_json() or {}
+    session_id = data.get('session_id')
+    contact_id = data.get('contact_id')
+    disposition = data.get('disposition')
+
+    if not all([session_id, contact_id, disposition]):
+        return jsonify({'error': 'Missing required fields'}), 400
+
+    valid_dispositions = ('called', 'left_vm', 'texted', 'no_answer', 'skip', 'appointment')
+    if disposition not in valid_dispositions:
+        return jsonify({'error': 'Invalid disposition'}), 400
+
+    dispo_id = db.record_power_hour_disposition(
+        session_id=session_id,
+        contact_id=contact_id,
+        disposition=disposition,
+        notes=data.get('notes')
+    )
+    return jsonify({'id': dispo_id, 'status': 'recorded'})
+
+
+@app.route('/api/power-hour/end', methods=['POST'])
+@requires_auth
+def api_power_hour_end():
+    """End a Power Hour session and return summary stats."""
+    db = get_db()
+    data = request.get_json() or {}
+    session_id = data.get('session_id')
+    if not session_id:
+        return jsonify({'error': 'Missing session_id'}), 400
+
+    summary = db.end_power_hour_session(session_id)
+    return jsonify(summary)
+
+
+@app.route('/api/live-activity')
+@requires_auth
+def api_live_activity():
+    """Live activity feed for Command Center (polled every 60s)."""
+    db = get_db()
+    events = db.get_live_activity_feed(hours=8, limit=20)
+    return jsonify({'events': events})
 
 
 @app.route('/call-list')

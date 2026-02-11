@@ -788,6 +788,34 @@ class DREAMSDatabase:
             FOREIGN KEY (property_id) REFERENCES properties(id),
             UNIQUE(pursuit_id, property_id)
         );
+
+        -- Power Hour sessions (focused calling blocks)
+        CREATE TABLE IF NOT EXISTS power_hour_sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            started_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            ended_at TEXT,
+            status TEXT DEFAULT 'active',           -- 'active', 'completed', 'abandoned'
+            calls_attempted INTEGER DEFAULT 0,
+            calls_reached INTEGER DEFAULT 0,
+            voicemails INTEGER DEFAULT 0,
+            texts_sent INTEGER DEFAULT 0,
+            skipped INTEGER DEFAULT 0,
+            appointments INTEGER DEFAULT 0,
+            duration_seconds INTEGER DEFAULT 0
+        );
+
+        -- Power Hour dispositions (individual call outcomes within a session)
+        CREATE TABLE IF NOT EXISTS power_hour_dispositions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id INTEGER NOT NULL,
+            contact_id TEXT NOT NULL,
+            disposition TEXT NOT NULL,               -- 'called', 'left_vm', 'texted', 'no_answer', 'skip', 'appointment'
+            notes TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (session_id) REFERENCES power_hour_sessions(id),
+            FOREIGN KEY (contact_id) REFERENCES leads(id)
+        );
         '''
 
     def _get_indexes_schema(self) -> str:
@@ -879,6 +907,11 @@ class DREAMSDatabase:
         CREATE INDEX IF NOT EXISTS idx_pursuit_properties_pursuit ON pursuit_properties(pursuit_id);
         CREATE INDEX IF NOT EXISTS idx_pursuit_properties_property ON pursuit_properties(property_id);
         CREATE INDEX IF NOT EXISTS idx_pursuit_properties_status ON pursuit_properties(status);
+        -- Power Hour indexes
+        CREATE INDEX IF NOT EXISTS idx_power_hour_sessions_user ON power_hour_sessions(user_id, started_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_power_hour_sessions_status ON power_hour_sessions(status);
+        CREATE INDEX IF NOT EXISTS idx_power_hour_dispositions_session ON power_hour_dispositions(session_id);
+        CREATE INDEX IF NOT EXISTS idx_power_hour_dispositions_contact ON power_hour_dispositions(contact_id);
         '''
 
     def _seed_default_settings(self, conn) -> None:
@@ -6432,3 +6465,526 @@ class DREAMSDatabase:
                 'succeeded': success['succeeded'] or 0 if success else 0,
                 'failed': success['failed'] or 0 if success else 0,
             }
+
+    # ═══════════════════════════════════════════════════════════════
+    # MISSION CONTROL: Morning Briefing & Power Hour
+    # ═══════════════════════════════════════════════════════════════
+
+    def get_morning_briefing_contacts(self, user_id: Optional[int] = None, limit: int = 30) -> List[Dict]:
+        """
+        Master query returning enriched contacts for the Mission Control briefing.
+        Returns contacts in 3 urgency buckets with subquery-computed fields:
+        property_views_24h, property_views_7d, favorites_7d, last_comm_at,
+        pending_action_due, has_intake, recent_cities, price_range_label, etc.
+        """
+        with self._get_connection() as conn:
+            user_filter = ""
+            user_params = []
+            if user_id:
+                user_filter = "AND l.assigned_user_id = ?"
+                user_params = [user_id]
+
+            now = datetime.now()
+            cutoff_24h = (now - timedelta(hours=24)).isoformat()
+            cutoff_7d = (now - timedelta(days=7)).isoformat()
+            today = now.strftime('%Y-%m-%d')
+
+            results = conn.execute(f'''
+                SELECT
+                    l.id, l.first_name, l.last_name, l.email, l.phone,
+                    l.fub_id, l.stage, l.source, l.type,
+                    l.heat_score, l.value_score, l.relationship_score, l.priority_score,
+                    l.score_trend, l.heat_score_7d_avg,
+                    l.website_visits, l.properties_viewed, l.properties_favorited,
+                    l.days_since_activity, l.last_activity_at, l.created_at,
+                    l.intent_repeat_views, l.intent_high_favorites,
+                    l.intent_activity_burst, l.intent_sharing, l.intent_signal_count,
+                    l.min_price, l.max_price, l.preferred_cities,
+                    -- Subquery: property views in last 24h
+                    (SELECT COUNT(*) FROM contact_events ce
+                     WHERE ce.contact_id = CAST(l.fub_id AS TEXT)
+                     AND ce.event_type = 'property_view'
+                     AND ce.occurred_at >= ?) AS property_views_24h,
+                    -- Subquery: property views in last 7d
+                    (SELECT COUNT(*) FROM contact_events ce
+                     WHERE ce.contact_id = CAST(l.fub_id AS TEXT)
+                     AND ce.event_type = 'property_view'
+                     AND ce.occurred_at >= ?) AS property_views_7d,
+                    -- Subquery: favorites in last 7d
+                    (SELECT COUNT(*) FROM contact_events ce
+                     WHERE ce.contact_id = CAST(l.fub_id AS TEXT)
+                     AND ce.event_type = 'property_favorite'
+                     AND ce.occurred_at >= ?) AS favorites_7d,
+                    -- Subquery: last communication timestamp
+                    (SELECT MAX(cc.occurred_at) FROM contact_communications cc
+                     WHERE cc.contact_id = l.id) AS last_comm_at,
+                    -- Subquery: days since last communication
+                    (SELECT CAST(julianday('now') - julianday(MAX(cc.occurred_at)) AS INTEGER)
+                     FROM contact_communications cc
+                     WHERE cc.contact_id = l.id) AS days_since_last_comm,
+                    -- Subquery: pending action due today or before
+                    (SELECT ca.due_date FROM contact_actions ca
+                     WHERE ca.contact_id = l.id
+                     AND ca.completed_at IS NULL
+                     AND ca.due_date <= ?
+                     ORDER BY ca.due_date ASC LIMIT 1) AS pending_action_due,
+                    -- Subquery: pending action description
+                    (SELECT ca.description FROM contact_actions ca
+                     WHERE ca.contact_id = l.id
+                     AND ca.completed_at IS NULL
+                     AND ca.due_date <= ?
+                     ORDER BY ca.due_date ASC LIMIT 1) AS pending_action_desc,
+                    -- Subquery: has active intake form
+                    CASE WHEN EXISTS (
+                        SELECT 1 FROM intake_forms i
+                        WHERE i.lead_id = l.id AND i.status = 'active'
+                    ) THEN 1 ELSE 0 END AS has_intake,
+                    -- Subquery: intake need type
+                    (SELECT i.need_type FROM intake_forms i
+                     WHERE i.lead_id = l.id AND i.status = 'active'
+                     ORDER BY i.priority ASC LIMIT 1) AS intake_need_type,
+                    -- Subquery: has recent package (sent in last 14 days)
+                    CASE WHEN EXISTS (
+                        SELECT 1 FROM packages pk
+                        WHERE pk.lead_id = l.id
+                        AND pk.created_at >= datetime('now', '-14 days')
+                    ) THEN 1 ELSE 0 END AS has_recent_package,
+                    -- Subquery: financing status from intake
+                    (SELECT i.financing_status FROM intake_forms i
+                     WHERE i.lead_id = l.id AND i.status = 'active'
+                     ORDER BY i.priority ASC LIMIT 1) AS financing_status,
+                    -- Subquery: pre-approval amount from intake
+                    (SELECT i.pre_approval_amount FROM intake_forms i
+                     WHERE i.lead_id = l.id AND i.status = 'active'
+                     AND i.pre_approval_amount IS NOT NULL
+                     ORDER BY i.priority ASC LIMIT 1) AS pre_approval_amount,
+                    -- Subquery: heat delta from most recent scoring history
+                    (SELECT csh.heat_delta FROM contact_scoring_history csh
+                     WHERE csh.contact_id = l.id
+                     ORDER BY csh.recorded_at DESC LIMIT 1) AS heat_delta
+                FROM leads l
+                WHERE l.contact_group = 'scored'
+                AND l.stage NOT IN ('Trash', 'Closed', 'Past Client', 'DNC', 'Agents/Vendors/Lendors')
+                {user_filter}
+                ORDER BY l.priority_score DESC
+                LIMIT ?
+            ''', [cutoff_24h, cutoff_7d, cutoff_7d, today, today] + user_params + [limit]).fetchall()
+
+            contacts = [dict(row) for row in results]
+
+            # Batch-fetch recent cities from contact_events + idx_property_cache
+            # for all contacts in one query
+            if contacts:
+                fub_ids = [str(c.get('fub_id', '')) for c in contacts if c.get('fub_id')]
+                if fub_ids:
+                    placeholders = ','.join('?' * len(fub_ids))
+                    city_rows = conn.execute(f'''
+                        SELECT ce.contact_id,
+                               COALESCE(ic.city, 'Unknown') AS city,
+                               COUNT(*) AS view_count
+                        FROM contact_events ce
+                        LEFT JOIN idx_property_cache ic ON ce.property_mls = ic.mls_number
+                        WHERE ce.contact_id IN ({placeholders})
+                        AND ce.event_type = 'property_view'
+                        AND ce.occurred_at >= ?
+                        AND ic.city IS NOT NULL
+                        GROUP BY ce.contact_id, ic.city
+                        ORDER BY view_count DESC
+                    ''', fub_ids + [cutoff_7d]).fetchall()
+
+                    # Build city lookup: fub_id -> [top cities]
+                    city_map = {}
+                    for row in city_rows:
+                        cid = row['contact_id']
+                        if cid not in city_map:
+                            city_map[cid] = []
+                        if len(city_map[cid]) < 3:
+                            city_map[cid].append(row['city'])
+
+                    # Attach cities to contacts
+                    for contact in contacts:
+                        fub_id = str(contact.get('fub_id', ''))
+                        contact['recent_cities'] = city_map.get(fub_id, [])
+
+            # Compute price_range_label for each contact
+            for contact in contacts:
+                min_p = contact.get('min_price')
+                max_p = contact.get('max_price')
+                label = ''
+                if min_p and max_p:
+                    label = f"${min_p // 1000}K-${max_p // 1000}K"
+                elif max_p:
+                    label = f"up to ${max_p // 1000}K"
+                elif min_p:
+                    label = f"${min_p // 1000}K+"
+                contact['price_range_label'] = label
+
+            return contacts
+
+    def get_overnight_narrative(self, hours: int = 24, user_id: Optional[int] = None) -> Dict[str, Any]:
+        """
+        Get overnight data as names and summaries instead of just counts.
+        Returns: activity_highlights, price_drops, going_cold, new_leads
+        """
+        with self._get_connection() as conn:
+            cutoff = (datetime.now() - timedelta(hours=hours)).isoformat()
+
+            # Aliased filter for queries with 'l' alias
+            user_filter_l = ""
+            # Non-aliased filter for queries without alias
+            user_filter = ""
+            user_params = []
+            if user_id:
+                user_filter_l = "AND l.assigned_user_id = ?"
+                user_filter = "AND assigned_user_id = ?"
+                user_params = [user_id]
+
+            # Activity highlights: people who were active overnight
+            activity_rows = conn.execute(f'''
+                SELECT
+                    l.first_name || ' ' || l.last_name AS name,
+                    l.fub_id,
+                    SUM(CASE WHEN ce.event_type = 'website_visit' THEN 1 ELSE 0 END) AS visits,
+                    SUM(CASE WHEN ce.event_type = 'property_view' THEN 1 ELSE 0 END) AS views,
+                    SUM(CASE WHEN ce.event_type = 'property_favorite' THEN 1 ELSE 0 END) AS favorites
+                FROM contact_events ce
+                JOIN leads l ON CAST(l.fub_id AS TEXT) = ce.contact_id
+                WHERE ce.occurred_at >= ?
+                AND l.contact_group = 'scored'
+                {user_filter_l}
+                GROUP BY l.id
+                HAVING views > 0 OR favorites > 0
+                ORDER BY (views + favorites * 2) DESC
+                LIMIT 8
+            ''', [cutoff] + user_params).fetchall()
+
+            activity_highlights = [dict(row) for row in activity_rows]
+
+            # Price drops with buyer match
+            price_drops = conn.execute('''
+                SELECT
+                    pc.property_address,
+                    pc.old_value,
+                    pc.new_value,
+                    pc.change_amount,
+                    pc.detected_at,
+                    p.city,
+                    p.beds,
+                    p.baths,
+                    p.price,
+                    -- Try to find a matching buyer
+                    (SELECT l.first_name || ' ' || l.last_name
+                     FROM leads l
+                     WHERE l.contact_group = 'scored'
+                     AND l.stage NOT IN ('Trash', 'Closed', 'Past Client', 'DNC')
+                     AND l.min_price IS NOT NULL AND l.max_price IS NOT NULL
+                     AND CAST(pc.new_value AS INTEGER) BETWEEN l.min_price AND l.max_price
+                     LIMIT 1) AS buyer_match_name
+                FROM property_changes pc
+                LEFT JOIN properties p ON pc.property_id = p.id
+                WHERE pc.change_type = 'price'
+                AND pc.change_amount < 0
+                AND pc.detected_at >= ?
+                ORDER BY pc.change_amount ASC
+                LIMIT 5
+            ''', [cutoff]).fetchall()
+
+            # Going cold (names, not counts)
+            going_cold = conn.execute(f'''
+                SELECT
+                    id, first_name, last_name, days_since_activity,
+                    heat_score, priority_score
+                FROM leads
+                WHERE contact_group = 'scored'
+                AND stage IN ('Lead', 'Prospect', 'Active Client', 'Active Buyer')
+                AND heat_score >= 30
+                AND days_since_activity >= 14
+                AND days_since_activity < 60
+                {user_filter}
+                ORDER BY priority_score DESC
+                LIMIT 5
+            ''', user_params).fetchall()
+
+            # New leads (names and sources)
+            new_leads = conn.execute(f'''
+                SELECT
+                    id, first_name, last_name, source, stage,
+                    heat_score, priority_score, created_at,
+                    properties_viewed
+                FROM leads
+                WHERE created_at >= ?
+                {user_filter}
+                ORDER BY created_at DESC
+                LIMIT 5
+            ''', [cutoff] + user_params).fetchall()
+
+            return {
+                'activity_highlights': activity_highlights,
+                'price_drops': [dict(row) for row in price_drops],
+                'going_cold': [dict(row) for row in going_cold],
+                'new_leads': [dict(row) for row in new_leads],
+            }
+
+    def get_pipeline_narrative(self, user_id: Optional[int] = None) -> Dict[str, Any]:
+        """
+        Get pipeline as sentences with names and next actions.
+        Returns: pending_offers, upcoming_showings, buyers_needing_properties, total_value
+        """
+        with self._get_connection() as conn:
+            user_filter = ""
+            user_params = []
+            if user_id:
+                user_filter = "AND assigned_user_id = ?"
+                user_params = [user_id]
+
+            # Pending offers / under contract
+            pending = conn.execute(f'''
+                SELECT first_name, last_name, max_price, stage
+                FROM leads
+                WHERE stage IN ('Under Contract', 'Pending', 'Active Under Contract')
+                {user_filter}
+                ORDER BY max_price DESC
+                LIMIT 5
+            ''', user_params).fetchall()
+
+            # Total pipeline value
+            pipeline_value = conn.execute(f'''
+                SELECT COALESCE(SUM(max_price), 0) FROM leads
+                WHERE stage IN ('Under Contract', 'Pending', 'Active Under Contract')
+                {user_filter}
+            ''', user_params).fetchone()[0]
+
+            # Buyers needing fresh property suggestions
+            # (have intake but no package in last 14 days)
+            needs_props = conn.execute(f'''
+                SELECT COUNT(*) FROM leads l
+                WHERE l.contact_group = 'scored'
+                AND l.stage IN ('Active Client', 'Active Buyer', 'Hot Prospect', 'Prospect')
+                AND EXISTS (SELECT 1 FROM intake_forms i WHERE i.lead_id = l.id AND i.status = 'active')
+                AND NOT EXISTS (
+                    SELECT 1 FROM packages pk
+                    WHERE pk.lead_id = l.id
+                    AND pk.created_at >= datetime('now', '-14 days')
+                )
+                {user_filter}
+            ''', user_params).fetchone()[0]
+
+            # Active pursuits count
+            active_pursuits = conn.execute('''
+                SELECT COUNT(*) FROM pursuits WHERE status = 'active'
+            ''').fetchone()[0]
+
+            return {
+                'pending_offers': [dict(row) for row in pending],
+                'total_pipeline_value': pipeline_value,
+                'buyers_needing_properties': needs_props,
+                'active_pursuits': active_pursuits,
+            }
+
+    def get_todays_call_stats(self, user_id: Optional[int] = None) -> Dict[str, int]:
+        """
+        Get today's call/contact stats from power_hour_dispositions
+        and contact_communications combined.
+        """
+        with self._get_connection() as conn:
+            today_start = datetime.now().strftime('%Y-%m-%d')
+
+            # Power Hour stats for today
+            ph_stats = conn.execute('''
+                SELECT
+                    COALESCE(SUM(CASE WHEN d.disposition IN ('called', 'appointment') THEN 1 ELSE 0 END), 0) AS reached,
+                    COALESCE(SUM(CASE WHEN d.disposition = 'left_vm' THEN 1 ELSE 0 END), 0) AS voicemails,
+                    COALESCE(SUM(CASE WHEN d.disposition = 'texted' THEN 1 ELSE 0 END), 0) AS texts,
+                    COALESCE(SUM(CASE WHEN d.disposition = 'appointment' THEN 1 ELSE 0 END), 0) AS appointments,
+                    COUNT(*) AS total_attempts
+                FROM power_hour_dispositions d
+                JOIN power_hour_sessions s ON d.session_id = s.id
+                WHERE d.created_at >= ?
+            ''', [today_start]).fetchone()
+
+            # Regular comms for today (outside Power Hour)
+            comm_stats = conn.execute('''
+                SELECT
+                    COALESCE(SUM(CASE WHEN comm_type = 'call' AND direction = 'outbound' THEN 1 ELSE 0 END), 0) AS calls_out,
+                    COALESCE(SUM(CASE WHEN comm_type = 'call' AND direction = 'inbound' THEN 1 ELSE 0 END), 0) AS calls_in,
+                    COALESCE(SUM(CASE WHEN comm_type = 'text' THEN 1 ELSE 0 END), 0) AS texts
+                FROM contact_communications
+                WHERE occurred_at >= ?
+            ''', [today_start]).fetchone()
+
+            # Today's Power Hour session time
+            session_time = conn.execute('''
+                SELECT COALESCE(SUM(duration_seconds), 0)
+                FROM power_hour_sessions
+                WHERE started_at >= ? AND status IN ('completed', 'active')
+            ''', [today_start]).fetchone()[0]
+
+            return {
+                'calls_attempted': (ph_stats['total_attempts'] or 0) + (comm_stats['calls_out'] or 0),
+                'calls_reached': (ph_stats['reached'] or 0),
+                'voicemails': (ph_stats['voicemails'] or 0),
+                'texts_sent': (ph_stats['texts'] or 0) + (comm_stats['texts'] or 0),
+                'appointments': (ph_stats['appointments'] or 0),
+                'calls_inbound': (comm_stats['calls_in'] or 0),
+                'selling_time_minutes': session_time // 60,
+            }
+
+    # ─── Power Hour CRUD ──────────────────────────────────────────
+
+    def create_power_hour_session(self, user_id: int) -> int:
+        """Create a new Power Hour session. Returns the session ID."""
+        with self._get_connection() as conn:
+            cursor = conn.execute('''
+                INSERT INTO power_hour_sessions (user_id, started_at, status)
+                VALUES (?, ?, 'active')
+            ''', [user_id, datetime.now().isoformat()])
+            conn.commit()
+            return cursor.lastrowid
+
+    def record_power_hour_disposition(
+        self, session_id: int, contact_id: str, disposition: str, notes: str = None
+    ) -> int:
+        """Record a call disposition within a Power Hour session."""
+        with self._get_connection() as conn:
+            cursor = conn.execute('''
+                INSERT INTO power_hour_dispositions (session_id, contact_id, disposition, notes)
+                VALUES (?, ?, ?, ?)
+            ''', [session_id, contact_id, disposition, notes])
+
+            # Update session counters
+            counter_map = {
+                'called': 'calls_reached',
+                'left_vm': 'voicemails',
+                'texted': 'texts_sent',
+                'no_answer': 'calls_attempted',
+                'skip': 'skipped',
+                'appointment': 'appointments',
+            }
+            counter_col = counter_map.get(disposition)
+
+            conn.execute('''
+                UPDATE power_hour_sessions
+                SET calls_attempted = calls_attempted + 1
+                WHERE id = ?
+            ''', [session_id])
+
+            if counter_col and counter_col != 'calls_attempted':
+                conn.execute(f'''
+                    UPDATE power_hour_sessions
+                    SET {counter_col} = {counter_col} + 1
+                    WHERE id = ?
+                ''', [session_id])
+
+            conn.commit()
+            return cursor.lastrowid
+
+    def end_power_hour_session(self, session_id: int) -> Dict[str, Any]:
+        """End a Power Hour session and return summary stats."""
+        with self._get_connection() as conn:
+            # Calculate duration
+            session = conn.execute('''
+                SELECT * FROM power_hour_sessions WHERE id = ?
+            ''', [session_id]).fetchone()
+
+            if not session:
+                return {}
+
+            started = datetime.fromisoformat(session['started_at'])
+            duration = int((datetime.now() - started).total_seconds())
+
+            conn.execute('''
+                UPDATE power_hour_sessions
+                SET ended_at = ?,
+                    status = 'completed',
+                    duration_seconds = ?
+                WHERE id = ?
+            ''', [datetime.now().isoformat(), duration, session_id])
+            conn.commit()
+
+            return {
+                'session_id': session_id,
+                'duration_seconds': duration,
+                'duration_minutes': duration // 60,
+                'calls_attempted': session['calls_attempted'],
+                'calls_reached': session['calls_reached'],
+                'voicemails': session['voicemails'],
+                'texts_sent': session['texts_sent'],
+                'appointments': session['appointments'],
+                'skipped': session['skipped'],
+            }
+
+    def get_active_power_hour_session(self, user_id: int) -> Optional[Dict]:
+        """Get the current active Power Hour session, if any."""
+        with self._get_connection() as conn:
+            row = conn.execute('''
+                SELECT * FROM power_hour_sessions
+                WHERE user_id = ? AND status = 'active'
+                ORDER BY started_at DESC LIMIT 1
+            ''', [user_id]).fetchone()
+            return dict(row) if row else None
+
+    def get_power_hour_session_dispositions(self, session_id: int) -> List[Dict]:
+        """Get all dispositions for a Power Hour session."""
+        with self._get_connection() as conn:
+            rows = conn.execute('''
+                SELECT d.*, l.first_name, l.last_name
+                FROM power_hour_dispositions d
+                LEFT JOIN leads l ON d.contact_id = l.id
+                WHERE d.session_id = ?
+                ORDER BY d.created_at ASC
+            ''', [session_id]).fetchall()
+            return [dict(row) for row in rows]
+
+    def get_live_activity_feed(self, hours: int = 8, limit: int = 20) -> List[Dict]:
+        """
+        Get recent activity events for the Command Center live feed.
+        Returns named events (who did what, on which property).
+        """
+        with self._get_connection() as conn:
+            cutoff = (datetime.now() - timedelta(hours=hours)).isoformat()
+
+            rows = conn.execute('''
+                SELECT
+                    l.first_name || ' ' || l.last_name AS name,
+                    ce.event_type,
+                    ce.occurred_at,
+                    ce.property_address,
+                    ce.property_price,
+                    ce.property_mls,
+                    ic.city AS property_city
+                FROM contact_events ce
+                JOIN leads l ON CAST(l.fub_id AS TEXT) = ce.contact_id
+                LEFT JOIN idx_property_cache ic ON ce.property_mls = ic.mls_number
+                WHERE ce.occurred_at >= ?
+                AND l.contact_group = 'scored'
+                ORDER BY ce.occurred_at DESC
+                LIMIT ?
+            ''', [cutoff, limit]).fetchall()
+
+            events = []
+            for row in rows:
+                r = dict(row)
+                # Generate human-readable description
+                event_type = r.get('event_type', '')
+                name = r.get('name', 'Someone')
+                address = r.get('property_address') or 'a property'
+                price = r.get('property_price')
+
+                if event_type == 'property_view':
+                    desc = f"{name} viewed {address}"
+                elif event_type == 'property_favorite':
+                    desc = f"{name} favorited {address}"
+                elif event_type == 'website_visit':
+                    desc = f"{name} visited the website"
+                elif event_type == 'property_share':
+                    desc = f"{name} shared {address}"
+                else:
+                    desc = f"{name}: {event_type}"
+
+                if price:
+                    desc += f" (${price:,})"
+
+                r['description'] = desc
+                events.append(r)
+
+            return events

@@ -23,6 +23,7 @@
 
 | Feature | Commit | Description |
 |---------|--------|-------------|
+| **Mission Control v3** | - | Complete dashboard redesign with Intelligence Briefing Engine, Power Hour calling mode, and Command Center |
 | **Pipeline Framework** | - | `docs/PIPELINE_FRAMEWORK.md` - QUALIFY → CURATE → CLOSE → NURTURE canonical pipeline documentation |
 | **Buyer Requirements Sync** | - | `templates/buyer_requirements.md` + sync scripts for markdown ↔ database sync |
 | **Buyers Needing Work** | - | Dashboard section showing buyers with requirements but no recent property packages |

@@ -9,6 +9,30 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Mission Control v3** (`home_v3.html`) — Complete dashboard redesign: launchpad, not newspaper
+  - **Intelligence Briefing Engine** (`intelligence.py`) — Auto-generated one-sentence briefings for every contact
+    - 8 prioritized rules: Activity Burst, New Lead, Warming Trend, Going Cold, Follow-Up Due, High Intent, Needs Properties, Default
+    - Each briefing includes category, urgency level, and suggested conversation opener
+  - **Morning Briefing mode** (default) — Three sections:
+    - "While You Were Away" — Names and actions, not counts ("Sarah Chen viewed 4 properties")
+    - "Today's Mission" — Contacts in 3 urgency groups (Act Now / Follow Up / Touch Base) with intelligence briefings
+    - "Pipeline Pulse" — Pipeline as sentences with names, prices, and next actions
+  - **Power Hour mode** — Focused calling with flashcard-style contact cards
+    - Pre-serialized contacts (no server round-trips between calls)
+    - Disposition buttons: Called, Left VM, Texted, No Answer, Appointment, Skip
+    - Keyboard shortcuts: 1-5 for dispositions, 0/S to skip
+    - Live scoreboard: reached, VMs, appointments, elapsed time
+    - Session data persists in `power_hour_sessions` / `power_hour_dispositions` tables
+  - **Command Center mode** — Working dashboard for throughout the day
+    - Expandable contact cards with full detail on click
+    - Live activity feed (polls every 60s): who's viewing what, right now
+    - Compact pipeline strip with today's stats
+  - **Keyboard shortcuts**: B (Briefing), P (Power Hour), C (Command Center)
+  - **API endpoints**: `/api/power-hour/start`, `/disposition`, `/end`, `/api/live-activity`
+  - **New DB methods**: `get_morning_briefing_contacts()`, `get_overnight_narrative()`, `get_pipeline_narrative()`, `get_todays_call_stats()`, `get_live_activity_feed()`
+  - **Safe rollback**: `/?v2=1` serves the existing v2 dashboard unchanged
+  - **New tables**: `power_hour_sessions`, `power_hour_dispositions`
+
 - **Contact Group Separation** — Scored leads vs pond watchlists are now distinct
   - New `contact_group` column on `leads` table: `scored`, `brand_new`, `hand_raised`, `agents_vendors`, `warm_pond`
   - Only contacts assigned to the agent are scored; pond contacts imported with zero scores
