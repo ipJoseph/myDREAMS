@@ -4160,6 +4160,18 @@ def admin_automation_save():
 
 
 # ---------------------------------------------------------------------------
+# SOP Documents
+# ---------------------------------------------------------------------------
+
+@app.route('/sop/lead-gen-calling')
+@requires_auth
+def sop_lead_gen_calling():
+    """Serve the Lead Generation Calling SOP as a dashboard page with sidebar."""
+    return render_template('sop_wrapper.html', active_nav='sop-calling',
+                           sop_title='Lead Generation Calling SOP')
+
+
+# ---------------------------------------------------------------------------
 # FUB Smart Lists — live comparison view
 # ---------------------------------------------------------------------------
 

@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ sop_title }} | DREAMS</title>
+    <link rel="icon" type="image/svg+xml" href="{{ favicon }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='shared/css/dreams.css') }}">
+    <style>
+        .sop-frame {
+            width: 100%;
+            height: calc(100vh - 0px);
+            border: none;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    {% include 'partials/sidebar.html' %}
+    <div class="main-content">
+        <iframe class="sop-frame" src="/static/sop/lead-gen-calling-sop.html"></iframe>
+    </div>
+</body>
+</html>

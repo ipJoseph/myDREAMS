@@ -121,7 +121,7 @@
         /* ========== BRIEFING 2-COL GRID ========== */
         .briefing-grid {
             display: grid;
-            grid-template-columns: 340px 1fr;
+            grid-template-columns: 1fr 340px;
             gap: 24px;
             margin-bottom: 28px;
             align-items: start;
@@ -699,31 +699,7 @@
 
             <div class="briefing-grid"{% if not narrative_items %} style="grid-template-columns:1fr"{% endif %}>
 
-            <!-- Left column: While You Were Away -->
-            {% if narrative_items %}
-            <div class="away-section">
-                <div class="section-header">
-                    <div class="section-title">While You Were Away</div>
-                    <div class="section-subtitle">Last 24 hours</div>
-                </div>
-                <div class="away-items">
-                    {% for item in narrative_items %}
-                    <div class="away-item">
-                        <div class="away-icon {{ item.category }}">
-                            {% if item.category == 'activity' %}&#128065;
-                            {% elif item.category == 'price_drop' %}&#128181;
-                            {% elif item.category == 'going_cold' %}&#129398;
-                            {% elif item.category == 'new_lead' %}&#128100;
-                            {% else %}&#128276;{% endif %}
-                        </div>
-                        <div class="away-text">{{ item.text }}</div>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-            {% endif %}
-
-            <!-- Right column: Today's Mission -->
+            <!-- Left column: Today's Mission -->
             <div class="mission-section">
                 <div class="section-header">
                     <div class="section-title">Today's Mission</div>
@@ -769,6 +745,9 @@
                             <a href="tel:{{ c.phone }}" class="action-btn primary" title="Call">Call</a>
                             <a href="sms:{{ c.phone }}" class="action-btn" title="Text">Text</a>
                             {% endif %}
+                            {% if c.email %}
+                            <a href="https://mail.google.com/mail/u/0/?authuser=eugy@jontharphomes.com&view=cm&to={{ c.email }}" target="_blank" class="action-btn" title="Email via Gmail">Email</a>
+                            {% endif %}
                             {% if c.fub_id %}
                             <a href="https://followupboss.com/2/people/view/{{ c.fub_id }}" target="_blank" class="action-btn" title="Open in FUB">FUB</a>
                             {% endif %}
@@ -786,6 +765,30 @@
                 </div>
                 {% endif %}
             </div>
+
+            <!-- Right column: While You Were Away -->
+            {% if narrative_items %}
+            <div class="away-section">
+                <div class="section-header">
+                    <div class="section-title">While You Were Away</div>
+                    <div class="section-subtitle">Last 24 hours</div>
+                </div>
+                <div class="away-items">
+                    {% for item in narrative_items %}
+                    <div class="away-item">
+                        <div class="away-icon {{ item.category }}">
+                            {% if item.category == 'activity' %}&#128065;
+                            {% elif item.category == 'price_drop' %}&#128181;
+                            {% elif item.category == 'going_cold' %}&#129398;
+                            {% elif item.category == 'new_lead' %}&#128100;
+                            {% else %}&#128276;{% endif %}
+                        </div>
+                        <div class="away-text">{{ item.text }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
 
             </div><!-- /briefing-grid -->
 
@@ -997,6 +1000,9 @@
                                         <a href="tel:{{ c.phone }}" class="action-btn primary" onclick="event.stopPropagation()">Call</a>
                                         <a href="sms:{{ c.phone }}" class="action-btn" onclick="event.stopPropagation()">Text</a>
                                         {% endif %}
+                                        {% if c.email %}
+                                        <a href="https://mail.google.com/mail/u/0/?authuser=eugy@jontharphomes.com&view=cm&to={{ c.email }}" target="_blank" class="action-btn" onclick="event.stopPropagation()">Email</a>
+                                        {% endif %}
                                         <a href="/contacts/{{ c.id }}" class="action-btn" onclick="event.stopPropagation()">Profile</a>
                                         {% if c.fub_id %}
                                         <a href="https://followupboss.com/2/people/view/{{ c.fub_id }}" target="_blank" class="action-btn" onclick="event.stopPropagation()">FUB</a>
@@ -1152,8 +1158,8 @@
                     <div class="ph-card-briefing">${b.text || ''}</div>
                 </div>
                 <div class="ph-card-body">
-                    ${c.phone ? '<div class="ph-detail-row"><span class="ph-detail-label">Phone</span><span class="ph-detail-value"><a href="tel:' + c.phone + '">' + c.phone + '</a></span></div>' : ''}
-                    ${c.email ? '<div class="ph-detail-row"><span class="ph-detail-label">Email</span><span class="ph-detail-value">' + c.email + '</span></div>' : ''}
+                    ${c.phone ? '<div class="ph-detail-row"><span class="ph-detail-label">Phone</span><span class="ph-detail-value">' + (c.fub_id ? '<a href="https://followupboss.com/2/people/view/' + c.fub_id + '" target="_blank">' + c.phone + '</a>' : c.phone) + '</span></div>' : ''}
+                    ${c.email ? '<div class="ph-detail-row"><span class="ph-detail-label">Email</span><span class="ph-detail-value"><a href="https://mail.google.com/mail/u/0/?authuser=eugy@jontharphomes.com&view=cm&to=' + encodeURIComponent(c.email) + '" target="_blank">' + c.email + '</a></span></div>' : ''}
                     <div class="ph-detail-row"><span class="ph-detail-label">Stage</span><span class="ph-detail-value">${c.stage || 'Unknown'}</span></div>
                     ${c.heat_score ? '<div class="ph-detail-row"><span class="ph-detail-label">Heat</span><span class="ph-detail-value">' + Math.round(c.heat_score) + (c.score_trend ? ' (' + c.score_trend + ')' : '') + '</span></div>' : ''}
                     ${c.price_range_label ? '<div class="ph-detail-row"><span class="ph-detail-label">Price</span><span class="ph-detail-value">' + c.price_range_label + '</span></div>' : ''}
