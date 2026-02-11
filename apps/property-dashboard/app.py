@@ -4176,7 +4176,7 @@ def _get_fub_client():
         _fub_client = FUBClient(api_key=api_key, logger=logger)
     return _fub_client
 
-# Canonical FUB smart list names → DREAMS list keys + cadence labels
+# Canonical list definitions: cadence labels + DREAMS mapping
 SMART_LIST_MAP = {
     'New Leads':        {'dreams_key': 'new_leads',        'cadence': 'Daily'},
     'Priority':         {'dreams_key': 'priority',         'cadence': 'Semiweekly'},
@@ -4187,8 +4187,114 @@ SMART_LIST_MAP = {
     'Timeframe Empty':  {'dreams_key': 'timeframe_empty',  'cadence': 'As needed'},
 }
 
-# Ordered list for display
 SMART_LIST_ORDER = ['New Leads', 'Priority', 'Hot', 'Warm', 'Cool', 'Unresponsive', 'Timeframe Empty']
+
+
+def _bucket_fub_contacts(people):
+    """
+    Bucket FUB contacts into cadence categories using FUB field data.
+
+    FUB's sidebar cadence buckets are not exposed via API, so we replicate
+    the logic using observable fields: stage, created, lastCommunication,
+    contacted, timeframeStatus.
+
+    Rules (derived from live FUB data analysis):
+      New Leads:       stage=Lead, created in last 14 days
+      Hot:             stage=Lead, NOT new, lastComm within 7 days
+      Warm:            stage=Lead, NOT new, lastComm 8-30 days
+      Cool:            stage=Lead, NOT new, lastComm 31-90 days
+      Unresponsive:    stage=Lead, NOT new, lastComm >90 days OR never communicated (contacted=0, old)
+      Timeframe Empty: stage=Lead, NOT new, contacted=1, timeframeStatus=None, lastComm <=30 days
+      Priority:        (currently unused by FUB — count is typically 0)
+    """
+    from datetime import timedelta, timezone
+    now = datetime.now(timezone.utc)
+    cutoff_14d = now - timedelta(days=14)
+
+    buckets = {k: [] for k in ['new_leads', 'priority', 'hot', 'warm', 'cool', 'unresponsive', 'timeframe_empty']}
+    assigned = set()  # Track which person IDs are already bucketed
+
+    def _parse_contact(p):
+        phones = p.get('phones', [])
+        phone = phones[0].get('value', '') if phones else ''
+        lc = p.get('lastCommunication')
+        lc_date = None
+        lc_days = 9999
+        if lc and isinstance(lc, dict) and lc.get('date'):
+            try:
+                lc_date = datetime.fromisoformat(lc['date'].replace('Z', '+00:00'))
+                lc_days = (now - lc_date).days
+            except (ValueError, TypeError):
+                pass
+        return {
+            'id': p.get('id'),
+            'name': f"{p.get('firstName', '')} {p.get('lastName', '')}".strip(),
+            'phone': phone,
+            'stage': p.get('stage', ''),
+            'contacted': p.get('contacted', 0),
+            'lastActivity': p.get('lastActivity', ''),
+            'lastComm': lc_date.isoformat() if lc_date else None,
+            'lastCommDays': lc_days,
+            'timeframeStatus': p.get('timeframeStatus'),
+            'created': p.get('created', ''),
+        }
+
+    # Only process Lead-stage contacts
+    leads = [p for p in people if p.get('stage') == 'Lead']
+
+    # Parse all
+    parsed = []
+    for p in leads:
+        parsed.append((_parse_contact(p), p))
+
+    # 1. New Leads: created in last 14 days
+    for contact, raw in parsed:
+        created = raw.get('created', '')
+        if created:
+            try:
+                dt = datetime.fromisoformat(created.replace('Z', '+00:00'))
+                if dt >= cutoff_14d:
+                    buckets['new_leads'].append(contact)
+                    assigned.add(contact['id'])
+            except (ValueError, TypeError):
+                pass
+
+    # 2-6. Bucket remaining leads
+    for contact, raw in parsed:
+        if contact['id'] in assigned:
+            continue
+
+        lc_days = contact['lastCommDays']
+        contacted = contact['contacted']
+        tf = contact['timeframeStatus']
+
+        # Unresponsive: never communicated (contacted=0) and old, or lastComm >90 days
+        if (contacted == 0 and contact['id'] not in assigned) or lc_days > 90:
+            buckets['unresponsive'].append(contact)
+            assigned.add(contact['id'])
+        # Hot: lastComm within 7 days
+        elif lc_days <= 7:
+            buckets['hot'].append(contact)
+            assigned.add(contact['id'])
+        # Warm: lastComm 8-30 days
+        elif lc_days <= 30:
+            # Also check timeframe empty (contacted, within 30d, but no timeframe)
+            if contacted == 1 and tf is None:
+                buckets['timeframe_empty'].append(contact)
+            else:
+                buckets['warm'].append(contact)
+            assigned.add(contact['id'])
+        # Cool: lastComm 31-90 days
+        elif lc_days <= 90:
+            buckets['cool'].append(contact)
+            assigned.add(contact['id'])
+
+    # Sort each bucket: new_leads by created DESC, others by lastCommDays ASC
+    buckets['new_leads'].sort(key=lambda c: c.get('created', ''), reverse=True)
+    for key in ['hot', 'warm', 'cool', 'unresponsive', 'timeframe_empty']:
+        buckets[key].sort(key=lambda c: c.get('lastCommDays', 9999))
+
+    return buckets
 
 
 def _explain_fub_only(contact, dreams_key, dreams_db):
@@ -4197,7 +4303,6 @@ def _explain_fub_only(contact, dreams_key, dreams_db):
     if not fub_id:
         return "No FUB ID"
 
-    # Look up in DREAMS DB
     with dreams_db._get_connection() as conn:
         row = conn.execute(
             "SELECT heat_score, priority_score, relationship_score, stage, created_at, contact_group "
@@ -4227,7 +4332,7 @@ def _explain_fub_only(contact, dreams_key, dreams_db):
         cutoff = (datetime.now() - timedelta(days=7)).isoformat()
         if created and created < cutoff:
             days_ago = (datetime.now() - datetime.fromisoformat(created.replace('Z', ''))).days
-            return f"Created {days_ago} days ago (threshold: 7 days)"
+            return f"Created {days_ago} days ago (DREAMS uses 7-day window, FUB uses 14)"
     elif dreams_key == 'hot':
         return f"Heat score is {heat} (threshold: 70)"
     elif dreams_key == 'warm':
@@ -4252,25 +4357,24 @@ def _explain_fub_only(contact, dreams_key, dreams_db):
 
 
 def _explain_dreams_only(contact, dreams_key):
-    """Explain why a DREAMS contact is NOT on the matching FUB smart list."""
+    """Explain why a DREAMS contact is NOT on the matching FUB list."""
     heat = contact.get('heat_score') or 0
     rel = contact.get('relationship_score') or 0
-    stage = contact.get('stage', '')
 
     if dreams_key == 'new_leads':
-        return f"In DREAMS as new lead — may have aged out of FUB's window or FUB stage differs"
+        return f"DREAMS uses 7-day window; FUB uses 14-day"
     elif dreams_key == 'hot':
-        return f"DREAMS heat={heat} qualifies as Hot — FUB uses different activity rules"
+        return f"DREAMS heat={heat} (IDX activity); FUB uses last-communication recency"
     elif dreams_key == 'warm':
-        return f"DREAMS heat={heat} qualifies as Warm — FUB criteria differ"
+        return f"DREAMS heat={heat}; FUB uses last-comm 8-30 days ago"
     elif dreams_key == 'cool':
-        return f"DREAMS heat={heat} qualifies as Cool — FUB criteria differ"
+        return f"DREAMS heat={heat}; FUB uses last-comm 31-90 days ago"
     elif dreams_key == 'unresponsive':
-        return f"Low relationship ({rel}) in DREAMS — FUB may use last-comm date instead"
+        return f"Low relationship ({rel}) in DREAMS; FUB uses contacted=0 or last-comm >90d"
     elif dreams_key == 'timeframe_empty':
-        return f"No intake form in DREAMS — FUB may not track this"
+        return f"No intake form in DREAMS; FUB checks timeframeStatus field"
     elif dreams_key == 'priority':
-        return f"High priority in DREAMS — FUB's Priority list uses different rules"
+        return f"High priority in DREAMS; FUB Priority list is manually curated"
 
     return "Different methodology"
 
@@ -4291,91 +4395,53 @@ def smart_lists_page():
 @app.route('/api/smart-lists/fub')
 @requires_auth
 def api_smart_lists_fub():
-    """Fetch FUB smart lists (names + counts) on demand."""
+    """Fetch FUB contacts, bucket them into cadence categories, return counts + contacts."""
     client = _get_fub_client()
     if not client:
         return jsonify({'success': False, 'error': 'FUB_API_KEY not configured'}), 500
 
     try:
-        raw_lists = client.fetch_smart_lists()
+        # Fetch all Lead-stage contacts assigned to current user (with allFields for lastCommunication)
+        people = client.fetch_collection(
+            "/people", "people",
+            {"assignedUserId": CURRENT_USER_ID, "stage": "Lead", "fields": "allFields"},
+            use_cache=False
+        )
     except Exception as e:
-        logger.error(f"Failed to fetch FUB smart lists: {e}")
+        logger.error(f"Failed to fetch FUB contacts: {e}")
         return jsonify({'success': False, 'error': 'Failed to fetch from FUB API'}), 502
 
-    # Filter to only the lists we care about and normalize
+    buckets = _bucket_fub_contacts(people)
+
+    # Build response matching SMART_LIST_ORDER
     result = []
-    for sl in raw_lists:
-        name = sl.get('name', '')
-        if name in SMART_LIST_MAP:
-            result.append({
-                'id': sl.get('id'),
-                'name': name,
-                'count': sl.get('count', 0),
-                'cadence': SMART_LIST_MAP[name]['cadence'],
-                'dreams_key': SMART_LIST_MAP[name]['dreams_key'],
-            })
-
-    # Sort by our canonical order
-    order_idx = {n: i for i, n in enumerate(SMART_LIST_ORDER)}
-    result.sort(key=lambda x: order_idx.get(x['name'], 99))
-
-    return jsonify({
-        'success': True,
-        'lists': result,
-        'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-    })
-
-
-@app.route('/api/smart-lists/fub/<int:list_id>/people')
-@requires_auth
-def api_smart_list_people(list_id):
-    """Fetch contacts for a specific FUB smart list."""
-    client = _get_fub_client()
-    if not client:
-        return jsonify({'success': False, 'error': 'FUB_API_KEY not configured'}), 500
-
-    try:
-        people = client.fetch_smart_list_people(list_id)
-    except Exception as e:
-        logger.error(f"Failed to fetch FUB smart list people for {list_id}: {e}")
-        return jsonify({'success': False, 'error': 'Failed to fetch from FUB API'}), 502
-
-    contacts = []
-    for p in people:
-        phones = p.get('phones', [])
-        phone = phones[0].get('value', '') if phones else ''
-        emails = p.get('emails', [])
-        email = emails[0].get('value', '') if emails else ''
-        contacts.append({
-            'id': p.get('id'),
-            'first_name': p.get('firstName', ''),
-            'last_name': p.get('lastName', ''),
-            'name': f"{p.get('firstName', '')} {p.get('lastName', '')}".strip(),
-            'phone': phone,
-            'email': email,
-            'stage': p.get('stage', ''),
-            'lastActivity': p.get('lastActivity', ''),
+    for fub_name in SMART_LIST_ORDER:
+        info = SMART_LIST_MAP[fub_name]
+        dk = info['dreams_key']
+        contacts = buckets.get(dk, [])
+        result.append({
+            'name': fub_name,
+            'dreams_key': dk,
+            'cadence': info['cadence'],
+            'count': len(contacts),
+            'contacts': contacts,
         })
 
     return jsonify({
         'success': True,
-        'contacts': contacts,
-        'count': len(contacts),
+        'lists': result,
+        'total_fetched': len(people),
+        'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
     })
 
 
 @app.route('/api/smart-lists/compare/<dreams_key>')
 @requires_auth
 def api_smart_list_compare(dreams_key):
-    """Compare a FUB smart list with the matching DREAMS list."""
-    # Validate dreams_key
+    """Compare a FUB bucket with the matching DREAMS list by fub_id overlap."""
     valid_keys = {v['dreams_key'] for v in SMART_LIST_MAP.values()}
     if dreams_key not in valid_keys:
         return jsonify({'success': False, 'error': 'Invalid list key'}), 400
-
-    fub_list_id = request.args.get('fub_list_id', type=int)
-    if not fub_list_id:
-        return jsonify({'success': False, 'error': 'fub_list_id required'}), 400
 
     db = get_db()
     client = _get_fub_client()
@@ -4386,25 +4452,28 @@ def api_smart_list_compare(dreams_key):
     dreams_lists = db.get_fub_style_lists(user_id=CURRENT_USER_ID, limit=200)
     dreams_contacts = dreams_lists.get(dreams_key, [])
 
-    # Get FUB contacts for this list
+    # Get FUB contacts (re-fetch and bucket)
     try:
-        fub_people = client.fetch_smart_list_people(fub_list_id)
+        people = client.fetch_collection(
+            "/people", "people",
+            {"assignedUserId": CURRENT_USER_ID, "stage": "Lead", "fields": "allFields"},
+            use_cache=False
+        )
     except Exception as e:
         logger.error(f"Failed to fetch FUB people for compare: {e}")
         return jsonify({'success': False, 'error': 'Failed to fetch FUB contacts'}), 502
 
-    # Build FUB ID sets
+    buckets = _bucket_fub_contacts(people)
+    fub_contacts = buckets.get(dreams_key, [])
+
+    # Build ID sets
     dreams_by_fub_id = {}
     for c in dreams_contacts:
         fid = c.get('fub_id')
         if fid:
             dreams_by_fub_id[int(fid)] = c
 
-    fub_by_id = {}
-    for p in fub_people:
-        pid = p.get('id')
-        if pid:
-            fub_by_id[int(pid)] = p
+    fub_by_id = {c['id']: c for c in fub_contacts if c.get('id')}
 
     dreams_ids = set(dreams_by_fub_id.keys())
     fub_ids = set(fub_by_id.keys())
@@ -4413,18 +4482,18 @@ def api_smart_list_compare(dreams_key):
     fub_only_ids = fub_ids - dreams_ids
     dreams_only_ids = dreams_ids - fub_ids
 
-    # Build FUB-only with reasons
+    # Build FUB-only with reasons (look up raw contact from people list)
+    fub_raw_by_id = {p.get('id'): p for p in people}
     fub_only = []
     for fid in fub_only_ids:
-        p = fub_by_id[fid]
-        phones = p.get('phones', [])
-        phone = phones[0].get('value', '') if phones else ''
-        reason = _explain_fub_only(p, dreams_key, db)
+        c = fub_by_id[fid]
+        raw = fub_raw_by_id.get(fid, {})
+        reason = _explain_fub_only(raw, dreams_key, db)
         fub_only.append({
             'fub_id': fid,
-            'name': f"{p.get('firstName', '')} {p.get('lastName', '')}".strip(),
-            'phone': phone,
-            'stage': p.get('stage', ''),
+            'name': c.get('name', ''),
+            'phone': c.get('phone', ''),
+            'stage': c.get('stage', ''),
             'reason': reason,
         })
 

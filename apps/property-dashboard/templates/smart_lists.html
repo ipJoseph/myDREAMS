@@ -405,8 +405,7 @@
 
     <script>
     // ─── State ──────────────────────────────────────────────────────────
-    let fubLists = null;        // Array from /api/smart-lists/fub
-    let fubPeopleCache = {};    // { fub_list_id: [contacts] }
+    let fubData = null;         // { lists: [...], total_fetched, updated_at }
     let comparisonCache = {};   // { dreams_key: comparison data }
     let lastUpdated = null;
 
@@ -432,40 +431,39 @@
         const wasExpanded = row.classList.contains('expanded');
         row.classList.toggle('expanded');
 
-        // On first expand, load FUB people if we have list data
-        if (!wasExpanded && fubLists) {
+        // On first expand after refresh, render FUB panel + load comparison
+        if (!wasExpanded && fubData) {
             const dk = row.dataset.key;
-            const fubInfo = fubLists.find(l => l.dreams_key === dk);
-            if (fubInfo && !fubPeopleCache[fubInfo.id]) {
-                loadFubPeople(fubInfo.id, dk, row);
+            const fubList = fubData.lists.find(l => l.dreams_key === dk);
+            if (fubList) {
+                renderFubPanel(row, fubList.contacts || []);
             }
-            // Also load comparison if not cached
-            if (fubInfo && !comparisonCache[dk]) {
-                loadComparison(dk, fubInfo.id, row);
+            if (!comparisonCache[dk]) {
+                loadComparison(dk, row);
             }
         }
     }
 
-    // ─── Refresh FUB smart lists ────────────────────────────────────────
+    // ─── Refresh FUB ────────────────────────────────────────────────────
     async function refreshFub() {
         const btn = document.getElementById('refreshBtn');
         btn.classList.add('loading');
-        btn.textContent = 'Refreshing...';
+        btn.textContent = 'Fetching FUB contacts...';
 
         try {
             const resp = await fetch('/api/smart-lists/fub');
             const data = await resp.json();
             if (!data.success) throw new Error(data.error || 'Unknown error');
 
-            fubLists = data.lists;
-            fubPeopleCache = {};
+            fubData = data;
             comparisonCache = {};
             lastUpdated = new Date();
             updateFreshness();
             renderFubCounts();
+            renderAllExpandedPanels();
 
         } catch (err) {
-            console.error('Failed to refresh FUB lists:', err);
+            console.error('Failed to refresh FUB:', err);
             alert('Failed to load FUB data: ' + err.message);
         } finally {
             btn.classList.remove('loading');
@@ -474,56 +472,53 @@
     }
 
     function renderFubCounts() {
-        if (!fubLists) return;
+        if (!fubData) return;
 
         document.querySelectorAll('.list-row').forEach(row => {
             const dk = row.dataset.key;
-            const fubInfo = fubLists.find(l => l.dreams_key === dk);
+            const fubList = fubData.lists.find(l => l.dreams_key === dk);
             const countEl = row.querySelector('[data-fub-count]');
 
-            if (fubInfo) {
-                countEl.textContent = fubInfo.count;
+            if (fubList) {
+                countEl.textContent = fubList.count;
                 countEl.classList.remove('fub-loading', 'zero');
-                if (fubInfo.count === 0) countEl.classList.add('zero');
+                if (fubList.count === 0) countEl.classList.add('zero');
             } else {
-                countEl.textContent = '?';
+                countEl.textContent = '0';
                 countEl.classList.remove('fub-loading');
+                countEl.classList.add('zero');
             }
 
-            // Update comparison strip placeholder
+            // Quick comparison strip (count-only, before full comparison loads)
             const comp = row.querySelector('[data-comp]');
-            if (fubInfo) {
+            if (fubList) {
                 const dc = dreamsData[dk] || [];
                 comp.innerHTML = `
-                    <span class="comp-stat both" title="Overlap not yet computed">FUB: ${fubInfo.count}</span>
+                    <span class="comp-stat both">FUB: ${fubList.count}</span>
                     <span class="comp-stat dreams-only">DREAMS: ${dc.length}</span>
                 `;
             }
         });
     }
 
-    // ─── Load FUB people for a list ─────────────────────────────────────
-    async function loadFubPeople(fubListId, dreamsKey, row) {
-        const panel = row.querySelector('[data-fub-panel]');
-        panel.innerHTML = `<div class="panel-header fub">FUB Contacts</div><div style="padding:8px 0;"><div class="skeleton-bar" style="width:70%;margin-bottom:6px;"></div><div class="skeleton-bar" style="width:50%;"></div></div>`;
-
-        try {
-            const resp = await fetch(`/api/smart-lists/fub/${fubListId}/people`);
-            const data = await resp.json();
-            if (!data.success) throw new Error(data.error);
-
-            fubPeopleCache[fubListId] = data.contacts;
-            renderFubPanel(panel, data.contacts);
-
-        } catch (err) {
-            panel.innerHTML = `<div class="panel-header fub">FUB Contacts</div><div class="empty-panel">Failed to load: ${err.message}</div>`;
-        }
+    function renderAllExpandedPanels() {
+        // Re-render FUB panels for any rows that are already expanded
+        document.querySelectorAll('.list-row.expanded').forEach(row => {
+            const dk = row.dataset.key;
+            const fubList = fubData.lists.find(l => l.dreams_key === dk);
+            if (fubList) {
+                renderFubPanel(row, fubList.contacts || []);
+                if (!comparisonCache[dk]) loadComparison(dk, row);
+            }
+        });
     }
 
-    function renderFubPanel(panel, contacts) {
+    // ─── Render FUB contacts panel ──────────────────────────────────────
+    function renderFubPanel(row, contacts) {
+        const panel = row.querySelector('[data-fub-panel]');
         let html = '<div class="panel-header fub">FUB Contacts</div>';
         if (!contacts.length) {
-            html += '<div class="empty-panel">No contacts on this list</div>';
+            html += '<div class="empty-panel">No contacts in this bucket</div>';
         } else {
             for (const c of contacts) {
                 const phone = formatPhone(c.phone);
@@ -535,9 +530,7 @@
                 } else {
                     html += `<span class="contact-phone"><span class="no-phone">no phone</span></span>`;
                 }
-                html += `<span class="action-btns">`;
-                html += `<a class="action-btn" href="${fubLink(c.id)}" target="_blank">FUB</a>`;
-                html += `</span>`;
+                html += `<span class="action-btns"><a class="action-btn" href="${fubLink(c.id)}" target="_blank">FUB</a></span>`;
                 html += `</div>`;
             }
         }
@@ -545,11 +538,9 @@
     }
 
     // ─── Load comparison data ───────────────────────────────────────────
-    async function loadComparison(dreamsKey, fubListId, row) {
-        const comp = row.querySelector('[data-comp]');
-
+    async function loadComparison(dreamsKey, row) {
         try {
-            const resp = await fetch(`/api/smart-lists/compare/${dreamsKey}?fub_list_id=${fubListId}`);
+            const resp = await fetch(`/api/smart-lists/compare/${dreamsKey}`);
             const data = await resp.json();
             if (!data.success) throw new Error(data.error);
 
@@ -570,27 +561,26 @@
             <span class="comp-stat dreams-only" title="DREAMS only">${c.dreams_only} DREAMS-only</span>
         `;
 
-        // Update panels with outlier markers
-        renderOutlierMarkers(row, data);
+        // Re-render panels with outlier markers
+        renderOutliers(row, data);
     }
 
-    function renderOutlierMarkers(row, data) {
-        // Re-render FUB panel with outlier dots for FUB-only contacts
-        const fubPanel = row.querySelector('[data-fub-panel]');
+    function renderOutliers(row, data) {
         const dk = row.dataset.key;
-        const fubInfo = fubLists.find(l => l.dreams_key === dk);
 
-        if (fubInfo && fubPeopleCache[fubInfo.id]) {
-            const contacts = fubPeopleCache[fubInfo.id];
+        // FUB panel with outlier dots
+        const fubPanel = row.querySelector('[data-fub-panel]');
+        const fubList = fubData ? fubData.lists.find(l => l.dreams_key === dk) : null;
+        if (fubList && fubList.contacts) {
             const fubOnlyIds = new Set(data.fub_only.map(f => f.fub_id));
             const reasonMap = {};
             data.fub_only.forEach(f => { reasonMap[f.fub_id] = f.reason; });
 
             let html = '<div class="panel-header fub">FUB Contacts</div>';
-            if (!contacts.length) {
-                html += '<div class="empty-panel">No contacts on this list</div>';
+            if (!fubList.contacts.length) {
+                html += '<div class="empty-panel">No contacts in this bucket</div>';
             } else {
-                for (const c of contacts) {
+                for (const c of fubList.contacts) {
                     const phone = formatPhone(c.phone);
                     const isOutlier = fubOnlyIds.has(c.id);
                     html += `<div class="contact-row${isOutlier ? ' outlier' : ''}" ${isOutlier ? 'onclick="this.classList.toggle(\'show-reason\')" style="cursor:pointer;"' : ''}>`;
@@ -610,7 +600,7 @@
             fubPanel.innerHTML = html;
         }
 
-        // Re-render DREAMS panel with outlier dots
+        // DREAMS panel with outlier dots
         const dreamsPanel = row.querySelector('[data-dreams-panel]');
         const dreamsContacts = dreamsData[dk] || [];
         const dreamsOnlyIds = new Set(data.dreams_only.map(d => d.fub_id));
@@ -669,7 +659,6 @@
     }
     setInterval(updateFreshness, 30000);
 
-    // Refresh when tab becomes visible again (if stale)
     document.addEventListener('visibilitychange', () => {
         if (!document.hidden && lastUpdated) {
             if (Date.now() - lastUpdated.getTime() > 5 * 60 * 1000) {
