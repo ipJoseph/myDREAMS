@@ -4192,38 +4192,39 @@ SMART_LIST_ORDER = ['New Leads', 'Priority', 'Hot', 'Warm', 'Cool', 'Unresponsiv
 
 def _bucket_fub_contacts(people):
     """
-    Bucket FUB contacts into cadence categories using FUB field data.
+    Bucket FUB contacts into cadence categories matching FUB's actual filters.
 
-    FUB's sidebar cadence buckets are not exposed via API, so we replicate
-    the logic using observable fields: stage, created, lastCommunication,
-    contacted, timeframeStatus.
-
-    Rules (derived from live FUB data analysis):
-      New Leads:       stage=Lead, created in last 14 days
-      Hot:             stage=Lead, NOT new, lastComm within 7 days
-      Warm:            stage=Lead, NOT new, lastComm 8-30 days
-      Cool:            stage=Lead, NOT new, lastComm 31-90 days
-      Unresponsive:    stage=Lead, NOT new, lastComm >90 days OR never communicated (contacted=0, old)
-      Timeframe Empty: stage=Lead, NOT new, contacted=1, timeframeStatus=None, lastComm <=30 days
-      Priority:        (currently unused by FUB — count is typically 0)
+    These rules come directly from FUB's saved smart-list filter configs:
+      New Leads:       Stage=Lead, created < 14 days, lastComm > 12 hours ago
+      Priority:        Stage=Hot Prospect, lastComm > 3 days ago
+      Hot:             Stage=Nurture, timeframe=0-3 Months (id=1), lastComm > 7 days ago
+      Warm:            Stage=Nurture, timeframe=3-6 Months (id=2), lastComm > 30 days ago
+      Cool:            Stage=Nurture, timeframe in (6-12, 12+, No Plans) (id=3,4,5), lastComm > 90 days ago
+      Unresponsive:    Stage=Lead, created > 14 days, lastComm > 14 days ago
+      Timeframe Empty: Stage=Nurture, timeframe is empty (no timeframeId)
     """
     from datetime import timedelta, timezone
     now = datetime.now(timezone.utc)
-    cutoff_14d = now - timedelta(days=14)
 
     buckets = {k: [] for k in ['new_leads', 'priority', 'hot', 'warm', 'cool', 'unresponsive', 'timeframe_empty']}
-    assigned = set()  # Track which person IDs are already bucketed
 
     def _parse_contact(p):
         phones = p.get('phones', [])
         phone = phones[0].get('value', '') if phones else ''
         lc = p.get('lastCommunication')
         lc_date = None
-        lc_days = 9999
+        lc_hours = 999999
         if lc and isinstance(lc, dict) and lc.get('date'):
             try:
                 lc_date = datetime.fromisoformat(lc['date'].replace('Z', '+00:00'))
-                lc_days = (now - lc_date).days
+                lc_hours = (now - lc_date).total_seconds() / 3600
+            except (ValueError, TypeError):
+                pass
+        created_dt = None
+        created_str = p.get('created', '')
+        if created_str:
+            try:
+                created_dt = datetime.fromisoformat(created_str.replace('Z', '+00:00'))
             except (ValueError, TypeError):
                 pass
         return {
@@ -4234,64 +4235,64 @@ def _bucket_fub_contacts(people):
             'contacted': p.get('contacted', 0),
             'lastActivity': p.get('lastActivity', ''),
             'lastComm': lc_date.isoformat() if lc_date else None,
-            'lastCommDays': lc_days,
+            'lastCommDays': int(lc_hours / 24) if lc_hours < 999999 else 9999,
+            'lastCommHours': lc_hours,
+            'timeframeId': p.get('timeframeId'),
             'timeframeStatus': p.get('timeframeStatus'),
-            'created': p.get('created', ''),
+            'created': created_str,
+            '_created_dt': created_dt,
         }
 
-    # Only process Lead-stage contacts
-    leads = [p for p in people if p.get('stage') == 'Lead']
+    parsed = [_parse_contact(p) for p in people]
 
-    # Parse all
-    parsed = []
-    for p in leads:
-        parsed.append((_parse_contact(p), p))
+    for c in parsed:
+        stage = c['stage']
+        tf_id = c['timeframeId']
+        lc_hours = c['lastCommHours']
+        lc_days = c['lastCommDays']
+        created_dt = c.pop('_created_dt', None)  # internal, remove from output
 
-    # 1. New Leads: created in last 14 days
-    for contact, raw in parsed:
-        created = raw.get('created', '')
-        if created:
-            try:
-                dt = datetime.fromisoformat(created.replace('Z', '+00:00'))
-                if dt >= cutoff_14d:
-                    buckets['new_leads'].append(contact)
-                    assigned.add(contact['id'])
-            except (ValueError, TypeError):
-                pass
+        # --- New Leads: Stage=Lead, created < 14 days, lastComm > 12 hours ago ---
+        if stage == 'Lead' and created_dt:
+            age_days = (now - created_dt).total_seconds() / 86400
+            if age_days < 14 and lc_hours > 12:
+                buckets['new_leads'].append(c)
+                continue
 
-    # 2-6. Bucket remaining leads
-    for contact, raw in parsed:
-        if contact['id'] in assigned:
+        # --- Priority: Stage=Hot Prospect, lastComm > 3 days ago ---
+        if stage == 'Hot Prospect' and lc_days > 3:
+            buckets['priority'].append(c)
             continue
 
-        lc_days = contact['lastCommDays']
-        contacted = contact['contacted']
-        tf = contact['timeframeStatus']
+        # --- Stage=Nurture buckets (Hot, Warm, Cool, Timeframe Empty) ---
+        if stage == 'Nurture':
+            # Timeframe Empty: no timeframeId set
+            if tf_id is None:
+                buckets['timeframe_empty'].append(c)
+                continue
+            # Hot: timeframe=0-3 Months (id=1), lastComm > 7 days
+            if tf_id == 1 and lc_days > 7:
+                buckets['hot'].append(c)
+                continue
+            # Warm: timeframe=3-6 Months (id=2), lastComm > 30 days
+            if tf_id == 2 and lc_days > 30:
+                buckets['warm'].append(c)
+                continue
+            # Cool: timeframe in 6-12 (3), 12+ (4), No Plans (5), lastComm > 90 days
+            if tf_id in (3, 4, 5) and lc_days > 90:
+                buckets['cool'].append(c)
+                continue
 
-        # Unresponsive: never communicated (contacted=0) and old, or lastComm >90 days
-        if (contacted == 0 and contact['id'] not in assigned) or lc_days > 90:
-            buckets['unresponsive'].append(contact)
-            assigned.add(contact['id'])
-        # Hot: lastComm within 7 days
-        elif lc_days <= 7:
-            buckets['hot'].append(contact)
-            assigned.add(contact['id'])
-        # Warm: lastComm 8-30 days
-        elif lc_days <= 30:
-            # Also check timeframe empty (contacted, within 30d, but no timeframe)
-            if contacted == 1 and tf is None:
-                buckets['timeframe_empty'].append(contact)
-            else:
-                buckets['warm'].append(contact)
-            assigned.add(contact['id'])
-        # Cool: lastComm 31-90 days
-        elif lc_days <= 90:
-            buckets['cool'].append(contact)
-            assigned.add(contact['id'])
+        # --- Unresponsive: Stage=Lead, created > 14 days, lastComm > 14 days ago ---
+        if stage == 'Lead' and created_dt:
+            age_days = (now - created_dt).total_seconds() / 86400
+            if age_days > 14 and lc_days > 14:
+                buckets['unresponsive'].append(c)
+                continue
 
-    # Sort each bucket: new_leads by created DESC, others by lastCommDays ASC
+    # Sort: new_leads by created DESC, priority by lastComm ASC, others by lastCommDays ASC
     buckets['new_leads'].sort(key=lambda c: c.get('created', ''), reverse=True)
-    for key in ['hot', 'warm', 'cool', 'unresponsive', 'timeframe_empty']:
+    for key in ['priority', 'hot', 'warm', 'cool', 'unresponsive', 'timeframe_empty']:
         buckets[key].sort(key=lambda c: c.get('lastCommDays', 9999))
 
     return buckets
@@ -4332,49 +4333,54 @@ def _explain_fub_only(contact, dreams_key, dreams_db):
         cutoff = (datetime.now() - timedelta(days=7)).isoformat()
         if created and created < cutoff:
             days_ago = (datetime.now() - datetime.fromisoformat(created.replace('Z', ''))).days
-            return f"Created {days_ago} days ago (DREAMS uses 7-day window, FUB uses 14)"
+            return f"Created {days_ago} days ago (DREAMS uses 7-day window)"
     elif dreams_key == 'hot':
-        return f"Heat score is {heat} (threshold: 70)"
+        return f"Heat score is {heat} (threshold: 70). FUB uses Stage=Nurture + timeframe=0-3mo + lastComm >7d"
     elif dreams_key == 'warm':
         if heat >= 70:
-            return f"Heat score {heat} puts them in Hot instead"
-        return f"Heat score is {heat} (range: 40-69)"
+            return f"Heat {heat} → Hot in DREAMS. FUB uses Stage=Nurture + timeframe=3-6mo + lastComm >30d"
+        return f"Heat score {heat} (range: 40-69). FUB uses Stage=Nurture + timeframe=3-6mo"
     elif dreams_key == 'cool':
         if heat >= 40:
-            return f"Heat score {heat} puts them in a higher tier"
-        return f"Heat score is {heat} (range: 10-39)"
+            return f"Heat {heat} → higher tier in DREAMS. FUB uses Stage=Nurture + timeframe=6-12/12+/No Plans + lastComm >90d"
+        return f"Heat score {heat} (range: 10-39). FUB uses Stage=Nurture + long timeframe"
     elif dreams_key == 'unresponsive':
         if rel >= 15:
-            return f"Relationship score is {rel} (threshold: <15)"
+            return f"Relationship score {rel} (threshold: <15). FUB uses Stage=Lead + created >14d + lastComm >14d"
         if heat <= 5:
-            return f"Heat score is {heat} (needs >5)"
+            return f"Heat {heat} (needs >5). FUB uses Stage=Lead + created >14d + lastComm >14d"
     elif dreams_key == 'timeframe_empty':
-        return f"May have intake form or heat {heat} < 30"
+        return f"May have intake form or heat {heat} < 30. FUB uses Stage=Nurture + no timeframe set"
     elif dreams_key == 'priority':
-        return f"Priority score {lead.get('priority_score', 0)} — not in top tier"
+        return f"Priority score {lead.get('priority_score', 0)} — not in top tier. FUB uses Stage=Hot Prospect + lastComm >3d"
 
     return "Criteria mismatch"
+
+
+# FUB timeframe ID → label mapping
+FUB_TIMEFRAME_NAMES = {1: '0-3 Months', 2: '3-6 Months', 3: '6-12 Months', 4: '12+ Months', 5: 'No Plans'}
 
 
 def _explain_dreams_only(contact, dreams_key):
     """Explain why a DREAMS contact is NOT on the matching FUB list."""
     heat = contact.get('heat_score') or 0
     rel = contact.get('relationship_score') or 0
+    stage = contact.get('stage', '')
 
     if dreams_key == 'new_leads':
-        return f"DREAMS uses 7-day window; FUB uses 14-day"
+        return f"DREAMS uses 7-day window + heat/priority scoring; FUB uses 14-day + lastComm >12hrs"
     elif dreams_key == 'hot':
-        return f"DREAMS heat={heat} (IDX activity); FUB uses last-communication recency"
+        return f"DREAMS heat={heat} (IDX activity). FUB requires Stage=Nurture + timeframe=0-3mo + lastComm >7d"
     elif dreams_key == 'warm':
-        return f"DREAMS heat={heat}; FUB uses last-comm 8-30 days ago"
+        return f"DREAMS heat={heat}. FUB requires Stage=Nurture + timeframe=3-6mo + lastComm >30d"
     elif dreams_key == 'cool':
-        return f"DREAMS heat={heat}; FUB uses last-comm 31-90 days ago"
+        return f"DREAMS heat={heat}. FUB requires Stage=Nurture + timeframe 6-12/12+/No Plans + lastComm >90d"
     elif dreams_key == 'unresponsive':
-        return f"Low relationship ({rel}) in DREAMS; FUB uses contacted=0 or last-comm >90d"
+        return f"Low relationship ({rel}) in DREAMS. FUB requires Stage=Lead + created >14d + lastComm >14d"
     elif dreams_key == 'timeframe_empty':
-        return f"No intake form in DREAMS; FUB checks timeframeStatus field"
+        return f"No intake form in DREAMS. FUB requires Stage=Nurture + no timeframe set"
     elif dreams_key == 'priority':
-        return f"High priority in DREAMS; FUB Priority list is manually curated"
+        return f"High priority in DREAMS. FUB requires Stage=Hot Prospect + lastComm >3d"
 
     return "Different methodology"
 
@@ -4401,12 +4407,17 @@ def api_smart_lists_fub():
         return jsonify({'success': False, 'error': 'FUB_API_KEY not configured'}), 500
 
     try:
-        # Fetch all Lead-stage contacts assigned to current user (with allFields for lastCommunication)
-        people = client.fetch_collection(
-            "/people", "people",
-            {"assignedUserId": CURRENT_USER_ID, "stage": "Lead", "fields": "allFields"},
-            use_cache=False
-        )
+        # Fetch contacts from all relevant stages (Lead, Nurture, Hot Prospect)
+        # with allFields for lastCommunication and timeframeId
+        people = []
+        for stage in ('Lead', 'Nurture', 'Hot Prospect'):
+            batch = client.fetch_collection(
+                "/people", "people",
+                {"assignedUserId": CURRENT_USER_ID, "stage": stage, "fields": "allFields"},
+                use_cache=False
+            )
+            people.extend(batch)
+            logger.info(f"FUB smart lists: fetched {len(batch)} {stage} contacts")
     except Exception as e:
         logger.error(f"Failed to fetch FUB contacts: {e}")
         return jsonify({'success': False, 'error': 'Failed to fetch from FUB API'}), 502
@@ -4452,13 +4463,16 @@ def api_smart_list_compare(dreams_key):
     dreams_lists = db.get_fub_style_lists(user_id=CURRENT_USER_ID, limit=200)
     dreams_contacts = dreams_lists.get(dreams_key, [])
 
-    # Get FUB contacts (re-fetch and bucket)
+    # Get FUB contacts (re-fetch and bucket — all relevant stages)
     try:
-        people = client.fetch_collection(
-            "/people", "people",
-            {"assignedUserId": CURRENT_USER_ID, "stage": "Lead", "fields": "allFields"},
-            use_cache=False
-        )
+        people = []
+        for stage in ('Lead', 'Nurture', 'Hot Prospect'):
+            batch = client.fetch_collection(
+                "/people", "people",
+                {"assignedUserId": CURRENT_USER_ID, "stage": stage, "fields": "allFields"},
+                use_cache=False
+            )
+            people.extend(batch)
     except Exception as e:
         logger.error(f"Failed to fetch FUB people for compare: {e}")
         return jsonify({'success': False, 'error': 'Failed to fetch FUB contacts'}), 502

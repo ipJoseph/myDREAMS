@@ -72,6 +72,7 @@
             display: flex;
             align-items: center;
             gap: 10px;
+            flex-wrap: wrap;
         }
 
         .side-label {
@@ -292,6 +293,20 @@
             opacity: 0.3;
         }
 
+        .filter-formula {
+            font-size: 10px;
+            color: var(--text-tertiary, #9ca3af);
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            letter-spacing: -0.2px;
+            padding: 2px 0;
+        }
+
+        .contact-meta {
+            font-size: 11px;
+            color: var(--text-tertiary, #9ca3af);
+            white-space: nowrap;
+        }
+
         /* Color coding per list */
         .list-row[data-key="new_leads"] .list-name { color: #3b82f6; }
         .list-row[data-key="priority"] .list-name { color: #8b5cf6; }
@@ -412,6 +427,17 @@
     // DREAMS contacts pre-loaded from server
     const dreamsData = {{ dreams_lists | tojson }};
 
+    // FUB filter formulas (from actual FUB smart list configs)
+    const fubFormulas = {
+        'new_leads':       'Stage = Lead  +  Created < 14 days  +  Last Comm > 12 hrs',
+        'priority':        'Stage = Hot Prospect  +  Last Comm > 3 days',
+        'hot':             'Stage = Nurture  +  Timeframe = 0-3 Mo  +  Last Comm > 7 days',
+        'warm':            'Stage = Nurture  +  Timeframe = 3-6 Mo  +  Last Comm > 30 days',
+        'cool':            'Stage = Nurture  +  Timeframe = 6-12/12+/No Plans  +  Last Comm > 90 days',
+        'unresponsive':    'Stage = Lead  +  Created > 14 days  +  Last Comm > 14 days',
+        'timeframe_empty': 'Stage = Nurture  +  Timeframe = (empty)',
+    };
+
     // ─── Helpers ────────────────────────────────────────────────────────
     function formatPhone(value) {
         if (!value) return null;
@@ -489,6 +515,16 @@
                 countEl.classList.add('zero');
             }
 
+            // Show filter formula under FUB side
+            const fubSide = row.querySelector('.fub-side');
+            let formulaEl = fubSide.querySelector('.filter-formula');
+            if (!formulaEl && fubFormulas[dk]) {
+                formulaEl = document.createElement('div');
+                formulaEl.className = 'filter-formula';
+                formulaEl.textContent = fubFormulas[dk];
+                fubSide.appendChild(formulaEl);
+            }
+
             // Quick comparison strip (count-only, before full comparison loads)
             const comp = row.querySelector('[data-comp]');
             if (fubList) {
@@ -513,6 +549,9 @@
         });
     }
 
+    // FUB timeframe ID → label
+    const tfNames = {1: '0-3 Mo', 2: '3-6 Mo', 3: '6-12 Mo', 4: '12+', 5: 'No Plans'};
+
     // ─── Render FUB contacts panel ──────────────────────────────────────
     function renderFubPanel(row, contacts) {
         const panel = row.querySelector('[data-fub-panel]');
@@ -522,9 +561,12 @@
         } else {
             for (const c of contacts) {
                 const phone = formatPhone(c.phone);
+                const lcDays = c.lastCommDays < 9999 ? `${c.lastCommDays}d` : 'never';
+                const tf = c.timeframeId ? tfNames[c.timeframeId] || '' : '';
                 html += `<div class="contact-row">`;
                 html += `<span class="contact-name"><a href="${fubLink(c.id)}" target="_blank">${c.name || 'Unknown'}</a></span>`;
                 html += `<span class="contact-stage">${c.stage || ''}</span>`;
+                html += `<span class="contact-meta" title="Last comm: ${lcDays}${tf ? ', TF: ' + tf : ''}">${lcDays}${tf ? ' · ' + tf : ''}</span>`;
                 if (phone) {
                     html += `<span class="contact-phone"><a href="${fubLink(c.id)}" target="_blank">${phone}</a></span>`;
                 } else {
@@ -583,10 +625,13 @@
                 for (const c of fubList.contacts) {
                     const phone = formatPhone(c.phone);
                     const isOutlier = fubOnlyIds.has(c.id);
+                    const lcDays = c.lastCommDays < 9999 ? `${c.lastCommDays}d` : 'never';
+                    const tf = c.timeframeId ? tfNames[c.timeframeId] || '' : '';
                     html += `<div class="contact-row${isOutlier ? ' outlier' : ''}" ${isOutlier ? 'onclick="this.classList.toggle(\'show-reason\')" style="cursor:pointer;"' : ''}>`;
                     if (isOutlier) html += `<span class="outlier-dot fub-only" title="FUB only"></span>`;
                     html += `<span class="contact-name"><a href="${fubLink(c.id)}" target="_blank">${c.name || 'Unknown'}</a></span>`;
                     html += `<span class="contact-stage">${c.stage || ''}</span>`;
+                    html += `<span class="contact-meta">${lcDays}${tf ? ' · ' + tf : ''}</span>`;
                     if (phone) {
                         html += `<span class="contact-phone"><a href="${fubLink(c.id)}" target="_blank">${phone}</a></span>`;
                     }
