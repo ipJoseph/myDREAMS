@@ -455,6 +455,8 @@
     };
 
     // DREAMS filter formulas (from database.py get_fub_style_lists)
+    // Note: DREAMS "timeframe_empty" is actually "Needs Intake" — checks for
+    // missing intake forms, NOT FUB's timeframe field (which isn't synced to DREAMS)
     const dreamsFormulas = {
         'new_leads':       'Stage = Lead  +  Created < 7 days',
         'priority':        'Top priority score',
@@ -462,7 +464,7 @@
         'warm':            'Heat score 40-69',
         'cool':            'Heat score 10-39',
         'unresponsive':    'Relationship < 15  +  Heat > 5  +  Not new',
-        'timeframe_empty': 'Heat >= 30  +  No active intake form',
+        'timeframe_empty': 'Heat >= 30  +  No active intake form (Needs Intake)',
     };
 
     // ─── Helpers ────────────────────────────────────────────────────────
