@@ -30,6 +30,7 @@ class Config:
     FUB_BASE_URL: str = os.getenv('FUB_BASE_URL', 'https://api.followupboss.com/v1')
     FUB_SYSTEM_NAME: str = os.getenv('FUB_SYSTEM_NAME', 'myDREAMS')
     FUB_SYSTEM_KEY: str = os.getenv('FUB_SYSTEM_KEY', '')
+    FUB_APP_URL: str = os.getenv('FUB_APP_URL', 'https://jontharpteam.followupboss.com')
 
     # Sync intervals (seconds)
     FUB_POLL_INTERVAL: int = int(os.getenv('FUB_POLL_INTERVAL', '30'))

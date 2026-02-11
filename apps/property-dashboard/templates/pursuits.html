@@ -383,7 +383,7 @@
                     <div class="pursuit-buyer">
                         Buyer: <a href="/contacts/{{ pursuit.buyer_id }}">{{ pursuit.buyer_name }}</a>
                         {% if pursuit.buyer_fub_id %}
-                        <a href="https://JonTharpTeam.followupboss.com/2/people/view/{{ pursuit.buyer_fub_id }}" target="_blank" style="margin-left: 8px; font-size: 11px;">FUB</a>
+                        <a href="{{ fub_url }}/2/people/view/{{ pursuit.buyer_fub_id }}" target="_blank" style="margin-left: 8px; font-size: 11px;">FUB</a>
                         {% endif %}
                     </div>
                     {% if pursuit.criteria_summary %}

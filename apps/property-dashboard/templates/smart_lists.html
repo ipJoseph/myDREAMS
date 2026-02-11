@@ -411,7 +411,7 @@
                                     <span class="contact-phone">
                                         {% if c.phone %}
                                             {% if c.fub_id %}
-                                            <a href="https://jontharpteam.followupboss.com/2/people/view/{{ c.fub_id }}" target="_blank" title="Open in FUB">{{ c.phone|phone }}</a>
+                                            <a href="{{ fub_url }}/2/people/view/{{ c.fub_id }}" target="_blank" title="Open in FUB">{{ c.phone|phone }}</a>
                                             {% else %}
                                             {{ c.phone|phone }}
                                             {% endif %}
@@ -435,6 +435,9 @@
     </div>
 
     <script>
+    // ─── Config ─────────────────────────────────────────────────────────
+    const FUB_URL = {{ fub_url | tojson }};
+
     // ─── State ──────────────────────────────────────────────────────────
     let fubData = null;         // { lists: [...], total_fetched, updated_at }
     let comparisonCache = {};   // { dreams_key: comparison data }
@@ -477,7 +480,7 @@
     }
 
     function fubLink(fubId) {
-        return `https://jontharpteam.followupboss.com/2/people/view/${fubId}`;
+        return `${FUB_URL}/2/people/view/${fubId}`;
     }
 
     // ─── Toggle expand ─────────────────────────────────────────────────

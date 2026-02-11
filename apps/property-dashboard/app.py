@@ -103,6 +103,7 @@ CLIENT_PORTFOLIO_KEY = os.getenv('CLIENT_PORTFOLIO_KEY', 'dreams2026')
 # Current user configuration (for filtering contacts)
 CURRENT_USER_ID = int(os.getenv('FUB_MY_USER_ID', 8))  # Default: Joseph Williams
 CURRENT_USER_NAME = os.getenv('FUB_MY_USER_NAME', 'Joseph Williams')
+FUB_APP_URL = os.getenv('FUB_APP_URL', 'https://jontharpteam.followupboss.com')
 
 # View definitions for contact filtering
 CONTACT_VIEWS = {
@@ -123,6 +124,7 @@ def inject_globals():
         'favicon': f'/static/favicon-{DREAMS_ENV}.svg',
         'current_user_name': CURRENT_USER_NAME,
         'contact_views': CONTACT_VIEWS,
+        'fub_url': FUB_APP_URL,
     }
 
 

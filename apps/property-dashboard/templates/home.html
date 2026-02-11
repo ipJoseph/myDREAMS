@@ -1059,7 +1059,7 @@
                             <a href="tel:{{ action.phone }}">{{ action.phone|phone }}</a>
                             {% endif %}
                             {% if action.fub_id %}
-                            <a href="https://JonTharpTeam.followupboss.com/2/people/view/{{ action.fub_id }}" target="_blank">FUB</a>
+                            <a href="{{ fub_url }}/2/people/view/{{ action.fub_id }}" target="_blank">FUB</a>
                             {% endif %}
                         </div>
                     </div>
@@ -1116,10 +1116,10 @@
                         {% endif %}
                         <div class="action-contact-links">
                             {% if task.fub_person_id %}
-                            <a href="https://JonTharpTeam.followupboss.com/2/people/view/{{ task.fub_person_id }}" target="_blank">FUB</a>
+                            <a href="{{ fub_url }}/2/people/view/{{ task.fub_person_id }}" target="_blank">FUB</a>
                             {% endif %}
                             {% if task.fub_deal_id %}
-                            <a href="https://JonTharpTeam.followupboss.com/2/deals/view/{{ task.fub_deal_id }}" target="_blank">Deal</a>
+                            <a href="{{ fub_url }}/2/deals/view/{{ task.fub_deal_id }}" target="_blank">Deal</a>
                             {% endif %}
                         </div>
                     </div>
@@ -1171,7 +1171,7 @@
                             <a href="mailto:{{ buyer.email }}">Send email</a>
                             {% endif %}
                             {% if buyer.fub_id %}
-                            <a href="https://JonTharpTeam.followupboss.com/2/people/view/{{ buyer.fub_id }}" target="_blank">FUB</a>
+                            <a href="{{ fub_url }}/2/people/view/{{ buyer.fub_id }}" target="_blank">FUB</a>
                             {% endif %}
                         </div>
                     </div>
@@ -1190,7 +1190,7 @@
         <div class="section-header">
             <h3 class="section-title">Active Deals</h3>
             <span class="section-count">{{ active_deals|length }}</span>
-            <a href="https://JonTharpTeam.followupboss.com/2/deals" target="_blank" class="section-link" style="margin-left: auto;">Open FUB Deals</a>
+            <a href="{{ fub_url }}/2/deals" target="_blank" class="section-link" style="margin-left: auto;">Open FUB Deals</a>
         </div>
         <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px;">
             {% for deal in active_deals %}
@@ -1198,7 +1198,7 @@
                 <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
                     <div>
                         <div style="font-weight: 600; font-size: 14px;">
-                            <a href="https://JonTharpTeam.followupboss.com/2/people/view/{{ deal.person_id }}" target="_blank">{{ deal.person_name }}</a>
+                            <a href="{{ fub_url }}/2/people/view/{{ deal.person_id }}" target="_blank">{{ deal.person_name }}</a>
                         </div>
                         <div style="font-size: 12px; color: var(--text-secondary);">
                             {{ deal.stage_name }}
@@ -1214,7 +1214,7 @@
                 </div>
                 {% endif %}
                 <div style="display: flex; gap: 8px; font-size: 11px;">
-                    <a href="https://JonTharpTeam.followupboss.com/2/deals/view/{{ deal.id }}" target="_blank" style="color: var(--accent-blue);">View Deal</a>
+                    <a href="{{ fub_url }}/2/deals/view/{{ deal.id }}" target="_blank" style="color: var(--accent-blue);">View Deal</a>
                     {% if deal.person_phone %}
                     <a href="tel:{{ deal.person_phone }}" style="color: var(--text-secondary);">📞 Call</a>
                     {% endif %}

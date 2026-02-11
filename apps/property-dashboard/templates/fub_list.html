@@ -261,6 +261,7 @@
     </div>
 
     <script>
+        const FUB_URL = {{ fub_url | tojson }};
         const SECTIONS = [
             { key: 'new_leads', label: 'New Leads', freq: 'daily', css: 'new-leads' },
             { key: 'hot', label: 'Hot', freq: 'weekly', css: 'hot' },
@@ -302,7 +303,7 @@
                         const phone = formatPhone(c.phone);
                         let phoneHtml;
                         if (phone && c.fub_id) {
-                            phoneHtml = `<a href="https://jontharpteam.followupboss.com/2/people/view/${c.fub_id}" target="_blank" title="Open in FUB to dial">${phone}</a>`;
+                            phoneHtml = `<a href="${FUB_URL}/2/people/view/${c.fub_id}" target="_blank" title="Open in FUB to dial">${phone}</a>`;
                         } else if (phone) {
                             phoneHtml = `<span>${phone}</span>`;
                         } else {

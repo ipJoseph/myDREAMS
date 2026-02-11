@@ -238,7 +238,7 @@ class SyncEngine:
         lines.extend([
             f"**FUB Task ID:** {fub_task.id}",
             "",
-            f"[Open in FUB](https://JonTharpTeam.followupboss.com/2/people/view/{fub_task.person_id})",
+            f"[Open in FUB]({config.FUB_APP_URL}/2/people/view/{fub_task.person_id})",
         ])
         return "\n".join(lines)
 
