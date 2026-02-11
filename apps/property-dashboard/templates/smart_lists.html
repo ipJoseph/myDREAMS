@@ -57,9 +57,6 @@
         }
 
         .list-row-header {
-            display: grid;
-            grid-template-columns: 1fr auto 1fr;
-            align-items: center;
             padding: 14px 20px;
             cursor: pointer;
             user-select: none;
@@ -67,12 +64,45 @@
         }
         .list-row-header:hover { background: #f8fafc; }
 
-        /* FUB side (left) */
-        .fub-side {
+        /* Row 1: list name + cadence + expand arrow */
+        .header-top {
             display: flex;
             align-items: center;
             gap: 10px;
-            flex-wrap: wrap;
+            margin-bottom: 6px;
+        }
+
+        .list-name {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .cadence-label {
+            font-size: 11px;
+            color: var(--text-tertiary, #9ca3af);
+        }
+
+        .expand-icon {
+            margin-left: auto;
+            color: var(--text-tertiary, #9ca3af);
+            transition: transform 0.2s;
+            flex-shrink: 0;
+        }
+        .list-row.expanded .expand-icon { transform: rotate(180deg); }
+
+        /* Row 2: FUB | comp stats | DREAMS */
+        .header-bottom {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .side-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-shrink: 0;
         }
 
         .side-label {
@@ -86,35 +116,22 @@
         .side-label.fub { background: #dbeafe; color: #2563eb; }
         .side-label.dreams { background: #fce7f3; color: #db2777; }
 
-        .list-name {
-            font-size: 16px;
-            font-weight: 700;
-            color: var(--text-primary);
-        }
-
         .list-count {
-            font-size: 20px;
+            font-size: 18px;
             font-weight: 800;
-            min-width: 32px;
-            text-align: center;
         }
         .list-count.fub { color: #2563eb; }
         .list-count.dreams { color: #db2777; }
         .list-count.zero { color: var(--text-tertiary, #9ca3af); }
 
-        .cadence-label {
-            font-size: 11px;
-            color: var(--text-tertiary, #9ca3af);
-            margin-left: 8px;
-        }
-
-        /* Comparison strip (center) */
+        /* Comparison strip (center, fills remaining space) */
         .comparison-strip {
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 6px;
-            padding: 0 16px;
+            flex: 1;
+            min-width: 0;
         }
 
         .comp-stat {
@@ -123,27 +140,12 @@
             border-radius: 10px;
             font-weight: 600;
             white-space: nowrap;
+            pointer-events: none;
         }
         .comp-stat.both { background: #dcfce7; color: #16a34a; }
         .comp-stat.fub-only { background: #dbeafe; color: #2563eb; }
         .comp-stat.dreams-only { background: #fce7f3; color: #db2777; }
         .comp-stat.loading { background: #f1f5f9; color: #94a3b8; }
-
-        .expand-icon {
-            margin-left: auto;
-            color: var(--text-tertiary, #9ca3af);
-            transition: transform 0.2s;
-            flex-shrink: 0;
-        }
-        .list-row.expanded .expand-icon { transform: rotate(180deg); }
-
-        /* DREAMS side (right) */
-        .dreams-side {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            justify-content: flex-end;
-        }
 
         /* Expanded body */
         .list-row-body {
@@ -293,13 +295,19 @@
             opacity: 0.3;
         }
 
+        /* Filter formulas row */
+        .header-formulas {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 4px;
+        }
         .filter-formula {
             font-size: 10px;
             color: var(--text-tertiary, #9ca3af);
             font-family: 'SF Mono', 'Fira Code', monospace;
             letter-spacing: -0.2px;
-            padding: 2px 0;
         }
+        .filter-formula.dreams { text-align: right; }
 
         .contact-meta {
             font-size: 11px;
@@ -318,11 +326,12 @@
 
         @media (max-width: 900px) {
             .smart-lists-page { padding: 16px; }
-            .list-row-header { grid-template-columns: 1fr; gap: 8px; }
-            .comparison-strip { justify-content: flex-start; padding: 0; }
-            .dreams-side { justify-content: flex-start; }
+            .header-bottom { flex-wrap: wrap; }
+            .comparison-strip { flex-basis: 100%; justify-content: flex-start; }
             .body-panels { grid-template-columns: 1fr; }
             .panel + .panel { border-left: none; border-top: 1px solid var(--border, #e2e8f0); }
+            .header-formulas { flex-direction: column; gap: 2px; }
+            .filter-formula.dreams { text-align: left; }
         }
     </style>
 </head>
@@ -349,25 +358,32 @@
             {% set dc = dreams_lists.get(dk, []) %}
             <div class="list-row" data-key="{{ dk }}" data-fub-name="{{ fub_name }}">
                 <div class="list-row-header" onclick="toggleRow(this)">
-                    <!-- FUB side -->
-                    <div class="fub-side">
-                        <span class="side-label fub">FUB</span>
+                    <!-- Row 1: List name + cadence + expand -->
+                    <div class="header-top">
                         <span class="list-name">{{ fub_name }}</span>
-                        <span class="list-count fub fub-loading" data-fub-count>--</span>
                         <span class="cadence-label">{{ info.cadence }}</span>
-                    </div>
-
-                    <!-- Comparison strip -->
-                    <div class="comparison-strip" data-comp>
-                        <span class="comp-stat loading" data-comp-label>Click Refresh FUB</span>
-                    </div>
-
-                    <!-- DREAMS side -->
-                    <div class="dreams-side">
-                        <span class="list-count dreams {{ 'zero' if dc|length == 0 else '' }}">{{ dc|length }}</span>
-                        <span class="side-label dreams">DREAMS</span>
                         <svg class="expand-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
                     </div>
+
+                    <!-- Row 2: FUB count | comp stats | DREAMS count -->
+                    <div class="header-bottom">
+                        <div class="side-group">
+                            <span class="side-label fub">FUB</span>
+                            <span class="list-count fub fub-loading" data-fub-count>--</span>
+                        </div>
+
+                        <div class="comparison-strip" data-comp>
+                            <span class="comp-stat loading" data-comp-label>Click Refresh FUB</span>
+                        </div>
+
+                        <div class="side-group">
+                            <span class="list-count dreams {{ 'zero' if dc|length == 0 else '' }}">{{ dc|length }}</span>
+                            <span class="side-label dreams">DREAMS</span>
+                        </div>
+                    </div>
+
+                    <!-- Row 3: Filter formulas (populated by JS after refresh) -->
+                    <div class="header-formulas" data-formulas></div>
                 </div>
 
                 <div class="list-row-body">
@@ -438,6 +454,17 @@
         'timeframe_empty': 'Stage = Nurture  +  Timeframe = (empty)',
     };
 
+    // DREAMS filter formulas (from database.py get_fub_style_lists)
+    const dreamsFormulas = {
+        'new_leads':       'Stage = Lead  +  Created < 7 days',
+        'priority':        'Top priority score',
+        'hot':             'Heat score >= 70',
+        'warm':            'Heat score 40-69',
+        'cool':            'Heat score 10-39',
+        'unresponsive':    'Relationship < 15  +  Heat > 5  +  Not new',
+        'timeframe_empty': 'Heat >= 30  +  No active intake form',
+    };
+
     // ─── Helpers ────────────────────────────────────────────────────────
     function formatPhone(value) {
         if (!value) return null;
@@ -457,14 +484,17 @@
         const wasExpanded = row.classList.contains('expanded');
         row.classList.toggle('expanded');
 
-        // On first expand after refresh, render FUB panel + load comparison
+        // On expand: render FUB panel + apply outlier data
         if (!wasExpanded && fubData) {
             const dk = row.dataset.key;
             const fubList = fubData.lists.find(l => l.dreams_key === dk);
             if (fubList) {
                 renderFubPanel(row, fubList.contacts || []);
             }
-            if (!comparisonCache[dk]) {
+            // If comparison data is cached, re-apply outlier dots immediately
+            if (comparisonCache[dk]) {
+                renderOutliers(row, comparisonCache[dk]);
+            } else {
                 loadComparison(dk, row);
             }
         }
@@ -515,14 +545,14 @@
                 countEl.classList.add('zero');
             }
 
-            // Show filter formula under FUB side
-            const fubSide = row.querySelector('.fub-side');
-            let formulaEl = fubSide.querySelector('.filter-formula');
-            if (!formulaEl && fubFormulas[dk]) {
-                formulaEl = document.createElement('div');
-                formulaEl.className = 'filter-formula';
-                formulaEl.textContent = fubFormulas[dk];
-                fubSide.appendChild(formulaEl);
+            // Show filter formulas (FUB left, DREAMS right)
+            const formulasEl = row.querySelector('[data-formulas]');
+            if (formulasEl && !formulasEl.dataset.filled) {
+                let html = '';
+                if (fubFormulas[dk]) html += `<div class="filter-formula fub">${fubFormulas[dk]}</div>`;
+                if (dreamsFormulas[dk]) html += `<div class="filter-formula dreams">${dreamsFormulas[dk]}</div>`;
+                formulasEl.innerHTML = html;
+                formulasEl.dataset.filled = '1';
             }
 
             // Quick comparison strip (count-only, before full comparison loads)
