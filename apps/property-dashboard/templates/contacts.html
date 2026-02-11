@@ -550,12 +550,15 @@
         /* View Pills */
         .view-pills {
             display: flex;
+            justify-content: center;
             gap: 6px;
             padding: 6px;
             background: var(--bg-secondary);
+            border: 1px solid var(--border);
             border-radius: 10px;
             margin: 0 var(--space-lg, 24px) 16px;
             overflow-x: auto;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
         }
         .view-pill {
             padding: 8px 18px;
@@ -568,7 +571,7 @@
             transition: all 0.15s;
         }
         .view-pill:hover { background: var(--bg-tertiary); color: var(--text-primary); }
-        .view-pill.active { background: var(--primary); color: white; }
+        .view-pill.active { background: var(--color-primary); color: #ffffff; text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2); }
 
         /* Table container — taller offset for header + pills + metrics + tabs + filters */
         .dreams-table-container {
