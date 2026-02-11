@@ -435,6 +435,31 @@ class FUBClient:
                 self.logger.error(f"Unexpected error creating task for {person_id}: {e}")
             return None
 
+    def fetch_smart_lists(self) -> List[Dict]:
+        """
+        Fetch all smart lists from Follow Up Boss.
+
+        Returns:
+            List of smart list dicts with id, name, count, etc.
+        """
+        return self.fetch_collection("/smartLists", "smartlists", use_cache=False)
+
+    def fetch_smart_list_people(self, smart_list_id: int) -> List[Dict]:
+        """
+        Fetch all people belonging to a specific smart list.
+
+        Args:
+            smart_list_id: The FUB smart list ID
+
+        Returns:
+            List of people dicts
+        """
+        return self.fetch_collection(
+            "/people", "people",
+            {"smartListId": smart_list_id},
+            use_cache=False
+        )
+
     def fetch_users(self) -> List[Dict]:
         """
         Fetch all users (team members) from Follow Up Boss.

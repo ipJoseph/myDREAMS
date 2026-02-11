@@ -9,6 +9,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Smart Lists comparison page** (`/smart-lists`) — FUB live lists vs DREAMS scoring, side by side
+  - Left panel: live FUB smart list counts fetched on-demand via API
+  - Right panel: DREAMS-computed lists from local scoring (heat, relationship, priority)
+  - Comparison strip per list: shows overlap count, FUB-only, DREAMS-only
+  - Expandable rows reveal contacts on each side with outlier markers
+  - Outlier contacts (appearing on only one side) get colored dot + click-to-reveal explanation
+  - FUB-only reasons: "Not synced to DREAMS", "Heat score is 28 (threshold: 70)", etc.
+  - DREAMS-only reasons: "DREAMS heat=72 qualifies as Hot — FUB uses different activity rules", etc.
+  - All 7 team lists: New Leads, Priority, Hot, Warm, Cool, Unresponsive, Timeframe Empty
+  - `FUBClient.fetch_smart_lists()` and `fetch_smart_list_people()` added to fub-core
 - **Mission Control v3** (`home_v3.html`) — Complete dashboard redesign: launchpad, not newspaper
   - **Intelligence Briefing Engine** (`intelligence.py`) — Auto-generated one-sentence briefings for every contact
     - 8 prioritized rules: Activity Burst, New Lead, Warming Trend, Going Cold, Follow-Up Due, High Intent, Needs Properties, Default
