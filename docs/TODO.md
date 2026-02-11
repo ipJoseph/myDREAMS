@@ -62,6 +62,7 @@ Last updated: January 23, 2026 (Admin Settings page added)
 | 18 | **Dark mode support** | Pending | Phase 4 | Eye comfort option |
 | 19 | **Keyboard shortcuts** | Pending | Phase 4 | Power user navigation |
 | 20 | **Bulk actions interface** | Pending | Phase 4 | Multi-select operations |
+| 30 | **Smart List surge smoothing / unbucketed gap** | Pending | Phase 4 | 297/334 FUB contacts unbucketed at any time; 150-contact Unresponsive spikes after bulk action plans. See [analysis](smart-list-analysis.md). Eugy has ideas. |
 
 ---
 
