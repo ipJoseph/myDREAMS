@@ -118,8 +118,17 @@
         .mode-panel { display: none; }
         .mode-panel.active { display: block; }
 
-        /* ========== WHILE YOU WERE AWAY ========== */
-        .away-section { margin-bottom: 28px; }
+        /* ========== BRIEFING 2-COL GRID ========== */
+        .briefing-grid {
+            display: grid;
+            grid-template-columns: 340px 1fr;
+            gap: 24px;
+            margin-bottom: 28px;
+            align-items: start;
+        }
+
+        /* ========== WHILE YOU WERE AWAY (left column) ========== */
+        .away-section { margin-bottom: 0; }
         .section-header {
             display: flex;
             justify-content: space-between;
@@ -171,8 +180,8 @@
             line-height: 1.4;
         }
 
-        /* ========== TODAY'S MISSION ========== */
-        .mission-section { margin-bottom: 28px; }
+        /* ========== TODAY'S MISSION (right column) ========== */
+        .mission-section { margin-bottom: 0; }
         .mission-group { margin-bottom: 20px; }
         .group-header {
             display: flex;
@@ -629,10 +638,12 @@
         /* ========== RESPONSIVE ========== */
         @media (max-width: 1100px) {
             .command-grid { grid-template-columns: 1fr; }
+            .briefing-grid { grid-template-columns: 300px 1fr; }
         }
         @media (max-width: 900px) {
             .topbar { padding: 12px 16px; flex-wrap: wrap; gap: 12px; }
             .page-content { padding: 16px 16px 32px; }
+            .briefing-grid { grid-template-columns: 1fr; }
             .daily-stats { gap: 12px; }
             .contact-card { grid-template-columns: 40px 1fr; }
             .contact-actions { grid-column: 1 / -1; justify-content: flex-start; margin-top: 8px; }
@@ -686,7 +697,9 @@
         <!-- ═══════════════════════════════════════════════ -->
         <div class="mode-panel active" id="mode-briefing">
 
-            <!-- While You Were Away -->
+            <div class="briefing-grid"{% if not narrative_items %} style="grid-template-columns:1fr"{% endif %}>
+
+            <!-- Left column: While You Were Away -->
             {% if narrative_items %}
             <div class="away-section">
                 <div class="section-header">
@@ -710,7 +723,7 @@
             </div>
             {% endif %}
 
-            <!-- Today's Mission -->
+            <!-- Right column: Today's Mission -->
             <div class="mission-section">
                 <div class="section-header">
                     <div class="section-title">Today's Mission</div>
@@ -773,6 +786,8 @@
                 </div>
                 {% endif %}
             </div>
+
+            </div><!-- /briefing-grid -->
 
             <!-- Pipeline Pulse -->
             <div class="pipeline-section">
