@@ -112,6 +112,8 @@ class DREAMSDatabase:
             ("reassigned_reason", "TEXT"),              # 'round_robin', 'transfer', 'deleted', 'unknown'
             # Contact group: scored, brand_new, hand_raised, agents_vendors, warm_pond
             ("contact_group", "TEXT DEFAULT 'scored'"),
+            # FUB timeframe (1=0-3mo, 2=3-6mo, 3=6-12mo, 4=12+mo, 5=No Plans, NULL=not set)
+            ("fub_timeframe", "INTEGER"),
         ]
 
         for col_name, col_type in new_lead_columns:
@@ -1175,6 +1177,8 @@ class DREAMSDatabase:
         # Enhanced FUB data columns (previously missing from whitelist)
         'properties_shared', 'emails_received', 'emails_sent',
         'score_trend', 'heat_score_7d_avg', 'total_communications', 'total_events',
+        # FUB timeframe
+        'fub_timeframe',
     }
 
     def upsert_contact_dict(self, data: Dict[str, Any]) -> bool:
@@ -4219,7 +4223,7 @@ class DREAMSDatabase:
             ''', [cutoff] + user_params + [limit]).fetchall()
             lists['unresponsive'] = [dict(r) for r in rows]
 
-            # 6. Timeframe Empty (no intake form)
+            # 6. Timeframe Empty (FUB timeframe not set, Nurture stage only — matches FUB filter)
             rows = conn.execute('''
                 SELECT
                     l.id,
@@ -4233,11 +4237,8 @@ class DREAMSDatabase:
                     l.fub_id,
                     l.created_at
                 FROM leads l
-                WHERE l.stage NOT IN ('Trash', 'Closed', 'Past Client', 'DNC', 'Agents/Vendors/Lendors')
-                AND l.heat_score >= 30
-                AND NOT EXISTS (
-                    SELECT 1 FROM intake_forms i WHERE i.lead_id = l.id AND i.status = 'active'
-                )
+                WHERE l.stage = 'Nurture'
+                AND (l.fub_timeframe IS NULL OR l.fub_timeframe = 0)
             ''' + f'''
                 {user_filter}
                 ORDER BY l.priority_score DESC

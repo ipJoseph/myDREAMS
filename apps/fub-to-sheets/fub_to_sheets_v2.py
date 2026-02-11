@@ -656,6 +656,7 @@ def flatten_person_base(person: Dict) -> Dict:
         "company": person.get("company", ""),
         "website": person.get("website", ""),
         "lastActivity": person.get("lastActivity", ""),
+        "timeframeId": person.get("timeframeId"),
     }
 
 
@@ -1062,7 +1063,8 @@ CONTACTS_HEADER = [
     "priority_score",
     "intent_repeat_views", "intent_high_favorites", "intent_activity_burst", "intent_sharing",
     "next_action", "next_action_date",
-    "contact_group"
+    "contact_group",
+    "timeframeId",
 ]
 
 def get_sheets_client():
@@ -1451,6 +1453,7 @@ def build_contact_rows(
             saved.get("next_action", ""),
             saved.get("next_action_date", ""),
             contact_group,
+            base.get("timeframeId"),
         ]
 
         rows.append(row)
@@ -2262,6 +2265,8 @@ def sync_to_sqlite(contact_rows: List[List], person_stats: Dict[str, Dict], user
                 "next_action_date": row[idx["next_action_date"]] or None,
                 # Contact group
                 "contact_group": row[idx["contact_group"]] or "scored",
+                # FUB timeframe (1=0-3mo, 2=3-6mo, 3=6-12mo, 4=12+mo, 5=No Plans)
+                "fub_timeframe": int(row[idx["timeframeId"]]) if row[idx["timeframeId"]] else None,
             }
 
             # Calculate days since activity

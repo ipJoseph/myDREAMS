@@ -4364,7 +4364,11 @@ def _explain_fub_only(contact, dreams_key, dreams_db):
         if heat <= 5:
             return f"Heat {heat} (needs >5). FUB uses Stage=Lead + created >14d + lastComm >14d"
     elif dreams_key == 'timeframe_empty':
-        return f"Has active intake form or heat {heat} < 30. DREAMS 'Needs Intake' = heat >= 30 + no intake form"
+        tf = lead.get('fub_timeframe')
+        if tf:
+            tf_names = {1: '0-3 Months', 2: '3-6 Months', 3: '6-12 Months', 4: '12+ Months', 5: 'No Plans'}
+            return f"Has FUB timeframe set ({tf_names.get(tf, tf)}). Both FUB and DREAMS require empty timeframe"
+        return f"Timeframe is empty but may not meet other FUB criteria (Stage=Nurture required)"
     elif dreams_key == 'priority':
         return f"Priority score {lead.get('priority_score', 0)} — not in top tier. FUB uses Stage=Hot Prospect + lastComm >3d"
 
@@ -4392,7 +4396,7 @@ def _explain_dreams_only(contact, dreams_key):
     elif dreams_key == 'unresponsive':
         return f"Low relationship ({rel}) in DREAMS. FUB requires Stage=Lead + created >14d + lastComm >14d"
     elif dreams_key == 'timeframe_empty':
-        return f"No active intake form in DREAMS (heat={heat}). FUB 'Timeframe Empty' requires Stage=Nurture + no timeframe set — different criteria"
+        return f"FUB timeframe not set in DREAMS. FUB also requires Stage=Nurture"
     elif dreams_key == 'priority':
         return f"High priority in DREAMS. FUB requires Stage=Hot Prospect + lastComm >3d"
 
