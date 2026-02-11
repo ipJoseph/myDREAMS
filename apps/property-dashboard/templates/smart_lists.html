@@ -140,7 +140,7 @@
             border-radius: 10px;
             font-weight: 600;
             white-space: nowrap;
-            pointer-events: none;
+            cursor: default;
         }
         .comp-stat.both { background: #dcfce7; color: #16a34a; }
         .comp-stat.fub-only { background: #dbeafe; color: #2563eb; }
@@ -372,7 +372,7 @@
                             <span class="list-count fub fub-loading" data-fub-count>--</span>
                         </div>
 
-                        <div class="comparison-strip" data-comp>
+                        <div class="comparison-strip" data-comp onclick="event.stopPropagation()">
                             <span class="comp-stat loading" data-comp-label>Click Refresh FUB</span>
                         </div>
 
