@@ -749,7 +749,7 @@
                             <a href="https://mail.google.com/mail/u/0/?authuser=eugy@jontharphomes.com&view=cm&to={{ c.email }}" target="_blank" class="action-btn" title="Email via Gmail">Email</a>
                             {% endif %}
                             {% if c.fub_id %}
-                            <a href="https://followupboss.com/2/people/view/{{ c.fub_id }}" target="_blank" class="action-btn" title="Open in FUB">FUB</a>
+                            <a href="https://jontharpteam.followupboss.com/2/people/view/{{ c.fub_id }}" target="_blank" class="action-btn" title="Open in FUB">FUB</a>
                             {% endif %}
                         </div>
                     </div>
@@ -1005,7 +1005,7 @@
                                         {% endif %}
                                         <a href="/contacts/{{ c.id }}" class="action-btn" onclick="event.stopPropagation()">Profile</a>
                                         {% if c.fub_id %}
-                                        <a href="https://followupboss.com/2/people/view/{{ c.fub_id }}" target="_blank" class="action-btn" onclick="event.stopPropagation()">FUB</a>
+                                        <a href="https://jontharpteam.followupboss.com/2/people/view/{{ c.fub_id }}" target="_blank" class="action-btn" onclick="event.stopPropagation()">FUB</a>
                                         {% endif %}
                                     </div>
                                 </div>
@@ -1158,7 +1158,7 @@
                     <div class="ph-card-briefing">${b.text || ''}</div>
                 </div>
                 <div class="ph-card-body">
-                    ${c.phone ? '<div class="ph-detail-row"><span class="ph-detail-label">Phone</span><span class="ph-detail-value">' + (c.fub_id ? '<a href="https://followupboss.com/2/people/view/' + c.fub_id + '" target="_blank">' + c.phone + '</a>' : c.phone) + '</span></div>' : ''}
+                    ${c.phone ? '<div class="ph-detail-row"><span class="ph-detail-label">Phone</span><span class="ph-detail-value">' + (c.fub_id ? '<a href="https://jontharpteam.followupboss.com/2/people/view/' + c.fub_id + '" target="_blank">' + c.phone + '</a>' : c.phone) + '</span></div>' : ''}
                     ${c.email ? '<div class="ph-detail-row"><span class="ph-detail-label">Email</span><span class="ph-detail-value"><a href="https://mail.google.com/mail/u/0/?authuser=eugy@jontharphomes.com&view=cm&to=' + encodeURIComponent(c.email) + '" target="_blank">' + c.email + '</a></span></div>' : ''}
                     <div class="ph-detail-row"><span class="ph-detail-label">Stage</span><span class="ph-detail-value">${c.stage || 'Unknown'}</span></div>
                     ${c.heat_score ? '<div class="ph-detail-row"><span class="ph-detail-label">Heat</span><span class="ph-detail-value">' + Math.round(c.heat_score) + (c.score_trend ? ' (' + c.score_trend + ')' : '') + '</span></div>' : ''}

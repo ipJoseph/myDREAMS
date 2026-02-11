@@ -395,7 +395,7 @@
                                     <span class="contact-phone">
                                         {% if c.phone %}
                                             {% if c.fub_id %}
-                                            <a href="https://jontharp.followupboss.com/2/people/view/{{ c.fub_id }}" target="_blank" title="Open in FUB">{{ c.phone|phone }}</a>
+                                            <a href="https://jontharpteam.followupboss.com/2/people/view/{{ c.fub_id }}" target="_blank" title="Open in FUB">{{ c.phone|phone }}</a>
                                             {% else %}
                                             {{ c.phone|phone }}
                                             {% endif %}
@@ -448,7 +448,7 @@
     }
 
     function fubLink(fubId) {
-        return `https://jontharp.followupboss.com/2/people/view/${fubId}`;
+        return `https://jontharpteam.followupboss.com/2/people/view/${fubId}`;
     }
 
     // ─── Toggle expand ─────────────────────────────────────────────────
