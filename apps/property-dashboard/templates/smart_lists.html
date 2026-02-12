@@ -142,9 +142,9 @@
             white-space: nowrap;
             cursor: default;
         }
-        .comp-stat.both { background: #dcfce7; color: #16a34a; }
         .comp-stat.fub-only { background: #dbeafe; color: #2563eb; }
-        .comp-stat.dreams-only { background: #fce7f3; color: #db2777; }
+        .comp-stat.both { background: #dcfce7; color: #16a34a; }
+        .comp-stat.dreams-only { background: #fee2e2; color: #dc2626; }
         .comp-stat.loading { background: #f1f5f9; color: #94a3b8; }
 
         /* Expanded body */
@@ -560,14 +560,16 @@
                 formulasEl.dataset.filled = '1';
             }
 
-            // Quick comparison strip (count-only, before full comparison loads)
+            // Quick comparison strip — show counts while full comparison loads
             const comp = row.querySelector('[data-comp]');
             if (fubList) {
                 const dc = dreamsData[dk] || [];
                 comp.innerHTML = `
-                    <span class="comp-stat both">FUB: ${fubList.count}</span>
+                    <span class="comp-stat fub-only">FUB: ${fubList.count}</span>
                     <span class="comp-stat dreams-only">DREAMS: ${dc.length}</span>
                 `;
+                // Trigger full comparison load in background
+                if (!comparisonCache[dk]) loadComparison(dk, row);
             }
         });
     }
@@ -633,8 +635,8 @@
         const comp = row.querySelector('[data-comp]');
         const c = data.counts;
         comp.innerHTML = `
-            <span class="comp-stat both" title="On both lists">${c.both} both</span>
             <span class="comp-stat fub-only" title="FUB only">${c.fub_only} FUB-only</span>
+            <span class="comp-stat both" title="On both lists">${c.both} both</span>
             <span class="comp-stat dreams-only" title="DREAMS only">${c.dreams_only} DREAMS-only</span>
         `;
 
@@ -738,6 +740,9 @@
         }
     }
     setInterval(updateFreshness, 30000);
+
+    // Auto-refresh FUB on page load
+    refreshFub();
 
     document.addEventListener('visibilitychange', () => {
         if (!document.hidden && lastUpdated) {
