@@ -4241,6 +4241,8 @@ def _bucket_fub_contacts(people):
                 created_dt = datetime.fromisoformat(created_str.replace('Z', '+00:00'))
             except (ValueError, TypeError):
                 pass
+        # Use fractional days to match FUB's datetime-level comparison
+        lc_days_f = lc_hours / 24 if lc_hours < 999999 else 9999
         return {
             'id': p.get('id'),
             'name': f"{p.get('firstName', '')} {p.get('lastName', '')}".strip(),
@@ -4249,12 +4251,13 @@ def _bucket_fub_contacts(people):
             'contacted': p.get('contacted', 0),
             'lastActivity': p.get('lastActivity', ''),
             'lastComm': lc_date.isoformat() if lc_date else None,
-            'lastCommDays': int(lc_hours / 24) if lc_hours < 999999 else 9999,
+            'lastCommDays': int(lc_days_f),
             'lastCommHours': lc_hours,
             'timeframeId': p.get('timeframeId'),
             'timeframeStatus': p.get('timeframeStatus'),
             'created': created_str,
             '_created_dt': created_dt,
+            '_lc_days_f': lc_days_f,
         }
 
     parsed = [_parse_contact(p) for p in people]
@@ -4263,7 +4266,7 @@ def _bucket_fub_contacts(people):
         stage = c['stage']
         tf_id = c['timeframeId']
         lc_hours = c['lastCommHours']
-        lc_days = c['lastCommDays']
+        lc_days = c.pop('_lc_days_f')  # fractional days for accurate threshold comparison
         created_dt = c.pop('_created_dt', None)  # internal, remove from output
 
         # --- New Leads: Stage=Lead, created < 14 days, lastComm > 12 hours ago ---
