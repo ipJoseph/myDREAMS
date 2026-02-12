@@ -78,6 +78,19 @@
     --font-size-xl: 20px;
     --font-size-2xl: 24px;
     --line-height: 1.5;
+
+    /* Shorthand aliases (used across templates) */
+    --primary: var(--color-primary);
+    --primary-light: var(--color-primary-light);
+    --primary-dark: var(--color-primary-dark);
+    --success: var(--color-success);
+    --warning: var(--color-warning);
+    --error: var(--color-error);
+    --border: var(--border-color);
+    --bg-primary: var(--bg-surface);
+    --bg-secondary: #f1f5f9;
+    --bg-tertiary: #e2e8f0;
+    --text-tertiary: var(--text-muted);
 }
 
 /* ============================================

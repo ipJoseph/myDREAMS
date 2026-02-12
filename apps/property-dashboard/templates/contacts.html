@@ -533,7 +533,26 @@
             color: var(--text-primary);
         }
 
-        /* Clickable metric cards */
+        /* Compact metric cards — single row */
+        .dreams-metrics {
+            display: flex;
+            gap: 10px;
+            padding: 12px var(--space-lg, 24px);
+            flex-wrap: nowrap;
+            overflow-x: auto;
+        }
+        .dreams-metrics .dreams-metric-card {
+            padding: 10px 14px;
+            min-width: 0;
+            flex: 1;
+        }
+        .dreams-metrics .dreams-metric-label {
+            font-size: 10px;
+            margin-bottom: 2px;
+        }
+        .dreams-metrics .dreams-metric-value {
+            font-size: 20px;
+        }
         .dreams-metric-card.clickable {
             cursor: pointer;
             transition: transform 0.15s ease, box-shadow 0.15s ease;
@@ -546,6 +565,58 @@
             border: 2px solid var(--primary);
             background: var(--bg-secondary);
         }
+
+        /* Smart List Pills */
+        .smart-list-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px var(--space-lg, 24px);
+            overflow-x: auto;
+        }
+        .smart-list-bar-label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .smart-list-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 12px;
+            border-radius: 16px;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: all 0.15s;
+            border: 1px solid var(--border);
+            background: var(--bg-primary);
+            color: var(--text-secondary);
+            text-decoration: none;
+        }
+        .smart-list-pill:hover {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+        }
+        .smart-list-pill .pill-count {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            padding: 1px 7px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+        .smart-list-pill.new-leads .pill-count { background: #dbeafe; color: #2563eb; }
+        .smart-list-pill.hot .pill-count { background: #fee2e2; color: #dc2626; }
+        .smart-list-pill.warm .pill-count { background: #fef3c7; color: #d97706; }
+        .smart-list-pill.cool .pill-count { background: #e0e7ff; color: #4f46e5; }
+        .smart-list-pill.unresponsive .pill-count { background: #f3f4f6; color: #6b7280; }
+        .smart-list-pill.timeframe-empty .pill-count { background: #ede9fe; color: #7c3aed; }
 
         /* View Pills */
         .view-pills {
@@ -573,9 +644,9 @@
         .view-pill:hover { background: var(--bg-tertiary); color: var(--text-primary); }
         .view-pill.active { background: var(--color-primary); color: #ffffff; text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2); }
 
-        /* Table container — taller offset for header + pills + metrics + tabs + filters */
+        /* Table container — taller offset for header + pills + metrics + smart pills + tabs + filters */
         .dreams-table-container {
-            max-height: calc(100vh - 480px);
+            max-height: calc(100vh - 420px);
         }
 
         /* Search box */
@@ -641,8 +712,8 @@
 
         /* Threshold sliders */
         .threshold-slider {
-            margin-top: 8px;
-            padding-top: 8px;
+            margin-top: 4px;
+            padding-top: 4px;
             border-top: 1px solid var(--border);
         }
         .threshold-slider input[type="range"] {
@@ -692,7 +763,7 @@
             margin-top: 4px;
         }
         .dreams-metric-card.with-slider {
-            min-width: 140px;
+            min-width: 120px;
         }
 
         /* Empty state */
@@ -773,6 +844,29 @@
             <div class="dreams-metric-label">High Intent (4+)</div>
             <div class="dreams-metric-value" style="color: #8b5cf6;">{{ stats.high_intent }}</div>
         </div>
+    </div>
+
+    <!-- Smart List Pills -->
+    <div class="smart-list-bar">
+        <span class="smart-list-bar-label">Smart Lists</span>
+        <a href="/smart-lists" class="smart-list-pill new-leads" title="New Leads (daily)">
+            New Leads <span class="pill-count" id="sl-new-leads">{{ smart_lists.new_leads|length }}</span>
+        </a>
+        <a href="/smart-lists" class="smart-list-pill hot" title="Hot (weekly)">
+            Hot <span class="pill-count" id="sl-hot">{{ smart_lists.hot|length }}</span>
+        </a>
+        <a href="/smart-lists" class="smart-list-pill warm" title="Warm (monthly)">
+            Warm <span class="pill-count" id="sl-warm">{{ smart_lists.warm|length }}</span>
+        </a>
+        <a href="/smart-lists" class="smart-list-pill cool" title="Cool (quarterly)">
+            Cool <span class="pill-count" id="sl-cool">{{ smart_lists.cool|length }}</span>
+        </a>
+        <a href="/smart-lists" class="smart-list-pill unresponsive" title="Unresponsive (biweekly)">
+            Unresponsive <span class="pill-count" id="sl-unresponsive">{{ smart_lists.unresponsive|length }}</span>
+        </a>
+        <a href="/smart-lists" class="smart-list-pill timeframe-empty" title="Timeframe Empty">
+            TF Empty <span class="pill-count" id="sl-tf-empty">{{ smart_lists.timeframe_empty|length }}</span>
+        </a>
     </div>
 
     <!-- Tabs -->

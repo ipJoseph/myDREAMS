@@ -1597,6 +1597,9 @@ def contacts_list():
     # Get aggregate stats (filtered by view)
     stats = db.get_contact_stats(user_id=CURRENT_USER_ID, view=current_view)
 
+    # Smart list counts for pill bar
+    smart_lists = db.get_fub_style_lists(user_id=CURRENT_USER_ID)
+
     return render_template('contacts.html',
                          contacts=contacts,
                          all_contacts=all_contacts,
@@ -1612,6 +1615,7 @@ def contacts_list():
                          score_analysis=score_analysis,
                          strategic_insights=strategic_insights,
                          trends=trends,
+                         smart_lists=smart_lists,
                          refresh_time=datetime.now().strftime('%B %d, %Y %I:%M %p'))
 
 
