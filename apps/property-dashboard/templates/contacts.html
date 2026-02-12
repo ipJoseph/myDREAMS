@@ -927,7 +927,7 @@
                 <tbody>
                     {% for contact in contacts %}
                     {% set days_inactive = contact.days_since_activity or 999 %}
-                    <tr data-heat="{{ contact.heat_score or 0 }}" data-value="{{ contact.value_score or 0 }}" data-days="{{ days_inactive }}" data-rel="{{ contact.relationship_score or 0 }}" data-stage="{{ contact.stage or '' }}">
+                    <tr data-heat="{{ contact.heat_score or 0 }}" data-value="{{ contact.value_score or 0 }}" data-days="{{ days_inactive }}" data-rel="{{ contact.relationship_score or 0 }}" data-stage="{{ contact.stage or '' }}" data-created="{{ contact.created_at or '' }}">
                         <td class="row-num">{{ loop.index }}</td>
                         <td>
                             <a href="/contacts/{{ contact.id }}" class="contact-name">
@@ -1309,15 +1309,7 @@
             }
         });
 
-        // Smart List slider logic
-        // Contact scores for dynamic recounting (all contacts, not just filtered view)
-        const allContactScores = {{ contact_scores | tojson }}.map(c => ({
-            heat: c.heat_score || 0,
-            rel: c.relationship_score || 0,
-            stage: c.stage || '',
-            days: c.days_since_activity || 999,
-            created: c.created_at || ''
-        }));
+        // Smart List slider logic — counts AND filters use the same table rows
 
         function daysSinceCreated(createdAt) {
             if (!createdAt) return 999;
@@ -1330,11 +1322,30 @@
             slider.style.setProperty('--slider-pct', pct + '%');
         }
 
+        // Check if a row matches a given smart list filter
+        function rowMatchesList(row, filterKey, newDays, hotMin, warmMin, coolMin) {
+            const heat = parseFloat(row.dataset.heat) || 0;
+            const stage = row.dataset.stage || '';
+            const createdDays = daysSinceCreated(row.dataset.created);
+
+            if (filterKey === 'new_leads') return stage === 'Lead' && createdDays <= newDays;
+            if (filterKey === 'hot') return heat >= hotMin;
+            if (filterKey === 'warm') return heat >= warmMin && heat < hotMin;
+            if (filterKey === 'cool') return heat >= coolMin && heat < warmMin;
+            return false;
+        }
+
+        function getSliderValues() {
+            return {
+                newDays: parseInt(document.getElementById('slNewDaysSlider').value),
+                hotMin: parseInt(document.getElementById('slHotSlider').value),
+                warmMin: parseInt(document.getElementById('slWarmSlider').value),
+                coolMin: parseInt(document.getElementById('slCoolSlider').value),
+            };
+        }
+
         function updateSmartListThresholds() {
-            const newDays = parseInt(document.getElementById('slNewDaysSlider').value);
-            const hotMin = parseInt(document.getElementById('slHotSlider').value);
-            const warmMin = parseInt(document.getElementById('slWarmSlider').value);
-            const coolMin = parseInt(document.getElementById('slCoolSlider').value);
+            const { newDays, hotMin, warmMin, coolMin } = getSliderValues();
 
             // Update labels
             document.getElementById('slNewDaysLabel').textContent = newDays;
@@ -1352,16 +1363,14 @@
             updateSliderPct(document.getElementById('slWarmSlider'), warmMin);
             updateSliderPct(document.getElementById('slCoolSlider'), coolMin);
 
-            // Recount from all contacts
+            // Count from table rows — same source used for filtering
             let newCount = 0, hotCount = 0, warmCount = 0, coolCount = 0;
-            for (const c of allContactScores) {
-                if (['Trash', 'Closed', 'Past Client', 'DNC', 'Agents/Vendors/Lendors'].includes(c.stage)) continue;
-                const createdDays = daysSinceCreated(c.created);
-                if (c.stage === 'Lead' && createdDays <= newDays) newCount++;
-                if (c.heat >= hotMin) hotCount++;
-                if (c.heat >= warmMin && c.heat < hotMin) warmCount++;
-                if (c.heat >= coolMin && c.heat < warmMin) coolCount++;
-            }
+            rows.forEach(row => {
+                if (rowMatchesList(row, 'new_leads', newDays, hotMin, warmMin, coolMin)) newCount++;
+                if (rowMatchesList(row, 'hot', newDays, hotMin, warmMin, coolMin)) hotCount++;
+                if (rowMatchesList(row, 'warm', newDays, hotMin, warmMin, coolMin)) warmCount++;
+                if (rowMatchesList(row, 'cool', newDays, hotMin, warmMin, coolMin)) coolCount++;
+            });
 
             document.getElementById('slNewCount').textContent = newCount;
             document.getElementById('slHotCount').textContent = hotCount;
@@ -1391,28 +1400,11 @@
 
         function applySlFilter() {
             if (!activeSlFilter) return;
-            const newDays = parseInt(document.getElementById('slNewDaysSlider').value);
-            const hotMin = parseInt(document.getElementById('slHotSlider').value);
-            const warmMin = parseInt(document.getElementById('slWarmSlider').value);
-            const coolMin = parseInt(document.getElementById('slCoolSlider').value);
+            const { newDays, hotMin, warmMin, coolMin } = getSliderValues();
 
             let visibleCount = 0;
             rows.forEach(row => {
-                const heat = parseFloat(row.dataset.heat) || 0;
-                const days = parseFloat(row.dataset.days) || 999;
-                const stage = row.dataset.stage || '';
-                let show = false;
-
-                if (activeSlFilter === 'new_leads') {
-                    show = stage === 'Lead' && days <= newDays;
-                } else if (activeSlFilter === 'hot') {
-                    show = heat >= hotMin;
-                } else if (activeSlFilter === 'warm') {
-                    show = heat >= warmMin && heat < hotMin;
-                } else if (activeSlFilter === 'cool') {
-                    show = heat >= coolMin && heat < warmMin;
-                }
-
+                const show = rowMatchesList(row, activeSlFilter, newDays, hotMin, warmMin, coolMin);
                 row.style.display = show ? '' : 'none';
                 if (show) {
                     visibleCount++;
@@ -1432,7 +1424,7 @@
             visibleCountEl.textContent = visibleCount;
         }
 
-        // Initialize slider tracks
+        // Initialize slider tracks and counts
         updateSmartListThresholds();
 
         // Column sorting

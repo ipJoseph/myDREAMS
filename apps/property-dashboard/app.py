@@ -1600,22 +1600,9 @@ def contacts_list():
     # Smart list counts for pill bar
     smart_lists = db.get_fub_style_lists(user_id=CURRENT_USER_ID)
 
-    # Lightweight scores for JS smart list recounting
-    contact_scores = [
-        {
-            'heat_score': c.get('heat_score') or 0,
-            'relationship_score': c.get('relationship_score') or 0,
-            'stage': c.get('stage') or '',
-            'days_since_activity': c.get('days_since_activity') or 999,
-            'created_at': c.get('created_at') or '',
-        }
-        for c in all_contacts
-    ]
-
     return render_template('contacts.html',
                          contacts=contacts,
                          all_contacts=all_contacts,
-                         contact_scores=contact_scores,
                          stats=stats,
                          current_view=current_view,
                          stages=stages,
