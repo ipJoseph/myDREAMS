@@ -1024,12 +1024,12 @@ def compute_daily_activity_stats(
     try:
         from src.core.database import DREAMSDatabase
         db = DREAMSDatabase(Config.DREAMS_DB_PATH)
-        new_contacts = db.get_recent_contacts(days=3)
+        my_user_id = int(os.getenv('FUB_MY_USER_ID', 8))
+        new_contacts = db.get_recent_contacts(days=3, user_id=my_user_id)
         stats["new_contacts"] = new_contacts
-        logger.info(f"✓ Found {len(new_contacts)} new contacts in last 3 days")
+        logger.info(f"✓ Found {len(new_contacts)} new contacts in last 3 days (user_id={my_user_id})")
 
         # Get recently reassigned leads (leads lost in last 7 days)
-        my_user_id = int(os.getenv('FUB_MY_USER_ID', 8))
         reassigned_leads = db.get_recently_reassigned_leads(
             from_user_id=my_user_id,
             days=7,
@@ -2786,10 +2786,7 @@ def main():
         # Reorder worksheets
         reorder_worksheets(sh)
 
-        # Send email report
-        send_top_priority_email(contact_rows, top_priority, daily_stats)
-
-        # Sync to SQLite database (for unified DREAMS dashboard)
+        # Sync to SQLite FIRST so email report reads fresh data
         sync_to_sqlite(contact_rows, person_stats, user_lookup)
 
         # Enhanced FUB data sync: individual records, scoring, trends, and daily activity
@@ -2827,6 +2824,20 @@ def main():
 
             except Exception as e:
                 logger.error(f"Enhanced FUB data sync failed: {e}")
+
+        # Re-fetch new contacts from freshly-synced DB for accurate email report
+        try:
+            if db is None:
+                from src.core.database import DREAMSDatabase
+                db = DREAMSDatabase(Config.DREAMS_DB_PATH)
+            my_user_id = int(os.getenv('FUB_MY_USER_ID', 8))
+            daily_stats["new_contacts"] = db.get_recent_contacts(days=3, user_id=my_user_id)
+            logger.info(f"✓ Refreshed new contacts from synced DB: {len(daily_stats['new_contacts'])} contacts (user_id={my_user_id})")
+        except Exception as e:
+            logger.warning(f"Could not refresh new contacts post-sync: {e}")
+
+        # Send email report (now with fresh data)
+        send_top_priority_email(contact_rows, top_priority, daily_stats)
 
         # Complete scoring run with final stats
         if scoring_run_id and db:

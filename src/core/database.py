@@ -5017,7 +5017,7 @@ class DREAMSDatabase:
             ''').fetchone()
             return dict(row) if row else None
 
-    def get_recent_contacts(self, days: int = 3) -> List[Dict[str, Any]]:
+    def get_recent_contacts(self, days: int = 3, user_id: Optional[int] = None) -> List[Dict[str, Any]]:
         """
         Get contacts created in the last N days, deduplicated by email.
 
@@ -5026,6 +5026,7 @@ class DREAMSDatabase:
 
         Args:
             days: Number of days to look back (default 3)
+            user_id: If provided, only return contacts assigned to this user
 
         Returns:
             List of contacts with name, created_at, and days_ago
@@ -5033,8 +5034,13 @@ class DREAMSDatabase:
         cutoff = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
 
         with self._get_connection() as conn:
-            # Use GROUP BY with CASE to prefer records with phone numbers
-            rows = conn.execute('''
+            user_filter = ""
+            params = [cutoff]
+            if user_id:
+                user_filter = "AND assigned_user_id = ?"
+                params.append(user_id)
+
+            rows = conn.execute(f'''
                 SELECT
                     MAX(CASE WHEN phone IS NOT NULL AND phone != '' THEN id ELSE id END) as id,
                     first_name,
@@ -5048,9 +5054,10 @@ class DREAMSDatabase:
                     CAST(julianday('now') - julianday(DATE(MIN(created_at))) AS INTEGER) as days_ago
                 FROM leads
                 WHERE DATE(created_at) >= ?
+                {user_filter}
                 GROUP BY LOWER(COALESCE(email, first_name || ' ' || last_name))
                 ORDER BY MIN(created_at) DESC
-            ''', (cutoff,)).fetchall()
+            ''', params).fetchall()
             return [dict(row) for row in rows]
 
     # ==========================================
