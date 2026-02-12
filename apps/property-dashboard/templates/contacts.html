@@ -533,90 +533,115 @@
             color: var(--text-primary);
         }
 
-        /* Compact metric cards — single row */
-        .dreams-metrics {
+        /* Smart List Cards Row */
+        .smart-list-row {
             display: flex;
-            gap: 10px;
-            padding: 12px var(--space-lg, 24px);
-            flex-wrap: nowrap;
-            overflow-x: auto;
-        }
-        .dreams-metrics .dreams-metric-card {
-            padding: 10px 14px;
-            min-width: 0;
-            flex: 1;
-        }
-        .dreams-metrics .dreams-metric-label {
-            font-size: 10px;
-            margin-bottom: 2px;
-        }
-        .dreams-metrics .dreams-metric-value {
-            font-size: 20px;
-        }
-        .dreams-metric-card.clickable {
-            cursor: pointer;
-            transition: transform 0.15s ease, box-shadow 0.15s ease;
-        }
-        .dreams-metric-card.clickable:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        }
-        .dreams-metric-card.active {
-            border: 2px solid var(--primary);
-            background: var(--bg-secondary);
-        }
-
-        /* Smart List Pills */
-        .smart-list-bar {
-            display: flex;
-            align-items: center;
             gap: 8px;
-            padding: 8px var(--space-lg, 24px);
+            padding: 10px var(--space-lg, 24px);
             overflow-x: auto;
+            flex-wrap: nowrap;
         }
-        .smart-list-bar-label {
-            font-size: 11px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: var(--text-secondary);
-            white-space: nowrap;
-            flex-shrink: 0;
-        }
-        .smart-list-pill {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 5px 12px;
-            border-radius: 16px;
-            font-size: 12px;
-            font-weight: 600;
-            white-space: nowrap;
+        .sl-card {
+            flex: 1;
+            min-width: 0;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 12px;
+            text-align: center;
             cursor: pointer;
             transition: all 0.15s;
-            border: 1px solid var(--border);
-            background: var(--bg-primary);
-            color: var(--text-secondary);
             text-decoration: none;
+            display: block;
         }
-        .smart-list-pill:hover {
+        .sl-card:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transform: translateY(-1px);
+        }
+        .sl-card.active {
+            border-color: var(--primary);
+            border-width: 2px;
             background: var(--bg-secondary);
-            color: var(--text-primary);
         }
-        .smart-list-pill .pill-count {
-            background: var(--bg-tertiary);
-            color: var(--text-primary);
-            padding: 1px 7px;
-            border-radius: 10px;
-            font-size: 11px;
+        .sl-card-label {
+            font-size: 10px;
             font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            margin-bottom: 2px;
+            white-space: nowrap;
         }
-        .smart-list-pill.new-leads .pill-count { background: #dbeafe; color: #2563eb; }
-        .smart-list-pill.hot .pill-count { background: #fee2e2; color: #dc2626; }
-        .smart-list-pill.warm .pill-count { background: #fef3c7; color: #d97706; }
-        .smart-list-pill.cool .pill-count { background: #e0e7ff; color: #4f46e5; }
-        .smart-list-pill.unresponsive .pill-count { background: #f3f4f6; color: #6b7280; }
-        .smart-list-pill.timeframe-empty .pill-count { background: #ede9fe; color: #7c3aed; }
+        .sl-card-count {
+            font-size: 22px;
+            font-weight: 700;
+            line-height: 1.1;
+        }
+        .sl-card-cadence {
+            font-size: 9px;
+            color: var(--text-muted);
+            margin-top: 1px;
+        }
+        /* Color themes per list */
+        .sl-card.new-leads .sl-card-label { color: #2563eb; }
+        .sl-card.new-leads .sl-card-count { color: #2563eb; }
+        .sl-card.hot .sl-card-label { color: #dc2626; }
+        .sl-card.hot .sl-card-count { color: #dc2626; }
+        .sl-card.warm .sl-card-label { color: #d97706; }
+        .sl-card.warm .sl-card-count { color: #d97706; }
+        .sl-card.cool .sl-card-label { color: #4f46e5; }
+        .sl-card.cool .sl-card-count { color: #4f46e5; }
+        .sl-card.unresponsive .sl-card-label { color: #6b7280; }
+        .sl-card.unresponsive .sl-card-count { color: #6b7280; }
+        .sl-card.tf-empty .sl-card-label { color: #7c3aed; }
+        .sl-card.tf-empty .sl-card-count { color: #7c3aed; }
+        /* Slider inside card */
+        .sl-slider {
+            margin-top: 4px;
+            padding-top: 4px;
+            border-top: 1px solid var(--border);
+        }
+        .sl-slider input[type="range"] {
+            width: 100%;
+            height: 5px;
+            -webkit-appearance: none;
+            appearance: none;
+            border-radius: 3px;
+            outline: none;
+            cursor: pointer;
+            background: #d1d5db;
+        }
+        .sl-slider input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            cursor: grab;
+            border: 2px solid white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        .sl-slider .sl-slider-label {
+            font-size: 9px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+        /* Slider color themes */
+        .sl-card.new-leads .sl-slider input[type="range"] {
+            background: linear-gradient(to right, #3b82f6 0%, #3b82f6 var(--slider-pct, 23%), #d1d5db var(--slider-pct, 23%), #d1d5db 100%);
+        }
+        .sl-card.new-leads .sl-slider input[type="range"]::-webkit-slider-thumb { background: #3b82f6; }
+        .sl-card.hot .sl-slider input[type="range"] {
+            background: linear-gradient(to right, #ef4444 0%, #ef4444 var(--slider-pct, 70%), #d1d5db var(--slider-pct, 70%), #d1d5db 100%);
+        }
+        .sl-card.hot .sl-slider input[type="range"]::-webkit-slider-thumb { background: #ef4444; }
+        .sl-card.warm .sl-slider input[type="range"] {
+            background: linear-gradient(to right, #f59e0b 0%, #f59e0b var(--slider-pct, 40%), #d1d5db var(--slider-pct, 40%), #d1d5db 100%);
+        }
+        .sl-card.warm .sl-slider input[type="range"]::-webkit-slider-thumb { background: #f59e0b; }
+        .sl-card.cool .sl-slider input[type="range"] {
+            background: linear-gradient(to right, #6366f1 0%, #6366f1 var(--slider-pct, 10%), #d1d5db var(--slider-pct, 10%), #d1d5db 100%);
+        }
+        .sl-card.cool .sl-slider input[type="range"]::-webkit-slider-thumb { background: #6366f1; }
 
         /* View Pills */
         .view-pills {
@@ -644,9 +669,9 @@
         .view-pill:hover { background: var(--bg-tertiary); color: var(--text-primary); }
         .view-pill.active { background: var(--color-primary); color: #ffffff; text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2); }
 
-        /* Table container — taller offset for header + pills + metrics + smart pills + tabs + filters */
+        /* Table container — offset for header + view pills + smart list cards + tabs + filters */
         .dreams-table-container {
-            max-height: calc(100vh - 420px);
+            max-height: calc(100vh - 380px);
         }
 
         /* Search box */
@@ -710,61 +735,7 @@
             text-decoration: none;
         }
 
-        /* Threshold sliders */
-        .threshold-slider {
-            margin-top: 4px;
-            padding-top: 4px;
-            border-top: 1px solid var(--border);
-        }
-        .threshold-slider input[type="range"] {
-            width: 100%;
-            height: 6px;
-            -webkit-appearance: none;
-            appearance: none;
-            background: #d1d5db;
-            border-radius: 3px;
-            outline: none;
-            cursor: pointer;
-        }
-        .threshold-slider.heat input[type="range"] {
-            background: linear-gradient(to right,
-                #ef4444 0%,
-                #ef4444 var(--slider-percent, 60%),
-                #d1d5db var(--slider-percent, 60%),
-                #d1d5db 100%);
-        }
-        .threshold-slider.value input[type="range"] {
-            background: linear-gradient(to right,
-                #10b981 0%,
-                #10b981 var(--slider-percent, 50%),
-                #d1d5db var(--slider-percent, 50%),
-                #d1d5db 100%);
-        }
-        .threshold-slider input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            cursor: grab;
-            border: 2px solid white;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-        }
-        .threshold-slider.heat input[type="range"]::-webkit-slider-thumb {
-            background: #ef4444;
-        }
-        .threshold-slider.value input[type="range"]::-webkit-slider-thumb {
-            background: #10b981;
-        }
-        .threshold-value {
-            font-size: 11px;
-            color: var(--text-secondary);
-            text-align: center;
-            margin-top: 4px;
-        }
-        .dreams-metric-card.with-slider {
-            min-width: 120px;
-        }
+        /* (Old threshold slider CSS removed — replaced by .sl-slider) */
 
         /* Empty state */
         .empty-state {
@@ -810,62 +781,53 @@
         {% endfor %}
     </div>
 
-    <!-- Metrics Cards -->
-    <div class="dreams-metrics">
-        <div class="dreams-metric-card highlight" onclick="window.location.href='/contacts'" style="cursor: pointer;">
-            <div class="dreams-metric-label">Total Contacts</div>
-            <div class="dreams-metric-value">{{ stats.total }}</div>
-        </div>
-        <div class="dreams-metric-card with-slider {% if selected_filter == 'hot_leads' %}active{% endif %}" id="hotLeadsCard">
-            <div class="dreams-metric-label">Hot Leads (<span id="heatThresholdLabel">60</span>+)</div>
-            <div class="dreams-metric-value" style="color: #ef4444;" id="hotLeadsCount">{{ stats.hot }}</div>
-            <div class="threshold-slider heat">
-                <input type="range" id="heatSlider" min="0" max="100" value="60" oninput="updateHeatThreshold(this.value)">
-                <div class="threshold-value">Threshold: <span id="heatSliderValue">60</span></div>
+    <!-- Smart List Cards -->
+    <div class="smart-list-row">
+        <div class="sl-card new-leads" id="slNewLeads" onclick="toggleSlFilter(this, 'new_leads')">
+            <div class="sl-card-label">New Leads (<span id="slNewDaysLabel">7</span>d)</div>
+            <div class="sl-card-count" id="slNewCount">{{ smart_lists.new_leads|length }}</div>
+            <div class="sl-card-cadence">daily</div>
+            <div class="sl-slider" onclick="event.stopPropagation()">
+                <input type="range" id="slNewDaysSlider" min="1" max="30" value="7" oninput="updateSmartListThresholds()">
+                <div class="sl-slider-label">Days: <span id="slNewDaysVal">7</span></div>
             </div>
         </div>
-        <div class="dreams-metric-card with-slider {% if selected_filter == 'high_value' %}active{% endif %}" id="highValueCard">
-            <div class="dreams-metric-label">High Value (<span id="valueThresholdLabel">50</span>+)</div>
-            <div class="dreams-metric-value" style="color: #10b981;" id="highValueCount">{{ stats.high_value }}</div>
-            <div class="threshold-slider value">
-                <input type="range" id="valueSlider" min="0" max="100" value="50" oninput="updateValueThreshold(this.value)">
-                <div class="threshold-value">Threshold: <span id="valueSliderValue">50</span></div>
+        <div class="sl-card hot" id="slHot" onclick="toggleSlFilter(this, 'hot')">
+            <div class="sl-card-label">Hot (<span id="slHotLabel">70</span>+)</div>
+            <div class="sl-card-count" id="slHotCount">{{ smart_lists.hot|length }}</div>
+            <div class="sl-card-cadence">weekly</div>
+            <div class="sl-slider" onclick="event.stopPropagation()">
+                <input type="range" id="slHotSlider" min="0" max="100" value="70" oninput="updateSmartListThresholds()">
+                <div class="sl-slider-label">Heat: <span id="slHotVal">70</span></div>
             </div>
         </div>
-        <div class="dreams-metric-card clickable {% if selected_filter == 'active_week' %}active{% endif %}" onclick="applyQuickFilter('active_week')">
-            <div class="dreams-metric-label">Active This Week</div>
-            <div class="dreams-metric-value">{{ stats.active_week }}</div>
+        <div class="sl-card warm" id="slWarm" onclick="toggleSlFilter(this, 'warm')">
+            <div class="sl-card-label">Warm (<span id="slWarmLabel">40</span>+)</div>
+            <div class="sl-card-count" id="slWarmCount">{{ smart_lists.warm|length }}</div>
+            <div class="sl-card-cadence">monthly</div>
+            <div class="sl-slider" onclick="event.stopPropagation()">
+                <input type="range" id="slWarmSlider" min="0" max="100" value="40" oninput="updateSmartListThresholds()">
+                <div class="sl-slider-label">Heat: <span id="slWarmVal">40</span></div>
+            </div>
         </div>
-        <div class="dreams-metric-card">
-            <div class="dreams-metric-label">Avg Priority</div>
-            <div class="dreams-metric-value">{{ stats.avg_priority }}</div>
+        <div class="sl-card cool" id="slCool" onclick="toggleSlFilter(this, 'cool')">
+            <div class="sl-card-label">Cool (<span id="slCoolLabel">10</span>+)</div>
+            <div class="sl-card-count" id="slCoolCount">{{ smart_lists.cool|length }}</div>
+            <div class="sl-card-cadence">quarterly</div>
+            <div class="sl-slider" onclick="event.stopPropagation()">
+                <input type="range" id="slCoolSlider" min="0" max="100" value="10" oninput="updateSmartListThresholds()">
+                <div class="sl-slider-label">Heat: <span id="slCoolVal">10</span></div>
+            </div>
         </div>
-        <div class="dreams-metric-card">
-            <div class="dreams-metric-label">High Intent (4+)</div>
-            <div class="dreams-metric-value" style="color: #8b5cf6;">{{ stats.high_intent }}</div>
-        </div>
-    </div>
-
-    <!-- Smart List Pills -->
-    <div class="smart-list-bar">
-        <span class="smart-list-bar-label">Smart Lists</span>
-        <a href="/smart-lists" class="smart-list-pill new-leads" title="New Leads (daily)">
-            New Leads <span class="pill-count" id="sl-new-leads">{{ smart_lists.new_leads|length }}</span>
+        <a href="/smart-lists" class="sl-card unresponsive" style="text-decoration:none;">
+            <div class="sl-card-label">Unresponsive</div>
+            <div class="sl-card-count">{{ smart_lists.unresponsive|length }}</div>
+            <div class="sl-card-cadence">biweekly</div>
         </a>
-        <a href="/smart-lists" class="smart-list-pill hot" title="Hot (weekly)">
-            Hot <span class="pill-count" id="sl-hot">{{ smart_lists.hot|length }}</span>
-        </a>
-        <a href="/smart-lists" class="smart-list-pill warm" title="Warm (monthly)">
-            Warm <span class="pill-count" id="sl-warm">{{ smart_lists.warm|length }}</span>
-        </a>
-        <a href="/smart-lists" class="smart-list-pill cool" title="Cool (quarterly)">
-            Cool <span class="pill-count" id="sl-cool">{{ smart_lists.cool|length }}</span>
-        </a>
-        <a href="/smart-lists" class="smart-list-pill unresponsive" title="Unresponsive (biweekly)">
-            Unresponsive <span class="pill-count" id="sl-unresponsive">{{ smart_lists.unresponsive|length }}</span>
-        </a>
-        <a href="/smart-lists" class="smart-list-pill timeframe-empty" title="Timeframe Empty">
-            TF Empty <span class="pill-count" id="sl-tf-empty">{{ smart_lists.timeframe_empty|length }}</span>
+        <a href="/smart-lists" class="sl-card tf-empty" style="text-decoration:none;">
+            <div class="sl-card-label">TF Empty</div>
+            <div class="sl-card-count">{{ smart_lists.timeframe_empty|length }}</div>
+            <div class="sl-card-cadence">as needed</div>
         </a>
     </div>
 
@@ -965,7 +927,7 @@
                 <tbody>
                     {% for contact in contacts %}
                     {% set days_inactive = contact.days_since_activity or 999 %}
-                    <tr data-heat="{{ contact.heat_score or 0 }}" data-value="{{ contact.value_score or 0 }}" data-days="{{ days_inactive }}">
+                    <tr data-heat="{{ contact.heat_score or 0 }}" data-value="{{ contact.value_score or 0 }}" data-days="{{ days_inactive }}" data-rel="{{ contact.relationship_score or 0 }}" data-stage="{{ contact.stage or '' }}">
                         <td class="row-num">{{ loop.index }}</td>
                         <td>
                             <a href="/contacts/{{ contact.id }}" class="contact-name">
@@ -1294,15 +1256,6 @@
             window.location.search = params.toString();
         }
 
-        function applyQuickFilter(filterType) {
-            const currentFilter = '{{ selected_filter }}';
-            if (currentFilter === filterType) {
-                window.location.href = '/contacts?tab=contacts';
-            } else {
-                window.location.href = '/contacts?filter=' + filterType + '&tab=contacts';
-            }
-        }
-
         // Search functionality
         const searchInput = document.getElementById('searchInput');
         const clearBtn = document.getElementById('clearSearch');
@@ -1356,69 +1309,109 @@
             }
         });
 
-        // Threshold sliders
-        let heatThreshold = 60;
-        let valueThreshold = 50;
-        const heatSlider = document.getElementById('heatSlider');
-        const valueSlider = document.getElementById('valueSlider');
+        // Smart List slider logic
+        // Contact scores for dynamic recounting (all contacts, not just filtered view)
+        const allContactScores = {{ contact_scores | tojson }}.map(c => ({
+            heat: c.heat_score || 0,
+            rel: c.relationship_score || 0,
+            stage: c.stage || '',
+            days: c.days_since_activity || 999,
+            created: c.created_at || ''
+        }));
 
-        function updateSliderTrack(slider, value) {
-            slider.style.setProperty('--slider-percent', value + '%');
+        function daysSinceCreated(createdAt) {
+            if (!createdAt) return 999;
+            const created = new Date(createdAt);
+            const now = new Date();
+            return Math.floor((now - created) / (1000 * 60 * 60 * 24));
         }
 
-        function updateHeatThreshold(value) {
-            heatThreshold = parseInt(value);
-            document.getElementById('heatThresholdLabel').textContent = value;
-            document.getElementById('heatSliderValue').textContent = value;
-            updateSliderTrack(heatSlider, value);
-            updateCounts();
-            applyThresholdFilter();
+        function updateSliderPct(slider, pct) {
+            slider.style.setProperty('--slider-pct', pct + '%');
         }
 
-        function updateValueThreshold(value) {
-            valueThreshold = parseInt(value);
-            document.getElementById('valueThresholdLabel').textContent = value;
-            document.getElementById('valueSliderValue').textContent = value;
-            updateSliderTrack(valueSlider, value);
-            updateCounts();
-            applyThresholdFilter();
+        function updateSmartListThresholds() {
+            const newDays = parseInt(document.getElementById('slNewDaysSlider').value);
+            const hotMin = parseInt(document.getElementById('slHotSlider').value);
+            const warmMin = parseInt(document.getElementById('slWarmSlider').value);
+            const coolMin = parseInt(document.getElementById('slCoolSlider').value);
+
+            // Update labels
+            document.getElementById('slNewDaysLabel').textContent = newDays;
+            document.getElementById('slNewDaysVal').textContent = newDays;
+            document.getElementById('slHotLabel').textContent = hotMin;
+            document.getElementById('slHotVal').textContent = hotMin;
+            document.getElementById('slWarmLabel').textContent = warmMin;
+            document.getElementById('slWarmVal').textContent = warmMin;
+            document.getElementById('slCoolLabel').textContent = coolMin;
+            document.getElementById('slCoolVal').textContent = coolMin;
+
+            // Update slider track fills
+            updateSliderPct(document.getElementById('slNewDaysSlider'), (newDays / 30) * 100);
+            updateSliderPct(document.getElementById('slHotSlider'), hotMin);
+            updateSliderPct(document.getElementById('slWarmSlider'), warmMin);
+            updateSliderPct(document.getElementById('slCoolSlider'), coolMin);
+
+            // Recount from all contacts
+            let newCount = 0, hotCount = 0, warmCount = 0, coolCount = 0;
+            for (const c of allContactScores) {
+                if (['Trash', 'Closed', 'Past Client', 'DNC', 'Agents/Vendors/Lendors'].includes(c.stage)) continue;
+                const createdDays = daysSinceCreated(c.created);
+                if (c.stage === 'Lead' && createdDays <= newDays) newCount++;
+                if (c.heat >= hotMin) hotCount++;
+                if (c.heat >= warmMin && c.heat < hotMin) warmCount++;
+                if (c.heat >= coolMin && c.heat < warmMin) coolCount++;
+            }
+
+            document.getElementById('slNewCount').textContent = newCount;
+            document.getElementById('slHotCount').textContent = hotCount;
+            document.getElementById('slWarmCount').textContent = warmCount;
+            document.getElementById('slCoolCount').textContent = coolCount;
+
+            // If a filter is active, re-apply it
+            applySlFilter();
         }
 
-        updateSliderTrack(heatSlider, heatSlider.value);
-        updateSliderTrack(valueSlider, valueSlider.value);
+        // Click a card to filter the contacts table to that list
+        let activeSlFilter = null;
 
-        function updateCounts() {
-            let hotCount = 0;
-            let highValueCount = 0;
-
-            rows.forEach(row => {
-                const heat = parseFloat(row.dataset.heat) || 0;
-                const value = parseFloat(row.dataset.value) || 0;
-
-                if (heat >= heatThreshold) hotCount++;
-                if (value >= valueThreshold) highValueCount++;
-            });
-
-            document.getElementById('hotLeadsCount').textContent = hotCount;
-            document.getElementById('highValueCount').textContent = highValueCount;
+        function toggleSlFilter(card, filterKey) {
+            const wasActive = card.classList.contains('active');
+            // Clear all
+            document.querySelectorAll('.sl-card').forEach(c => c.classList.remove('active'));
+            if (wasActive) {
+                activeSlFilter = null;
+                resetSlFilter();
+            } else {
+                card.classList.add('active');
+                activeSlFilter = filterKey;
+                applySlFilter();
+            }
         }
 
-        function applyThresholdFilter() {
-            const hotCard = document.getElementById('hotLeadsCard');
-            const valueCard = document.getElementById('highValueCard');
-            const hotActive = hotCard.classList.contains('active');
-            const valueActive = valueCard.classList.contains('active');
-
-            if (!hotActive && !valueActive) return;
+        function applySlFilter() {
+            if (!activeSlFilter) return;
+            const newDays = parseInt(document.getElementById('slNewDaysSlider').value);
+            const hotMin = parseInt(document.getElementById('slHotSlider').value);
+            const warmMin = parseInt(document.getElementById('slWarmSlider').value);
+            const coolMin = parseInt(document.getElementById('slCoolSlider').value);
 
             let visibleCount = 0;
-            rows.forEach((row, index) => {
+            rows.forEach(row => {
                 const heat = parseFloat(row.dataset.heat) || 0;
-                const value = parseFloat(row.dataset.value) || 0;
+                const days = parseFloat(row.dataset.days) || 999;
+                const stage = row.dataset.stage || '';
+                let show = false;
 
-                let show = true;
-                if (hotActive && heat < heatThreshold) show = false;
-                if (valueActive && value < valueThreshold) show = false;
+                if (activeSlFilter === 'new_leads') {
+                    show = stage === 'Lead' && days <= newDays;
+                } else if (activeSlFilter === 'hot') {
+                    show = heat >= hotMin;
+                } else if (activeSlFilter === 'warm') {
+                    show = heat >= warmMin && heat < hotMin;
+                } else if (activeSlFilter === 'cool') {
+                    show = heat >= coolMin && heat < warmMin;
+                }
 
                 row.style.display = show ? '' : 'none';
                 if (show) {
@@ -1426,27 +1419,10 @@
                     row.querySelector('.row-num').textContent = visibleCount;
                 }
             });
-
             visibleCountEl.textContent = visibleCount;
         }
 
-        document.getElementById('hotLeadsCard').addEventListener('click', function(e) {
-            if (e.target.type === 'range') return;
-            this.classList.toggle('active');
-            document.getElementById('highValueCard').classList.remove('active');
-            applyThresholdFilter();
-            if (!this.classList.contains('active')) resetFilter();
-        });
-
-        document.getElementById('highValueCard').addEventListener('click', function(e) {
-            if (e.target.type === 'range') return;
-            this.classList.toggle('active');
-            document.getElementById('hotLeadsCard').classList.remove('active');
-            applyThresholdFilter();
-            if (!this.classList.contains('active')) resetFilter();
-        });
-
-        function resetFilter() {
+        function resetSlFilter() {
             let visibleCount = 0;
             rows.forEach((row, index) => {
                 row.style.display = '';
@@ -1456,7 +1432,8 @@
             visibleCountEl.textContent = visibleCount;
         }
 
-        updateCounts();
+        // Initialize slider tracks
+        updateSmartListThresholds();
 
         // Column sorting
         let currentSort = { column: null, direction: null };
