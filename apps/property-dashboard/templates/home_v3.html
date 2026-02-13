@@ -171,9 +171,31 @@
             flex-shrink: 0;
         }
         .away-icon.activity { background: #eff6ff; color: #2563eb; }
+        .away-icon.favorited { background: #fefce8; color: #ca8a04; }
+        .away-icon.shared { background: #fce7f3; color: #db2777; }
         .away-icon.price_drop { background: #f0fdf4; color: #16a34a; }
         .away-icon.going_cold { background: #fffbeb; color: #d97706; }
         .away-icon.new_lead { background: #faf5ff; color: #9333ea; }
+        .away-group-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 12px;
+            margin-bottom: 6px;
+            padding: 0 4px;
+        }
+        .away-group-header:first-child { margin-top: 0; }
+        .away-group-title {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            color: var(--text-secondary);
+        }
+        .away-group-count {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
         .away-text {
             font-size: 14px;
             color: var(--text-primary);
@@ -774,17 +796,17 @@
                     <div class="section-subtitle">Last 24 hours</div>
                 </div>
                 <div class="away-items">
-                    {% for item in narrative_items %}
-                    <div class="away-item">
-                        <div class="away-icon {{ item.category }}">
-                            {% if item.category == 'activity' %}&#128065;
-                            {% elif item.category == 'price_drop' %}&#128181;
-                            {% elif item.category == 'going_cold' %}&#129398;
-                            {% elif item.category == 'new_lead' %}&#128100;
-                            {% else %}&#128276;{% endif %}
-                        </div>
-                        <div class="away-text">{{ item.text }}</div>
+                    {% for group in narrative_items %}
+                    <div class="away-group-header">
+                        <div class="away-icon {{ group.css_class }}" style="width:28px;height:28px;font-size:13px;">{{ group.icon | safe }}</div>
+                        <div class="away-group-title">{{ group.title }}</div>
+                        <div class="away-group-count">({{ group.entries|length }})</div>
                     </div>
+                    {% for text in group.entries %}
+                    <div class="away-item">
+                        <div class="away-text">{{ text }}</div>
+                    </div>
+                    {% endfor %}
                     {% endfor %}
                 </div>
             </div>

@@ -424,35 +424,57 @@ def format_price_range(min_price: Optional[int], max_price: Optional[int]) -> st
 def generate_overnight_narrative(overnight_data: Dict[str, Any]) -> List[Dict[str, str]]:
     """
     Transform overnight data (activity highlights, price drops, going cold, new leads)
-    into human-readable narrative items for the "While You Were Away" section.
+    into grouped categories for the "While You Were Away" section.
 
-    Returns a list of dicts with: text, category, icon
+    Returns a list of group dicts, each with: title, icon, css_class, items[]
+    Groups with no items are omitted.
     """
-    items = []
+    groups = []
 
-    # Activity highlights (people who were active)
+    # Split activity highlights into sub-categories
+    viewed_items = []
+    favorited_items = []
+    shared_items = []
+
     for highlight in overnight_data.get('activity_highlights', []):
         name = highlight.get('name', 'Someone')
-        visits = highlight.get('visits', 0)
         views = highlight.get('views', 0)
         favs = highlight.get('favorites', 0)
+        shares = highlight.get('shares', 0)
 
-        parts = []
-        if visits > 0:
-            parts.append(f"visited {visits} time{'s' if visits > 1 else ''}")
         if views > 0:
-            parts.append(f"viewed {views} propert{'ies' if views > 1 else 'y'}")
+            viewed_items.append(f"{name} — {views} propert{'ies' if views > 1 else 'y'}")
         if favs > 0:
-            parts.append(f"favorited {favs} propert{'ies' if favs > 1 else 'y'}")
+            favorited_items.append(f"{name} — {favs} propert{'ies' if favs > 1 else 'y'}")
+        if shares > 0:
+            shared_items.append(f"{name} — {shares} propert{'ies' if shares > 1 else 'y'}")
 
-        if parts:
-            items.append({
-                'text': f"{name} {' and '.join(parts)}.",
-                'category': 'activity',
-                'icon': 'eye',
-            })
+    if viewed_items:
+        groups.append({
+            'title': 'Viewed Properties',
+            'icon': '&#128065;',
+            'css_class': 'activity',
+            'entries': viewed_items,
+        })
 
-    # Price drops matched to buyers
+    if favorited_items:
+        groups.append({
+            'title': 'Saved Properties',
+            'icon': '&#11088;',
+            'css_class': 'favorited',
+            'entries': favorited_items,
+        })
+
+    if shared_items:
+        groups.append({
+            'title': 'Shared Properties',
+            'icon': '&#128228;',
+            'css_class': 'shared',
+            'entries': shared_items,
+        })
+
+    # Price drops
+    price_items = []
     for drop in overnight_data.get('price_drops', []):
         address = drop.get('property_address', 'A property')
         new_price = drop.get('new_value')
@@ -466,27 +488,36 @@ def generate_overnight_narrative(overnight_data: Dict[str, Any]) -> List[Dict[st
             except (ValueError, TypeError):
                 pass
 
-        text = f"Price drop: {address}{price_text}."
+        text = f"{address}{price_text}"
         if buyer_match:
-            text += f" Matches buyer {buyer_match}."
+            text += f" — matches {buyer_match}"
+        price_items.append(text)
 
-        items.append({
-            'text': text,
-            'category': 'price_drop',
-            'icon': 'trending-down',
+    if price_items:
+        groups.append({
+            'title': 'Price Drops',
+            'icon': '&#128181;',
+            'css_class': 'price_drop',
+            'entries': price_items,
         })
 
     # Going cold
+    cold_items = []
     for cold in overnight_data.get('going_cold', []):
         name = f"{cold.get('first_name', '')} {cold.get('last_name', '')}".strip()
         days = cold.get('days_since_activity', '?')
-        items.append({
-            'text': f"Going cold: {name}, {days} days since last contact.",
-            'category': 'going_cold',
-            'icon': 'thermometer',
+        cold_items.append(f"{name} — {days} days inactive")
+
+    if cold_items:
+        groups.append({
+            'title': 'Going Cold',
+            'icon': '&#129398;',
+            'css_class': 'going_cold',
+            'entries': cold_items,
         })
 
     # New leads
+    lead_items = []
     for lead in overnight_data.get('new_leads', []):
         name = f"{lead.get('first_name', '')} {lead.get('last_name', '')}".strip()
         source = lead.get('source', 'website')
@@ -509,15 +540,17 @@ def generate_overnight_narrative(overnight_data: Dict[str, Any]) -> List[Dict[st
             except (ValueError, TypeError):
                 pass
 
-        text = f"New lead: {name} from {source}"
+        text = f"{name} from {source}"
         if hours_ago:
             text += f", {hours_ago}"
-        text += "."
+        lead_items.append(text)
 
-        items.append({
-            'text': text,
-            'category': 'new_lead',
-            'icon': 'user-plus',
+    if lead_items:
+        groups.append({
+            'title': 'New Leads',
+            'icon': '&#128100;',
+            'css_class': 'new_lead',
+            'entries': lead_items,
         })
 
-    return items
+    return groups

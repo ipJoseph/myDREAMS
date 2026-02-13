@@ -6654,16 +6654,17 @@ class DREAMSDatabase:
                     l.fub_id,
                     SUM(CASE WHEN ce.event_type = 'website_visit' THEN 1 ELSE 0 END) AS visits,
                     SUM(CASE WHEN ce.event_type = 'property_view' THEN 1 ELSE 0 END) AS views,
-                    SUM(CASE WHEN ce.event_type = 'property_favorite' THEN 1 ELSE 0 END) AS favorites
+                    SUM(CASE WHEN ce.event_type = 'property_favorite' THEN 1 ELSE 0 END) AS favorites,
+                    SUM(CASE WHEN ce.event_type = 'property_share' THEN 1 ELSE 0 END) AS shares
                 FROM contact_events ce
                 JOIN leads l ON CAST(l.fub_id AS TEXT) = ce.contact_id
                 WHERE ce.occurred_at >= ?
                 AND l.contact_group = 'scored'
                 {user_filter_l}
                 GROUP BY l.id
-                HAVING views > 0 OR favorites > 0
-                ORDER BY (views + favorites * 2) DESC
-                LIMIT 8
+                HAVING views > 0 OR favorites > 0 OR shares > 0
+                ORDER BY (views + favorites * 2 + shares * 3) DESC
+                LIMIT 15
             ''', [cutoff] + user_params).fetchall()
 
             activity_highlights = [dict(row) for row in activity_rows]
