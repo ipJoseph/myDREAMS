@@ -71,6 +71,7 @@ Last updated: January 23, 2026 (Admin Settings page added)
 | # | Task | Status | Category | Notes |
 |---|------|--------|----------|-------|
 | 21 | **Add test suite** | Pending | Tech Debt | `/tests/` directory is empty - no tests |
+| 31 | **Settings page test plan** | Pending | Tech Debt | Develop comprehensive test plan for the new Settings page (env vars, DB settings, secret masking, collapsible sections, save flow, category mapping) |
 | 22 | **Zillow scraper fix** | Pending | Tech Debt | Code exists but blocked by site |
 | 23 | **Realtor.com scraper** | DONE | Tech Debt | Dedicated scraper with __NEXT_DATA__ + DOM extraction |
 | 24 | **Standardize error handling** | Pending | Tech Debt | Inconsistent patterns across apps |

@@ -217,12 +217,12 @@
             <div class="dreams-metric-value">{{ "${:,.0f}".format(metrics.median_price) if metrics.median_price else 'N/A' }}</div>
         </div>
         <div class="dreams-metric-card">
-            <div class="dreams-metric-label">Avg $/SqFt</div>
-            <div class="dreams-metric-value">{{ "${:,.0f}".format(metrics.avg_price_per_sqft) if metrics.avg_price_per_sqft else 'N/A' }}</div>
-        </div>
-        <div class="dreams-metric-card">
             <div class="dreams-metric-label">Avg Size</div>
             <div class="dreams-metric-value">{{ "{:,.0f}".format(metrics.avg_sqft) if metrics.avg_sqft else 'N/A' }} ft</div>
+        </div>
+        <div class="dreams-metric-card">
+            <div class="dreams-metric-label">Avg $/SqFt</div>
+            <div class="dreams-metric-value">{{ "${:,.0f}".format(metrics.avg_price_per_sqft) if metrics.avg_price_per_sqft else 'N/A' }}</div>
         </div>
         <div class="dreams-metric-card">
             <div class="dreams-metric-label">Avg DOM</div>

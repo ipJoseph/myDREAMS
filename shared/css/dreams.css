@@ -184,15 +184,17 @@ body {
    ============================================ */
 .dreams-metrics {
     padding: var(--space-lg);
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    display: flex;
+    flex-wrap: wrap;
     gap: var(--space-md);
 }
 
 .dreams-metric-card {
+    flex: 1 1 0;
+    min-width: 110px;
     background: var(--bg-surface);
     border-radius: var(--border-radius-lg);
-    padding: 20px;
+    padding: 16px 12px;
     text-align: center;
     box-shadow: var(--shadow-sm);
 }
@@ -203,16 +205,18 @@ body {
 }
 
 .dreams-metric-label {
-    font-size: var(--font-size-xs);
+    font-size: clamp(9px, 1.2vw, var(--font-size-xs));
     text-transform: uppercase;
     letter-spacing: 0.5px;
     opacity: 0.7;
     margin-bottom: var(--space-sm);
+    white-space: nowrap;
 }
 
 .dreams-metric-value {
-    font-size: 26px;
+    font-size: clamp(16px, 2.4vw, 26px);
     font-weight: 700;
+    white-space: nowrap;
 }
 
 .dreams-metric-card.highlight .dreams-metric-value {
@@ -702,7 +706,12 @@ body {
    ============================================ */
 @media (max-width: 768px) {
     .dreams-metrics {
-        grid-template-columns: repeat(2, 1fr);
+        flex-wrap: wrap;
+    }
+
+    .dreams-metric-card {
+        flex: 1 1 calc(50% - var(--space-md));
+        min-width: calc(50% - var(--space-md));
     }
 
     .dreams-filters {
