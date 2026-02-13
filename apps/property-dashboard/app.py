@@ -3325,29 +3325,312 @@ def property_changes():
 
 
 # ==========================================
+# Settings Registry & Helpers
+# ==========================================
+
+# Category definitions: slug -> (icon, label, description)
+SETTINGS_CATEGORIES = [
+    ('fub', '👥', 'Follow Up Boss', 'CRM connection and API settings'),
+    ('email', '📨', 'Email & Notifications', 'SMTP, alerts, and report settings'),
+    ('scoring', '🎯', 'Scoring & Priority', 'Heat, recency, priority, and call list weights'),
+    ('integrations', '🔗', 'Integrations', 'Notion, Google Sheets, Apify, and other services'),
+    ('scraping', '🕷', 'Web Scraping & Proxy', 'ScraperAPI, Browserless, and proxy configuration'),
+    ('idx', '🏠', 'IDX Site', 'IDX website credentials'),
+    ('task_sync', '☑', 'Task Sync', 'Todoist and FUB polling configuration'),
+    ('linear', '🔧', 'Linear Sync', 'Linear project management integration'),
+    ('performance', '⚡', 'Performance', 'Request throttling, caching, and parallelism'),
+    ('exclusions', '🚫', 'Exclusions', 'Contacts and emails excluded from scoring'),
+    ('agent_info', '👤', 'Agent Info', 'Agent and brokerage details'),
+    ('system', '🔒', 'System & Security', 'Environment, auth, database, and CORS'),
+    ('automation', None, 'Automation Rules', None),  # Special: link-only
+]
+
+# Registry of all .env settings to display
+# Each entry: key, label, description, category slug, value_type, is_secret, default
+ENV_SETTINGS_REGISTRY = [
+    # --- Follow Up Boss ---
+    {'key': 'FUB_API_KEY', 'label': 'API Key', 'description': 'Follow Up Boss API key for data sync',
+     'category': 'fub', 'value_type': 'string', 'is_secret': True, 'default': ''},
+    {'key': 'FUB_BASE_URL', 'label': 'API Base URL', 'description': 'FUB REST API endpoint',
+     'category': 'fub', 'value_type': 'string', 'is_secret': False, 'default': 'https://api.followupboss.com/v1'},
+    {'key': 'FUB_APP_URL', 'label': 'App URL', 'description': 'FUB web app URL for deep links',
+     'category': 'fub', 'value_type': 'string', 'is_secret': False, 'default': ''},
+    {'key': 'FUB_MY_USER_ID', 'label': 'My User ID', 'description': 'Your FUB user ID for "My Leads" filtering',
+     'category': 'fub', 'value_type': 'string', 'is_secret': False, 'default': ''},
+
+    # --- Email & Notifications ---
+    {'key': 'SMTP_ENABLED', 'label': 'SMTP Enabled', 'description': 'Enable outbound email notifications',
+     'category': 'email', 'value_type': 'string', 'is_secret': False, 'default': 'false'},
+    {'key': 'SMTP_SERVER', 'label': 'SMTP Server', 'description': 'Mail server hostname',
+     'category': 'email', 'value_type': 'string', 'is_secret': False, 'default': ''},
+    {'key': 'SMTP_PORT', 'label': 'SMTP Port', 'description': 'Mail server port (587 for TLS)',
+     'category': 'email', 'value_type': 'string', 'is_secret': False, 'default': '587'},
+    {'key': 'SMTP_USERNAME', 'label': 'SMTP Username', 'description': 'Email account username',
+     'category': 'email', 'value_type': 'string', 'is_secret': False, 'default': ''},
+    {'key': 'SMTP_PASSWORD', 'label': 'SMTP Password', 'description': 'Email account password or app password',
+     'category': 'email', 'value_type': 'string', 'is_secret': True, 'default': ''},
+    {'key': 'EMAIL_TO', 'label': 'Recipient Email', 'description': 'Default email recipient for reports and alerts',
+     'category': 'email', 'value_type': 'string', 'is_secret': False, 'default': ''},
+    {'key': 'EMAIL_SUBJECT_PREFIX', 'label': 'Subject Prefix', 'description': 'Prefix for all outbound email subjects',
+     'category': 'email', 'value_type': 'string', 'is_secret': False, 'default': ''},
+
+    # --- Scoring & Priority ---
+    {'key': 'HEAT_WEIGHT_WEBSITE_VISIT', 'label': 'Website Visit Weight', 'description': 'Points per website visit event',
+     'category': 'scoring', 'value_type': 'string', 'is_secret': False, 'default': '1.5'},
+    {'key': 'HEAT_WEIGHT_PROPERTY_VIEWED', 'label': 'Property Viewed Weight', 'description': 'Points per property view',
+     'category': 'scoring', 'value_type': 'string', 'is_secret': False, 'default': '3.0'},
+    {'key': 'HEAT_WEIGHT_PROPERTY_FAVORITED', 'label': 'Property Favorited Weight', 'description': 'Points per property favorited',
+     'category': 'scoring', 'value_type': 'string', 'is_secret': False, 'default': '5.0'},
+    {'key': 'HEAT_WEIGHT_PROPERTY_SHARED', 'label': 'Property Shared Weight', 'description': 'Points per property shared',
+     'category': 'scoring', 'value_type': 'string', 'is_secret': False, 'default': '1.5'},
+    {'key': 'HEAT_WEIGHT_CALL_INBOUND', 'label': 'Inbound Call Weight', 'description': 'Points per inbound call',
+     'category': 'scoring', 'value_type': 'string', 'is_secret': False, 'default': '5.0'},
+    {'key': 'HEAT_WEIGHT_TEXT_INBOUND', 'label': 'Inbound Text Weight', 'description': 'Points per inbound text',
+     'category': 'scoring', 'value_type': 'string', 'is_secret': False, 'default': '3.0'},
+    {'key': 'RECENCY_BONUS_0_3_DAYS', 'label': 'Recency 0-3 Days', 'description': 'Bonus points for activity in last 3 days',
+     'category': 'scoring', 'value_type': 'string', 'is_secret': False, 'default': '25'},
+    {'key': 'RECENCY_BONUS_4_7_DAYS', 'label': 'Recency 4-7 Days', 'description': 'Bonus points for activity 4-7 days ago',
+     'category': 'scoring', 'value_type': 'string', 'is_secret': False, 'default': '15'},
+    {'key': 'RECENCY_BONUS_8_14_DAYS', 'label': 'Recency 8-14 Days', 'description': 'Bonus points for activity 8-14 days ago',
+     'category': 'scoring', 'value_type': 'string', 'is_secret': False, 'default': '10'},
+    {'key': 'RECENCY_BONUS_15_30_DAYS', 'label': 'Recency 15-30 Days', 'description': 'Bonus points for activity 15-30 days ago',
+     'category': 'scoring', 'value_type': 'string', 'is_secret': False, 'default': '5'},
+    {'key': 'PRIORITY_WEIGHT_HEAT', 'label': 'Heat Weight in Priority', 'description': 'Weight of heat score in priority calculation (0-1)',
+     'category': 'scoring', 'value_type': 'string', 'is_secret': False, 'default': '0.50'},
+    {'key': 'CALL_LIST_MIN_PRIORITY', 'label': 'Call List Min Priority', 'description': 'Minimum priority score to appear on call list',
+     'category': 'scoring', 'value_type': 'string', 'is_secret': False, 'default': '30'},
+
+    # --- Integrations ---
+    {'key': 'NOTION_API_KEY', 'label': 'Notion API Key', 'description': 'Notion integration token',
+     'category': 'integrations', 'value_type': 'string', 'is_secret': True, 'default': ''},
+    {'key': 'NOTION_PROPERTIES_DB_ID', 'label': 'Notion Properties DB', 'description': 'Notion database ID for properties',
+     'category': 'integrations', 'value_type': 'string', 'is_secret': False, 'default': ''},
+    {'key': 'GOOGLE_SERVICE_ACCOUNT_FILE', 'label': 'Google Service Account', 'description': 'Path to Google service account JSON file',
+     'category': 'integrations', 'value_type': 'string', 'is_secret': False, 'default': ''},
+    {'key': 'GOOGLE_SHEET_ID', 'label': 'Google Sheet ID', 'description': 'Target Google Sheets spreadsheet ID',
+     'category': 'integrations', 'value_type': 'string', 'is_secret': False, 'default': ''},
+    {'key': 'APIFY_TOKEN', 'label': 'Apify Token', 'description': 'Apify platform API token',
+     'category': 'integrations', 'value_type': 'string', 'is_secret': True, 'default': ''},
+
+    # --- Web Scraping & Proxy ---
+    {'key': 'SCRAPERAPI_KEY', 'label': 'ScraperAPI Key', 'description': 'ScraperAPI access key for web scraping',
+     'category': 'scraping', 'value_type': 'string', 'is_secret': True, 'default': ''},
+    {'key': 'BROWSERLESS_TOKEN', 'label': 'Browserless Token', 'description': 'Browserless.io API token for headless Chrome',
+     'category': 'scraping', 'value_type': 'string', 'is_secret': True, 'default': ''},
+    {'key': 'PROXY_HOST', 'label': 'Proxy Host', 'description': 'Residential proxy hostname',
+     'category': 'scraping', 'value_type': 'string', 'is_secret': False, 'default': ''},
+    {'key': 'PROXY_PORT', 'label': 'Proxy Port', 'description': 'Residential proxy port',
+     'category': 'scraping', 'value_type': 'string', 'is_secret': False, 'default': ''},
+    {'key': 'PROXY_USER', 'label': 'Proxy Username', 'description': 'Residential proxy auth username',
+     'category': 'scraping', 'value_type': 'string', 'is_secret': True, 'default': ''},
+    {'key': 'PROXY_PASS', 'label': 'Proxy Password', 'description': 'Residential proxy auth password',
+     'category': 'scraping', 'value_type': 'string', 'is_secret': True, 'default': ''},
+    {'key': 'FORCE_LOCAL_BROWSER', 'label': 'Force Local Browser', 'description': 'Skip Browserless and use local Chrome',
+     'category': 'scraping', 'value_type': 'string', 'is_secret': False, 'default': 'false'},
+    {'key': 'SKIP_PROXY', 'label': 'Skip Proxy', 'description': 'Bypass proxy (use direct connection)',
+     'category': 'scraping', 'value_type': 'string', 'is_secret': False, 'default': 'false'},
+
+    # --- IDX Site ---
+    {'key': 'IDX_EMAIL', 'label': 'IDX Email', 'description': 'IDX site login email',
+     'category': 'idx', 'value_type': 'string', 'is_secret': False, 'default': ''},
+    {'key': 'IDX_PHONE', 'label': 'IDX Phone', 'description': 'IDX site phone number',
+     'category': 'idx', 'value_type': 'string', 'is_secret': False, 'default': ''},
+
+    # --- Task Sync ---
+    {'key': 'TODOIST_API_TOKEN', 'label': 'Todoist API Token', 'description': 'Todoist personal API token',
+     'category': 'task_sync', 'value_type': 'string', 'is_secret': True, 'default': ''},
+    {'key': 'TASK_SYNC_ENV', 'label': 'Task Sync Environment', 'description': 'Task sync environment (dev/prd)',
+     'category': 'task_sync', 'value_type': 'string', 'is_secret': False, 'default': 'dev'},
+    {'key': 'FUB_POLL_INTERVAL', 'label': 'FUB Poll Interval', 'description': 'Seconds between FUB polling cycles',
+     'category': 'task_sync', 'value_type': 'string', 'is_secret': False, 'default': '30'},
+    {'key': 'TODOIST_POLL_INTERVAL', 'label': 'Todoist Poll Interval', 'description': 'Seconds between Todoist polling cycles',
+     'category': 'task_sync', 'value_type': 'string', 'is_secret': False, 'default': '30'},
+    {'key': 'DEAL_CACHE_REFRESH', 'label': 'Deal Cache Refresh', 'description': 'Seconds between deal cache refreshes',
+     'category': 'task_sync', 'value_type': 'string', 'is_secret': False, 'default': '300'},
+
+    # --- Linear Sync ---
+    {'key': 'LINEAR_API_KEY', 'label': 'Linear API Key', 'description': 'Linear personal API key',
+     'category': 'linear', 'value_type': 'string', 'is_secret': True, 'default': ''},
+    {'key': 'LINEAR_SYNC_ENV', 'label': 'Linear Sync Environment', 'description': 'Linear sync environment (dev/prd)',
+     'category': 'linear', 'value_type': 'string', 'is_secret': False, 'default': 'dev'},
+    {'key': 'LINEAR_POLL_INTERVAL', 'label': 'Linear Poll Interval', 'description': 'Seconds between Linear polling cycles',
+     'category': 'linear', 'value_type': 'string', 'is_secret': False, 'default': '30'},
+    {'key': 'LINEAR_DEVELOP_TEAM_ID', 'label': 'Develop Team ID', 'description': 'Linear team ID for development tasks',
+     'category': 'linear', 'value_type': 'string', 'is_secret': False, 'default': ''},
+    {'key': 'LINEAR_TRANSACT_TEAM_ID', 'label': 'Transact Team ID', 'description': 'Linear team ID for transaction tasks',
+     'category': 'linear', 'value_type': 'string', 'is_secret': False, 'default': ''},
+    {'key': 'LINEAR_GENERAL_TEAM_ID', 'label': 'General Team ID', 'description': 'Linear team ID for general tasks',
+     'category': 'linear', 'value_type': 'string', 'is_secret': False, 'default': ''},
+    {'key': 'LINEAR_FUB_SYNCED_LABEL_ID', 'label': 'FUB Synced Label', 'description': 'Linear label ID for FUB-synced issues',
+     'category': 'linear', 'value_type': 'string', 'is_secret': False, 'default': ''},
+
+    # --- Performance ---
+    {'key': 'REQUEST_SLEEP_SECONDS', 'label': 'Request Sleep', 'description': 'Seconds to sleep between API requests',
+     'category': 'performance', 'value_type': 'string', 'is_secret': False, 'default': '0.2'},
+    {'key': 'DEFAULT_FETCH_LIMIT', 'label': 'Default Fetch Limit', 'description': 'Default number of records per API fetch',
+     'category': 'performance', 'value_type': 'string', 'is_secret': False, 'default': '100'},
+    {'key': 'MAX_PARALLEL_WORKERS', 'label': 'Max Parallel Workers', 'description': 'Max concurrent worker threads',
+     'category': 'performance', 'value_type': 'string', 'is_secret': False, 'default': '5'},
+    {'key': 'ENABLE_STAGE_SYNC', 'label': 'Enable Stage Sync', 'description': 'Sync lead stages from FUB',
+     'category': 'performance', 'value_type': 'string', 'is_secret': False, 'default': 'false'},
+    {'key': 'ENABLE_CACHE', 'label': 'Enable Cache', 'description': 'Enable in-memory caching',
+     'category': 'performance', 'value_type': 'string', 'is_secret': False, 'default': 'true'},
+    {'key': 'CACHE_MAX_AGE_MINUTES', 'label': 'Cache Max Age', 'description': 'Minutes before cached data expires',
+     'category': 'performance', 'value_type': 'string', 'is_secret': False, 'default': '30'},
+
+    # --- Exclusions ---
+    {'key': 'EXCLUDE_LEAD_IDS', 'label': 'Excluded Lead IDs', 'description': 'Comma-separated FUB contact IDs to exclude from scoring',
+     'category': 'exclusions', 'value_type': 'string', 'is_secret': False, 'default': ''},
+    {'key': 'EXCLUDE_EMAILS', 'label': 'Excluded Emails', 'description': 'Comma-separated email addresses to exclude',
+     'category': 'exclusions', 'value_type': 'string', 'is_secret': False, 'default': ''},
+
+    # --- Agent Info ---
+    {'key': 'AGENT_NAME', 'label': 'Agent Name', 'description': 'Agent display name',
+     'category': 'agent_info', 'value_type': 'string', 'is_secret': False, 'default': ''},
+    {'key': 'AGENT_EMAIL', 'label': 'Agent Email', 'description': 'Agent email address',
+     'category': 'agent_info', 'value_type': 'string', 'is_secret': False, 'default': ''},
+    {'key': 'AGENT_PHONE', 'label': 'Agent Phone', 'description': 'Agent phone number',
+     'category': 'agent_info', 'value_type': 'string', 'is_secret': False, 'default': ''},
+    {'key': 'BROKERAGE_NAME', 'label': 'Brokerage Name', 'description': 'Brokerage/team name',
+     'category': 'agent_info', 'value_type': 'string', 'is_secret': False, 'default': ''},
+
+    # --- System & Security ---
+    {'key': 'DREAMS_ENV', 'label': 'Environment', 'description': 'Runtime environment (dev/prd)',
+     'category': 'system', 'value_type': 'string', 'is_secret': False, 'default': 'dev'},
+    {'key': 'FLASK_DEBUG', 'label': 'Flask Debug Mode', 'description': 'Enable Flask debug mode (dev only)',
+     'category': 'system', 'value_type': 'string', 'is_secret': False, 'default': 'false'},
+    {'key': 'DREAMS_DB_PATH', 'label': 'Database Path', 'description': 'Path to SQLite database file',
+     'category': 'system', 'value_type': 'string', 'is_secret': False, 'default': 'data/dreams.db'},
+    {'key': 'DASHBOARD_USERNAME', 'label': 'Dashboard Username', 'description': 'Basic auth username for dashboard',
+     'category': 'system', 'value_type': 'string', 'is_secret': False, 'default': ''},
+    {'key': 'DASHBOARD_PASSWORD', 'label': 'Dashboard Password', 'description': 'Basic auth password for dashboard',
+     'category': 'system', 'value_type': 'string', 'is_secret': True, 'default': ''},
+    {'key': 'DREAMS_API_KEY', 'label': 'API Key', 'description': 'API authentication key for property-api',
+     'category': 'system', 'value_type': 'string', 'is_secret': True, 'default': ''},
+]
+
+
+def mask_secret(value):
+    """Mask a secret value, showing only last 4 chars."""
+    if not value:
+        return None
+    if len(value) <= 4:
+        return '••••'
+    return '••••••••' + value[-4:]
+
+
+# Map DB categories to page categories
+DB_CATEGORY_MAP = {
+    'alerts': 'email',
+    'reports': 'email',
+    'integrations': 'fub',
+    'general': 'system',
+    # 'automation' is excluded — it has its own dedicated page
+}
+
+
+def build_settings_page_data(db):
+    """
+    Build merged settings data from .env registry and DB settings.
+
+    Returns:
+        (categories, settings_by_category)
+        categories: ordered list of (slug, icon, label, description)
+        settings_by_category: dict of slug -> list of setting dicts
+    """
+    settings_by_category = {}
+
+    # 1. Populate env settings from registry
+    for entry in ENV_SETTINGS_REGISTRY:
+        cat = entry['category']
+        if cat not in settings_by_category:
+            settings_by_category[cat] = []
+
+        raw_value = os.getenv(entry['key'], '') or ''
+        display_value = mask_secret(raw_value) if entry['is_secret'] and raw_value else raw_value
+        is_set = bool(raw_value)
+
+        settings_by_category[cat].append({
+            'key': entry['key'],
+            'label': entry['label'],
+            'description': entry['description'],
+            'source': 'env',
+            'value_type': entry['value_type'],
+            'is_secret': entry['is_secret'],
+            'raw_value': raw_value,
+            'display_value': display_value,
+            'is_set': is_set,
+            'default': entry['default'],
+        })
+
+    # 2. Add DB settings, mapped to page categories
+    all_db_settings = db.get_all_settings()
+    for setting in all_db_settings:
+        db_cat = setting['category']
+        # Skip automation — has its own page
+        if db_cat == 'automation':
+            continue
+        page_cat = DB_CATEGORY_MAP.get(db_cat, db_cat)
+        if page_cat not in settings_by_category:
+            settings_by_category[page_cat] = []
+
+        # Build a friendly label from key
+        label = setting['key'].replace('_', ' ').title()
+        # Special labels for well-known keys
+        FRIENDLY_LABELS = {
+            'alerts_global_enabled': 'Master Alert Switch',
+            'new_listing_alerts_enabled': 'New Listing Alerts',
+            'new_listing_match_threshold': 'New Listing Match Threshold',
+            'alert_lookback_hours': 'Alert Lookback Period',
+            'max_properties_per_alert': 'Max Properties Per Alert Email',
+            'price_drop_alerts_enabled': 'Price Drop Alerts',
+            'price_drop_match_threshold': 'Price Drop Match Threshold',
+            'min_price_drop_pct': 'Min Price Drop Percentage',
+            'weekly_summary_enabled': 'Weekly Market Summary',
+            'monthly_report_enabled': 'Monthly Lead Report',
+            'fub_note_push_enabled': 'Push Matches to FUB Notes',
+        }
+        label = FRIENDLY_LABELS.get(setting['key'], label)
+
+        settings_by_category[page_cat].append({
+            'key': setting['key'],
+            'label': label,
+            'description': setting['description'],
+            'source': 'db',
+            'value_type': setting['value_type'],
+            'value': setting['value'],
+            'converted_value': setting['converted_value'],
+            'updated_at': setting.get('updated_at'),
+            'updated_by': setting.get('updated_by'),
+            'is_master': setting['key'] == 'alerts_global_enabled',
+        })
+
+    # 3. Return categories in defined order (skip empty ones and automation)
+    categories = []
+    for slug, icon, label, description in SETTINGS_CATEGORIES:
+        if slug == 'automation':
+            categories.append((slug, icon, label, description))
+        elif slug in settings_by_category:
+            categories.append((slug, icon, label, description))
+
+    return categories, settings_by_category
+
+
+# ==========================================
 # Admin Settings Routes
 # ==========================================
 
 @app.route('/admin/settings')
 @requires_auth
 def admin_settings():
-    """Admin settings page for configuring alert thresholds and automation."""
+    """Admin settings page — merged .env + DB settings, organized by category."""
     db = get_db()
-
-    # Get all settings grouped by category
-    all_settings = db.get_all_settings()
-
-    # Group settings by category
-    settings_by_category = {}
-    for setting in all_settings:
-        category = setting['category']
-        if category not in settings_by_category:
-            settings_by_category[category] = []
-        settings_by_category[category].append(setting)
+    categories, settings_by_category = build_settings_page_data(db)
 
     return render_template('admin_settings.html',
+                           categories=categories,
                            settings_by_category=settings_by_category,
-                           all_settings=all_settings)
+                           env_name=DREAMS_ENV)
 
 
 @app.route('/admin/settings', methods=['POST'])

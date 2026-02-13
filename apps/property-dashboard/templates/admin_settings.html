@@ -41,32 +41,109 @@
             border: 1px solid #fca5a5;
         }
 
+        /* Legend bar */
+        .settings-legend {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            padding: 12px 16px;
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .env-badge-pill {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .env-badge-dev {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .env-badge-prd {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
         .settings-section {
             background: white;
             border-radius: 12px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            margin-bottom: 24px;
+            margin-bottom: 16px;
             overflow: hidden;
         }
 
         .section-header {
             background: var(--bg-secondary);
-            padding: 16px 20px;
+            padding: 14px 20px;
             border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            user-select: none;
+            transition: background 0.15s;
+        }
+
+        .section-header:hover {
+            background: #e2e8f0;
+        }
+
+        .section-header-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
         .section-header h2 {
             margin: 0;
-            font-size: 16px;
+            font-size: 15px;
             font-weight: 600;
             color: var(--text-primary);
-            text-transform: capitalize;
         }
 
-        .section-description {
-            margin: 4px 0 0 0;
-            font-size: 13px;
-            color: var(--text-secondary);
+        .section-header .category-icon {
+            font-size: 18px;
+        }
+
+        .section-count {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            background: #e2e8f0;
+            padding: 2px 8px;
+            border-radius: 10px;
+            margin-left: 8px;
+        }
+
+        .section-chevron {
+            font-size: 14px;
+            color: var(--text-tertiary);
+            transition: transform 0.2s;
+        }
+
+        .section-body.collapsed {
+            display: none;
+        }
+
+        .section-header.collapsed .section-chevron {
+            transform: rotate(-90deg);
         }
 
         .settings-list {
@@ -77,7 +154,7 @@
             display: flex;
             align-items: flex-start;
             justify-content: space-between;
-            padding: 16px 20px;
+            padding: 14px 20px;
             border-bottom: 1px solid var(--border);
             gap: 24px;
         }
@@ -94,14 +171,17 @@
         .setting-label {
             font-weight: 500;
             color: var(--text-primary);
-            margin-bottom: 4px;
+            margin-bottom: 2px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
 
         .setting-key {
             font-family: monospace;
             font-size: 11px;
             color: var(--text-tertiary);
-            margin-bottom: 4px;
+            margin-bottom: 2px;
         }
 
         .setting-description {
@@ -114,6 +194,59 @@
             display: flex;
             align-items: center;
             gap: 8px;
+        }
+
+        /* Source badges */
+        .source-badge {
+            font-size: 10px;
+            padding: 1px 6px;
+            border-radius: 4px;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+        }
+
+        .source-badge-env {
+            background: #f1f5f9;
+            color: #64748b;
+            border: 1px solid #cbd5e1;
+        }
+
+        .source-badge-db {
+            background: #eff6ff;
+            color: #3b82f6;
+            border: 1px solid #bfdbfe;
+        }
+
+        .lock-icon {
+            color: #94a3b8;
+            font-size: 13px;
+        }
+
+        /* Env value display */
+        .env-value {
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 13px;
+            padding: 6px 10px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            color: var(--text-primary);
+            max-width: 280px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .env-value-unset {
+            color: #94a3b8;
+            font-style: italic;
+            background: transparent;
+            border-color: transparent;
+        }
+
+        .env-value-secret {
+            color: #64748b;
+            letter-spacing: 1px;
         }
 
         /* Toggle switch for booleans */
@@ -164,7 +297,21 @@
             transform: translateX(24px);
         }
 
-        /* Make toggle visible on dark master switch background */
+        /* Master switch styling */
+        .master-switch {
+            background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
+            color: white;
+        }
+
+        .master-switch .setting-label,
+        .master-switch .setting-description {
+            color: white;
+        }
+
+        .master-switch .setting-key {
+            color: rgba(255,255,255,0.6);
+        }
+
         .master-switch .toggle-slider {
             background-color: rgba(255,255,255,0.3);
             border-color: rgba(255,255,255,0.4);
@@ -173,6 +320,12 @@
         .master-switch input:checked + .toggle-slider {
             background-color: #22c55e;
             border-color: #22c55e;
+        }
+
+        .master-switch .source-badge {
+            background: rgba(255,255,255,0.15);
+            color: rgba(255,255,255,0.8);
+            border-color: rgba(255,255,255,0.3);
         }
 
         /* Number inputs */
@@ -223,29 +376,10 @@
             background: #1e3a5f;
         }
 
-        .master-switch {
-            background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
-            color: white;
-        }
-
-        .master-switch .setting-label,
-        .master-switch .setting-description {
-            color: white;
-        }
-
-        .master-switch .setting-key {
-            color: rgba(255,255,255,0.6);
-        }
-
         .last-updated {
             font-size: 11px;
             color: var(--text-tertiary);
             margin-top: 4px;
-        }
-
-        /* Category icons */
-        .category-icon {
-            margin-right: 8px;
         }
 
         /* Admin tabs */
@@ -284,6 +418,78 @@
             position: relative;
             z-index: 1;
         }
+
+        /* Automation callout card */
+        .automation-callout {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px;
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            border: 1px solid #bae6fd;
+            border-radius: 12px;
+            margin-bottom: 16px;
+            text-decoration: none;
+            color: inherit;
+            transition: box-shadow 0.15s, border-color 0.15s;
+        }
+
+        .automation-callout:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            border-color: #7dd3fc;
+        }
+
+        .automation-callout-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .automation-callout-icon {
+            font-size: 28px;
+        }
+
+        .automation-callout h3 {
+            margin: 0 0 4px;
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .automation-callout p {
+            margin: 0;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .automation-callout-arrow {
+            font-size: 20px;
+            color: #0ea5e9;
+        }
+
+        /* Expand/Collapse all */
+        .expand-collapse-bar {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .expand-collapse-bar button {
+            background: none;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 4px 12px;
+            font-size: 12px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .expand-collapse-bar button:hover {
+            background: #f1f5f9;
+            color: var(--text-primary);
+        }
     </style>
 {% set active_nav = 'admin' %}
 </head>
@@ -317,215 +523,131 @@
         </div>
         {% endif %}
 
+        <!-- Legend bar -->
+        <div class="settings-legend">
+            <span class="env-badge-pill {{ 'env-badge-prd' if env_name == 'prd' else 'env-badge-dev' }}">
+                {{ env_name | upper }}
+            </span>
+            <span class="legend-item">
+                <span class="lock-icon">&#128274;</span> Read-only (.env)
+            </span>
+            <span class="legend-item">
+                <span>&#9998;</span> Editable (database)
+            </span>
+        </div>
+
+        <!-- Expand/Collapse all -->
+        <div class="expand-collapse-bar">
+            <button type="button" onclick="expandAll()">Expand all</button>
+            <button type="button" onclick="collapseAll()">Collapse all</button>
+        </div>
+
         <form method="POST" action="{{ url_for('admin_settings_save') }}">
 
-            <!-- Alerts Section -->
-            {% if 'alerts' in settings_by_category %}
-            <div class="settings-section">
-                <div class="section-header">
-                    <h2><span class="category-icon">&#128276;</span> Alert Settings</h2>
-                    <p class="section-description">Configure new listing alerts and notifications</p>
-                </div>
-                <div class="settings-list">
-                    {% for setting in settings_by_category['alerts'] %}
-                    <div class="setting-item {% if setting.key == 'alerts_global_enabled' %}master-switch{% endif %}">
-                        <div class="setting-info">
-                            <div class="setting-label">
-                                {% if setting.key == 'alerts_global_enabled' %}
-                                    Enable All Alerts (Master Switch)
-                                {% elif setting.key == 'new_listing_alerts_enabled' %}
-                                    New Listing Alerts
-                                {% elif setting.key == 'new_listing_match_threshold' %}
-                                    Match Threshold
-                                {% elif setting.key == 'alert_lookback_hours' %}
-                                    Lookback Period
-                                {% elif setting.key == 'max_properties_per_alert' %}
-                                    Max Properties Per Email
-                                {% else %}
-                                    {{ setting.key | replace('_', ' ') | title }}
-                                {% endif %}
-                            </div>
-                            <div class="setting-key">{{ setting.key }}</div>
-                            <div class="setting-description">{{ setting.description }}</div>
-                            {% if setting.updated_at and setting.updated_by %}
-                            <div class="last-updated">
-                                Last updated: {{ setting.updated_at[:16] | replace('T', ' ') }} by {{ setting.updated_by }}
-                            </div>
-                            {% endif %}
-                        </div>
-                        <div class="setting-control">
-                            {% if setting.value_type == 'boolean' %}
-                            <label class="toggle-switch">
-                                <input type="checkbox" name="{{ setting.key }}" {% if setting.converted_value %}checked{% endif %}>
-                                <span class="toggle-slider"></span>
-                            </label>
-                            {% elif setting.value_type == 'integer' %}
-                            <input type="number" name="{{ setting.key }}" value="{{ setting.converted_value }}"
-                                   class="number-input" min="0"
-                                   {% if 'threshold' in setting.key %}max="100"{% endif %}>
-                            {% if 'threshold' in setting.key %}
-                            <span class="input-suffix">%</span>
-                            {% elif 'hours' in setting.key %}
-                            <span class="input-suffix">hours</span>
-                            {% endif %}
-                            {% elif setting.value_type == 'float' %}
-                            <input type="number" name="{{ setting.key }}" value="{{ setting.converted_value }}"
-                                   class="number-input" step="0.1" min="0">
-                            {% else %}
-                            <input type="text" name="{{ setting.key }}" value="{{ setting.value }}"
-                                   class="number-input" style="width: 200px; text-align: left;">
-                            {% endif %}
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-            {% endif %}
+            {% for slug, icon, label, description in categories %}
 
-            <!-- Reports Section -->
-            {% if 'reports' in settings_by_category %}
-            <div class="settings-section">
-                <div class="section-header">
-                    <h2><span class="category-icon">&#128200;</span> Report Settings</h2>
-                    <p class="section-description">Configure automated report generation</p>
-                </div>
-                <div class="settings-list">
-                    {% for setting in settings_by_category['reports'] %}
-                    <div class="setting-item">
-                        <div class="setting-info">
-                            <div class="setting-label">
-                                {% if setting.key == 'weekly_summary_enabled' %}
-                                    Weekly Market Summary
-                                {% elif setting.key == 'monthly_report_enabled' %}
-                                    Monthly Lead Report
-                                {% else %}
-                                    {{ setting.key | replace('_', ' ') | title }}
-                                {% endif %}
-                            </div>
-                            <div class="setting-key">{{ setting.key }}</div>
-                            <div class="setting-description">
-                                {{ setting.description }}
-                                {% if setting.key == 'weekly_summary_enabled' %}
-                                    (Runs Monday 6:30 AM)
-                                {% elif setting.key == 'monthly_report_enabled' %}
-                                    (Runs 1st of month 7:00 AM)
-                                {% endif %}
-                            </div>
-                            {% if setting.updated_at and setting.updated_by %}
-                            <div class="last-updated">
-                                Last updated: {{ setting.updated_at[:16] | replace('T', ' ') }} by {{ setting.updated_by }}
-                            </div>
-                            {% endif %}
-                        </div>
-                        <div class="setting-control">
-                            {% if setting.value_type == 'boolean' %}
-                            <label class="toggle-switch">
-                                <input type="checkbox" name="{{ setting.key }}" {% if setting.converted_value %}checked{% endif %}>
-                                <span class="toggle-slider"></span>
-                            </label>
-                            {% elif setting.value_type == 'integer' %}
-                            <input type="number" name="{{ setting.key }}" value="{{ setting.converted_value }}"
-                                   class="number-input" min="0">
-                            {% elif setting.value_type == 'float' %}
-                            <input type="number" name="{{ setting.key }}" value="{{ setting.converted_value }}"
-                                   class="number-input" step="0.1" min="0">
-                            {% else %}
-                            <input type="text" name="{{ setting.key }}" value="{{ setting.value }}"
-                                   class="number-input" style="width: 200px; text-align: left;">
-                            {% endif %}
+                {# Automation gets a special callout card, not a settings section #}
+                {% if slug == 'automation' %}
+                <a href="/admin/automation" class="automation-callout">
+                    <div class="automation-callout-left">
+                        <span class="automation-callout-icon">&#9889;</span>
+                        <div>
+                            <h3>Automation Rules</h3>
+                            <p>Configure rule triggers, thresholds, and cooldowns with specialized controls</p>
                         </div>
                     </div>
-                    {% endfor %}
-                </div>
-            </div>
-            {% endif %}
+                    <span class="automation-callout-arrow">&#8594;</span>
+                </a>
+                {% elif slug in settings_by_category %}
+                <div class="settings-section" id="section-{{ slug }}">
+                    <div class="section-header" onclick="toggleSection('{{ slug }}')" id="header-{{ slug }}">
+                        <div class="section-header-left">
+                            <span class="category-icon">{{ icon }}</span>
+                            <h2>{{ label }}</h2>
+                            <span class="section-count">{{ settings_by_category[slug] | length }}</span>
+                        </div>
+                        <span class="section-chevron" id="chevron-{{ slug }}">&#9660;</span>
+                    </div>
+                    <div class="section-body" id="body-{{ slug }}">
+                        <div class="settings-list">
+                            {% for setting in settings_by_category[slug] %}
 
-            <!-- Integrations Section -->
-            {% if 'integrations' in settings_by_category %}
-            <div class="settings-section">
-                <div class="section-header">
-                    <h2><span class="category-icon">&#128279;</span> Integration Settings</h2>
-                    <p class="section-description">Configure CRM and external service integrations</p>
-                </div>
-                <div class="settings-list">
-                    {% for setting in settings_by_category['integrations'] %}
-                    <div class="setting-item">
-                        <div class="setting-info">
-                            <div class="setting-label">
-                                {% if setting.key == 'fub_note_push_enabled' %}
-                                    Push Matched Properties to FUB
-                                {% else %}
-                                    {{ setting.key | replace('_', ' ') | title }}
-                                {% endif %}
+                            {# ---- ENV (read-only) setting ---- #}
+                            {% if setting.source == 'env' %}
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <div class="setting-label">
+                                        <span class="lock-icon">&#128274;</span>
+                                        {{ setting.label }}
+                                        <span class="source-badge source-badge-env">.env</span>
+                                    </div>
+                                    <div class="setting-key">{{ setting.key }}</div>
+                                    <div class="setting-description">{{ setting.description }}</div>
+                                </div>
+                                <div class="setting-control">
+                                    {% if not setting.is_set %}
+                                    <span class="env-value env-value-unset">(not set)</span>
+                                    {% elif setting.is_secret %}
+                                    <span class="env-value env-value-secret">{{ setting.display_value }}</span>
+                                    {% else %}
+                                    <span class="env-value">{{ setting.display_value }}</span>
+                                    {% endif %}
+                                </div>
                             </div>
-                            <div class="setting-key">{{ setting.key }}</div>
-                            <div class="setting-description">{{ setting.description }}</div>
-                            {% if setting.updated_at and setting.updated_by %}
-                            <div class="last-updated">
-                                Last updated: {{ setting.updated_at[:16] | replace('T', ' ') }} by {{ setting.updated_by }}
-                            </div>
-                            {% endif %}
-                        </div>
-                        <div class="setting-control">
-                            {% if setting.value_type == 'boolean' %}
-                            <label class="toggle-switch">
-                                <input type="checkbox" name="{{ setting.key }}" {% if setting.converted_value %}checked{% endif %}>
-                                <span class="toggle-slider"></span>
-                            </label>
-                            {% elif setting.value_type == 'integer' %}
-                            <input type="number" name="{{ setting.key }}" value="{{ setting.converted_value }}"
-                                   class="number-input" min="0">
-                            {% elif setting.value_type == 'float' %}
-                            <input type="number" name="{{ setting.key }}" value="{{ setting.converted_value }}"
-                                   class="number-input" step="0.1" min="0">
-                            {% else %}
-                            <input type="text" name="{{ setting.key }}" value="{{ setting.value }}"
-                                   class="number-input" style="width: 200px; text-align: left;">
-                            {% endif %}
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-            {% endif %}
 
-            <!-- General Section (if any) -->
-            {% if 'general' in settings_by_category %}
-            <div class="settings-section">
-                <div class="section-header">
-                    <h2><span class="category-icon">&#9881;</span> General Settings</h2>
-                    <p class="section-description">Other system settings</p>
-                </div>
-                <div class="settings-list">
-                    {% for setting in settings_by_category['general'] %}
-                    <div class="setting-item">
-                        <div class="setting-info">
-                            <div class="setting-label">{{ setting.key | replace('_', ' ') | title }}</div>
-                            <div class="setting-key">{{ setting.key }}</div>
-                            <div class="setting-description">{{ setting.description }}</div>
-                        </div>
-                        <div class="setting-control">
-                            {% if setting.value_type == 'boolean' %}
-                            <label class="toggle-switch">
-                                <input type="checkbox" name="{{ setting.key }}" {% if setting.converted_value %}checked{% endif %}>
-                                <span class="toggle-slider"></span>
-                            </label>
-                            {% elif setting.value_type == 'integer' %}
-                            <input type="number" name="{{ setting.key }}" value="{{ setting.converted_value }}"
-                                   class="number-input" min="0">
-                            {% elif setting.value_type == 'float' %}
-                            <input type="number" name="{{ setting.key }}" value="{{ setting.converted_value }}"
-                                   class="number-input" step="0.1" min="0">
-                            {% else %}
-                            <input type="text" name="{{ setting.key }}" value="{{ setting.value }}"
-                                   class="number-input" style="width: 200px; text-align: left;">
+                            {# ---- DB (editable) setting ---- #}
+                            {% elif setting.source == 'db' %}
+                            <div class="setting-item {% if setting.is_master %}master-switch{% endif %}">
+                                <div class="setting-info">
+                                    <div class="setting-label">
+                                        {{ setting.label }}
+                                        <span class="source-badge source-badge-db">DB</span>
+                                    </div>
+                                    <div class="setting-key">{{ setting.key }}</div>
+                                    <div class="setting-description">
+                                        {{ setting.description }}
+                                        {% if setting.key == 'weekly_summary_enabled' %} (Runs Monday 6:30 AM){% endif %}
+                                        {% if setting.key == 'monthly_report_enabled' %} (Runs 1st of month 7:00 AM){% endif %}
+                                    </div>
+                                    {% if setting.updated_at and setting.updated_by %}
+                                    <div class="last-updated">
+                                        Last updated: {{ setting.updated_at[:16] | replace('T', ' ') }} by {{ setting.updated_by }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <div class="setting-control">
+                                    {% if setting.value_type == 'boolean' %}
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" name="{{ setting.key }}" {% if setting.converted_value %}checked{% endif %}>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                    {% elif setting.value_type == 'integer' %}
+                                    <input type="number" name="{{ setting.key }}" value="{{ setting.converted_value }}"
+                                           class="number-input" min="0"
+                                           {% if 'threshold' in setting.key %}max="100"{% endif %}>
+                                    {% if 'threshold' in setting.key %}
+                                    <span class="input-suffix">%</span>
+                                    {% elif 'hours' in setting.key %}
+                                    <span class="input-suffix">hours</span>
+                                    {% endif %}
+                                    {% elif setting.value_type == 'float' %}
+                                    <input type="number" name="{{ setting.key }}" value="{{ setting.converted_value }}"
+                                           class="number-input" step="0.1" min="0">
+                                    {% else %}
+                                    <input type="text" name="{{ setting.key }}" value="{{ setting.value }}"
+                                           class="number-input" style="width: 200px; text-align: left;">
+                                    {% endif %}
+                                </div>
+                            </div>
                             {% endif %}
+
+                            {% endfor %}
                         </div>
                     </div>
-                    {% endfor %}
                 </div>
-            </div>
-            {% endif %}
+                {% endif %}
+
+            {% endfor %}
 
             <div class="settings-actions">
                 <button type="submit" class="btn-save">Save Settings</button>
@@ -539,13 +661,37 @@
 
     <script>
         // Auto-hide success message after 3 seconds
-        const alert = document.querySelector('.alert-success');
-        if (alert) {
+        const alertEl = document.querySelector('.alert-success');
+        if (alertEl) {
             setTimeout(() => {
-                alert.style.opacity = '0';
-                alert.style.transition = 'opacity 0.3s ease';
-                setTimeout(() => alert.remove(), 300);
+                alertEl.style.opacity = '0';
+                alertEl.style.transition = 'opacity 0.3s ease';
+                setTimeout(() => alertEl.remove(), 300);
             }, 3000);
+        }
+
+        // Collapsible sections
+        function toggleSection(slug) {
+            const header = document.getElementById('header-' + slug);
+            const body = document.getElementById('body-' + slug);
+            const chevron = document.getElementById('chevron-' + slug);
+            if (body.classList.contains('collapsed')) {
+                body.classList.remove('collapsed');
+                header.classList.remove('collapsed');
+            } else {
+                body.classList.add('collapsed');
+                header.classList.add('collapsed');
+            }
+        }
+
+        function expandAll() {
+            document.querySelectorAll('.section-body').forEach(el => el.classList.remove('collapsed'));
+            document.querySelectorAll('.section-header').forEach(el => el.classList.remove('collapsed'));
+        }
+
+        function collapseAll() {
+            document.querySelectorAll('.section-body').forEach(el => el.classList.add('collapsed'));
+            document.querySelectorAll('.section-header').forEach(el => el.classList.add('collapsed'));
         }
     </script>
     </div>

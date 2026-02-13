@@ -9,6 +9,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Comprehensive Settings page** (`/admin/settings`) — Shows all 60+ .env vars alongside DB settings
+  - 12 categorized collapsible sections: FUB, Email, Scoring, Integrations, Scraping, IDX, Task Sync, Linear, Performance, Exclusions, Agent Info, System
+  - .env settings displayed read-only with lock icon, monospace values, and secret masking (last 4 chars)
+  - DB settings remain fully editable with existing toggle/number/text controls
+  - Environment badge (DEV/PRD) and source legend at top of page
+  - Automation Rules callout card linking to dedicated `/admin/automation` page
+  - Expand/Collapse all buttons for quick navigation
 - **Smart Lists comparison page** (`/smart-lists`) — FUB live lists vs DREAMS scoring, side by side
   - Left panel: live FUB smart list counts fetched on-demand via API
   - Right panel: DREAMS-computed lists from local scoring (heat, relationship, priority)
