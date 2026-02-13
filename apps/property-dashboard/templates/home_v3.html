@@ -183,8 +183,19 @@
             margin-top: 12px;
             margin-bottom: 6px;
             padding: 0 4px;
+            cursor: pointer;
+            user-select: none;
         }
         .away-group-header:first-child { margin-top: 0; }
+        .away-group-header .collapse-chevron {
+            font-size: 10px;
+            color: var(--text-muted);
+            transition: transform 0.2s;
+            margin-left: auto;
+        }
+        .away-group-header.collapsed .collapse-chevron {
+            transform: rotate(-90deg);
+        }
         .away-group-title {
             font-size: 12px;
             font-weight: 700;
@@ -211,6 +222,27 @@
             gap: 10px;
             margin-bottom: 10px;
             padding: 0 4px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .group-header .collapse-chevron {
+            font-size: 10px;
+            color: var(--text-muted);
+            transition: transform 0.2s;
+            margin-left: auto;
+        }
+        .group-header.collapsed .collapse-chevron {
+            transform: rotate(-90deg);
+        }
+        .collapsible-body {
+            overflow: hidden;
+            transition: max-height 0.25s ease, opacity 0.2s ease;
+            max-height: 2000px;
+            opacity: 1;
+        }
+        .collapsible-body.collapsed {
+            max-height: 0;
+            opacity: 0;
         }
         .group-badge {
             font-size: 11px;
@@ -736,10 +768,12 @@
                 {% set group = contact_groups.get(group_key, []) %}
                 {% if group %}
                 <div class="mission-group">
-                    <div class="group-header">
+                    <div class="group-header" onclick="toggleCollapse(this)">
                         <span class="group-badge {{ group_class }}">{{ group_label }}</span>
                         <span class="group-count">{{ group|length }}</span>
+                        <span class="collapse-chevron">&#9660;</span>
                     </div>
+                    <div class="collapsible-body">
                     {% for c in group %}
                     <div class="contact-card" id="cc-{{ c.id }}">
                         <div class="contact-avatar">{{ (c.first_name or '?')[0] }}{{ (c.last_name or '?')[0] }}</div>
@@ -776,6 +810,7 @@
                         </div>
                     </div>
                     {% endfor %}
+                    </div>
                 </div>
                 {% endif %}
                 {% endfor %}
@@ -797,16 +832,19 @@
                 </div>
                 <div class="away-items">
                     {% for group in narrative_items %}
-                    <div class="away-group-header">
+                    <div class="away-group-header" onclick="toggleCollapse(this)">
                         <div class="away-icon {{ group.css_class }}" style="width:28px;height:28px;font-size:13px;">{{ group.icon | safe }}</div>
                         <div class="away-group-title">{{ group.title }}</div>
                         <div class="away-group-count">({{ group.entries|length }})</div>
+                        <span class="collapse-chevron">&#9660;</span>
                     </div>
+                    <div class="collapsible-body">
                     {% for text in group.entries %}
                     <div class="away-item">
                         <div class="away-text">{{ text }}</div>
                     </div>
                     {% endfor %}
+                    </div>
                     {% endfor %}
                 </div>
             </div>
@@ -1074,6 +1112,15 @@
 
 <!-- ===== JAVASCRIPT ===== -->
 <script>
+    // Collapsible group toggle (shared across Mission + WYWA)
+    function toggleCollapse(header) {
+        header.classList.toggle('collapsed');
+        const body = header.nextElementSibling;
+        if (body && body.classList.contains('collapsible-body')) {
+            body.classList.toggle('collapsed');
+        }
+    }
+
 (function() {
     // ═══════════ PRE-SERIALIZED CONTACT DATA ═══════════
     const FUB_URL = {{ fub_url | tojson }};
