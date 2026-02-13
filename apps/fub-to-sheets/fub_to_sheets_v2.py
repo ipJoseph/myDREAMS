@@ -1788,18 +1788,19 @@ def send_top_priority_email(
             reason = lead.get('reassigned_reason', 'unknown')
             reassigned_at = lead.get('reassigned_at', '')
 
-            # Format the reassignment date
+            # Format the reassignment date with actual date/time
             if reassigned_at:
                 try:
                     dt = parse_datetime_safe(reassigned_at)
                     if dt:
+                        date_fmt = dt.strftime('%b %d, %I:%M %p')
                         days_ago = (datetime.now(timezone.utc) - dt).days
                         if days_ago == 0:
-                            time_str = "<strong style='color: #ef4444;'>Today</strong>"
+                            time_str = f"<strong style='color: #ef4444;'>Today {dt.strftime('%I:%M %p')}</strong>"
                         elif days_ago == 1:
-                            time_str = "<span style='color: #f97316;'>Yesterday</span>"
+                            time_str = f"<span style='color: #f97316;'>Yesterday {dt.strftime('%I:%M %p')}</span>"
                         else:
-                            time_str = f"<span style='color: #6b7280;'>{days_ago} days ago</span>"
+                            time_str = f"<span style='color: #6b7280;'>{date_fmt}</span>"
                     else:
                         time_str = ""
                 except Exception:
