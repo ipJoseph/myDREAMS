@@ -882,6 +882,71 @@ def api_power_hour_end():
     return jsonify(summary)
 
 
+def _fub_briefing_text(contact, list_key):
+    """Generate one-liner briefing context for a FUB contact."""
+    days = contact.get('lastCommDays')
+    days_text = f"Last contact {days} days ago." if days is not None else "No contact history."
+    briefings = {
+        'new_leads': f"New lead. {days_text}",
+        'priority': f"Hot Prospect. {days_text}",
+        'hot': f"0-3 month timeframe. {days_text}",
+        'warm': f"3-6 month timeframe. {days_text}",
+        'cool': f"6+ month timeframe. {days_text}",
+        'unresponsive': f"Unresponsive lead. {days_text}",
+        'timeframe_empty': "Nurture — no timeframe set yet.",
+    }
+    return briefings.get(list_key, days_text)
+
+
+@app.route('/api/power-hour/fub-queue/<dreams_key>')
+@requires_auth
+def api_power_hour_fub_queue(dreams_key):
+    """Fetch FUB smart list contacts formatted for Power Hour."""
+    valid_keys = [v['dreams_key'] for v in SMART_LIST_MAP.values()]
+    if dreams_key not in valid_keys:
+        return jsonify({'success': False, 'error': 'Invalid list'}), 400
+
+    client = _get_fub_client()
+    if not client:
+        return jsonify({'success': False, 'error': 'FUB API not configured'}), 500
+
+    people = []
+    for stage in ('Lead', 'Nurture', 'Hot Prospect'):
+        batch = client.fetch_collection(
+            "/people", "people",
+            {"assignedUserId": CURRENT_USER_ID, "stage": stage, "fields": "allFields"},
+            use_cache=False)
+        people.extend(batch)
+
+    buckets = _bucket_fub_contacts(people)
+    contacts = buckets.get(dreams_key, [])
+
+    ph_contacts = []
+    for c in contacts:
+        parts = c['name'].split(' ', 1) if c.get('name') else ['', '']
+        ph_contacts.append({
+            'id': f"fub_{c['id']}",
+            'fub_id': c['id'],
+            'first_name': parts[0],
+            'last_name': parts[1] if len(parts) > 1 else '',
+            'phone': c.get('phone', ''),
+            'stage': c.get('stage', ''),
+            'heat_score': None,
+            'priority_score': None,
+            'score_trend': None,
+            'price_range_label': None,
+            'recent_cities': [],
+            'email': None,
+            'source': 'fub',
+            'fub_list': dreams_key,
+            'lastCommDays': c.get('lastCommDays'),
+            'timeframeStatus': c.get('timeframeStatus'),
+            'briefing': {'text': _fub_briefing_text(c, dreams_key)},
+        })
+
+    return jsonify({'success': True, 'contacts': ph_contacts, 'count': len(ph_contacts)})
+
+
 @app.route('/api/live-activity')
 @requires_auth
 def api_live_activity():

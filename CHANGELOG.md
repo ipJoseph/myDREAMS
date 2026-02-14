@@ -9,6 +9,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Power Hour Queue Preview Panel** — Right-side panel showing full call queue during Power Hour
+  - Source selector: switch between DREAMS Priority and 7 FUB Smart Lists (New Leads, Priority, Hot, Warm, Cool, Unresponsive, Timeframe Empty)
+  - Compact/Detail view toggle: names-only or names + stage/heat/timeframe info
+  - Live status tracking: completed (strikethrough), current (blue highlight), upcoming
+  - Click-to-jump: click any upcoming contact to skip directly to them
+  - Auto-scroll keeps current contact in view
+  - Responsive: stacks below main content on narrow screens
+  - New API endpoint `/api/power-hour/fub-queue/<list>` fetches and formats FUB contacts for Power Hour
 - **End of Day Report** (`/eod`) — Daily accountability page that closes the loop on Mission Control
   - "Did I Do the Work?" — Stat grid (calls, reached, VMs, texts, appointments, selling time) with disposition breakdown bar
   - "What Moved Today?" — Score movers split into warming/cooling with delta badges, pipeline snapshot

@@ -424,8 +424,14 @@
 
         /* ========== POWER HOUR MODE ========== */
         .power-hour-container {
-            max-width: 700px;
+            display: flex;
+            gap: 24px;
+            max-width: 1100px;
             margin: 0 auto;
+        }
+        .ph-main {
+            flex: 1;
+            max-width: 700px;
         }
         .ph-scoreboard {
             display: flex;
@@ -584,6 +590,166 @@
             gap: 20px;
             justify-content: center;
             margin-bottom: 24px;
+        }
+
+        /* ========== QUEUE PREVIEW PANEL ========== */
+        .ph-queue-panel {
+            width: 280px;
+            flex-shrink: 0;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+            padding: 16px;
+            align-self: flex-start;
+            position: sticky;
+            top: 80px;
+            max-height: calc(100vh - 100px);
+            display: flex;
+            flex-direction: column;
+        }
+        .ph-queue-header {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+        .ph-queue-header select {
+            width: 100%;
+            padding: 8px 10px;
+            font-size: 13px;
+            font-weight: 600;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background: white;
+            cursor: pointer;
+        }
+        .ph-view-toggle {
+            display: flex;
+            gap: 2px;
+            background: #f1f5f9;
+            border-radius: 6px;
+            padding: 2px;
+        }
+        .ph-view-toggle button {
+            flex: 1;
+            padding: 5px 10px;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            background: none;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .ph-view-toggle button.active {
+            background: white;
+            color: var(--text-primary);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+        }
+        .ph-queue-count {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .ph-source-badge {
+            display: inline-block;
+            padding: 1px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .ph-source-badge.dreams { background: #eff6ff; color: #2563eb; }
+        .ph-source-badge.fub { background: #fff7ed; color: #ea580c; }
+        .ph-queue-list {
+            overflow-y: auto;
+            flex: 1;
+        }
+        .ph-queue-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            padding: 7px 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.1s;
+            font-size: 13px;
+        }
+        .ph-queue-row:hover { background: #f8fafc; }
+        .ph-queue-row.current {
+            background: #eff6ff;
+            border-left: 3px solid #3b82f6;
+            padding-left: 5px;
+        }
+        .ph-queue-row.completed {
+            opacity: 0.45;
+        }
+        .ph-queue-row.completed .ph-q-name { text-decoration: line-through; }
+        .ph-q-icon {
+            width: 16px;
+            flex-shrink: 0;
+            font-size: 12px;
+            color: var(--text-secondary);
+            text-align: center;
+            padding-top: 1px;
+        }
+        .ph-q-info { flex: 1; min-width: 0; }
+        .ph-q-name {
+            font-weight: 600;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .ph-q-detail {
+            font-size: 11px;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-top: 1px;
+        }
+        .ph-q-score {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text-secondary);
+            flex-shrink: 0;
+        }
+        .ph-queue-loading {
+            text-align: center;
+            padding: 40px 10px;
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+        .ph-queue-loading .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #e2e8f0;
+            border-top-color: #3b82f6;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            margin-bottom: 8px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        @media (max-width: 1100px) {
+            .power-hour-container {
+                flex-direction: column;
+            }
+            .ph-main { max-width: 100%; }
+            .ph-queue-panel {
+                width: 100%;
+                position: static;
+                max-height: 300px;
+                order: -1;
+            }
         }
 
         /* ========== COMMAND CENTER ========== */
@@ -915,58 +1081,92 @@
         <div class="mode-panel" id="mode-power-hour">
             <div class="power-hour-container">
 
-                <!-- Pre-start state -->
-                <div id="ph-start-screen">
-                    <div style="text-align:center; padding: 60px 20px;">
-                        <h2 style="font-size:28px; font-weight:800; margin-bottom:8px;">Power Hour</h2>
-                        <p style="color:var(--text-secondary); margin-bottom:24px;">
-                            {{ contacts|length }} contacts ready. Dispositions are saved automatically.
-                        </p>
-                        <button class="power-hour-cta-btn" onclick="startPowerHour()" style="font-size:18px; padding:16px 40px;">
-                            Start Calling
-                        </button>
-                    </div>
-                </div>
+                <!-- Left: Main content -->
+                <div class="ph-main">
 
-                <!-- Active Power Hour -->
-                <div id="ph-active" style="display:none;">
-                    <!-- Scoreboard -->
-                    <div class="ph-scoreboard">
-                        <div class="ph-score">
-                            <div class="ph-score-value" id="ph-reached">0</div>
-                            <div class="ph-score-label">Reached</div>
-                        </div>
-                        <div class="ph-score">
-                            <div class="ph-score-value" id="ph-vms">0</div>
-                            <div class="ph-score-label">VMs</div>
-                        </div>
-                        <div class="ph-score">
-                            <div class="ph-score-value" id="ph-appts">0</div>
-                            <div class="ph-score-label">Appts</div>
-                        </div>
-                        <div class="ph-score">
-                            <div class="ph-timer" id="ph-timer">0:00</div>
-                            <div class="ph-score-label">Elapsed</div>
+                    <!-- Pre-start state -->
+                    <div id="ph-start-screen">
+                        <div style="text-align:center; padding: 60px 20px;">
+                            <h2 style="font-size:28px; font-weight:800; margin-bottom:8px;">Power Hour</h2>
+                            <p id="ph-source-label" style="color:var(--text-secondary); margin-bottom:24px;">
+                                DREAMS Priority &mdash; {{ contacts|length }} contacts
+                            </p>
+                            <button class="power-hour-cta-btn" onclick="startPowerHour()" style="font-size:18px; padding:16px 40px;">
+                                Start Calling
+                            </button>
                         </div>
                     </div>
 
-                    <!-- Current contact card -->
-                    <div id="ph-card-container">
-                        <!-- Filled by JS -->
+                    <!-- Active Power Hour -->
+                    <div id="ph-active" style="display:none;">
+                        <!-- Scoreboard -->
+                        <div class="ph-scoreboard">
+                            <div class="ph-score">
+                                <div class="ph-score-value" id="ph-reached">0</div>
+                                <div class="ph-score-label">Reached</div>
+                            </div>
+                            <div class="ph-score">
+                                <div class="ph-score-value" id="ph-vms">0</div>
+                                <div class="ph-score-label">VMs</div>
+                            </div>
+                            <div class="ph-score">
+                                <div class="ph-score-value" id="ph-appts">0</div>
+                                <div class="ph-score-label">Appts</div>
+                            </div>
+                            <div class="ph-score">
+                                <div class="ph-timer" id="ph-timer">0:00</div>
+                                <div class="ph-score-label">Elapsed</div>
+                            </div>
+                        </div>
+
+                        <!-- Current contact card -->
+                        <div id="ph-card-container">
+                            <!-- Filled by JS -->
+                        </div>
+
+                        <div class="ph-progress" id="ph-progress"></div>
+                        <button class="ph-end-btn" onclick="endPowerHour()">End Power Hour</button>
                     </div>
 
-                    <div class="ph-progress" id="ph-progress"></div>
-                    <button class="ph-end-btn" onclick="endPowerHour()">End Power Hour</button>
-                </div>
+                    <!-- Completed state -->
+                    <div id="ph-complete" style="display:none;">
+                        <div class="ph-complete">
+                            <h2>Power Hour Complete!</h2>
+                            <div class="ph-complete-stats" id="ph-final-stats"></div>
+                            <button class="action-btn primary" onclick="switchMode('briefing')" style="padding:12px 32px; font-size:15px;">
+                                Back to Briefing
+                            </button>
+                        </div>
+                    </div>
 
-                <!-- Completed state -->
-                <div id="ph-complete" style="display:none;">
-                    <div class="ph-complete">
-                        <h2>Power Hour Complete!</h2>
-                        <div class="ph-complete-stats" id="ph-final-stats"></div>
-                        <button class="action-btn primary" onclick="switchMode('briefing')" style="padding:12px 32px; font-size:15px;">
-                            Back to Briefing
-                        </button>
+                </div><!-- /ph-main -->
+
+                <!-- Right: Queue Preview Panel -->
+                <div class="ph-queue-panel">
+                    <div class="ph-queue-header">
+                        <select id="ph-source-select" onchange="switchPHSource(this.value)">
+                            <option value="dreams">DREAMS Priority</option>
+                            <optgroup label="FUB Smart Lists">
+                                <option value="fub:new_leads">New Leads</option>
+                                <option value="fub:priority">Priority</option>
+                                <option value="fub:hot">Hot</option>
+                                <option value="fub:warm">Warm</option>
+                                <option value="fub:cool">Cool</option>
+                                <option value="fub:unresponsive">Unresponsive</option>
+                                <option value="fub:timeframe_empty">Timeframe Empty</option>
+                            </optgroup>
+                        </select>
+                        <div class="ph-view-toggle">
+                            <button id="ph-view-compact" onclick="setPHView('compact')" class="active">Names</button>
+                            <button id="ph-view-detail" onclick="setPHView('detail')">Details</button>
+                        </div>
+                    </div>
+                    <div class="ph-queue-count" id="ph-queue-count">
+                        <span class="ph-source-badge dreams">DREAMS</span>
+                        <span id="ph-queue-count-text">{{ contacts|length }} contacts</span>
+                    </div>
+                    <div class="ph-queue-list" id="ph-queue-list">
+                        <!-- Built by JS -->
                     </div>
                 </div>
 
@@ -1132,6 +1332,23 @@
     let startTime = null;
     let phStats = { reached: 0, vms: 0, texts: 0, appts: 0, skipped: 0, noAnswer: 0 };
 
+    // ═══════════ QUEUE PANEL STATE ═══════════
+    let phSource = 'dreams';
+    let phViewMode = 'compact';
+    let phQueueContacts = CONTACTS;
+    let phDispositioned = new Set();
+
+    const PH_SOURCE_LABELS = {
+        'dreams': 'DREAMS Priority',
+        'fub:new_leads': 'FUB New Leads',
+        'fub:priority': 'FUB Priority',
+        'fub:hot': 'FUB Hot',
+        'fub:warm': 'FUB Warm',
+        'fub:cool': 'FUB Cool',
+        'fub:unresponsive': 'FUB Unresponsive',
+        'fub:timeframe_empty': 'FUB Timeframe Empty',
+    };
+
     // ═══════════ MODE SWITCHING ═══════════
     window.switchMode = function(mode) {
         document.querySelectorAll('.mode-panel').forEach(p => p.classList.remove('active'));
@@ -1190,6 +1407,7 @@
 
         currentContactIdx = 0;
         phStats = { reached: 0, vms: 0, texts: 0, appts: 0, skipped: 0, noAnswer: 0 };
+        phDispositioned = new Set();
         startTime = Date.now();
 
         document.getElementById('ph-start-screen').style.display = 'none';
@@ -1210,16 +1428,17 @@
     }
 
     function showCurrentContact() {
-        if (currentContactIdx >= CONTACTS.length) {
+        if (currentContactIdx >= phQueueContacts.length) {
             endPowerHour();
             return;
         }
 
-        const c = CONTACTS[currentContactIdx];
+        const c = phQueueContacts[currentContactIdx];
         const b = c.briefing || {};
 
         document.getElementById('ph-progress').textContent =
-            (currentContactIdx + 1) + ' of ' + CONTACTS.length;
+            (currentContactIdx + 1) + ' of ' + phQueueContacts.length;
+        updateQueuePanel();
 
         const card = `
             <div class="ph-card">
@@ -1250,8 +1469,8 @@
     }
 
     window.recordDisposition = async function(disposition) {
-        if (currentContactIdx >= CONTACTS.length) return;
-        const contact = CONTACTS[currentContactIdx];
+        if (currentContactIdx >= phQueueContacts.length) return;
+        const contact = phQueueContacts[currentContactIdx];
 
         // Update local scoreboard immediately (no waiting)
         switch(disposition) {
@@ -1277,7 +1496,8 @@
             }).catch(e => console.error('Disposition save failed:', e));
         }
 
-        // Next contact
+        // Mark as dispositioned and advance
+        phDispositioned.add(currentContactIdx);
         currentContactIdx++;
         showCurrentContact();
     };
@@ -1330,7 +1550,132 @@
         `;
 
         currentSessionId = null;
+        updateQueuePanel();
     };
+
+    // ═══════════ QUEUE PANEL FUNCTIONS ═══════════
+
+    window.switchPHSource = async function(value) {
+        // If session is active, confirm before switching
+        if (currentSessionId) {
+            if (!confirm('Switching source will end the current session. Continue?')) {
+                document.getElementById('ph-source-select').value = phSource;
+                return;
+            }
+            await endPowerHour();
+            // Reset to pre-start screen
+            document.getElementById('ph-start-screen').style.display = 'block';
+            document.getElementById('ph-active').style.display = 'none';
+            document.getElementById('ph-complete').style.display = 'none';
+        }
+
+        const prevSource = phSource;
+        phSource = value;
+
+        if (value === 'dreams') {
+            phQueueContacts = CONTACTS;
+            currentContactIdx = 0;
+            phDispositioned = new Set();
+            updateSourceLabel();
+            updateQueuePanel();
+        } else if (value.startsWith('fub:')) {
+            const key = value.split(':')[1];
+            // Show loading state
+            document.getElementById('ph-queue-list').innerHTML =
+                '<div class="ph-queue-loading"><div class="spinner"></div><br>Loading FUB contacts...</div>';
+            try {
+                const resp = await fetch('/api/power-hour/fub-queue/' + encodeURIComponent(key));
+                const data = await resp.json();
+                if (!data.success) throw new Error(data.error || 'Failed to load');
+                phQueueContacts = data.contacts;
+                currentContactIdx = 0;
+                phDispositioned = new Set();
+                updateSourceLabel();
+                updateQueuePanel();
+            } catch(e) {
+                console.error('FUB queue fetch failed:', e);
+                document.getElementById('ph-queue-list').innerHTML =
+                    '<div class="ph-queue-loading" style="color:#dc2626;">Failed to load FUB list.<br>' +
+                    '<small>' + (e.message || '') + '</small></div>';
+                phSource = prevSource;
+                document.getElementById('ph-source-select').value = prevSource;
+            }
+        }
+    };
+
+    function updateSourceLabel() {
+        const label = PH_SOURCE_LABELS[phSource] || 'Unknown';
+        const count = phQueueContacts.length;
+        const isFub = phSource.startsWith('fub:');
+        document.getElementById('ph-source-label').innerHTML =
+            label + ' &mdash; ' + count + ' contacts';
+        document.getElementById('ph-queue-count').innerHTML =
+            '<span class="ph-source-badge ' + (isFub ? 'fub' : 'dreams') + '">' +
+            (isFub ? 'FUB' : 'DREAMS') + '</span> ' +
+            '<span id="ph-queue-count-text">' + count + ' contacts</span>';
+    }
+
+    function updateQueuePanel() {
+        const list = document.getElementById('ph-queue-list');
+        if (!phQueueContacts.length) {
+            list.innerHTML = '<div class="ph-queue-loading">No contacts in this list.</div>';
+            return;
+        }
+        const isFub = phSource.startsWith('fub:');
+        let html = '';
+        for (let i = 0; i < phQueueContacts.length; i++) {
+            const c = phQueueContacts[i];
+            const isDone = phDispositioned.has(i);
+            const isCurrent = (i === currentContactIdx && currentSessionId);
+            const cls = 'ph-queue-row' + (isDone ? ' completed' : '') + (isCurrent ? ' current' : '');
+            const icon = isDone ? '&#10003;' : (isCurrent ? '&#8594;' : '');
+            const name = ((c.first_name || '') + ' ' + (c.last_name || '')).trim() || 'Unknown';
+            const score = isFub
+                ? (c.lastCommDays != null ? c.lastCommDays + 'd' : '')
+                : (c.priority_score != null ? Math.round(c.priority_score) : '');
+            let detail = '';
+            if (phViewMode === 'detail') {
+                if (isFub) {
+                    detail = [c.stage, c.lastCommDays != null ? c.lastCommDays + 'd ago' : '', c.timeframeStatus || '']
+                        .filter(Boolean).join(' &middot; ');
+                } else {
+                    const parts = [c.stage];
+                    if (c.heat_score) parts.push('Heat ' + Math.round(c.heat_score));
+                    if (c.briefing && c.briefing.category) parts.push(c.briefing.category);
+                    detail = parts.filter(Boolean).join(' &middot; ');
+                }
+            }
+            html += '<div class="' + cls + '" onclick="jumpToContact(' + i + ')">' +
+                '<span class="ph-q-icon">' + icon + '</span>' +
+                '<div class="ph-q-info"><div class="ph-q-name">' + name + '</div>' +
+                (detail ? '<div class="ph-q-detail">' + detail + '</div>' : '') +
+                '</div>' +
+                '<span class="ph-q-score">' + score + '</span></div>';
+        }
+        list.innerHTML = html;
+
+        // Auto-scroll current into view
+        const currentRow = list.querySelector('.ph-queue-row.current');
+        if (currentRow) currentRow.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+
+    window.jumpToContact = function(idx) {
+        // Only allow jumping to non-dispositioned upcoming contacts
+        if (phDispositioned.has(idx)) return;
+        if (!currentSessionId) return;  // Can only jump during active session
+        currentContactIdx = idx;
+        showCurrentContact();
+    };
+
+    window.setPHView = function(mode) {
+        phViewMode = mode;
+        document.getElementById('ph-view-compact').classList.toggle('active', mode === 'compact');
+        document.getElementById('ph-view-detail').classList.toggle('active', mode === 'detail');
+        updateQueuePanel();
+    };
+
+    // Initialize queue panel on load
+    updateQueuePanel();
 
     // ═══════════ COMMAND CENTER ═══════════
     window.toggleExpand = function(el) {
