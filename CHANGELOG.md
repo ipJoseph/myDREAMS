@@ -9,6 +9,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **End of Day Report** (`/eod`) — Daily accountability page that closes the loop on Mission Control
+  - "Did I Do the Work?" — Stat grid (calls, reached, VMs, texts, appointments, selling time) with disposition breakdown bar
+  - "What Moved Today?" — Score movers split into warming/cooling with delta badges, pipeline snapshot
+  - "What Are My Leads Doing?" — Property views by contact, high-intent signals (favorites/shares)
+  - "What Fell Through the Cracks?" — High-priority contacts not reached today, red-tinted accountability cards
+  - "Tomorrow's Setup" — Top 5 priority contacts with intelligence briefings, week-over-week trend indicator
+  - All sections collapsible, empty states with friendly messages
+  - Sidebar nav item with checkmark icon after Dashboard
 - **Comprehensive Settings page** (`/admin/settings`) — Shows all 60+ .env vars alongside DB settings
   - 12 categorized collapsible sections: FUB, Email, Scoring, Integrations, Scraping, IDX, Task Sync, Linear, Performance, Exclusions, Agent Info, System
   - .env settings displayed read-only with lock icon, monospace values, and secret masking (last 4 chars)
