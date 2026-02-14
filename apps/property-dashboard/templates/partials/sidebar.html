@@ -204,13 +204,6 @@
                 </svg>
                 <span class="nav-label">Dashboard</span>
             </a>
-            <a href="/eod" class="nav-item {{ 'active' if active_nav == 'eod' else '' }}" data-nav="eod">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M9 11l3 3L22 4"/>
-                    <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
-                </svg>
-                <span class="nav-label">End of Day</span>
-            </a>
             <a href="/contacts" class="nav-item {{ 'active' if active_nav == 'contacts' else '' }}" data-nav="contacts">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4v2"/>
@@ -255,6 +248,17 @@
                     <path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/>
                 </svg>
                 <span class="nav-label">Deals</span>
+            </a>
+        </div>
+
+        <div class="sidebar-section">
+            <div class="sidebar-section-label">Reports</div>
+            <a href="/eod" class="nav-item {{ 'active' if active_nav == 'eod' else '' }}" data-nav="eod">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 11l3 3L22 4"/>
+                    <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+                </svg>
+                <span class="nav-label">End of Day</span>
             </a>
         </div>
 
