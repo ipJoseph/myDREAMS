@@ -554,3 +554,91 @@ def generate_overnight_narrative(overnight_data: Dict[str, Any]) -> List[Dict[st
         })
 
     return groups
+
+
+def generate_eod_narrative(eod_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Transform end-of-day report data into display-ready structures.
+    Follows the generate_overnight_narrative() pattern.
+
+    Returns dict with: warming, cooling, week_trend_pct, week_trend_arrow,
+    disposition_labels, tomorrow_briefings, empty_states.
+    """
+    result = {}
+
+    # Split score movers into warming vs cooling
+    warming = []
+    cooling = []
+    for mover in eod_data.get('score_movers', []):
+        delta = mover.get('heat_delta', 0)
+        entry = {
+            'id': mover.get('id'),
+            'name': f"{mover.get('first_name', '')} {mover.get('last_name', '')}".strip(),
+            'fub_id': mover.get('fub_id'),
+            'heat_score': mover.get('heat_score', 0),
+            'delta': abs(delta),
+            'direction': mover.get('trend_direction', ''),
+        }
+        if delta > 0:
+            warming.append(entry)
+        elif delta < 0:
+            cooling.append(entry)
+    result['warming'] = warming
+    result['cooling'] = cooling
+
+    # Week-over-week trend as percentage
+    week = eod_data.get('week_trend', {})
+    this_wk = week.get('this_week', 0)
+    last_wk = week.get('last_week', 0)
+    if last_wk > 0:
+        pct = round(((this_wk - last_wk) / last_wk) * 100)
+    elif this_wk > 0:
+        pct = 100
+    else:
+        pct = 0
+
+    direction = week.get('direction', 'flat')
+    arrows = {'up': '↑', 'down': '↓', 'flat': '→'}
+    result['week_trend_pct'] = pct
+    result['week_trend_arrow'] = arrows.get(direction, '→')
+    result['week_trend_direction'] = direction
+
+    # Disposition labels for display
+    disp_labels = {
+        'called': 'Reached',
+        'left_vm': 'Voicemails',
+        'texted': 'Texts Sent',
+        'appointment': 'Appointments',
+        'skipped': 'Skipped',
+        'no_answer': 'No Answer',
+    }
+    result['disposition_labels'] = disp_labels
+
+    # Generate briefings for tomorrow's priorities
+    tomorrow = eod_data.get('tomorrow_priorities', [])
+    if tomorrow:
+        try:
+            result['tomorrow_briefings'] = generate_briefings(tomorrow)
+        except Exception:
+            result['tomorrow_briefings'] = tomorrow
+    else:
+        result['tomorrow_briefings'] = []
+
+    # Empty-state messages for sections with no data
+    empty = {}
+    if not eod_data.get('score_movers'):
+        empty['score_movers'] = 'No score changes today'
+    if not eod_data.get('property_activity'):
+        empty['property_activity'] = 'No property views today'
+    if not eod_data.get('high_intent'):
+        empty['high_intent'] = 'No favorites or shares today'
+    if not eod_data.get('accountability_gaps'):
+        empty['accountability_gaps'] = 'All high-priority contacts reached — nice work!'
+    if not eod_data.get('disposition_breakdown'):
+        empty['disposition_breakdown'] = 'No Power Hour sessions today'
+    call_stats = eod_data.get('call_stats', {})
+    if call_stats.get('calls_attempted', 0) == 0:
+        empty['call_stats'] = 'No calls logged today'
+    result['empty_states'] = empty
+
+    return result

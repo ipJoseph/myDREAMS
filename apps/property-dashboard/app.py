@@ -33,7 +33,7 @@ from src.core.database import DREAMSDatabase
 # Import intelligence briefing engine
 try:
     sys.path.insert(0, str(Path(__file__).parent))
-    from intelligence import generate_briefings, group_by_urgency, generate_overnight_narrative
+    from intelligence import generate_briefings, group_by_urgency, generate_overnight_narrative, generate_eod_narrative
     INTELLIGENCE_AVAILABLE = True
 except ImportError:
     INTELLIGENCE_AVAILABLE = False
@@ -807,6 +807,23 @@ def home():
                          todays_changes=todays_changes,
                          change_summary=change_summary,
                          current_view=current_view,
+                         refresh_time=datetime.now().strftime('%B %d, %Y %I:%M %p'))
+
+
+# ═══════════════════════════════════════════════════════════════
+# END OF DAY REPORT
+# ═══════════════════════════════════════════════════════════════
+
+@app.route('/eod')
+@requires_auth
+def end_of_day():
+    """End of Day Report — daily accountability and review."""
+    db = get_db()
+    eod_data = db.get_end_of_day_report(user_id=CURRENT_USER_ID)
+    eod_narrative = generate_eod_narrative(eod_data) if INTELLIGENCE_AVAILABLE else {}
+    return render_template('eod_report.html',
+                         eod=eod_data, narrative=eod_narrative,
+                         active_nav='eod',
                          refresh_time=datetime.now().strftime('%B %d, %Y %I:%M %p'))
 
 

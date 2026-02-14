@@ -6944,6 +6944,113 @@ class DREAMSDatabase:
             ''', [session_id]).fetchall()
             return [dict(row) for row in rows]
 
+    def get_end_of_day_report(self, user_id: Optional[int] = None) -> Dict[str, Any]:
+        """
+        Compile end-of-day report: call stats, score movers, property activity,
+        high-intent signals, accountability gaps, disposition breakdown,
+        pipeline, tomorrow's priorities, and week-over-week trend.
+        """
+        # Reuse existing aggregate methods
+        call_stats = self.get_todays_call_stats(user_id=user_id)
+        pipeline = self.get_pipeline_narrative(user_id=user_id)
+        tomorrow_priorities = self.get_morning_briefing_contacts(user_id=user_id, limit=5)
+
+        with self._get_connection() as conn:
+            today_start = datetime.now().strftime('%Y-%m-%d')
+
+            # A. Score movers — contacts with biggest heat_delta today
+            score_movers = [dict(r) for r in conn.execute('''
+                SELECT l.id, l.first_name, l.last_name, l.fub_id, l.heat_score,
+                       csh.heat_score AS previous_heat, csh.heat_delta, csh.trend_direction
+                FROM contact_scoring_history csh
+                JOIN leads l ON csh.contact_id = l.id
+                WHERE DATE(csh.recorded_at) = DATE('now')
+                  AND ABS(csh.heat_delta) >= 5
+                ORDER BY ABS(csh.heat_delta) DESC LIMIT 10
+            ''').fetchall()]
+
+            # B. Property activity today — who viewed what
+            property_activity = [dict(r) for r in conn.execute('''
+                SELECT l.id, l.first_name || ' ' || l.last_name AS name, l.fub_id,
+                       COUNT(*) AS view_count
+                FROM contact_events ce
+                JOIN leads l ON CAST(l.fub_id AS TEXT) = ce.contact_id
+                WHERE ce.event_type = 'property_view' AND ce.occurred_at >= ?
+                GROUP BY l.id ORDER BY view_count DESC LIMIT 15
+            ''', [today_start]).fetchall()]
+
+            # C. High-intent signals — favorites and shares today
+            high_intent = [dict(r) for r in conn.execute('''
+                SELECT l.id, l.first_name || ' ' || l.last_name AS name, l.fub_id,
+                       ce.event_type, ce.property_address, ce.property_price
+                FROM contact_events ce
+                JOIN leads l ON CAST(l.fub_id AS TEXT) = ce.contact_id
+                WHERE ce.event_type IN ('property_favorite', 'property_share')
+                  AND ce.occurred_at >= ?
+                ORDER BY ce.occurred_at DESC LIMIT 10
+            ''', [today_start]).fetchall()]
+
+            # D. Accountability gaps — high-priority contacts NOT reached today
+            accountability_gaps = [dict(r) for r in conn.execute('''
+                SELECT l.id, l.first_name, l.last_name, l.fub_id, l.priority_score, l.heat_score
+                FROM leads l
+                WHERE l.contact_group = 'scored' AND l.priority_score >= 50
+                  AND l.id NOT IN (
+                    SELECT DISTINCT contact_id FROM contact_communications
+                    WHERE occurred_at >= ?
+                  )
+                  AND l.id NOT IN (
+                    SELECT DISTINCT phd.contact_id FROM power_hour_dispositions phd
+                    JOIN power_hour_sessions phs ON phd.session_id = phs.id
+                    WHERE phd.created_at >= ?
+                  )
+                ORDER BY l.priority_score DESC LIMIT 10
+            ''', [today_start, today_start]).fetchall()]
+
+            # E. Disposition breakdown — today's Power Hour dispositions
+            disposition_breakdown = [dict(r) for r in conn.execute('''
+                SELECT phd.disposition, COUNT(*) AS count
+                FROM power_hour_dispositions phd
+                JOIN power_hour_sessions phs ON phd.session_id = phs.id
+                WHERE phd.created_at >= ?
+                GROUP BY phd.disposition
+            ''', [today_start]).fetchall()]
+
+            # F. Week-over-week trend
+            this_week = conn.execute('''
+                SELECT COUNT(*) FROM power_hour_dispositions
+                WHERE created_at >= DATE('now', 'weekday 1', '-7 days')
+            ''').fetchone()[0]
+
+            last_week = conn.execute('''
+                SELECT COUNT(*) FROM power_hour_dispositions
+                WHERE created_at >= DATE('now', 'weekday 1', '-14 days')
+                  AND created_at < DATE('now', 'weekday 1', '-7 days')
+            ''').fetchone()[0]
+
+            if last_week > 0:
+                direction = 'up' if this_week > last_week else ('down' if this_week < last_week else 'flat')
+            else:
+                direction = 'up' if this_week > 0 else 'flat'
+
+            week_trend = {
+                'this_week': this_week,
+                'last_week': last_week,
+                'direction': direction,
+            }
+
+        return {
+            'call_stats': call_stats,
+            'disposition_breakdown': disposition_breakdown,
+            'score_movers': score_movers,
+            'property_activity': property_activity,
+            'high_intent': high_intent,
+            'accountability_gaps': accountability_gaps,
+            'pipeline': pipeline,
+            'tomorrow_priorities': tomorrow_priorities,
+            'week_trend': week_trend,
+        }
+
     def get_live_activity_feed(self, hours: int = 8, limit: int = 20) -> List[Dict]:
         """
         Get recent activity events for the Command Center live feed.
