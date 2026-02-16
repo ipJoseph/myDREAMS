@@ -2003,35 +2003,42 @@ def sync_communications_to_sqlite(
             logger.debug(f"Error syncing text: {e}")
 
     # Process emails
+    # FUB email structure: personId is in relatedPeople[0]['personId'],
+    # direction is relatedPeople[0]['sentByPerson'] (True = inbound from contact)
     for email in (emails or []):
         try:
             fub_id = email.get("id")
-            person_id = email.get("personId")
+
+            # Extract personId from relatedPeople array
+            related = email.get("relatedPeople") or []
+            if related and isinstance(related, list):
+                person_id = related[0].get("personId")
+                sent_by_person = related[0].get("sentByPerson", False)
+            else:
+                person_id = email.get("personId")
+                sent_by_person = None
+
             if not person_id:
                 continue
 
             person_id = str(person_id)
 
-            # Determine direction from isIncoming or type field
-            is_incoming = email.get("isIncoming")
-            if is_incoming is not None:
-                direction = "inbound" if is_incoming else "outbound"
+            # Determine direction
+            if sent_by_person is not None:
+                direction = "inbound" if sent_by_person else "outbound"
             else:
-                # FUB emails may use "type" field: "received" vs "sent"
-                email_type = (email.get("type") or "").lower()
-                direction = "inbound" if email_type in ("received", "incoming") else "outbound"
+                # Fallback: check status field ("Sent" = outbound)
+                status = (email.get("status") or "").lower()
+                direction = "outbound" if status == "sent" else "inbound"
 
             # Create unique ID for this email
             comm_id = f"email_{fub_id}" if fub_id else f"email_{uuid.uuid4()}"
 
             # Get timestamp
-            occurred_at = email.get("created") or email.get("timestamp") or email.get("date")
+            occurred_at = email.get("created") or email.get("date")
 
-            # Get agent name
+            # Get agent name from userId (no nested user object in FUB emails)
             agent_name = None
-            user = email.get("user")
-            if isinstance(user, dict):
-                agent_name = user.get("name")
 
             if db.insert_communication(
                 comm_id=comm_id,
