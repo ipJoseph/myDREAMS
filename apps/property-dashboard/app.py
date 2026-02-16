@@ -33,7 +33,7 @@ from src.core.database import DREAMSDatabase
 # Import intelligence briefing engine
 try:
     sys.path.insert(0, str(Path(__file__).parent))
-    from intelligence import generate_briefings, group_by_urgency, generate_overnight_narrative, generate_eod_narrative
+    from intelligence import generate_briefings, group_by_urgency, generate_overnight_narrative, generate_eod_narrative, generate_morning_summary
     INTELLIGENCE_AVAILABLE = True
 except ImportError:
     INTELLIGENCE_AVAILABLE = False
@@ -676,8 +676,26 @@ def home():
             # Today's call stats
             call_stats = db.get_todays_call_stats(user_id=CURRENT_USER_ID)
 
-            # Live activity feed (for Command Center)
+            # Live activity feed (compact, for Briefing + Command Center)
             live_feed = db.get_live_activity_feed(hours=8, limit=20)
+
+            # Morning Pulse metrics (business health strip)
+            pulse_metrics = db.get_morning_pulse_metrics(user_id=CURRENT_USER_ID)
+            pulse_metrics['contacts_ready'] = len(contacts)
+
+            # Activity summary (aggregate overnight stats)
+            activity_summary = db.get_activity_summary(hours=24)
+
+            # Morning summary sentence
+            morning_summary = generate_morning_summary(contacts, pipeline, activity_summary)
+
+            # Reassigned leads (alerts)
+            reassigned_leads = db.get_recently_reassigned_leads(
+                from_user_id=CURRENT_USER_ID, days=7
+            )
+
+            # New leads with source grouping (for Overnight Intelligence)
+            new_leads_detail = db.get_recent_contacts(days=1, user_id=CURRENT_USER_ID)
 
             # Pre-serialize contacts for Power Hour JS
             contacts_json = json.dumps(contacts, default=str)
@@ -690,6 +708,11 @@ def home():
                                  pipeline=pipeline,
                                  call_stats=call_stats,
                                  live_feed=live_feed,
+                                 pulse_metrics=pulse_metrics,
+                                 activity_summary=activity_summary,
+                                 morning_summary=morning_summary,
+                                 reassigned_leads=reassigned_leads,
+                                 new_leads_detail=new_leads_detail,
                                  current_user_id=CURRENT_USER_ID,
                                  refresh_time=datetime.now().strftime('%B %d, %Y %I:%M %p'))
         except Exception as e:

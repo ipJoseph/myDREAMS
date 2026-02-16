@@ -421,6 +421,46 @@ def format_price_range(min_price: Optional[int], max_price: Optional[int]) -> st
     return ''
 
 
+def generate_morning_summary(contacts: List[Dict], pipeline: Dict, activity_summary: Dict) -> str:
+    """
+    Generate a one-sentence morning summary for the day framing line.
+    Example: "Your day: 3 urgent contacts, 12 follow-ups, 2 pending offers, $830K pipeline. ~90 min Power Hour recommended."
+    """
+    # Count urgency groups
+    act_now = sum(1 for c in contacts if c.get('briefing', {}).get('urgency') == URGENCY_ACT_NOW)
+    follow_up = sum(1 for c in contacts if c.get('briefing', {}).get('urgency') == URGENCY_FOLLOW_UP)
+    touch_base = sum(1 for c in contacts if c.get('briefing', {}).get('urgency') == URGENCY_TOUCH_BASE)
+
+    parts = []
+    if act_now:
+        parts.append(f"{act_now} urgent")
+    if follow_up:
+        parts.append(f"{follow_up} follow-up{'s' if follow_up != 1 else ''}")
+    if touch_base:
+        parts.append(f"{touch_base} touch base")
+
+    pending = pipeline.get('pending_offers', [])
+    if pending:
+        parts.append(f"{len(pending)} pending offer{'s' if len(pending) != 1 else ''}")
+
+    value = pipeline.get('total_pipeline_value', 0)
+    if value > 0:
+        if value >= 1_000_000:
+            parts.append(f"${value / 1_000_000:.1f}M pipeline")
+        else:
+            parts.append(f"${value // 1000}K pipeline")
+
+    summary = "Your day: " + ", ".join(parts) + "." if parts else "Your day: all quiet."
+
+    # Power Hour time estimate (~3 min per contact)
+    total = len(contacts)
+    if total > 0:
+        mins = total * 3
+        summary += f" ~{mins} min Power Hour recommended."
+
+    return summary
+
+
 def generate_overnight_narrative(overnight_data: Dict[str, Any]) -> List[Dict[str, str]]:
     """
     Transform overnight data (activity highlights, price drops, going cold, new leads)

@@ -7051,6 +7051,98 @@ class DREAMSDatabase:
             'week_trend': week_trend,
         }
 
+    def get_morning_pulse_metrics(self, user_id: Optional[int] = None) -> Dict[str, Any]:
+        """
+        Aggregate business health metrics for the Morning Pulse strip.
+        Returns pipeline value, active buyer count, pending offers, new leads (3d),
+        contacts ready today, and reassigned count (7d).
+        """
+        with self._get_connection() as conn:
+            user_filter = ""
+            user_params = []
+            if user_id:
+                user_filter = "AND assigned_user_id = ?"
+                user_params = [user_id]
+
+            # Pipeline value (pending/under contract)
+            pipeline_value = conn.execute(f'''
+                SELECT COALESCE(SUM(max_price), 0) FROM leads
+                WHERE stage IN ('Under Contract', 'Pending', 'Active Under Contract')
+                {user_filter}
+            ''', user_params).fetchone()[0]
+
+            # Active buyers (stages that indicate active engagement)
+            active_buyers = conn.execute(f'''
+                SELECT COUNT(*) FROM leads
+                WHERE contact_group = 'scored'
+                AND stage IN ('Active Client', 'Active Buyer', 'Hot Prospect', 'Prospect')
+                {user_filter}
+            ''', user_params).fetchone()[0]
+
+            # Pending offers
+            pending_offers = conn.execute(f'''
+                SELECT COUNT(*) FROM leads
+                WHERE stage IN ('Under Contract', 'Pending', 'Active Under Contract')
+                {user_filter}
+            ''', user_params).fetchone()[0]
+
+            # New leads in last 3 days
+            cutoff_3d = (datetime.now() - timedelta(days=3)).isoformat()
+            new_leads = conn.execute(f'''
+                SELECT COUNT(*) FROM leads
+                WHERE created_at >= ?
+                {user_filter}
+            ''', [cutoff_3d] + user_params).fetchone()[0]
+
+            # Reassigned in last 7 days
+            cutoff_7d = (datetime.now() - timedelta(days=7)).isoformat()
+            reassigned = 0
+            if user_id:
+                reassigned = conn.execute('''
+                    SELECT COUNT(*) FROM leads
+                    WHERE reassigned_from_user_id = ?
+                    AND reassigned_at >= ?
+                ''', [user_id, cutoff_7d]).fetchone()[0]
+
+            return {
+                'pipeline_value': pipeline_value,
+                'active_buyers': active_buyers,
+                'pending_offers': pending_offers,
+                'new_leads_3d': new_leads,
+                'reassigned_7d': reassigned,
+            }
+
+    def get_activity_summary(self, hours: int = 24) -> Dict[str, Any]:
+        """
+        Aggregate activity summary for Overnight Intelligence header.
+        Returns total events, unique active contacts, and event type breakdown.
+        """
+        with self._get_connection() as conn:
+            cutoff = (datetime.now() - timedelta(hours=hours)).isoformat()
+
+            # Total events and unique contacts
+            summary = conn.execute('''
+                SELECT
+                    COUNT(*) AS total_events,
+                    COUNT(DISTINCT ce.contact_id) AS active_contacts
+                FROM contact_events ce
+                JOIN leads l ON CAST(l.fub_id AS TEXT) = ce.contact_id
+                WHERE ce.occurred_at >= ?
+                AND l.contact_group = 'scored'
+            ''', [cutoff]).fetchone()
+
+            # New leads count in same window
+            new_leads = conn.execute('''
+                SELECT COUNT(*) FROM leads
+                WHERE created_at >= ?
+            ''', [cutoff]).fetchone()[0]
+
+            return {
+                'total_events': summary['total_events'] if summary else 0,
+                'active_contacts': summary['active_contacts'] if summary else 0,
+                'new_leads': new_leads,
+            }
+
     def get_live_activity_feed(self, hours: int = 8, limit: int = 20) -> List[Dict]:
         """
         Get recent activity events for the Command Center live feed.
