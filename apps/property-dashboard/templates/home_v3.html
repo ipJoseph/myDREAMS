@@ -809,34 +809,54 @@
         }
 
         .ph-dispositions {
+            padding: 16px 28px 20px;
             display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .ph-dispo-row {
+            display: flex;
+            align-items: center;
             gap: 8px;
             justify-content: center;
-            padding: 20px 28px 24px;
-            flex-wrap: wrap;
+        }
+        .ph-dispo-label {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #94a3b8;
+            min-width: 48px;
         }
         .ph-dispo-btn {
-            padding: 12px 24px;
-            font-size: 14px;
+            padding: 10px 20px;
+            font-size: 13px;
             font-weight: 700;
             border: 2px solid #e2e8f0;
             border-radius: 10px;
             background: white;
             cursor: pointer;
             transition: all 0.15s;
+            flex: 1;
         }
+        .ph-dispo-btn kbd { font-size: 11px; font-weight: 400; opacity: 0.6; margin-left: 2px; }
         .ph-dispo-btn:hover { transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-        .ph-dispo-btn.called { border-color: #22c55e; color: #16a34a; }
-        .ph-dispo-btn.called:hover { background: #f0fdf4; }
-        .ph-dispo-btn.left-vm { border-color: #3b82f6; color: #2563eb; }
-        .ph-dispo-btn.left-vm:hover { background: #eff6ff; }
-        .ph-dispo-btn.texted { border-color: #a855f7; color: #9333ea; }
-        .ph-dispo-btn.texted:hover { background: #faf5ff; }
-        .ph-dispo-btn.no-answer { border-color: #f59e0b; color: #d97706; }
-        .ph-dispo-btn.no-answer:hover { background: #fffbeb; }
+        .ph-dispo-btn.reached { border-color: #22c55e; color: #16a34a; }
+        .ph-dispo-btn.reached:hover { background: #f0fdf4; }
+        .ph-dispo-btn.left-vm { border-color: #eab308; color: #ca8a04; }
+        .ph-dispo-btn.left-vm:hover { background: #fefce8; }
+        .ph-dispo-btn.no-answer { border-color: #f97316; color: #ea580c; }
+        .ph-dispo-btn.no-answer:hover { background: #fff7ed; }
+        .ph-dispo-btn.bad-number { border-color: #ef4444; color: #dc2626; }
+        .ph-dispo-btn.bad-number:hover { background: #fef2f2; }
+        .ph-dispo-btn.texted { border-color: #3b82f6; color: #2563eb; }
+        .ph-dispo-btn.texted:hover { background: #eff6ff; }
+        .ph-dispo-btn.emailed { border-color: #3b82f6; color: #2563eb; }
+        .ph-dispo-btn.emailed:hover { background: #eff6ff; }
         .ph-dispo-btn.appointment { border-color: #22c55e; color: white; background: #22c55e; }
         .ph-dispo-btn.appointment:hover { background: #16a34a; }
         .ph-dispo-btn.skip { border-color: #e2e8f0; color: #94a3b8; }
+        .ph-dispo-btn.skip:hover { background: #f8fafc; }
 
         .ph-progress {
             text-align: center;
@@ -1946,7 +1966,7 @@
     let pausedElapsed = 0;
     let pauseStart = null;
     let isPaused = false;
-    let phStats = { reached: 0, vms: 0, texts: 0, emailed: 0, appts: 0, skipped: 0, noAnswer: 0 };
+    let phStats = { reached: 0, vms: 0, texts: 0, emailed: 0, appts: 0, skipped: 0, noAnswer: 0, badNumbers: 0 };
 
     // ═══════════ QUEUE PANEL STATE ═══════════
     let phSource = 'dreams';
@@ -2016,12 +2036,13 @@
         // Power Hour disposition shortcuts (when active)
         if (currentSessionId && document.getElementById('ph-active').style.display !== 'none') {
             switch(e.key) {
-                case '1': recordDisposition('called'); break;
+                case '1': recordDisposition('reached'); break;
                 case '2': recordDisposition('left_vm'); break;
-                case '3': recordDisposition('texted'); break;
-                case '4': recordDisposition('no_answer'); break;
-                case '5': recordDisposition('appointment'); break;
+                case '3': recordDisposition('no_answer'); break;
+                case '4': recordDisposition('bad_number'); break;
+                case '5': recordDisposition('texted'); break;
                 case '6': recordDisposition('emailed'); break;
+                case '7': recordDisposition('appointment'); break;
                 case '0': case 's': recordDisposition('skip'); break;
             }
         }
@@ -2049,7 +2070,7 @@
         }
 
         currentContactIdx = 0;
-        phStats = { reached: 0, vms: 0, texts: 0, emailed: 0, appts: 0, skipped: 0, noAnswer: 0 };
+        phStats = { reached: 0, vms: 0, texts: 0, emailed: 0, appts: 0, skipped: 0, noAnswer: 0, badNumbers: 0 };
         phDispositioned = new Set();
         Object.keys(intelCache).forEach(k => delete intelCache[k]);
         startTime = Date.now();
@@ -2140,13 +2161,20 @@
                 </div>
                 <div class="ph-intel-panel" id="intel-panel-${c.id}"></div>
                 <div class="ph-dispositions">
-                    <button class="ph-dispo-btn called" onclick="recordDisposition('called')">Called <kbd>1</kbd></button>
-                    <button class="ph-dispo-btn left-vm" onclick="recordDisposition('left_vm')">Left VM <kbd>2</kbd></button>
-                    <button class="ph-dispo-btn texted" onclick="recordDisposition('texted')">Texted <kbd>3</kbd></button>
-                    <button class="ph-dispo-btn no-answer" onclick="recordDisposition('no_answer')">No Answer <kbd>4</kbd></button>
-                    <button class="ph-dispo-btn appointment" onclick="recordDisposition('appointment')">Appointment! <kbd>5</kbd></button>
-                    <button class="ph-dispo-btn" style="border-color:#3b82f6; color:#2563eb;" onclick="recordDisposition('emailed')">Emailed <kbd>6</kbd></button>
-                    <button class="ph-dispo-btn skip" onclick="recordDisposition('skip')">Skip <kbd>0</kbd></button>
+                    <div class="ph-dispo-row">
+                        <span class="ph-dispo-label">Dialed</span>
+                        <button class="ph-dispo-btn reached" onclick="recordDisposition('reached')">Reached <kbd>1</kbd></button>
+                        <button class="ph-dispo-btn left-vm" onclick="recordDisposition('left_vm')">VM <kbd>2</kbd></button>
+                        <button class="ph-dispo-btn no-answer" onclick="recordDisposition('no_answer')">No Answer <kbd>3</kbd></button>
+                        <button class="ph-dispo-btn bad-number" onclick="recordDisposition('bad_number')">Bad # <kbd>4</kbd></button>
+                    </div>
+                    <div class="ph-dispo-row">
+                        <span class="ph-dispo-label"></span>
+                        <button class="ph-dispo-btn texted" onclick="recordDisposition('texted')">Text <kbd>5</kbd></button>
+                        <button class="ph-dispo-btn emailed" onclick="recordDisposition('emailed')">Emailed <kbd>6</kbd></button>
+                        <button class="ph-dispo-btn appointment" onclick="recordDisposition('appointment')">Appt <kbd>7</kbd></button>
+                        <button class="ph-dispo-btn skip" onclick="recordDisposition('skip')">Skip <kbd>0</kbd></button>
+                    </div>
                 </div>
             </div>
         `;
@@ -2337,12 +2365,13 @@
 
         // Update local scoreboard immediately (no waiting)
         switch(disposition) {
-            case 'called': phStats.reached++; break;
+            case 'reached': phStats.reached++; break;
             case 'left_vm': phStats.vms++; break;
             case 'texted': phStats.texts++; break;
             case 'emailed': phStats.emailed++; break;
             case 'appointment': phStats.appts++; phStats.reached++; break;
             case 'no_answer': phStats.noAnswer++; break;
+            case 'bad_number': phStats.badNumbers++; break;
             case 'skip': phStats.skipped++; break;
         }
         updateScoreboard();
@@ -2372,7 +2401,7 @@
         document.getElementById('ph-appts').textContent = phStats.appts;
 
         // Update hidden top bar stats (used as data source)
-        const totalCalls = phStats.reached + phStats.vms + phStats.noAnswer;
+        const totalCalls = phStats.reached + phStats.vms + phStats.noAnswer + phStats.badNumbers;
         const baseCalls = parseInt(document.getElementById('stat-calls').dataset.base || 0);
         const baseReached = parseInt(document.getElementById('stat-reached').dataset.base || 0);
         const baseAppts = parseInt(document.getElementById('stat-appts').dataset.base || 0);
