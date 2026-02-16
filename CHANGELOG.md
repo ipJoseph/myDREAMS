@@ -17,6 +17,23 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Auto-scroll keeps current contact in view
   - Responsive: stacks below main content on narrow screens
   - New API endpoint `/api/power-hour/fub-queue/<list>` fetches and formats FUB contacts for Power Hour
+- **Weekly Call Activity Report** — Auto-generated HTML report of call activity per week
+  - Summary cards: total calls, made, received, connected, total talk time
+  - Daily summary table (Mon-Sun) with per-day breakdown
+  - Full detail log: time (Eastern), direction, contact name, status, duration with visual bars
+  - Resolves all contact names via `leads.fub_id` JOIN (no more "Unknown")
+  - Handles EST/EDT automatically based on DST rules
+  - Cron: runs every Monday at 7 AM EST on PRD, generates report for prior week
+  - Manual: `python3 reports/generate_calls_report.py --week-start YYYY-MM-DD`
+  - Reports served at `/reports/` with auth; sidebar link under Reports section
+- **FUB Email Sync** — Emails now synced from Follow Up Boss to `contact_communications` table
+  - 2,800+ historical emails backfilled (2,504 outbound, 296 inbound)
+  - Extracts `personId` from FUB's `relatedPeople` array, direction from `sentByPerson`
+  - Runs automatically with existing daily FUB sync cron
+- **Saved Reports route** (`/reports/`) — Dashboard serves HTML reports from `reports/` directory
+  - Index page lists all available reports with links
+  - Auth-protected with path traversal prevention
+  - Sidebar link added under Reports section
 - **End of Day Report** (`/eod`) — Daily accountability page that closes the loop on Mission Control
   - "Did I Do the Work?" — Stat grid (calls, reached, VMs, texts, appointments, selling time) with disposition breakdown bar
   - "What Moved Today?" — Score movers split into warming/cooling with delta badges, pipeline snapshot
@@ -103,6 +120,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Shared config at `deploy/gunicorn.conf.py`
   - Deploy script now auto-copies service files and runs `daemon-reload`
   - Local dev (`python app.py`) continues to work unchanged
+
+### Fixed
+- **FUB email sync data extraction** — Emails were fetched but never stored; `personId` is in `relatedPeople[0]` not top-level, direction from `sentByPerson` not `isIncoming`
+- **Call report day-of-week labels** — Feb 9 was labeled "Sunday" instead of "Monday" (all days shifted by one)
+- **Call report "Unknown" contacts** — All 93 calls now show resolved names via `leads.fub_id` JOIN
 
 ### Security
 - **SQL Injection Prevention** (`src/core/database.py`)
