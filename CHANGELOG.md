@@ -9,6 +9,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Clickable Morning Pulse Metrics** — Each pulse strip number is now a link
+  - Pipeline/Pending → `/contacts?filter=pipeline` (Under Contract, Pending, Active Under Contract)
+  - Active Buyers → `/contacts?filter=active_buyers` (Active Client, Hot Prospect, Prospect)
+  - New (3d) → `/contacts?filter=new_leads_3d` (created in last 3 days)
+  - Reassigned → `/contacts?filter=reassigned` (reassigned away in last 7 days)
+  - Ready → smooth scroll to Today's Mission section
+  - Hover effect: subtle lift + background highlight
 - **Morning Brief Redesign** — Complete Briefing tab overhaul as the agent's daily starting point
   - Morning Pulse Strip: pipeline value, active buyers, pending offers, new leads (3d), contacts ready, reassigned count (red alert)
   - Morning Summary Line: dynamic one-sentence day framing ("Your day: 5 urgent, 4 follow-ups, 1 pending offer...")
