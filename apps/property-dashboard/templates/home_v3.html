@@ -1133,9 +1133,14 @@
                         <div class="ph-complete">
                             <h2>Power Hour Complete!</h2>
                             <div class="ph-complete-stats" id="ph-final-stats"></div>
-                            <button class="action-btn primary" onclick="switchMode('briefing')" style="padding:12px 32px; font-size:15px;">
-                                Back to Briefing
-                            </button>
+                            <div style="display:flex; gap:12px; justify-content:center; margin-top:8px;">
+                                <button class="action-btn primary" onclick="resetToPreStart()" style="padding:12px 32px; font-size:15px;">
+                                    Start New Session
+                                </button>
+                                <button class="action-btn" onclick="switchMode('briefing')" style="padding:12px 32px; font-size:15px;">
+                                    Back to Briefing
+                                </button>
+                            </div>
                         </div>
                     </div>
 
@@ -1356,8 +1361,29 @@
         document.getElementById('mode-' + mode).classList.add('active');
         document.querySelector('[data-mode="' + mode + '"]').classList.add('active');
 
+        // When entering Power Hour with no active session, show pre-start screen
+        if (mode === 'power-hour' && !currentSessionId) {
+            document.getElementById('ph-start-screen').style.display = 'block';
+            document.getElementById('ph-active').style.display = 'none';
+            document.getElementById('ph-complete').style.display = 'none';
+            updateSourceLabel();
+            updateQueuePanel();
+        }
+
         // Save mode to URL hash
         window.location.hash = mode;
+    };
+
+    // Reset Power Hour to pre-start screen (for starting a new session)
+    window.resetToPreStart = function() {
+        currentSessionId = null;
+        currentContactIdx = 0;
+        phDispositioned = new Set();
+        document.getElementById('ph-start-screen').style.display = 'block';
+        document.getElementById('ph-active').style.display = 'none';
+        document.getElementById('ph-complete').style.display = 'none';
+        updateSourceLabel();
+        updateQueuePanel();
     };
 
     // Restore mode from hash
