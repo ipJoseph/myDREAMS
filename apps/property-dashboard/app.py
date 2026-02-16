@@ -827,6 +827,33 @@ def end_of_day():
                          refresh_time=datetime.now().strftime('%B %d, %Y %I:%M %p'))
 
 
+REPORTS_DIR = PROJECT_ROOT / 'reports'
+
+@app.route('/reports/')
+@requires_auth
+def reports_index():
+    """List available HTML reports."""
+    if not REPORTS_DIR.is_dir():
+        return "No reports directory found.", 404
+    files = sorted(REPORTS_DIR.glob('*.html'), reverse=True)
+    links = ''.join(f'<li><a href="/reports/{f.name}">{f.name}</a></li>' for f in files)
+    return render_template_string('''
+        <!DOCTYPE html><html><head><title>Reports</title>
+        <link rel="stylesheet" href="/static/css/dreams.css"></head>
+        <body style="padding:40px;font-family:system-ui"><h1>Reports</h1>
+        <ul>{{ links|safe }}</ul>
+        <a href="/">← Back to Dashboard</a></body></html>
+    ''', links=links)
+
+
+@app.route('/reports/<path:filename>')
+@requires_auth
+def serve_report(filename):
+    """Serve a static HTML report file."""
+    safe_name = Path(filename).name  # prevent directory traversal
+    return send_from_directory(str(REPORTS_DIR), safe_name)
+
+
 # ═══════════════════════════════════════════════════════════════
 # MISSION CONTROL: Power Hour & Live Activity API Endpoints
 # ═══════════════════════════════════════════════════════════════
