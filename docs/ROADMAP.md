@@ -24,6 +24,7 @@
 | Feature | Commit | Description |
 |---------|--------|-------------|
 | **Mission Control v3** | - | Complete dashboard redesign with Intelligence Briefing Engine, Power Hour calling mode, and Command Center |
+| **Briefing Card-Grid Dashboard** | `551b952` | Modular card-based Briefing tab: metric cards with drill-down, 2-column intelligence grid, Pipeline/Stats/Live Activity cards, mission card with badge strip |
 | **Morning Brief Redesign** | `23ed535` | Briefing tab overhaul: Morning Pulse strip, alerts, enhanced overnight intel, value scores on cards, pipeline snapshot, Power Hour CTA |
 | **Pipeline Framework** | - | `docs/PIPELINE_FRAMEWORK.md` - QUALIFY → CURATE → CLOSE → NURTURE canonical pipeline documentation |
 | **Buyer Requirements Sync** | - | `templates/buyer_requirements.md` + sync scripts for markdown ↔ database sync |

@@ -9,6 +9,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Briefing Tab Card-Grid Dashboard** — Modular card-based layout replacing flat number strips
+  - Zone A: Color-coded metric cards (Pipeline/Buyers/Pending/New Leads/Ready/Reassigned) with hover lift, clickable drill-down to filtered contacts
+  - Zone B: Morning summary with blue accent border
+  - Zone C: 2-column intelligence grid — Overnight Intelligence card (left) with collapsible groups, Pipeline Snapshot + Today's Stats + Live Activity cards (right)
+  - Zone D: Today's Mission wrapped in card shell with urgency badge summary strip (Act Now/Follow Up/Touch Base counts)
+  - Unique `#briefing-live-feed` container avoids Command Center `#live-feed` polling conflict
+  - 4 new contact filter types: `pipeline`, `active_buyers`, `new_leads_3d`, `reassigned`
+  - Responsive: grid collapses at 1100px, metric cards shrink at 900px, go 2-up at 600px
 - **Morning Brief Redesign** — Complete Briefing tab overhaul as the agent's daily starting point
   - Morning Pulse Strip: pipeline value, active buyers, pending offers, new leads (3d), contacts ready, reassigned count (red alert)
   - Morning Summary Line: dynamic one-sentence day framing ("Your day: 5 urgent, 4 follow-ups, 1 pending offer...")
