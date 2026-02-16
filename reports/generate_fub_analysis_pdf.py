@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
 """
-FUB Smart List Optimization Report — PDF Generator
+FUB Smart List Optimization Report — PDF Generator (v2)
 
 Generates a professionally branded PDF analyzing Follow Up Boss smart list
-configuration and recommending improvements aligned with FUB best practices.
+architecture and recommending improvements aligned with FUB best practices.
+
+This version:
+- Uses structural analysis (filter logic) rather than individual contact counts
+- Frames the framework honestly — strengths AND limitations
+- Positions recommendations as a team audit, not prescriptive mandates
+- No personal data or agent-specific numbers
 
 Usage:
     python3 generate_fub_analysis_pdf.py
@@ -25,10 +31,8 @@ from reportlab.lib.units import inch
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT, TA_JUSTIFY
 from reportlab.platypus import (
     SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
-    HRFlowable, PageBreak, KeepTogether, ListFlowable, ListItem
+    HRFlowable, PageBreak, KeepTogether
 )
-from reportlab.graphics.shapes import Drawing, Rect, String, Line
-from reportlab.graphics import renderPDF
 
 # ── Brand Colors (Jon Tharp Homes) ────────────────────────────────────
 NAVY = colors.HexColor("#082d40")
@@ -69,15 +73,10 @@ def build_styles():
     styles.add(ParagraphStyle(
         'SectionHead', fontName='Times-Bold', fontSize=18, leading=22,
         textColor=NAVY, spaceBefore=18, spaceAfter=8,
-        borderWidth=0, borderPadding=0
     ))
     styles.add(ParagraphStyle(
         'SubHead', fontName='Times-Bold', fontSize=13, leading=17,
         textColor=NAVY, spaceBefore=12, spaceAfter=6
-    ))
-    styles.add(ParagraphStyle(
-        'SubHead2', fontName='Times-Roman', fontSize=11, leading=14,
-        textColor=GRAY, spaceBefore=8, spaceAfter=4
     ))
     styles.add(ParagraphStyle(
         'Body', fontName='Helvetica', fontSize=10, leading=14,
@@ -102,22 +101,6 @@ def build_styles():
         textColor=WHITE, alignment=TA_CENTER
     ))
     styles.add(ParagraphStyle(
-        'TableHead', fontName='Helvetica-Bold', fontSize=9, leading=12,
-        textColor=WHITE, alignment=TA_CENTER
-    ))
-    styles.add(ParagraphStyle(
-        'TableCell', fontName='Helvetica', fontSize=9, leading=12,
-        textColor=GRAY
-    ))
-    styles.add(ParagraphStyle(
-        'TableCellCenter', fontName='Helvetica', fontSize=9, leading=12,
-        textColor=GRAY, alignment=TA_CENTER
-    ))
-    styles.add(ParagraphStyle(
-        'TableCellBold', fontName='Helvetica-Bold', fontSize=9, leading=12,
-        textColor=NAVY
-    ))
-    styles.add(ParagraphStyle(
         'SmallNote', fontName='Helvetica', fontSize=8, leading=10,
         textColor=MED_GRAY, spaceAfter=4
     ))
@@ -133,34 +116,25 @@ def build_styles():
         'StatLabel', fontName='Helvetica', fontSize=9, leading=12,
         textColor=GRAY, alignment=TA_CENTER
     ))
-    styles.add(ParagraphStyle(
-        'Footer', fontName='Helvetica', fontSize=8, leading=10,
-        textColor=MED_GRAY
-    ))
     return styles
 
 
 def gold_rule():
-    """A thin gold horizontal rule."""
     return HRFlowable(width="100%", thickness=1.5, color=GOLD,
                       spaceBefore=2, spaceAfter=8)
 
 
 def navy_rule():
-    """A thin navy horizontal rule."""
     return HRFlowable(width="100%", thickness=0.5, color=NAVY,
                       spaceBefore=2, spaceAfter=6)
 
 
 def section_head(text, styles):
-    """Section heading with gold underline."""
     return [Paragraph(text, styles['SectionHead']), gold_rule()]
 
 
 def make_table(headers, rows, col_widths=None, highlight_col=None):
     """Build a branded table with navy header row."""
-    style = getSampleStyleSheet()
-
     head_style = ParagraphStyle('_th', fontName='Helvetica-Bold', fontSize=9,
                                 leading=11, textColor=WHITE, alignment=TA_CENTER)
     cell_style = ParagraphStyle('_tc', fontName='Helvetica', fontSize=9,
@@ -200,23 +174,18 @@ def make_table(headers, rows, col_widths=None, highlight_col=None):
         ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#cccccc")),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
     ]
-    # Alternate row shading
     for i in range(1, len(data)):
         if i % 2 == 0:
             cmds.append(('BACKGROUND', (0, i), (-1, i), LIGHT_GRAY))
-
-    # Highlight column (for before/after)
     if highlight_col is not None:
         for i in range(1, len(data)):
             cmds.append(('BACKGROUND', (highlight_col, i), (highlight_col, i),
                           LIGHT_GOLD))
-
     tbl.setStyle(TableStyle(cmds))
     return tbl
 
 
 def stat_box(number, label, styles):
-    """A single stat block for the KPI row."""
     data = [
         [Paragraph(str(number), styles['Stat'])],
         [Paragraph(label, styles['StatLabel'])]
@@ -231,20 +200,22 @@ def stat_box(number, label, styles):
     return t
 
 
+# ══════════════════════════════════════════════════════════════════════
+# CONTENT SECTIONS
+# ══════════════════════════════════════════════════════════════════════
+
 def build_cover(styles):
-    """Title page elements."""
     elements = []
     elements.append(Spacer(1, 1.5*inch))
 
-    # Title
     elements.append(Paragraph("Smart List Optimization", styles['CoverTitle']))
-    elements.append(Paragraph("Analysis &amp; Recommendations", styles['CoverTitle']))
+    elements.append(Paragraph("A Structural Analysis", styles['CoverTitle']))
     elements.append(Spacer(1, 0.15*inch))
     elements.append(gold_rule())
     elements.append(Spacer(1, 0.15*inch))
 
     elements.append(Paragraph(
-        "Aligning Our Follow Up Boss Configuration with CRM Best Practices",
+        "Strengthening Our Follow Up Boss Configuration for Better Coverage",
         styles['CoverSubtitle']))
     elements.append(Spacer(1, 0.5*inch))
 
@@ -252,13 +223,13 @@ def build_cover(styles):
     elements.append(Paragraph(datetime.now().strftime("February %Y"), styles['CoverMeta']))
     elements.append(Paragraph("Confidential \u2014 Internal Use Only", styles['CoverMeta']))
 
-    elements.append(Spacer(1, 1.5*inch))
+    elements.append(Spacer(1, 1.2*inch))
 
-    # Key stats preview
+    # Three framing stats — structural, not personal
     row_data = [[
-        stat_box("89%", "Contacts\nUnbucketed", styles),
-        stat_box("15", "Revenue Contacts\nWith No Bucket", styles),
-        stat_box("5\u21928", "Proposed\nBuckets", styles),
+        stat_box("3", "Filter Axes\nPer Bucket", styles),
+        stat_box("7\u21928", "Current \u2192 Proposed\nBuckets", styles),
+        stat_box("2", "Pipeline Stages\nWith No Coverage", styles),
     ]]
     preview = Table(row_data, colWidths=[2.2*inch, 2.2*inch, 2.2*inch])
     preview.setStyle(TableStyle([
@@ -268,61 +239,79 @@ def build_cover(styles):
     ]))
     elements.append(preview)
 
+    elements.append(Spacer(1, 0.8*inch))
+    elements.append(Paragraph(
+        "This report analyzes filter architecture, not individual agent data. "
+        "Findings are based on FUB\u2019s published best practices and the structural "
+        "logic of our smart list definitions. A team-wide audit is recommended "
+        "to validate and calibrate.",
+        styles['SmallNote']))
+
     elements.append(PageBreak())
     return elements
 
 
 def build_executive_summary(styles):
-    """Section 1: Executive Summary."""
     elements = []
     elements.extend(section_head("1. Executive Summary", styles))
 
     elements.append(Paragraph(
-        "Our Follow Up Boss smart lists are a strong foundation for systematic prospecting. "
-        "The structure \u2014 seven priority-ordered buckets worked to zero each session \u2014 "
-        "is exactly the right framework. This analysis identifies specific configuration "
-        "adjustments that can significantly increase how many contacts surface in those lists "
-        "on any given day.",
+        "Our Follow Up Boss smart lists provide a solid daily discipline: seven "
+        "priority-ordered buckets, worked to zero each Power Hour session. That workflow "
+        "\u2014 the act of systematically clearing each list \u2014 is genuinely valuable. "
+        "This analysis is not about replacing it.",
         styles['Body']))
 
     elements.append(Paragraph(
-        "The core finding: <b>approximately 89% of active contacts don\u2019t appear in any "
-        "smart list at any given moment.</b> Most of that gap isn\u2019t a design flaw \u2014 it\u2019s "
-        "the result of a few threshold settings that are stricter than FUB\u2019s own recommended "
-        "defaults, plus two pipeline stages that don\u2019t have bucket coverage yet.",
+        "What this analysis does examine is a harder question: <b>are the filters feeding "
+        "those lists surfacing the right contacts at the right time?</b> And an even harder one: "
+        "is \u201cwho haven\u2019t I called recently?\u201d the only question our lists should be answering?",
         styles['Body']))
 
     elements.append(Paragraph(
-        "The good news: the fixes are straightforward. Three filter adjustments (about "
-        "30 minutes in FUB settings) can immediately surface an estimated 45 additional "
-        "contacts per day. A phased rollout over 3\u20134 weeks could bring coverage from "
-        "roughly 10% to over 50%, with zero disruption to the existing workflow.",
+        "The current system is built entirely around <b>communication cadence</b> \u2014 "
+        "how long since the last call, text, or email. That\u2019s an important signal. But "
+        "it\u2019s one-dimensional. It doesn\u2019t account for:",
         styles['Body']))
 
-    elements.append(Spacer(1, 0.15*inch))
-
-    # Three opportunity areas
-    elements.append(Paragraph("<b>Three Opportunity Areas</b>", styles['BodyBold']))
-
-    bullets = [
-        ("<b>Threshold Alignment</b> \u2014 Several lastComm thresholds are stricter than "
-         "FUB\u2019s recommended defaults, causing contacts to stay invisible longer than intended."),
-        ("<b>Pipeline Coverage</b> \u2014 Active Clients and Under Contract contacts have "
-         "no bucket, meaning our highest-revenue relationships rely entirely on memory for follow-up timing."),
-        ("<b>Transition Gaps</b> \u2014 Leads between the New Leads window and the Unresponsive "
-         "threshold fall into a dead zone with no list visibility."),
+    limitations = [
+        ("<b>Buyer intent</b> \u2014 A contact who viewed 40 properties yesterday gets the same "
+         "treatment as one who registered six months ago and never returned. The lists have "
+         "no concept of engagement intensity."),
+        ("<b>Quality within buckets</b> \u2014 When an agent opens New Leads, it\u2019s a flat list. "
+         "An $800K buyer with an urgent timeline sits next to a casual browser. There\u2019s no "
+         "prioritization within the bucket."),
+        ("<b>Speed-to-intent</b> \u2014 The system waits for communication to lapse before "
+         "surfacing someone. It never says \u201ccall this person NOW because they\u2019re actively "
+         "shopping.\u201d It only says \u201cyou haven\u2019t called this person in a while.\u201d"),
     ]
-    for b in bullets:
+    for b in limitations:
         elements.append(Paragraph(b, styles['BulletBody'], bulletText='\u2022'))
+
+    elements.append(Spacer(1, 0.1*inch))
+    elements.append(Paragraph(
+        "That said, the cadence model is the foundation we have, and it can be "
+        "significantly improved without rebuilding anything. This report identifies "
+        "<b>five structural gaps</b> in the current filter configuration \u2014 places where "
+        "the architecture itself prevents contacts from surfacing \u2014 and proposes specific "
+        "adjustments aligned with FUB\u2019s own recommended defaults.",
+        styles['Body']))
+
+    elements.append(Spacer(1, 0.08*inch))
+    elements.append(Paragraph(
+        "The recommendations fall into two categories: <b>quick fixes</b> (threshold "
+        "adjustments, ~30 minutes in FUB settings) and <b>structural additions</b> "
+        "(new buckets to close coverage gaps). We recommend a team-wide audit to validate "
+        "these findings against each agent\u2019s actual contact distribution before implementing.",
+        styles['Callout']))
 
     elements.append(PageBreak())
     return elements
 
 
 def build_how_smartlists_work(styles):
-    """Section 2: How FUB Smart Lists Work."""
     elements = []
-    elements.extend(section_head("2. How Our Smart Lists Work Today", styles))
+    elements.extend(section_head("2. How the Current System Works", styles))
 
     elements.append(Paragraph(
         "Every FUB smart list filters contacts along three axes:",
@@ -341,144 +330,138 @@ def build_how_smartlists_work(styles):
     elements.append(Spacer(1, 0.15*inch))
 
     elements.append(Paragraph(
-        "The workflow is disciplined and effective: open each list during Power Hour, "
-        "work it to zero, move to the next. When a contact is called, they drop off "
-        "(because Last Communication resets) and reappear when their cadence comes due again. "
-        "This only works optimally when <b>every active contact lands in some bucket.</b>",
+        "The workflow: open each list during Power Hour, work it to zero, move to the next. "
+        "When a contact is called, they drop off (Last Communication resets) and reappear "
+        "when their cadence comes due. This is a good discipline.",
+        styles['Body']))
+
+    elements.append(Paragraph(
+        "But it only works when <b>every active contact can land in some bucket.</b> "
+        "If the filter logic structurally excludes a contact from all seven lists, "
+        "that contact is invisible to the workflow \u2014 not between touches, but "
+        "permanently off the radar until something changes manually.",
         styles['Body']))
 
     elements.append(Spacer(1, 0.1*inch))
     elements.append(Paragraph("<b>Current 7 Smart Lists</b>", styles['SubHead']))
 
     tbl2 = make_table(
-        ["#", "Bucket", "Filter Logic", "Cadence", "Est. Count"],
+        ["#", "Bucket", "Filter Logic", "Cadence"],
         [
-            ["1", "New Leads", "Stage=Lead + Created <14d + LastComm >12hrs", "Daily", "~18"],
-            ["2", "Priority", "Stage=Hot Prospect + LastComm >3d", "Semiweekly", "0"],
-            ["3", "Hot", "Stage=Nurture + Timeframe 0\u20133mo + LastComm >7d", "Weekly", "~8"],
-            ["4", "Warm", "Stage=Nurture + Timeframe 3\u20136mo + LastComm >30d", "Monthly", "~9"],
-            ["5", "Cool", "Stage=Nurture + Timeframe 6\u201312/12+/No Plans + LastComm >90d", "Quarterly", "~1"],
-            ["6", "Unresponsive", "Stage=Lead + Created >14d + LastComm >14d", "Biweekly", "~1"],
-            ["7", "Timeframe Empty", "Stage=Nurture + No timeframe set", "As needed", "~0"],
+            ["1", "New Leads", "Stage=Lead + Created <14d + LastComm >12hrs", "Daily"],
+            ["2", "Priority", "Stage=Hot Prospect + LastComm >3d", "Semiweekly"],
+            ["3", "Hot", "Stage=Nurture + Timeframe 0\u20133mo + LastComm >7d", "Weekly"],
+            ["4", "Warm", "Stage=Nurture + Timeframe 3\u20136mo + LastComm >30d", "Monthly"],
+            ["5", "Cool", "Stage=Nurture + Timeframe 6\u201312/12+/No Plans + LastComm >90d", "Quarterly"],
+            ["6", "Unresponsive", "Stage=Lead + Created >14d + LastComm >14d", "Biweekly"],
+            ["7", "Timeframe Empty", "Stage=Nurture + No timeframe set", "As needed"],
         ],
-        col_widths=[0.3*inch, 1.1*inch, 2.8*inch, 0.9*inch, 0.8*inch]
+        col_widths=[0.3*inch, 1.1*inch, 3.5*inch, 1.0*inch]
     )
     elements.append(tbl2)
-    elements.append(Spacer(1, 0.08*inch))
-    elements.append(Paragraph(
-        "Total currently in buckets: ~37 of ~367 active contacts",
-        styles['SmallNote']))
 
     elements.append(PageBreak())
     return elements
 
 
 def build_bucket_analysis(styles):
-    """Section 3: Bucket-by-Bucket Analysis."""
     elements = []
-    elements.extend(section_head("3. Bucket-by-Bucket Analysis", styles))
+    elements.extend(section_head("3. Bucket-by-Bucket Structural Analysis", styles))
 
     elements.append(Paragraph(
-        "Each bucket is evaluated against FUB\u2019s recommended defaults and real "
-        "contact distribution data from our database.",
+        "Each bucket is evaluated against FUB\u2019s recommended default configuration "
+        "and the structural logic of its filters. The question for each: does this "
+        "filter reliably surface the contacts it\u2019s intended to catch?",
         styles['Body']))
 
     buckets = [
         {
             'name': 'New Leads',
-            'verdict': 'Working Well',
+            'verdict': 'Effective',
             'verdict_color': SUCCESS,
-            'count': '~18',
             'summary': (
-                "This bucket correctly captures fresh IDX registrations and surfaces them for "
-                "immediate follow-up. The daily cadence aligns with speed-to-lead best practices. "
-                "One refinement to consider: FUB\u2019s recommended default is a <b>10-day window</b> "
-                "(we use 14 days). Tightening this would create a cleaner handoff to downstream buckets."
+                "Captures fresh IDX registrations for immediate follow-up. Daily cadence "
+                "aligns with speed-to-lead best practices. One consideration: FUB\u2019s "
+                "recommended default window is <b>10 days</b> (ours is 14). A tighter window "
+                "creates a cleaner handoff to downstream buckets and avoids overlap."
             ),
         },
         {
             'name': 'Priority',
-            'verdict': 'Opportunity to Repurpose',
-            'verdict_color': WARNING,
-            'count': '0',
+            'verdict': 'Unused',
+            'verdict_color': DANGER,
             'summary': (
-                "This bucket monitors the Hot Prospect stage, which isn\u2019t actively used in our pipeline. "
-                "Result: the second-highest call cadence (semiweekly) is allocated to a bucket that "
-                "consistently shows zero contacts. <b>This is prime real estate in our workflow</b> \u2014 "
-                "repurposing it for Active Clients and Under Contract contacts would cover our "
-                "highest-revenue relationships."
+                "Filters on Stage=Hot Prospect. If this stage is not actively used in the team\u2019s "
+                "pipeline, this bucket will consistently return zero contacts. The semiweekly cadence "
+                "\u2014 the second-most-aggressive in the system \u2014 is effectively wasted. "
+                "<b>Audit question: does any agent actively use the Hot Prospect stage? If not, "
+                "this slot should be repurposed.</b>"
             ),
         },
         {
             'name': 'Hot',
             'verdict': 'Partially Effective',
             'verdict_color': WARNING,
-            'count': '~8',
             'summary': (
-                "Captures Nurture contacts with a 0\u20133 month buying timeframe who haven\u2019t been "
-                "contacted in a week. This works well for that specific group. However, <b>it only "
-                "sees the Nurture stage</b>. High-activity contacts in the Lead or Active Client "
-                "stage (some with maximum engagement scores) are invisible to this list."
+                "Catches Nurture contacts with a 0\u20133 month timeframe who haven\u2019t been contacted "
+                "in 7 days. For that specific slice, it works. The structural limitation: "
+                "<b>it only sees the Nurture stage.</b> A Lead or Active Client with intense "
+                "website activity will never appear here. The filter captures one dimension "
+                "(timeframe urgency) but misses another (behavioral urgency)."
             ),
         },
         {
             'name': 'Warm',
-            'verdict': 'Threshold Too Strict',
+            'verdict': 'Threshold Misaligned',
             'verdict_color': WARNING,
-            'count': '~9',
             'summary': (
-                "Targets Nurture contacts in the 3\u20136 month window. Conceptually sound, but the "
-                "<b>30-day lastComm threshold is twice FUB\u2019s recommended default of 14 days</b>. "
-                "A buyer in the 3\u20136 month window going 30 days without contact risks losing "
-                "engagement. Bringing this to 14 days would align with best practice and surface "
-                "approximately 6 more contacts."
+                "Targets Nurture contacts in the 3\u20136 month window. Conceptually sound. "
+                "The issue: our <b>30-day lastComm threshold is twice FUB\u2019s recommended "
+                "default of 14 days</b>. In a 3\u20136 month buying window, a full month of silence "
+                "risks losing engagement to a more responsive agent. FUB recommends biweekly "
+                "contact for this tier."
             ),
         },
         {
             'name': 'Cool',
-            'verdict': 'Needs Adjustment',
+            'verdict': 'Severely Restrictive',
             'verdict_color': DANGER,
-            'count': '1',
             'summary': (
-                "The concept is right: longer-timeframe contacts need less frequent touch. But the "
-                "<b>90-day lastComm threshold is 3\u00d7 stricter than FUB\u2019s recommended 30-day default</b>. "
-                "Of 102 Nurture contacts with a 6+ month timeframe, only 1 has gone 90 days without "
-                "contact. Adjusting to 30 days would immediately surface an estimated 20\u201325 contacts. "
-                "This is the single highest-impact adjustment available."
+                "The concept is right: longer-timeframe contacts need less frequent touch. "
+                "But the <b>90-day lastComm threshold is 3\u00d7 stricter than FUB\u2019s recommended "
+                "30-day default</b>. Any agent who contacts their cool leads even once a quarter "
+                "will see virtually no one on this list. This is likely the single highest-impact "
+                "threshold to adjust."
             ),
         },
         {
             'name': 'Unresponsive',
-            'verdict': 'Surge Pattern',
+            'verdict': 'Surge Risk',
             'verdict_color': WARNING,
-            'count': '~1 (spikes to 150+)',
             'summary': (
-                "The 14-day lastComm threshold synchronizes with bulk action plans. When a drip "
-                "campaign fires for a large batch, all contacts cross the Unresponsive threshold on "
-                "the same day \u2014 creating spikes of 150+ contacts. The list is either nearly empty "
-                "or overwhelmingly full. <b>Raising the threshold to 45 days</b> would smooth the distribution "
-                "and catch genuinely unresponsive contacts rather than recently-dripped ones."
+                "Surfaces leads created >14 days ago with no communication in 14 days. The "
+                "structural concern: <b>when bulk action plans fire, they reset lastComm for "
+                "large batches simultaneously.</b> Exactly 14 days later, the entire batch crosses "
+                "the threshold on the same day. The list swings between nearly empty and "
+                "overwhelmingly full. FUB recommends a 30-day threshold for this tier."
             ),
         },
         {
             'name': 'Timeframe Empty',
-            'verdict': 'Good Concept, Expand Scope',
+            'verdict': 'Too Narrow',
             'verdict_color': WARNING,
-            'count': '~0',
             'summary': (
-                "Excellent idea \u2014 flagging contacts who need a buying timeline captured. Currently "
-                "scoped to Nurture stage only (6 contacts without timeframes). But <b>160 Lead-stage "
-                "contacts also lack timeframes</b> and are the ones most needing a qualification call. "
-                "Expanding to include Leads would dramatically increase this list\u2019s value."
+                "Good concept \u2014 flagging contacts who need a buying timeline captured so the "
+                "team can prioritize qualification calls. But it\u2019s scoped to <b>Nurture stage "
+                "only</b>. Most Nurture contacts already have timeframes (they were qualified to "
+                "get to Nurture). It\u2019s <i>Leads</i> who overwhelmingly lack timeframes \u2014 and "
+                "they\u2019re the ones most needing that qualification call."
             ),
         },
     ]
 
     for b in buckets:
-        # Bucket header with verdict badge
-        name_para = Paragraph(
-            f"<b>{b['name']}</b> &nbsp;&nbsp; <font size='8'>Est. count: {b['count']}</font>",
-            styles['SubHead'])
+        name_para = Paragraph(f"<b>{b['name']}</b>", styles['SubHead'])
 
         verdict_data = [[Paragraph(b['verdict'], styles['Verdict'])]]
         verdict_tbl = Table(verdict_data, colWidths=[1.8*inch], rowHeights=[0.25*inch])
@@ -508,246 +491,246 @@ def build_bucket_analysis(styles):
     return elements
 
 
-def build_coverage_gap(styles):
-    """Section 4: The Coverage Gap."""
+def build_structural_gaps(styles):
+    """Section 4: The five structural gaps — architecture, not data."""
     elements = []
-    elements.extend(section_head("4. Where Contacts Fall Through", styles))
+    elements.extend(section_head("4. Five Structural Gaps", styles))
 
     elements.append(Paragraph(
-        "Working backward from our 367 active contacts, here\u2019s how the current filters "
-        "narrow down to ~37 in buckets:",
+        "These are architectural issues in the filter logic itself \u2014 they exist "
+        "regardless of individual agent contact counts. Each can be verified by "
+        "examining the filter definitions.",
         styles['Body']))
 
-    # Funnel table
-    funnel = make_table(
-        ["Filter Step", "Contacts Remaining", "What\u2019s Excluded"],
-        [
-            ["All active contacts", "367", "\u2014"],
-            ["Stage filter applied", "351", "14 Active Clients + 1 Under Contract (no bucket exists)"],
-            ["Lead buckets (New + Unresponsive)", "~19 of 198 Leads", "169 Leads between 14-day thresholds (\u201cLead Limbo\u201d)"],
-            ["Nurture buckets (Hot/Warm/Cool)", "~18 of 153 Nurture", "6 lack timeframe; rest contacted too recently for threshold"],
-            ["Cool (90d threshold)", "1 of 102 eligible", "101 contacted within 90 days (FUB default: 30 days)"],
-        ],
-        col_widths=[1.8*inch, 1.3*inch, 3.4*inch]
-    )
-    elements.append(funnel)
-    elements.append(Spacer(1, 0.2*inch))
-
-    elements.append(Paragraph("<b>Stages With Zero Bucket Coverage</b>", styles['SubHead']))
-
-    stages_tbl = make_table(
-        ["Stage", "Contacts", "Avg Deal Priority", "Current Bucket Coverage"],
-        [
-            ["Active Client", "14", "35.4", "None"],
-            ["Under Contract", "1", "74.9", "None"],
-        ],
-        col_widths=[1.4*inch, 1.0*inch, 1.3*inch, 2.8*inch]
-    )
-    elements.append(stages_tbl)
-    elements.append(Spacer(1, 0.1*inch))
-
+    # Gap 1
+    elements.append(Paragraph("<b>1. The Lead Transition Dead Zone</b>", styles['SubHead']))
     elements.append(Paragraph(
-        "These are the contacts closest to a closing table. Their follow-up timing currently "
-        "depends entirely on agent memory \u2014 no smart list prompts a check-in. "
-        "Adding a bucket for these stages is the most impactful single change we can make.",
+        "New Leads catches Stage=Lead contacts created within 14 days. Unresponsive catches "
+        "Stage=Lead contacts created over 14 days ago with lastComm over 14 days. "
+        "<b>What about a lead created 20 days ago who was contacted 5 days ago?</b> "
+        "Too old for New Leads, too recently contacted for Unresponsive. They\u2019re in "
+        "no bucket. Not between touches \u2014 structurally excluded.",
+        styles['Body']))
+    elements.append(Paragraph(
+        "Any lead that ages past 14 days and is in active follow-up (drip sequence, "
+        "recent manual call) falls into this gap. Depending on team outreach volume, "
+        "this could be a handful of contacts or the majority of the Lead stage.",
+        styles['CalloutGold']))
+
+    # Gap 2
+    elements.append(Paragraph("<b>2. Revenue Stages Have No Bucket</b>", styles['SubHead']))
+    elements.append(Paragraph(
+        "Examine the seven filter definitions above. The stages covered are: "
+        "<b>Lead</b> (New Leads, Unresponsive), <b>Hot Prospect</b> (Priority), and "
+        "<b>Nurture</b> (Hot, Warm, Cool, Timeframe Empty). Notably absent:",
+        styles['Body']))
+
+    missing_tbl = make_table(
+        ["Stage", "Description", "Bucket Coverage"],
+        [
+            ["Active Client", "Actively searching, showing properties, writing offers", "None"],
+            ["Under Contract", "Offer accepted, moving toward closing", "None"],
+        ],
+        col_widths=[1.4*inch, 3.3*inch, 1.8*inch]
+    )
+    elements.append(missing_tbl)
+    elements.append(Spacer(1, 0.08*inch))
+    elements.append(Paragraph(
+        "These are the contacts closest to generating revenue. Their follow-up timing \u2014 "
+        "checking in on inspections, appraisals, financing contingencies, showing feedback "
+        "\u2014 currently relies on agent memory. No smart list prompts a check-in.",
         styles['Callout']))
 
-    elements.append(Spacer(1, 0.2*inch))
-    elements.append(Paragraph("<b>The Timeframe Gap</b>", styles['SubHead']))
+    # Gap 3
+    elements.append(Paragraph("<b>3. The Timeframe Chicken-and-Egg</b>", styles['SubHead']))
     elements.append(Paragraph(
-        "The Hot, Warm, and Cool buckets all require a buying timeframe to be set. "
-        "However, <b>178 of 367 active contacts (49%) don\u2019t have a timeframe</b>. "
-        "Among Leads specifically, 81% are missing this field. These contacts can\u2019t enter "
-        "the Hot/Warm/Cool pipeline until someone sets their timeframe \u2014 but there\u2019s no "
-        "list prompting that qualification call (Timeframe Empty only covers Nurture, not Leads).",
+        "Hot, Warm, and Cool all require the Timeframe field to be populated. "
+        "Timeframe Empty \u2014 the bucket designed to flag contacts needing that field \u2014 "
+        "only covers the Nurture stage. But contacts are typically in the <b>Lead stage</b> "
+        "when they need qualification. The cycle:",
         styles['Body']))
 
-    tf_tbl = make_table(
-        ["Stage", "No Timeframe", "Total", "% Missing"],
-        [
-            ["Lead", "160", "198", "81%"],
-            ["Active Client", "12", "14", "86%"],
-            ["Nurture", "6", "153", "4%"],
-        ],
-        col_widths=[1.4*inch, 1.3*inch, 1.0*inch, 1.0*inch]
-    )
-    elements.append(tf_tbl)
-
-    elements.append(PageBreak())
-    return elements
-
-
-def build_five_patterns(styles):
-    """Section 5: Five Patterns to Address."""
-    elements = []
-    elements.extend(section_head("5. Five Patterns to Address", styles))
-
-    patterns = [
-        {
-            'title': '1. Lead Transition Gap',
-            'scale': '169 contacts (46% of active)',
-            'detail': (
-                "Leads older than 14 days who were contacted within the last 14 days. "
-                "Too old for New Leads, too recently contacted for Unresponsive. These contacts "
-                "are in follow-up sequences but have no smart list visibility if the sequence "
-                "stalls or the agent wants to manually check in."
-            ),
-            'fix': 'A new "Attempted" bucket bridges this gap (see recommendations).'
-        },
-        {
-            'title': '2. Unresponsive Surge',
-            'scale': '150 contacts on a single day',
-            'detail': (
-                "Bulk action plans reset lastComm for large batches. Exactly 14 days later, "
-                "the entire batch crosses the Unresponsive threshold simultaneously. "
-                "The list swings between nearly empty and overwhelmingly full."
-            ),
-            'fix': 'Raising the threshold from 14 to 45 days smooths the distribution.'
-        },
-        {
-            'title': '3. Unused Priority Slot',
-            'scale': '0 contacts, permanently',
-            'detail': (
-                "The Priority bucket monitors the Hot Prospect stage, which isn\u2019t part of our active workflow. "
-                "The semiweekly cadence \u2014 our second-most-aggressive \u2014 goes unused."
-            ),
-            'fix': 'Repurpose for Active Client + Under Contract contacts.'
-        },
-        {
-            'title': '4. Revenue Stage Blind Spot',
-            'scale': '15 contacts with zero coverage',
-            'detail': (
-                "Active Client and Under Contract contacts don\u2019t match any smart list filter. "
-                "These are the highest-revenue contacts in the database, yet they receive no "
-                "automated follow-up prompts."
-            ),
-            'fix': 'The repurposed Priority bucket covers these immediately.'
-        },
-        {
-            'title': '5. Timeframe Qualification Loop',
-            'scale': '49% of contacts affected',
-            'detail': (
-                "Hot/Warm/Cool require a timeframe. Setting a timeframe requires a qualification call. "
-                "Getting prompted for that call requires being on a list. Being on those lists "
-                "requires a timeframe. The loop breaks when Timeframe Empty is expanded to include Leads."
-            ),
-            'fix': 'Expand Timeframe Empty to Stage IN (Lead, Nurture).'
-        },
+    cycle = [
+        "To appear on Hot/Warm/Cool \u2192 a contact needs a timeframe set",
+        "To get a timeframe set \u2192 someone needs to make a qualification call",
+        "To prompt that call \u2192 the contact needs to appear on a list",
+        "To appear on Timeframe Empty \u2192 the contact must be in Nurture (but they\u2019re a Lead)",
     ]
+    for c in cycle:
+        elements.append(Paragraph(c, styles['BulletBody'], bulletText='\u2192'))
 
-    for p in patterns:
-        elements.append(Paragraph(f"<b>{p['title']}</b>", styles['SubHead']))
-        elements.append(Paragraph(
-            f"<i>Scale: {p['scale']}</i>", styles['SmallNote']))
-        elements.append(Paragraph(p['detail'], styles['Body']))
-        elements.append(Paragraph(
-            f"<b>Recommendation:</b> {p['fix']}", styles['CalloutGold']))
-        elements.append(Spacer(1, 0.05*inch))
+    elements.append(Paragraph(
+        "Leads without timeframes can\u2019t enter the Nurture-stage buckets, and the one "
+        "bucket that could prompt their qualification doesn\u2019t include their stage.",
+        styles['CalloutGold']))
+
+    # Gap 4
+    elements.append(Paragraph(
+        "<b>4. Threshold Misalignment with FUB Defaults</b>", styles['SubHead']))
+    elements.append(Paragraph(
+        "FUB publishes recommended default thresholds. Three of our settings deviate significantly:",
+        styles['Body']))
+
+    thresh_tbl = make_table(
+        ["Bucket", "FUB Default", "Our Setting", "Effect"],
+        [
+            ["Warm", "14 days", "30 days", "Contacts stay invisible 2\u00d7 longer than recommended"],
+            ["Cool", "30 days", "90 days", "Contacts stay invisible 3\u00d7 longer than recommended"],
+            ["Unresponsive", "30 days", "14 days", "Triggers 2\u00d7 earlier \u2014 catches drip contacts, not truly unresponsive"],
+        ],
+        col_widths=[1.1*inch, 1.1*inch, 1.1*inch, 3.2*inch]
+    )
+    elements.append(thresh_tbl)
+    elements.append(Spacer(1, 0.08*inch))
+    elements.append(Paragraph(
+        "These aren\u2019t judgment calls \u2014 they\u2019re measurable deviations from the "
+        "platform vendor\u2019s own recommendations. Aligning them is low-risk and high-return.",
+        styles['Body']))
+
+    # Gap 5
+    elements.append(Paragraph(
+        "<b>5. The Surge Pattern</b>", styles['SubHead']))
+    elements.append(Paragraph(
+        "When a bulk action plan fires (drip campaign, mass text, etc.), it resets "
+        "lastComm for a large batch of contacts on the same day. With a 14-day "
+        "Unresponsive threshold, the entire batch crosses the line simultaneously \u2014 "
+        "creating a single-day spike that may be unworkable. The list alternates "
+        "between near-empty and overwhelming, neither of which is useful.",
+        styles['Body']))
+    elements.append(Paragraph(
+        "A longer threshold (e.g., 45 days) would spread re-entry over weeks instead "
+        "of concentrating it on one day. The \u201cAttempted\u201d bucket proposed in Section 6 "
+        "also absorbs this load.",
+        styles['CalloutGold']))
 
     elements.append(PageBreak())
     return elements
 
 
 def build_best_practices(styles):
-    """Section 6: Best Practice Comparison."""
     elements = []
-    elements.extend(section_head("6. FUB Best Practice Comparison", styles))
+    elements.extend(section_head("5. FUB Best Practices &amp; Industry Standards", styles))
 
     elements.append(Paragraph(
-        "Follow Up Boss publishes recommended default thresholds for smart list configuration. "
-        "The table below compares our current settings against those defaults and industry standards.",
+        "Follow Up Boss publishes recommended defaults for smart list thresholds. "
+        "The following comparisons are based on those defaults and widely-cited "
+        "industry cadence standards.",
         styles['Body']))
 
+    elements.append(Paragraph("<b>Our Thresholds vs. FUB Defaults</b>", styles['SubHead']))
+
     tbl = make_table(
-        ["Parameter", "FUB Recommended", "Our Setting", "Gap"],
+        ["Parameter", "FUB Default", "Our Setting", "Deviation"],
         [
             ["New Lead window", "10 days", "14 days", "4 days longer"],
-            ["Warm lastComm threshold", "14 days", "30 days", "2\u00d7 slower"],
-            ["Cool lastComm threshold", "30 days", "90 days", "3\u00d7 slower"],
-            ["Unresponsive threshold", "30 days", "14 days", "2\u00d7 faster (surge risk)"],
-            ["Active Client coverage", "Dedicated bucket", "No bucket", "Revenue stage invisible"],
+            ["Warm lastComm", "14 days", "30 days", "2\u00d7 slower"],
+            ["Cool lastComm", "30 days", "90 days", "3\u00d7 slower"],
+            ["Unresponsive lastComm", "30 days", "14 days", "2\u00d7 faster"],
+            ["Active Client bucket", "Recommended", "Not configured", "No coverage"],
         ],
-        col_widths=[1.8*inch, 1.4*inch, 1.3*inch, 2.0*inch]
+        col_widths=[1.6*inch, 1.3*inch, 1.3*inch, 2.3*inch]
     )
     elements.append(tbl)
     elements.append(Spacer(1, 0.2*inch))
 
-    elements.append(Paragraph("<b>Industry Standard Cadences</b>", styles['SubHead']))
+    elements.append(Paragraph("<b>Industry Cadence Standards</b>", styles['SubHead']))
 
     tbl2 = make_table(
-        ["Contact Type", "Industry Standard", "Our Cadence", "Status"],
+        ["Contact Type", "Industry Standard", "Our Cadence", "Assessment"],
         [
-            ["Speed-to-lead (new)", "Daily for 7\u201310 days", "Daily for 14 days", "On track"],
+            ["Speed-to-lead (new)", "Daily for 7\u201310 days", "Daily for 14 days", "Aligned"],
             ["Active buyer (0\u20133mo)", "Every 3\u20135 days", "Weekly", "Slightly slower"],
-            ["Active client (deal in progress)", "Every 2\u20133 days", "No cadence", "Gap"],
+            ["Deal in progress", "Every 2\u20133 days", "No cadence", "Gap"],
             ["Warm pipeline (3\u20136mo)", "Biweekly", "Monthly", "2\u00d7 slower"],
-            ["Long-term nurture (6mo+)", "Monthly", "Quarterly (effectively never)", "Gap"],
-            ["Unresponsive re-engagement", "Monthly", "Biweekly (but surge pattern)", "Execution gap"],
+            ["Long-term nurture", "Monthly", "Quarterly*", "Gap"],
+            ["Unresponsive", "Monthly", "Biweekly**", "Execution gap"],
         ],
-        col_widths=[1.8*inch, 1.5*inch, 1.7*inch, 1.5*inch]
+        col_widths=[1.6*inch, 1.4*inch, 1.5*inch, 2.0*inch]
     )
     elements.append(tbl2)
+    elements.append(Paragraph(
+        "* Cool\u2019s 90-day threshold means most contacts never appear. "
+        "** Unresponsive cadence is biweekly, but surge pattern makes it unworkable on spike days.",
+        styles['SmallNote']))
+
     elements.append(Spacer(1, 0.15*inch))
 
-    elements.append(Paragraph(
-        "The takeaway: our bucket <i>structure</i> is solid. The adjustments are in the "
-        "<i>thresholds</i> and <i>stage coverage</i> \u2014 tuning the dials, not redesigning the machine.",
-        styles['Callout']))
+    elements.append(Paragraph("<b>What the Current Model Does Well</b>", styles['SubHead']))
+    strengths = [
+        "Speed-to-lead: New Leads at daily cadence is strong",
+        "Timeframe segmentation: Hot/Warm/Cool separating by urgency is the right architecture",
+        "The \u201czero out\u201d discipline: working lists systematically prevents leads from falling through the cracks",
+    ]
+    for s in strengths:
+        elements.append(Paragraph(s, styles['BulletBody'], bulletText='\u2713'))
+
+    elements.append(Spacer(1, 0.1*inch))
+    elements.append(Paragraph("<b>What\u2019s Missing from the Model</b>", styles['SubHead']))
+    weaknesses = [
+        "No behavioral signal: a contact\u2019s website activity doesn\u2019t influence their bucket placement",
+        "No quality ranking within buckets: a high-value buyer is indistinguishable from a casual browser",
+        "No revenue-stage coverage: the contacts closest to closing have the least systematic follow-up",
+        "Thresholds that are stricter than the platform\u2019s own recommendations",
+    ]
+    for w in weaknesses:
+        elements.append(Paragraph(w, styles['BulletBody'], bulletText='\u2022'))
 
     elements.append(PageBreak())
     return elements
 
 
 def build_recommendations(styles):
-    """Section 7: Recommended Bucket Redesign."""
     elements = []
-    elements.extend(section_head("7. Recommended Configuration", styles))
+    elements.extend(section_head("6. Recommended Configuration", styles))
 
     elements.append(Paragraph(
-        "The proposed 8-bucket system keeps the existing workflow intact while closing "
-        "the coverage gaps. Changes are highlighted in the table below.",
+        "The proposed 8-bucket system preserves the existing zero-out workflow while "
+        "closing the structural gaps identified above. Every change is either aligned "
+        "with FUB\u2019s published defaults or addresses a documented coverage hole.",
         styles['Body']))
 
     tbl = make_table(
-        ["#", "Bucket", "Filter", "Cadence", "Change"],
+        ["#", "Bucket", "Filter", "Cadence", "What Changes"],
         [
             ["1", "New Leads", "Stage=Lead + Created <10d + LastComm >12hrs",
-             "Daily", "Window 14d \u2192 10d"],
+             "Daily", "Window 14d \u2192 10d (FUB default)"],
             ["2", "Active Pipeline", "Stage IN (Active Client, Under Contract) + LastComm >3d",
-             "Every 3 days", "NEW \u2014 replaces Priority"],
+             "Every 3 days", "NEW \u2014 replaces unused Priority"],
             ["3", "Hot", "Nurture + Timeframe 0\u20133mo + LastComm >7d",
              "Weekly", "No change"],
             ["4", "Warm", "Nurture + Timeframe 3\u20136mo + LastComm >14d",
-             "Biweekly", "Threshold 30d \u2192 14d"],
+             "Biweekly", "Threshold 30d \u2192 14d (FUB default)"],
             ["5", "Cool", "Nurture + Timeframe 6+mo + LastComm >30d",
-             "Monthly", "Threshold 90d \u2192 30d"],
+             "Monthly", "Threshold 90d \u2192 30d (FUB default)"],
             ["6", "Attempted", "Stage=Lead + Created >10d + LastComm 5\u201345d",
-             "Every 5 days", "NEW \u2014 fills transition gap"],
+             "Every 5 days", "NEW \u2014 bridges transition gap"],
             ["7", "Unresponsive", "Stage=Lead + Created >10d + LastComm >45d",
              "Biweekly", "Threshold 14d \u2192 45d"],
             ["8", "Timeframe Empty", "Stage IN (Lead, Nurture) + No timeframe + LastComm >14d",
-             "As needed", "Add Lead stage"],
+             "As needed", "Expanded to include Leads"],
         ],
-        col_widths=[0.3*inch, 1.05*inch, 2.4*inch, 0.8*inch, 1.4*inch]
+        col_widths=[0.3*inch, 1.0*inch, 2.25*inch, 0.75*inch, 1.65*inch]
     )
     elements.append(tbl)
     elements.append(Spacer(1, 0.2*inch))
 
-    # Key design rationale
-    elements.append(Paragraph("<b>Design Rationale</b>", styles['SubHead']))
+    elements.append(Paragraph("<b>Why These Changes</b>", styles['SubHead']))
 
     rationale = [
-        ("<b>Active Pipeline replaces Priority</b> \u2014 The Hot Prospect stage is unused. "
-         "Active Clients and Under Contract are the highest-revenue contacts with zero coverage. "
-         "This semiweekly slot now monitors the contacts closest to closing."),
-        ("<b>Attempted fills the transition gap</b> \u2014 169 contacts currently vanish between "
-         "New Leads and Unresponsive. \u201cAttempted\u201d captures leads that have been contacted but "
-         "haven\u2019t responded yet \u2014 the active follow-up window."),
-        ("<b>Unresponsive raised to 45 days</b> \u2014 At 14 days, contacts still in active drip "
-         "campaigns flood this list. At 45 days, a contact has genuinely gone cold. This also "
-         "eliminates the 150-contact surge pattern."),
-        ("<b>Cool threshold aligned to FUB default</b> \u2014 Moving from 90 to 30 days is the "
-         "single highest-impact change: ~24 more contacts visible immediately."),
+        ("<b>Active Pipeline replaces Priority</b> \u2014 If Hot Prospect isn\u2019t part of the "
+         "active workflow, that semiweekly cadence slot is wasted. Active Clients and Under "
+         "Contract contacts are the closest to revenue and currently have zero list coverage."),
+        ("<b>Attempted fills the dead zone</b> \u2014 Any lead that\u2019s been contacted but hasn\u2019t "
+         "responded yet falls between New Leads and Unresponsive. This bucket catches them "
+         "during the active follow-up window."),
+        ("<b>Three thresholds align to FUB defaults</b> \u2014 Warm (30d\u219214d), Cool (90d\u219230d), "
+         "and New Leads (14d\u219210d) all move to the platform\u2019s own recommended settings."),
+        ("<b>Unresponsive raised to 45 days</b> \u2014 At 14 days, contacts in active drip "
+         "sequences flood the list. At 45 days, only genuinely unresponsive contacts appear. "
+         "The Attempted bucket absorbs the transition period."),
+        ("<b>Timeframe Empty expanded</b> \u2014 Including the Lead stage breaks the "
+         "qualification chicken-and-egg: Leads without timeframes now surface for "
+         "the calls that would set their timeframes."),
     ]
     for r in rationale:
         elements.append(Paragraph(r, styles['BulletBody'], bulletText='\u2022'))
@@ -756,189 +739,242 @@ def build_recommendations(styles):
     return elements
 
 
-def build_before_after(styles):
-    """Section 8: Before/After Projection."""
+def build_what_changes(styles):
+    """Section 7: What this means structurally."""
     elements = []
-    elements.extend(section_head("8. Projected Impact", styles))
+    elements.extend(section_head("7. What This Changes Structurally", styles))
 
     elements.append(Paragraph(
-        "Estimated bucket populations based on current contact distribution:",
+        "Rather than projecting specific numbers (which vary by agent), here\u2019s what "
+        "the architectural changes accomplish:",
         styles['Body']))
 
-    tbl = make_table(
-        ["Bucket", "Current", "Projected", "Change"],
+    changes_tbl = make_table(
+        ["Gap", "Before", "After"],
         [
-            ["New Leads", "~18", "~15", "\u20133 (tighter window)"],
-            ["Priority \u2192 Active Pipeline", "0", "~15", "+15 (revenue contacts)"],
-            ["Hot", "~8", "~8", "\u2014"],
-            ["Warm", "~9", "~15", "+6 (lower threshold)"],
-            ["Cool", "1", "~25", "+24 (30d vs 90d)"],
-            ["Attempted", "\u2014", "~80", "NEW"],
-            ["Unresponsive", "~1*", "~40", "Smoothed (no surge)"],
-            ["Timeframe Empty", "~0", "~30", "+30 (Leads included)"],
+            ["Active Client / Under Contract coverage",
+             "Zero buckets \u2014 relies on memory",
+             "Active Pipeline bucket, every 3 days"],
+            ["Lead transition (between New and Unresponsive)",
+             "Dead zone \u2014 no bucket catches them",
+             "Attempted bucket, every 5 days"],
+            ["Cool lastComm threshold",
+             "90 days (3\u00d7 FUB default)",
+             "30 days (aligned with FUB default)"],
+            ["Warm lastComm threshold",
+             "30 days (2\u00d7 FUB default)",
+             "14 days (aligned with FUB default)"],
+            ["Unresponsive surge pattern",
+             "14-day cliff syncs with bulk actions",
+             "45-day threshold + Attempted absorbs transition"],
+            ["Timeframe qualification loop",
+             "Only Nurture (already qualified)",
+             "Leads included \u2014 prompts the calls that set timeframes"],
+            ["Stages with zero bucket coverage",
+             "2 stages (Active Client, Under Contract)",
+             "0 \u2014 full pipeline covered"],
+            ["Pipeline stages covered by any bucket",
+             "3 of 5 active stages",
+             "5 of 5 active stages"],
         ],
-        col_widths=[1.8*inch, 0.9*inch, 0.9*inch, 2.4*inch],
+        col_widths=[1.8*inch, 2.3*inch, 2.4*inch],
         highlight_col=2
     )
-    elements.append(tbl)
+    elements.append(changes_tbl)
+    elements.append(Spacer(1, 0.2*inch))
+
     elements.append(Paragraph(
-        "* Current Unresponsive averages ~1 but spikes to 150+ on surge days.",
-        styles['SmallNote']))
+        "The key shift: <b>every active contact now has a path into at least one bucket.</b> "
+        "Before, some contacts were structurally excluded \u2014 no amount of time passing "
+        "would surface them. After, any unbucketed contact is simply between cadence "
+        "touches and will reappear on schedule.",
+        styles['Callout']))
 
-    elements.append(Spacer(1, 0.25*inch))
-
-    # Summary stats
-    elements.append(Paragraph("<b>Coverage Summary</b>", styles['SubHead']))
-
-    summary_tbl = make_table(
-        ["Metric", "Before", "After", "Improvement"],
-        [
-            ["Contacts in any bucket", "~37", "~195", "5\u00d7 increase"],
-            ["Coverage rate", "~10%", "~53%", "+43 points"],
-            ["Active Clients covered", "0 of 15", "15 of 15", "Full coverage"],
-            ["Lead transition gap", "169", "0", "Eliminated"],
-            ["Surge max (single day)", "150", "~40", "73% reduction"],
-            ["Stages with no coverage", "2", "0", "Full pipeline"],
-        ],
-        col_widths=[1.8*inch, 1.1*inch, 1.1*inch, 2.0*inch],
-        highlight_col=2
-    )
-    elements.append(summary_tbl)
     elements.append(Spacer(1, 0.15*inch))
 
+    elements.append(Paragraph("<b>The Bigger Opportunity</b>", styles['SubHead']))
     elements.append(Paragraph(
-        "The remaining ~47% unbucketed contacts are <b>by design</b> \u2014 they were recently "
-        "contacted and haven\u2019t hit their next cadence threshold. The critical difference: "
-        "before, 89% unbucketed included contacts that would <i>never</i> appear in any bucket. "
-        "After, all unbucketed contacts are simply between touches.",
-        styles['Callout']))
+        "These recommendations optimize the current cadence-based model. But the highest-value "
+        "improvement long-term would be layering in <b>behavioral signals</b> \u2014 website activity, "
+        "property views, saved searches \u2014 so that a contact who\u2019s actively shopping surfaces "
+        "for a call <i>because they\u2019re shopping</i>, not just because enough days have passed. "
+        "That\u2019s a conversation for after the structural foundation is solid.",
+        styles['Body']))
 
     elements.append(PageBreak())
     return elements
 
 
 def build_implementation(styles):
-    """Section 9: Implementation Sequence."""
     elements = []
-    elements.extend(section_head("9. Implementation Plan", styles))
+    elements.extend(section_head("8. Implementation Plan", styles))
 
     elements.append(Paragraph(
-        "A phased approach lets us capture quick wins immediately and validate each change "
-        "before moving to the next.",
+        "A phased approach lets us capture quick wins, validate each change, and "
+        "adjust before moving to the next phase.",
         styles['Body']))
 
     # Phase 1
-    elements.append(Paragraph("<b>Phase 1 \u2014 Quick Wins</b> (Week 1, ~30 minutes)", styles['SubHead']))
     elements.append(Paragraph(
-        "Three filter edits to existing smart lists. No new lists needed.",
+        "<b>Phase 1 \u2014 Threshold Alignment</b> (Week 1, ~30 minutes in FUB)", styles['SubHead']))
+    elements.append(Paragraph(
+        "Three filter edits to existing smart lists. No new lists needed. "
+        "These bring our configuration in line with FUB\u2019s published defaults.",
         styles['Body']))
 
     p1_tbl = make_table(
-        ["Action", "Bucket", "Change", "Immediate Impact"],
+        ["Action", "Bucket", "Change"],
         [
-            ["Fix Cool threshold", "Cool", "90d \u2192 30d", "+24 contacts visible"],
+            ["Align Cool threshold", "Cool", "90 days \u2192 30 days"],
             ["Repurpose Priority", "Priority \u2192 Active Pipeline",
-             "Hot Prospect \u2192 Active Client + Under Contract", "15 revenue contacts covered"],
-            ["Fix Warm threshold", "Warm", "30d \u2192 14d", "+6 contacts, aligns with FUB default"],
+             "Stage=Hot Prospect \u2192 Stage IN (Active Client, Under Contract)"],
+            ["Align Warm threshold", "Warm", "30 days \u2192 14 days"],
         ],
-        col_widths=[1.2*inch, 1.5*inch, 1.8*inch, 2.0*inch]
+        col_widths=[1.5*inch, 1.5*inch, 3.5*inch]
     )
     elements.append(p1_tbl)
     elements.append(Spacer(1, 0.15*inch))
 
     # Phase 2
-    elements.append(Paragraph("<b>Phase 2 \u2014 New Buckets</b> (Week 2, ~45 minutes)", styles['SubHead']))
+    elements.append(Paragraph(
+        "<b>Phase 2 \u2014 Close Coverage Gaps</b> (Week 2, ~45 minutes)", styles['SubHead']))
 
     p2_tbl = make_table(
-        ["Action", "Bucket", "Details", "Impact"],
+        ["Action", "Bucket", "Details"],
         [
             ["Create Attempted list", "Attempted (NEW)",
-             "Stage=Lead + Created >10d + LastComm 5\u201345d, every 5 days",
-             "Fills 169-contact gap"],
+             "Stage=Lead + Created >10d + LastComm 5\u201345d, every 5 days"],
             ["Adjust Unresponsive", "Unresponsive",
-             "LastComm threshold 14d \u2192 45d",
-             "Eliminates surge pattern"],
+             "LastComm threshold 14d \u2192 45d"],
             ["Expand Timeframe Empty", "Timeframe Empty",
-             "Add Stage=Lead to filter",
-             "+160 Leads needing qualification"],
+             "Add Stage=Lead to filter criteria"],
         ],
-        col_widths=[1.3*inch, 1.3*inch, 2.2*inch, 1.7*inch]
+        col_widths=[1.5*inch, 1.5*inch, 3.5*inch]
     )
     elements.append(p2_tbl)
     elements.append(Spacer(1, 0.15*inch))
 
     # Phase 3
-    elements.append(Paragraph("<b>Phase 3 \u2014 Refinement</b> (Weeks 3\u20134)", styles['SubHead']))
-
-    p3_bullets = [
-        "Tighten New Leads window from 14 to 10 days for cleaner handoff to Attempted",
-        "Review Active Pipeline cadence based on team feedback (is every 3 days right?)",
-        "Consider adding IDX activity tags to inform Hot list beyond stage + timeframe",
+    elements.append(Paragraph(
+        "<b>Phase 3 \u2014 Refinement</b> (Weeks 3\u20134)", styles['SubHead']))
+    p3 = [
+        "Tighten New Leads window from 14 to 10 days (FUB default)",
+        "Review Active Pipeline cadence with the team \u2014 is every 3 days the right fit?",
+        "Evaluate whether IDX activity signals could inform bucket placement",
     ]
-    for b in p3_bullets:
+    for b in p3:
         elements.append(Paragraph(b, styles['BulletBody'], bulletText='\u2022'))
 
     elements.append(Spacer(1, 0.15*inch))
 
     # Phase 4
-    elements.append(Paragraph("<b>Phase 4 \u2014 Ongoing Monitoring</b>", styles['SubHead']))
-
+    elements.append(Paragraph("<b>Phase 4 \u2014 Ongoing</b>", styles['SubHead']))
     p4_tbl = make_table(
         ["Action", "Frequency", "Purpose"],
         [
-            ["Bucket population audit", "Weekly (first month), then monthly",
-             "Verify counts match projections"],
+            ["Bucket population check", "Weekly (month 1), then monthly",
+             "Verify the changes are producing expected results"],
             ["Threshold tuning", "Monthly",
-             "Adjust lastComm thresholds based on call capacity"],
+             "Adjust thresholds based on team call capacity"],
             ["Surge monitoring", "After each bulk action plan",
-             "Confirm Attempted absorbs the load"],
+             "Confirm Attempted absorbs the transition load"],
             ["Stage hygiene", "Monthly",
-             "Move stale Active Clients to Nurture, close completed deals"],
+             "Ensure contacts are in the correct pipeline stage"],
         ],
         col_widths=[1.5*inch, 1.8*inch, 3.2*inch]
     )
     elements.append(p4_tbl)
 
-    elements.append(Spacer(1, 0.3*inch))
+    elements.append(PageBreak())
+    return elements
+
+
+def build_next_steps(styles):
+    """Section 9: Call to action — team audit."""
+    elements = []
+    elements.extend(section_head("9. Recommended Next Steps", styles))
+
+    elements.append(Paragraph(
+        "This analysis is based on filter architecture and FUB\u2019s published best "
+        "practices. To move from analysis to action, we recommend:",
+        styles['Body']))
+
+    steps = [
+        {
+            'title': '1. Team Audit (30 minutes)',
+            'detail': (
+                "Each agent pulls up their smart lists in FUB and notes: how many contacts "
+                "appear in each bucket? How many Active Clients and Under Contract contacts "
+                "do they have? This gives us real team-wide numbers to validate the structural "
+                "findings in this report."
+            ),
+        },
+        {
+            'title': '2. Confirm Hot Prospect Usage',
+            'detail': (
+                "If no one on the team actively uses the Hot Prospect stage, the Priority "
+                "bucket is confirmed dead and can be repurposed. If someone does use it, "
+                "we keep Priority and create Active Pipeline as an additional list."
+            ),
+        },
+        {
+            'title': '3. Phase 1 Implementation',
+            'detail': (
+                "If the audit confirms the gaps, the three threshold changes in Phase 1 can "
+                "be made in a single ~30-minute session. These are the lowest-risk, "
+                "highest-return adjustments: aligning our configuration with FUB\u2019s own "
+                "recommended defaults."
+            ),
+        },
+        {
+            'title': '4. Measure and Iterate',
+            'detail': (
+                "After Phase 1, monitor bucket populations for two weeks. If the changes "
+                "produce the expected results, proceed to Phase 2. If not, adjust before "
+                "adding complexity."
+            ),
+        },
+    ]
+
+    for s in steps:
+        elements.append(Paragraph(f"<b>{s['title']}</b>", styles['SubHead']))
+        elements.append(Paragraph(s['detail'], styles['Body']))
+
+    elements.append(Spacer(1, 0.2*inch))
 
     # Closing
     elements.append(Paragraph(
-        "The framework we\u2019ve built is strong. These adjustments are about tuning the instrument, "
-        "not replacing it. Every recommendation aligns with FUB\u2019s own best practices and can be "
-        "implemented without disrupting the team\u2019s existing Power Hour workflow.",
+        "The daily zero-out workflow is a strong discipline that the team has built. "
+        "The opportunity is in what feeds that workflow: the filter logic that decides "
+        "who shows up and when. By aligning our thresholds with FUB\u2019s defaults "
+        "and closing the structural coverage gaps, we can make sure every contact has "
+        "a path onto a list \u2014 and that our highest-value relationships get the most "
+        "systematic attention.",
         styles['Callout']))
 
     return elements
 
 
+# ══════════════════════════════════════════════════════════════════════
+# PDF ASSEMBLY
+# ══════════════════════════════════════════════════════════════════════
+
 def add_footer(canvas, doc):
-    """Page footer with branding."""
     canvas.saveState()
     width, height = letter
-
-    # Footer line
     canvas.setStrokeColor(GOLD)
     canvas.setLineWidth(0.5)
     canvas.line(0.75*inch, 0.55*inch, width - 0.75*inch, 0.55*inch)
-
-    # Left: team name
     canvas.setFont('Helvetica', 8)
     canvas.setFillColor(MED_GRAY)
     canvas.drawString(0.75*inch, 0.38*inch, "Jon Tharp Homes  |  Smart List Optimization")
-
-    # Right: page number
-    canvas.drawRightString(width - 0.75*inch, 0.38*inch,
-                           f"Page {doc.page}")
-
-    # Confidential
+    canvas.drawRightString(width - 0.75*inch, 0.38*inch, f"Page {doc.page}")
     canvas.setFont('Helvetica', 7)
     canvas.drawCentredString(width / 2, 0.38*inch, "Confidential \u2014 Internal Use Only")
-
     canvas.restoreState()
 
 
 def add_first_page_footer(canvas, doc):
-    """Cover page has minimal footer."""
     canvas.saveState()
     width, height = letter
     canvas.setFont('Helvetica', 7)
@@ -948,7 +984,6 @@ def add_first_page_footer(canvas, doc):
 
 
 def generate_report(output_path=None):
-    """Build the complete PDF report."""
     if output_path is None:
         output_path = str(OUTPUT_DIR / "FUB_Smart_List_Optimization_Report.pdf")
 
@@ -964,19 +999,17 @@ def generate_report(output_path=None):
     styles = build_styles()
     elements = []
 
-    # Build all sections
     elements.extend(build_cover(styles))
     elements.extend(build_executive_summary(styles))
     elements.extend(build_how_smartlists_work(styles))
     elements.extend(build_bucket_analysis(styles))
-    elements.extend(build_coverage_gap(styles))
-    elements.extend(build_five_patterns(styles))
+    elements.extend(build_structural_gaps(styles))
     elements.extend(build_best_practices(styles))
     elements.extend(build_recommendations(styles))
-    elements.extend(build_before_after(styles))
+    elements.extend(build_what_changes(styles))
     elements.extend(build_implementation(styles))
+    elements.extend(build_next_steps(styles))
 
-    # Build PDF
     doc.build(elements,
               onFirstPage=add_first_page_footer,
               onLaterPages=add_footer)
@@ -987,7 +1020,6 @@ def generate_report(output_path=None):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Generate FUB Smart List Optimization PDF")
-    parser.add_argument('--output', '-o', help="Output file path",
-                        default=None)
+    parser.add_argument('--output', '-o', help="Output file path", default=None)
     args = parser.parse_args()
     generate_report(args.output)
