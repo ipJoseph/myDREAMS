@@ -1701,6 +1701,23 @@ def contacts_list():
         contacts = [c for c in contacts if (c.get('value_score') or 0) >= 60]
     elif filter_type == 'active_week':
         contacts = [c for c in contacts if (c.get('days_since_activity') or 999) <= 7]
+    elif filter_type == 'pipeline':
+        pipeline_stages = {'Under Contract', 'Pending', 'Active Under Contract'}
+        contacts = [c for c in contacts if c.get('stage') in pipeline_stages]
+    elif filter_type == 'active_buyers':
+        buyer_stages = {'Active Client', 'Active Buyer', 'Hot Prospect', 'Prospect'}
+        contacts = [c for c in contacts if c.get('stage') in buyer_stages]
+    elif filter_type == 'new_leads_3d':
+        from datetime import timedelta
+        cutoff = (datetime.now() - timedelta(days=3)).isoformat()
+        contacts = [c for c in contacts if (c.get('created_at') or '') >= cutoff]
+    elif filter_type == 'reassigned':
+        reassigned_ids = {
+            r['id'] for r in db.get_recently_reassigned_leads(
+                from_user_id=CURRENT_USER_ID, days=7
+            )
+        }
+        contacts = [c for c in contacts if c.get('id') in reassigned_ids]
 
     # Apply min_heat filter
     if min_heat > 0:

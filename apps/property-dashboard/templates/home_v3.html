@@ -156,6 +156,19 @@
         .pulse-item.alert .pulse-label {
             color: #dc2626;
         }
+        .pulse-link {
+            text-decoration: none;
+            color: inherit;
+            flex: 1;
+            border-radius: 8px;
+            transition: background 0.15s, transform 0.15s;
+        }
+        .pulse-link:hover {
+            background: #f1f5f9;
+            transform: translateY(-1px);
+        }
+        .pulse-link:hover .pulse-item { background: transparent; }
+        .pulse-link:active { transform: translateY(0); }
 
         /* ========== MORNING SUMMARY ========== */
         .morning-summary {
@@ -975,6 +988,7 @@
             .page-content { padding: 16px 16px 32px; }
             .daily-stats { gap: 12px; }
             .pulse-strip { flex-wrap: wrap; gap: 8px; }
+            .pulse-link { min-width: 80px; flex: unset; }
             .pulse-item { min-width: 80px; }
             .contact-card { grid-template-columns: 40px 1fr; }
             .contact-actions { grid-column: 1 / -1; justify-content: flex-start; margin-top: 8px; }
@@ -1033,31 +1047,43 @@
             <!-- Section 1: Morning Pulse Strip -->
             <div class="pulse-strip">
                 {% set pv = pulse_metrics.pipeline_value or 0 %}
-                <div class="pulse-item">
-                    <div class="pulse-value">{% if pv >= 1000000 %}${{ "%.1f"|format(pv / 1000000) }}M{% elif pv > 0 %}${{ (pv // 1000)|int }}K{% else %}$0{% endif %}</div>
-                    <div class="pulse-label">Pipeline</div>
-                </div>
-                <div class="pulse-item">
-                    <div class="pulse-value">{{ pulse_metrics.active_buyers }}</div>
-                    <div class="pulse-label">Active Buyers</div>
-                </div>
-                <div class="pulse-item">
-                    <div class="pulse-value">{{ pulse_metrics.pending_offers }}</div>
-                    <div class="pulse-label">Pending</div>
-                </div>
-                <div class="pulse-item">
-                    <div class="pulse-value">{{ pulse_metrics.new_leads_3d }}</div>
-                    <div class="pulse-label">New (3d)</div>
-                </div>
-                <div class="pulse-item">
-                    <div class="pulse-value">{{ pulse_metrics.contacts_ready }}</div>
-                    <div class="pulse-label">Ready</div>
-                </div>
+                <a class="pulse-link" href="{{ url_for('contacts') }}?filter=pipeline">
+                    <div class="pulse-item">
+                        <div class="pulse-value">{% if pv >= 1000000 %}${{ "%.1f"|format(pv / 1000000) }}M{% elif pv > 0 %}${{ (pv // 1000)|int }}K{% else %}$0{% endif %}</div>
+                        <div class="pulse-label">Pipeline</div>
+                    </div>
+                </a>
+                <a class="pulse-link" href="{{ url_for('contacts') }}?filter=active_buyers">
+                    <div class="pulse-item">
+                        <div class="pulse-value">{{ pulse_metrics.active_buyers }}</div>
+                        <div class="pulse-label">Active Buyers</div>
+                    </div>
+                </a>
+                <a class="pulse-link" href="{{ url_for('contacts') }}?filter=pipeline">
+                    <div class="pulse-item">
+                        <div class="pulse-value">{{ pulse_metrics.pending_offers }}</div>
+                        <div class="pulse-label">Pending</div>
+                    </div>
+                </a>
+                <a class="pulse-link" href="{{ url_for('contacts') }}?filter=new_leads_3d">
+                    <div class="pulse-item">
+                        <div class="pulse-value">{{ pulse_metrics.new_leads_3d }}</div>
+                        <div class="pulse-label">New (3d)</div>
+                    </div>
+                </a>
+                <a class="pulse-link" href="#todays-mission">
+                    <div class="pulse-item">
+                        <div class="pulse-value">{{ pulse_metrics.contacts_ready }}</div>
+                        <div class="pulse-label">Ready</div>
+                    </div>
+                </a>
                 {% if pulse_metrics.reassigned_7d > 0 %}
-                <div class="pulse-item alert">
-                    <div class="pulse-value">{{ pulse_metrics.reassigned_7d }}</div>
-                    <div class="pulse-label">Reassigned</div>
-                </div>
+                <a class="pulse-link" href="{{ url_for('contacts') }}?filter=reassigned">
+                    <div class="pulse-item alert">
+                        <div class="pulse-value">{{ pulse_metrics.reassigned_7d }}</div>
+                        <div class="pulse-label">Reassigned</div>
+                    </div>
+                </a>
                 {% endif %}
             </div>
 
@@ -1165,7 +1191,7 @@
             {% endif %}
 
             <!-- Section 5: Today's Mission -->
-            <div class="mission-section">
+            <div class="mission-section" id="todays-mission">
                 <div class="section-header">
                     <div class="section-title">Today's Mission</div>
                     <div class="section-subtitle">{{ contacts|length }} contacts to reach</div>
