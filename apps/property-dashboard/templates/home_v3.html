@@ -157,6 +157,131 @@
             color: #dc2626;
         }
 
+        /* ========== BRIEFING METRIC CARDS ========== */
+        .briefing-metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .metric-card {
+            display: block;
+            background: white;
+            border-radius: 12px;
+            border-left: 4px solid var(--metric-color, #64748b);
+            padding: 16px 18px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+            text-decoration: none;
+            color: inherit;
+            transition: all 0.15s;
+        }
+        .metric-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .metric-card-value {
+            font-size: 28px;
+            font-weight: 800;
+            color: var(--text-primary);
+            line-height: 1.1;
+        }
+        .metric-card-label {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+        .metric-card-context {
+            font-size: 11px;
+            color: var(--text-muted, #94a3b8);
+            margin-top: 4px;
+        }
+        .metric-card.alert-metric {
+            background: #fef2f2;
+            --metric-color: #dc2626;
+        }
+        .metric-card.alert-metric .metric-card-value { color: #dc2626; }
+        .metric-card.alert-metric .metric-card-label { color: #dc2626; }
+
+        /* ========== BRIEFING GRID ========== */
+        .briefing-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        /* ========== BRIEFING CARD ========== */
+        .briefing-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .briefing-card.full-width {
+            margin-bottom: 24px;
+        }
+        .briefing-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 18px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .briefing-card-title {
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .briefing-card-action {
+            font-size: 12px;
+            font-weight: 600;
+            color: #3b82f6;
+            text-decoration: none;
+        }
+        .briefing-card-action:hover { text-decoration: underline; }
+        .briefing-card-body {
+            padding: 12px 18px;
+            flex: 1;
+            max-height: 360px;
+            overflow-y: auto;
+        }
+
+        /* Override overnight-groups to stack inside card */
+        .briefing-card .overnight-groups {
+            grid-template-columns: 1fr;
+        }
+
+        /* ========== BRIEFING STAT ROWS ========== */
+        .briefing-stat-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #f8fafc;
+            font-size: 13px;
+        }
+        .briefing-stat-row:last-child { border-bottom: none; }
+        .briefing-stat-label { color: var(--text-secondary); }
+        .briefing-stat-value { font-weight: 700; color: var(--text-primary); }
+
+        /* ========== MISSION SUMMARY STRIP ========== */
+        .mission-summary-strip {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            padding: 0 18px 14px;
+        }
+
         /* ========== MORNING SUMMARY ========== */
         .morning-summary {
             font-size: 15px;
@@ -167,6 +292,7 @@
             box-shadow: 0 1px 3px rgba(0,0,0,0.04);
             margin-bottom: 16px;
             line-height: 1.5;
+            border-left: 4px solid #3b82f6;
         }
 
         /* ========== ALERTS ========== */
@@ -969,6 +1095,7 @@
         @media (max-width: 1100px) {
             .command-grid { grid-template-columns: 1fr; }
             .overnight-groups { grid-template-columns: 1fr; }
+            .briefing-grid { grid-template-columns: 1fr; }
         }
         @media (max-width: 900px) {
             .topbar { padding: 12px 16px; flex-wrap: wrap; gap: 12px; }
@@ -976,6 +1103,7 @@
             .daily-stats { gap: 12px; }
             .pulse-strip { flex-wrap: wrap; gap: 8px; }
             .pulse-item { min-width: 80px; }
+            .briefing-metrics { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
             .contact-card { grid-template-columns: 40px 1fr; }
             .contact-actions { grid-column: 1 / -1; justify-content: flex-start; margin-top: 8px; }
         }
@@ -984,6 +1112,7 @@
             .daily-stats { display: none; }
             .pipeline-strip { flex-wrap: wrap; }
             .pipe-item { min-width: 60px; }
+            .briefing-metrics { grid-template-columns: repeat(2, 1fr); }
         }
     </style>
 {% set active_nav = 'dashboard' %}
@@ -1030,34 +1159,40 @@
         <!-- ════════════════════════════════════════════════════ -->
         <div class="mode-panel active" id="mode-briefing">
 
-            <!-- Section 1: Morning Pulse Strip -->
-            <div class="pulse-strip">
+            <!-- Section 1: Metric Cards -->
+            <div class="briefing-metrics">
                 {% set pv = pulse_metrics.pipeline_value or 0 %}
-                <div class="pulse-item">
-                    <div class="pulse-value">{% if pv >= 1000000 %}${{ "%.1f"|format(pv / 1000000) }}M{% elif pv > 0 %}${{ (pv // 1000)|int }}K{% else %}$0{% endif %}</div>
-                    <div class="pulse-label">Pipeline</div>
-                </div>
-                <div class="pulse-item">
-                    <div class="pulse-value">{{ pulse_metrics.active_buyers }}</div>
-                    <div class="pulse-label">Active Buyers</div>
-                </div>
-                <div class="pulse-item">
-                    <div class="pulse-value">{{ pulse_metrics.pending_offers }}</div>
-                    <div class="pulse-label">Pending</div>
-                </div>
-                <div class="pulse-item">
-                    <div class="pulse-value">{{ pulse_metrics.new_leads_3d }}</div>
-                    <div class="pulse-label">New (3d)</div>
-                </div>
-                <div class="pulse-item">
-                    <div class="pulse-value">{{ pulse_metrics.contacts_ready }}</div>
-                    <div class="pulse-label">Ready</div>
-                </div>
+                <a class="metric-card" href="/contacts?filter=pipeline" style="--metric-color: #22c55e;">
+                    <div class="metric-card-value">{% if pv >= 1000000 %}${{ "%.1f"|format(pv / 1000000) }}M{% elif pv > 0 %}${{ (pv // 1000)|int }}K{% else %}$0{% endif %}</div>
+                    <div class="metric-card-label">Pipeline</div>
+                    <div class="metric-card-context">Active pipeline value</div>
+                </a>
+                <a class="metric-card" href="/contacts?filter=active_buyers" style="--metric-color: #3b82f6;">
+                    <div class="metric-card-value">{{ pulse_metrics.active_buyers }}</div>
+                    <div class="metric-card-label">Buyers</div>
+                    <div class="metric-card-context">Active buyers</div>
+                </a>
+                <a class="metric-card" href="/contacts?filter=pipeline" style="--metric-color: #f59e0b;">
+                    <div class="metric-card-value">{{ pulse_metrics.pending_offers }}</div>
+                    <div class="metric-card-label">Pending</div>
+                    <div class="metric-card-context">Under contract</div>
+                </a>
+                <a class="metric-card" href="/contacts?filter=new_leads_3d" style="--metric-color: #8b5cf6;">
+                    <div class="metric-card-value">{{ pulse_metrics.new_leads_3d }}</div>
+                    <div class="metric-card-label">New Leads</div>
+                    <div class="metric-card-context">Last 3 days</div>
+                </a>
+                <a class="metric-card" href="#mission-section" style="--metric-color: #64748b;">
+                    <div class="metric-card-value">{{ pulse_metrics.contacts_ready }}</div>
+                    <div class="metric-card-label">Ready</div>
+                    <div class="metric-card-context">To contact today</div>
+                </a>
                 {% if pulse_metrics.reassigned_7d > 0 %}
-                <div class="pulse-item alert">
-                    <div class="pulse-value">{{ pulse_metrics.reassigned_7d }}</div>
-                    <div class="pulse-label">Reassigned</div>
-                </div>
+                <a class="metric-card alert-metric" href="/contacts?filter=reassigned">
+                    <div class="metric-card-value">{{ pulse_metrics.reassigned_7d }}</div>
+                    <div class="metric-card-label">Reassigned</div>
+                    <div class="metric-card-context">This week</div>
+                </a>
                 {% endif %}
             </div>
 
@@ -1088,88 +1223,179 @@
             </div>
             {% endif %}
 
-            <!-- Section 4: Overnight Intelligence -->
-            {% if narrative_items or live_feed or new_leads_detail %}
-            <div class="overnight-section">
-                <div class="section-header">
-                    <div class="section-title">Overnight Intelligence</div>
-                    <div class="section-subtitle">Last 24h: {{ activity_summary.total_events }} events, {{ activity_summary.active_contacts }} active contacts{% if activity_summary.new_leads > 0 %}, {{ activity_summary.new_leads }} new lead{{ 's' if activity_summary.new_leads != 1 }}{% endif %}</div>
+            <!-- Section 4: Intelligence Grid -->
+            <div class="briefing-grid">
+                <!-- Left column: Overnight Intelligence -->
+                {% if narrative_items or live_feed or new_leads_detail %}
+                <div class="briefing-card">
+                    <div class="briefing-card-header">
+                        <div class="briefing-card-title">
+                            Overnight Intelligence
+                            <span style="font-size:11px; color:var(--text-muted, #94a3b8); font-weight:400;">{{ activity_summary.total_events }} events</span>
+                        </div>
+                        <a href="/contacts" class="briefing-card-action">Full View &rarr;</a>
+                    </div>
+                    <div class="briefing-card-body">
+                        <div class="overnight-groups">
+                            <!-- New Leads with source grouping -->
+                            {% if new_leads_detail %}
+                            <div class="overnight-group">
+                                <div class="overnight-group-header" onclick="toggleCollapse(this)">
+                                    <div class="away-icon new_lead">&#128100;</div>
+                                    <div class="overnight-group-title">New Leads</div>
+                                    <div class="overnight-group-count">({{ new_leads_detail|length }})</div>
+                                    <span class="collapse-chevron">&#9660;</span>
+                                </div>
+                                <div class="overnight-group-items collapsible-body">
+                                    {% set ns = namespace(sources={}) %}
+                                    {% for nl in new_leads_detail %}
+                                        {% set src = nl.source or 'Unknown' %}
+                                        {% if src in ns.sources %}
+                                            {% set _ = ns.sources.update({src: ns.sources[src] + 1}) %}
+                                        {% else %}
+                                            {% set _ = ns.sources.update({src: 1}) %}
+                                        {% endif %}
+                                    {% endfor %}
+                                    <div class="overnight-item" style="font-weight:600; color:var(--text-secondary);">
+                                        {% for src, count in ns.sources.items() %}{{ count }} from {{ src }}{{ ', ' if not loop.last }}{% endfor %}
+                                    </div>
+                                    {% for nl in new_leads_detail %}
+                                    <div class="overnight-item">
+                                        {{ nl.first_name }} {{ nl.last_name }} from {{ nl.source or 'website' }}{% if nl.days_ago is not none and nl.days_ago == 0 %}, today{% elif nl.days_ago is not none %}, {{ nl.days_ago }}d ago{% endif %}
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            {% endif %}
+
+                            <!-- Activity groups from narrative_items -->
+                            {% for group in narrative_items %}
+                            <div class="overnight-group">
+                                <div class="overnight-group-header" onclick="toggleCollapse(this)">
+                                    <div class="away-icon {{ group.css_class }}">{{ group.icon | safe }}</div>
+                                    <div class="overnight-group-title">{{ group.title }}</div>
+                                    <div class="overnight-group-count">({{ group.entries|length }})</div>
+                                    <span class="collapse-chevron">&#9660;</span>
+                                </div>
+                                <div class="overnight-group-items collapsible-body">
+                                    {% for text in group.entries %}
+                                    <div class="overnight-item">{{ text }}</div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
                 </div>
-
-                <div class="overnight-groups">
-                    <!-- New Leads with source grouping -->
-                    {% if new_leads_detail %}
-                    <div class="overnight-group">
-                        <div class="overnight-group-header" onclick="toggleCollapse(this)">
-                            <div class="away-icon new_lead">&#128100;</div>
-                            <div class="overnight-group-title">New Leads</div>
-                            <div class="overnight-group-count">({{ new_leads_detail|length }})</div>
-                            <span class="collapse-chevron">&#9660;</span>
+                {% else %}
+                <div class="briefing-card">
+                    <div class="briefing-card-header">
+                        <div class="briefing-card-title">Overnight Intelligence</div>
+                    </div>
+                    <div class="briefing-card-body">
+                        <div class="empty-state" style="padding:20px;">
+                            <div class="empty-state-icon">&#128164;</div>
+                            <div class="empty-state-text">Quiet overnight — no new activity.</div>
                         </div>
-                        <div class="overnight-group-items collapsible-body">
-                            {% set ns = namespace(sources={}) %}
-                            {% for nl in new_leads_detail %}
-                                {% set src = nl.source or 'Unknown' %}
-                                {% if src in ns.sources %}
-                                    {% set _ = ns.sources.update({src: ns.sources[src] + 1}) %}
-                                {% else %}
-                                    {% set _ = ns.sources.update({src: 1}) %}
-                                {% endif %}
-                            {% endfor %}
-                            <div class="overnight-item" style="font-weight:600; color:var(--text-secondary);">
-                                {% for src, count in ns.sources.items() %}{{ count }} from {{ src }}{{ ', ' if not loop.last }}{% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Right column: Pipeline + Stats + Live Activity -->
+                <div style="display:flex; flex-direction:column; gap:16px;">
+                    <!-- Pipeline Snapshot -->
+                    <div class="briefing-card">
+                        <div class="briefing-card-header">
+                            <div class="briefing-card-title">Pipeline Snapshot</div>
+                            <a href="/contacts?filter=pipeline" class="briefing-card-action">Details &rarr;</a>
+                        </div>
+                        <div class="briefing-card-body">
+                            {% set pv2 = pipeline.total_pipeline_value or 0 %}
+                            <div class="briefing-stat-row">
+                                <span class="briefing-stat-label">Pipeline Value</span>
+                                <span class="briefing-stat-value">{% if pv2 >= 1000000 %}${{ "%.1f"|format(pv2 / 1000000) }}M{% elif pv2 > 0 %}${{ "{:,.0f}".format(pv2) }}{% else %}$0{% endif %}</span>
                             </div>
-                            {% for nl in new_leads_detail %}
-                            <div class="overnight-item">
-                                {{ nl.first_name }} {{ nl.last_name }} from {{ nl.source or 'website' }}{% if nl.days_ago is not none and nl.days_ago == 0 %}, today{% elif nl.days_ago is not none %}, {{ nl.days_ago }}d ago{% endif %}
+                            <div class="briefing-stat-row">
+                                <span class="briefing-stat-label">Pending Offers</span>
+                                <span class="briefing-stat-value">{{ pipeline.pending_offers|length }}{% if pipeline.pending_offers %} <span style="font-weight:400; font-size:11px; color:var(--text-muted, #94a3b8);">({% for po in pipeline.pending_offers[:3] %}{{ po.first_name or po.name or 'Lead' }}{{ ', ' if not loop.last }}{% endfor %}{% if pipeline.pending_offers|length > 3 %}...{% endif %})</span>{% endif %}</span>
+                            </div>
+                            <div class="briefing-stat-row">
+                                <span class="briefing-stat-label">Active Pursuits</span>
+                                <span class="briefing-stat-value">{{ pipeline.active_pursuits }}</span>
+                            </div>
+                            <div class="briefing-stat-row">
+                                <span class="briefing-stat-label">Need Properties</span>
+                                <span class="briefing-stat-value">{{ pipeline.buyers_needing_properties }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Today's Stats -->
+                    <div class="briefing-card">
+                        <div class="briefing-card-header">
+                            <div class="briefing-card-title">Today's Stats</div>
+                        </div>
+                        <div class="briefing-card-body">
+                            <div class="briefing-stat-row">
+                                <span class="briefing-stat-label">Calls</span>
+                                <span class="briefing-stat-value" id="stat-calls-brief">{{ call_stats.calls_attempted }}</span>
+                            </div>
+                            <div class="briefing-stat-row">
+                                <span class="briefing-stat-label">Reached</span>
+                                <span class="briefing-stat-value" id="stat-reached-brief">{{ call_stats.calls_reached }}</span>
+                            </div>
+                            <div class="briefing-stat-row">
+                                <span class="briefing-stat-label">Appointments</span>
+                                <span class="briefing-stat-value" id="stat-appts-brief">{{ call_stats.appointments }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Live Activity -->
+                    <div class="briefing-card">
+                        <div class="briefing-card-header">
+                            <div class="briefing-card-title">
+                                <span class="live-dot"></span>
+                                Live Activity
+                            </div>
+                        </div>
+                        <div class="briefing-card-body" id="briefing-live-feed" style="padding:0;">
+                            {% if live_feed %}
+                            {% for event in live_feed[:5] %}
+                            <div class="feed-item">
+                                <div>{{ event.description }}</div>
+                                <div class="feed-time">{{ event.occurred_at[:16].replace('T', ' ') if event.occurred_at else '' }}</div>
                             </div>
                             {% endfor %}
+                            {% else %}
+                            <div class="feed-item" style="text-align:center; color:var(--text-secondary); padding:20px;">
+                                No recent activity
+                            </div>
+                            {% endif %}
                         </div>
                     </div>
-                    {% endif %}
-
-                    <!-- Activity groups from narrative_items -->
-                    {% for group in narrative_items %}
-                    <div class="overnight-group">
-                        <div class="overnight-group-header" onclick="toggleCollapse(this)">
-                            <div class="away-icon {{ group.css_class }}">{{ group.icon | safe }}</div>
-                            <div class="overnight-group-title">{{ group.title }}</div>
-                            <div class="overnight-group-count">({{ group.entries|length }})</div>
-                            <span class="collapse-chevron">&#9660;</span>
-                        </div>
-                        <div class="overnight-group-items collapsible-body">
-                            {% for text in group.entries %}
-                            <div class="overnight-item">{{ text }}</div>
-                            {% endfor %}
-                        </div>
-                    </div>
-                    {% endfor %}
-
-                    <!-- Compact Live Feed -->
-                    {% if live_feed %}
-                    <div class="live-feed-compact">
-                        <div class="live-feed-header">
-                            <div class="live-dot"></div>
-                            <div class="live-feed-title">Live Activity</div>
-                        </div>
-                        {% for event in live_feed[:5] %}
-                        <div class="feed-item">
-                            <div>{{ event.description }}</div>
-                            <div class="feed-time">{{ event.occurred_at[:16].replace('T', ' ') if event.occurred_at else '' }}</div>
-                        </div>
-                        {% endfor %}
-                    </div>
-                    {% endif %}
                 </div>
             </div>
-            {% endif %}
 
             <!-- Section 5: Today's Mission -->
-            <div class="mission-section">
-                <div class="section-header">
-                    <div class="section-title">Today's Mission</div>
-                    <div class="section-subtitle">{{ contacts|length }} contacts to reach</div>
+            <div class="briefing-card full-width" id="mission-section">
+                <div class="briefing-card-header">
+                    <div class="briefing-card-title">Today's Mission</div>
+                    <span style="font-size:12px; color:var(--text-secondary);">{{ contacts|length }} contacts</span>
                 </div>
+                <div class="mission-summary-strip">
+                    {% for group_key, group_label, group_class in [
+                        ('act_now', 'Act Now', 'act-now'),
+                        ('follow_up', 'Follow Up', 'follow-up'),
+                        ('touch_base', 'Touch Base', 'touch-base')
+                    ] %}
+                    {% set grp = contact_groups.get(group_key, []) %}
+                    {% if grp %}
+                    <span class="group-badge {{ group_class }}">{{ group_label }} {{ grp|length }}</span>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+                <div style="padding: 0 18px 18px;">
 
                 {% for group_key, group_label, group_class in [
                     ('act_now', 'Act Now', 'act-now'),
@@ -1277,38 +1503,7 @@
                     <div class="empty-state-text">All caught up! No contacts need attention right now.</div>
                 </div>
                 {% endif %}
-            </div>
 
-            <!-- Section 6: Pipeline Snapshot Strip -->
-            <div class="pipeline-strip">
-                <div class="pipe-item">
-                    {% set pv = pipeline.total_pipeline_value or 0 %}
-                    <div class="pipe-value">{% if pv >= 1000000 %}${{ "%.1f"|format(pv / 1000000) }}M{% elif pv > 0 %}${{ "{:,.0f}".format(pv) }}{% else %}$0{% endif %}</div>
-                    <div class="pipe-label">Pipeline Value</div>
-                </div>
-                <div class="pipe-item">
-                    <div class="pipe-value">{{ pipeline.pending_offers|length }}</div>
-                    <div class="pipe-label">Pending Offers</div>
-                </div>
-                <div class="pipe-item">
-                    <div class="pipe-value">{{ pipeline.active_pursuits }}</div>
-                    <div class="pipe-label">Active Pursuits</div>
-                </div>
-                <div class="pipe-item">
-                    <div class="pipe-value">{{ pipeline.buyers_needing_properties }}</div>
-                    <div class="pipe-label">Need Properties</div>
-                </div>
-                <div class="pipe-item">
-                    <div class="pipe-value" id="stat-calls-brief">{{ call_stats.calls_attempted }}</div>
-                    <div class="pipe-label">Calls Today</div>
-                </div>
-                <div class="pipe-item">
-                    <div class="pipe-value" id="stat-reached-brief">{{ call_stats.calls_reached }}</div>
-                    <div class="pipe-label">Reached</div>
-                </div>
-                <div class="pipe-item">
-                    <div class="pipe-value" id="stat-appts-brief">{{ call_stats.appointments }}</div>
-                    <div class="pipe-label">Appts</div>
                 </div>
             </div>
 
