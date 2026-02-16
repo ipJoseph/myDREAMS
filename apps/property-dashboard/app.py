@@ -948,6 +948,109 @@ def _fub_briefing_text(contact, list_key):
     return briefings.get(list_key, days_text)
 
 
+def _batch_fub_activity_stats(db, fub_ids: list) -> dict:
+    """Batch-fetch activity stats for FUB contacts from DREAMS database.
+    Returns dict keyed by fub_id string with views, favorites, cities, comms."""
+    if not fub_ids:
+        return {}
+    try:
+        conn = db._get_connection()
+        cutoff_24h = (datetime.now() - timedelta(hours=24)).isoformat()
+        cutoff_7d = (datetime.now() - timedelta(days=7)).isoformat()
+        placeholders = ','.join('?' * len(fub_ids))
+
+        # Property views 24h and 7d
+        views = {}
+        rows = conn.execute(f'''
+            SELECT contact_id,
+                   SUM(CASE WHEN occurred_at >= ? THEN 1 ELSE 0 END) AS views_24h,
+                   COUNT(*) AS views_7d
+            FROM contact_events
+            WHERE contact_id IN ({placeholders})
+            AND event_type = 'property_view'
+            AND occurred_at >= ?
+            GROUP BY contact_id
+        ''', [cutoff_24h] + fub_ids + [cutoff_7d]).fetchall()
+        for r in rows:
+            views[r['contact_id']] = {'views_24h': r['views_24h'], 'views_7d': r['views_7d']}
+
+        # Favorites 7d
+        fav_rows = conn.execute(f'''
+            SELECT contact_id, COUNT(*) AS cnt
+            FROM contact_events
+            WHERE contact_id IN ({placeholders})
+            AND event_type = 'property_favorite'
+            AND occurred_at >= ?
+            GROUP BY contact_id
+        ''', fub_ids + [cutoff_7d]).fetchall()
+
+        # Recent cities from property views
+        city_rows = conn.execute(f'''
+            SELECT ce.contact_id, COALESCE(ic.city, 'Unknown') AS city, COUNT(*) AS cnt
+            FROM contact_events ce
+            LEFT JOIN idx_property_cache ic ON ce.property_mls = ic.mls_number
+            WHERE ce.contact_id IN ({placeholders})
+            AND ce.event_type = 'property_view'
+            AND ce.occurred_at >= ?
+            AND ic.city IS NOT NULL
+            GROUP BY ce.contact_id, ic.city
+            ORDER BY cnt DESC
+        ''', fub_ids + [cutoff_7d]).fetchall()
+
+        # Days since last communication (need lead IDs)
+        lead_rows = conn.execute(f'''
+            SELECT fub_id, id FROM leads WHERE CAST(fub_id AS TEXT) IN ({placeholders})
+        ''', fub_ids).fetchall()
+        lead_map = {str(r['fub_id']): r['id'] for r in lead_rows}
+
+        comm_stats = {}
+        if lead_map:
+            lead_ids = list(lead_map.values())
+            lp = ','.join('?' * len(lead_ids))
+            comm_rows = conn.execute(f'''
+                SELECT contact_id,
+                       CAST(julianday('now') - julianday(MAX(occurred_at)) AS INTEGER) AS days_since
+                FROM contact_communications
+                WHERE contact_id IN ({lp})
+                GROUP BY contact_id
+            ''', lead_ids).fetchall()
+            # Map lead_id back to fub_id
+            lead_to_fub = {v: k for k, v in lead_map.items()}
+            for r in comm_rows:
+                fub_key = lead_to_fub.get(r['contact_id'])
+                if fub_key:
+                    comm_stats[fub_key] = r['days_since']
+
+        # Build result dict
+        result = {}
+        city_map = {}
+        for r in city_rows:
+            cid = r['contact_id']
+            if cid not in city_map:
+                city_map[cid] = []
+            if len(city_map[cid]) < 3:
+                city_map[cid].append(r['city'])
+
+        for fid in fub_ids:
+            v = views.get(fid, {})
+            result[fid] = {
+                'views_24h': v.get('views_24h', 0),
+                'views_7d': v.get('views_7d', 0),
+                'favorites_7d': 0,
+                'recent_cities': city_map.get(fid, []),
+                'days_since_last_comm': comm_stats.get(fid),
+            }
+
+        for r in fav_rows:
+            if r['contact_id'] in result:
+                result[r['contact_id']]['favorites_7d'] = r['cnt']
+
+        return result
+    except Exception as e:
+        logger.warning(f"Batch FUB activity stats failed: {e}")
+        return {}
+
+
 @app.route('/api/power-hour/fub-queue/<dreams_key>')
 @requires_auth
 def api_power_hour_fub_queue(dreams_key):
@@ -971,19 +1074,33 @@ def api_power_hour_fub_queue(dreams_key):
     buckets = _bucket_fub_contacts(people)
     contacts = buckets.get(dreams_key, [])
 
+    # Cross-reference FUB contacts with DREAMS database for enrichment
+    db = get_db()
+
+    # Batch-fetch activity stats for all FUB contacts that exist in DREAMS
+    fub_ids_str = [str(c['id']) for c in contacts]
+    activity_stats = _batch_fub_activity_stats(db, fub_ids_str)
+
     ph_contacts = []
     for c in contacts:
         parts = c['name'].split(' ', 1) if c.get('name') else ['', '']
-        ph_contacts.append({
-            'id': f"fub_{c['id']}",
-            'fub_id': c['id'],
+        fub_id = c['id']
+
+        # Look up DREAMS enrichment data by FUB ID
+        dreams_contact = db.get_contact_by_fub_id(str(fub_id))
+
+        ph = {
+            'id': f"fub_{fub_id}",
+            'fub_id': fub_id,
             'first_name': parts[0],
             'last_name': parts[1] if len(parts) > 1 else '',
             'phone': c.get('phone', ''),
             'stage': c.get('stage', ''),
             'heat_score': None,
+            'value_score': None,
             'priority_score': None,
             'score_trend': None,
+            'heat_delta': None,
             'price_range_label': None,
             'recent_cities': [],
             'email': None,
@@ -991,8 +1108,72 @@ def api_power_hour_fub_queue(dreams_key):
             'fub_list': dreams_key,
             'lastCommDays': c.get('lastCommDays'),
             'timeframeStatus': c.get('timeframeStatus'),
-            'briefing': {'text': _fub_briefing_text(c, dreams_key)},
-        })
+            'financing_status': None,
+            'pre_approval_amount': None,
+            'intent_signal_count': None,
+            'intent_repeat_views': None,
+            'intent_sharing': None,
+            'days_since_activity': None,
+            'created_at': None,
+            'property_views_24h': 0,
+            'property_views_7d': 0,
+            'favorites_7d': 0,
+        }
+
+        # Merge DREAMS data if contact exists in our database
+        if dreams_contact:
+            dc = dreams_contact
+            ph['id'] = dc.get('id', ph['id'])
+            ph['email'] = dc.get('email') or None
+            ph['heat_score'] = dc.get('heat_score')
+            ph['value_score'] = dc.get('value_score')
+            ph['priority_score'] = dc.get('priority_score')
+            ph['score_trend'] = dc.get('score_trend')
+            ph['days_since_activity'] = dc.get('days_since_activity')
+            ph['created_at'] = dc.get('created_at')
+            ph['intent_signal_count'] = dc.get('intent_signal_count')
+            ph['intent_repeat_views'] = dc.get('intent_repeat_views')
+            ph['intent_sharing'] = dc.get('intent_sharing')
+            # Price range
+            min_p = dc.get('min_price')
+            max_p = dc.get('max_price')
+            if min_p and max_p:
+                ph['price_range_label'] = f"${min_p // 1000}K-${max_p // 1000}K"
+            elif max_p:
+                ph['price_range_label'] = f"up to ${max_p // 1000}K"
+            elif min_p:
+                ph['price_range_label'] = f"${min_p // 1000}K+"
+            # Cities from preferred_cities field
+            if dc.get('preferred_cities'):
+                try:
+                    cities = json.loads(dc['preferred_cities']) if isinstance(dc['preferred_cities'], str) else dc['preferred_cities']
+                    ph['recent_cities'] = cities if isinstance(cities, list) else []
+                except (json.JSONDecodeError, TypeError):
+                    ph['recent_cities'] = []
+
+        # Merge batch activity stats (property views, cities, comms)
+        fub_key = str(fub_id)
+        stats = activity_stats.get(fub_key, {})
+        if stats:
+            ph['property_views_24h'] = stats.get('views_24h', 0)
+            ph['property_views_7d'] = stats.get('views_7d', 0)
+            ph['favorites_7d'] = stats.get('favorites_7d', 0)
+            ph['days_since_last_comm'] = stats.get('days_since_last_comm')
+            # Override cities with event-based cities if available
+            if stats.get('recent_cities'):
+                ph['recent_cities'] = stats['recent_cities']
+
+        # Generate intelligence briefing (same engine as DREAMS Priority)
+        if INTELLIGENCE_AVAILABLE and dreams_contact:
+            try:
+                from intelligence import generate_briefing
+                ph['briefing'] = generate_briefing(ph)
+            except Exception:
+                ph['briefing'] = {'text': _fub_briefing_text(c, dreams_key)}
+        else:
+            ph['briefing'] = {'text': _fub_briefing_text(c, dreams_key)}
+
+        ph_contacts.append(ph)
 
     return jsonify({'success': True, 'contacts': ph_contacts, 'count': len(ph_contacts)})
 
