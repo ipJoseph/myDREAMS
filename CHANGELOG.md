@@ -9,6 +9,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Morning Brief Redesign** — Complete Briefing tab overhaul as the agent's daily starting point
+  - Morning Pulse Strip: pipeline value, active buyers, pending offers, new leads (3d), contacts ready, reassigned count (red alert)
+  - Morning Summary Line: dynamic one-sentence day framing ("Your day: 5 urgent, 4 follow-ups, 1 pending offer...")
+  - Alerts Section: reassigned leads with red-bordered card, count, and names
+  - Enhanced Overnight Intelligence: aggregate header (events + active contacts), source-grouped new leads, compact live feed with green dot
+  - Enhanced Today's Mission cards: value score (V:xx), days-since-contact, conversation opener visible on cards, expandable detail (source, financing, intent, cities)
+  - Pipeline Snapshot Strip: pipeline value + pending offers + pursuits + call stats (replaces zeroed-out top bar at 6am)
+  - Enhanced Power Hour CTA: session time estimate, top priority contact preview
+  - New DB methods: `get_morning_pulse_metrics()`, `get_activity_summary()`
+  - New intelligence function: `generate_morning_summary()`
 - **Power Hour Queue Preview Panel** — Right-side panel showing full call queue during Power Hour
   - Source selector: switch between DREAMS Priority and 7 FUB Smart Lists (New Leads, Priority, Hot, Warm, Cool, Unresponsive, Timeframe Empty)
   - Compact/Detail view toggle: names-only or names + stage/heat/timeframe info
