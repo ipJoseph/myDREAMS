@@ -6569,7 +6569,15 @@ class DREAMSDatabase:
                     -- Subquery: heat delta from most recent scoring history
                     (SELECT csh.heat_delta FROM contact_scoring_history csh
                      WHERE csh.contact_id = l.id
-                     ORDER BY csh.recorded_at DESC LIMIT 1) AS heat_delta
+                     ORDER BY csh.recorded_at DESC LIMIT 1) AS heat_delta,
+                    -- Subquery: intake form count
+                    (SELECT COUNT(*) FROM intake_forms
+                     WHERE lead_id = l.id OR lead_id = CAST(l.fub_id AS TEXT)) AS intake_count,
+                    -- Subquery: distinct property view count
+                    (SELECT COUNT(DISTINCT COALESCE(property_mls, property_address))
+                     FROM contact_events
+                     WHERE contact_id = CAST(l.fub_id AS TEXT)
+                     AND event_type IN ('property_view', 'property_favorite', 'property_share')) AS property_view_count
                 FROM leads l
                 WHERE l.contact_group = 'scored'
                 AND l.stage NOT IN ('Trash', 'Closed', 'Past Client', 'DNC', 'Agents/Vendors/Lendors')

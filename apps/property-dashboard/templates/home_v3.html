@@ -1021,6 +1021,166 @@
         }
         @keyframes spin { to { transform: rotate(360deg); } }
 
+        /* ========== PH INTEL SECTIONS ========== */
+        .ph-intel-bar {
+            display: flex;
+            gap: 6px;
+            padding: 10px 20px;
+            border-top: 1px solid #f1f5f9;
+            background: #f8fafc;
+        }
+        .ph-intel-tab {
+            font-size: 12px;
+            font-weight: 600;
+            padding: 5px 12px;
+            border-radius: 20px;
+            border: 1px solid #e2e8f0;
+            background: white;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .ph-intel-tab:hover { border-color: #3b82f6; color: #3b82f6; }
+        .ph-intel-tab.active { background: #3b82f6; color: white; border-color: #3b82f6; }
+        .ph-intel-tab .tab-count { font-weight: 400; opacity: 0.8; }
+        .ph-intel-panel {
+            padding: 0;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.25s ease, padding 0.25s ease;
+        }
+        .ph-intel-panel.open {
+            max-height: 500px;
+            overflow-y: auto;
+            padding: 14px 20px;
+            border-top: 1px solid #f1f5f9;
+        }
+        .ph-intel-section { margin-bottom: 12px; }
+        .ph-intel-section:last-child { margin-bottom: 0; }
+        .ph-intel-section-title {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #94a3b8;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .ph-intel-section-title .conf-badge {
+            font-size: 10px;
+            font-weight: 600;
+            color: #8b5cf6;
+            background: #f5f3ff;
+            padding: 1px 6px;
+            border-radius: 8px;
+        }
+        .ph-behavioral-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+        .ph-behavioral-chip {
+            font-size: 12px;
+            padding: 3px 9px;
+            border-radius: 6px;
+            border: 1px solid #ddd6fe;
+            background: #faf5ff;
+            color: #6d28d9;
+            white-space: nowrap;
+        }
+        .ph-intake-card {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 10px 14px;
+            margin-bottom: 8px;
+        }
+        .ph-intake-card:last-child { margin-bottom: 0; }
+        .ph-intake-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+        .ph-intake-name {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        .ph-intake-badge {
+            font-size: 10px;
+            font-weight: 600;
+            padding: 1px 6px;
+            border-radius: 8px;
+        }
+        .ph-intake-badge.primary { background: #dbeafe; color: #1d4ed8; }
+        .ph-intake-badge.investment { background: #dcfce7; color: #15803d; }
+        .ph-intake-badge.vacation { background: #fef3c7; color: #b45309; }
+        .ph-intake-badge.active { background: #dcfce7; color: #15803d; }
+        .ph-intake-badge.paused { background: #f1f5f9; color: #64748b; }
+        .ph-intake-edit {
+            margin-left: auto;
+            font-size: 11px;
+            color: #3b82f6;
+            text-decoration: none;
+        }
+        .ph-intake-edit:hover { text-decoration: underline; }
+        .ph-intake-details {
+            font-size: 12px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+        .ph-view-table { width: 100%; }
+        .ph-view-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 4px 0;
+            font-size: 12px;
+            border-bottom: 1px solid #f8fafc;
+        }
+        .ph-view-row:last-child { border-bottom: none; }
+        .ph-view-addr {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+        .ph-view-price { color: #059669; font-weight: 600; min-width: 60px; text-align: right; }
+        .ph-view-count { color: #64748b; min-width: 30px; text-align: center; }
+        .ph-view-fav { color: #f59e0b; min-width: 16px; text-align: center; }
+        .ph-view-time { color: #94a3b8; font-size: 11px; min-width: 50px; text-align: right; }
+        .ph-intel-empty {
+            text-align: center;
+            padding: 16px;
+            color: #94a3b8;
+            font-size: 13px;
+        }
+        .ph-intel-cta {
+            display: inline-block;
+            font-size: 12px;
+            color: #3b82f6;
+            text-decoration: none;
+            padding: 6px 14px;
+            border: 1px dashed #93c5fd;
+            border-radius: 8px;
+            margin-top: 8px;
+        }
+        .ph-intel-cta:hover { background: #eff6ff; border-style: solid; }
+        .ph-intel-link {
+            display: block;
+            text-align: right;
+            font-size: 11px;
+            color: #3b82f6;
+            text-decoration: none;
+            margin-top: 8px;
+        }
+        .ph-intel-link:hover { text-decoration: underline; }
+
         @media (max-width: 1100px) {
             .power-hour-container {
                 flex-direction: column;
@@ -1891,6 +2051,7 @@
         currentContactIdx = 0;
         phStats = { reached: 0, vms: 0, texts: 0, emailed: 0, appts: 0, skipped: 0, noAnswer: 0 };
         phDispositioned = new Set();
+        Object.keys(intelCache).forEach(k => delete intelCache[k]);
         startTime = Date.now();
         pausedElapsed = 0;
         pauseStart = null;
@@ -1966,6 +2127,18 @@
                     ${c.financing_status ? '<div class="ph-detail-row"><span class="ph-detail-label">Financing</span><span class="ph-detail-value">' + c.financing_status + (c.pre_approval_amount ? ' ($' + Number(c.pre_approval_amount).toLocaleString() + ')' : '') + '</span></div>' : ''}
                     ${b.opener ? '<div class="ph-opener"><div class="ph-opener-label">Conversation Opener</div><div class="ph-opener-text">"' + b.opener + '"</div></div>' : ''}
                 </div>
+                <div class="ph-intel-bar">
+                    <button class="ph-intel-tab" data-panel="requirements" onclick="toggleIntelPanel(this, '${c.id}', 'requirements')">
+                        Requirements${c.intake_count ? ' <span class=tab-count>(' + c.intake_count + ')</span>' : ''}
+                    </button>
+                    <button class="ph-intel-tab" data-panel="activity" onclick="toggleIntelPanel(this, '${c.id}', 'activity')">
+                        Activity${c.property_view_count ? ' <span class=tab-count>(' + c.property_view_count + ')</span>' : ''}
+                    </button>
+                    <button class="ph-intel-tab" data-panel="profile" onclick="toggleIntelPanel(this, '${c.id}', 'profile')">
+                        Profile
+                    </button>
+                </div>
+                <div class="ph-intel-panel" id="intel-panel-${c.id}"></div>
                 <div class="ph-dispositions">
                     <button class="ph-dispo-btn called" onclick="recordDisposition('called')">Called <kbd>1</kbd></button>
                     <button class="ph-dispo-btn left-vm" onclick="recordDisposition('left_vm')">Left VM <kbd>2</kbd></button>
@@ -1979,6 +2152,183 @@
         `;
         document.getElementById('ph-card-container').innerHTML = card;
     }
+
+    // ═══════════ INTEL PANEL (Expandable Sections) ═══════════
+    const intelCache = {};
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        const d = document.createElement('div');
+        d.textContent = String(str);
+        return d.innerHTML;
+    }
+
+    function relativeTime(iso) {
+        if (!iso) return '';
+        const diff = (Date.now() - new Date(iso).getTime()) / 1000;
+        if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+        if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+        const days = Math.floor(diff / 86400);
+        return days === 1 ? '1d ago' : days + 'd ago';
+    }
+
+    function fmtPrice(p) {
+        if (!p) return '';
+        return '$' + Number(p).toLocaleString();
+    }
+
+    function renderIntelRequirements(data) {
+        let html = '';
+
+        // Behavioral preferences (if any confidence)
+        const b = data.behavioral;
+        if (b && b.confidence > 0) {
+            html += '<div class="ph-intel-section">';
+            html += '<div class="ph-intel-section-title">Behavioral Preferences (Inferred) <span class="conf-badge">' + Math.round(b.confidence * 100) + '% conf</span></div>';
+            html += '<div class="ph-behavioral-grid">';
+            if (b.price_range) html += '<span class="ph-behavioral-chip">' + fmtPrice(b.price_range[0]) + '-' + fmtPrice(b.price_range[1]) + '</span>';
+            if (b.cities && b.cities.length) html += '<span class="ph-behavioral-chip">' + escapeHtml(b.cities.join(', ')) + '</span>';
+            if (b.avg_beds) html += '<span class="ph-behavioral-chip">' + b.avg_beds.toFixed(1) + ' bd avg</span>';
+            if (b.avg_baths) html += '<span class="ph-behavioral-chip">' + b.avg_baths.toFixed(1) + ' ba avg</span>';
+            if (b.acreage_range) html += '<span class="ph-behavioral-chip">' + b.acreage_range[0].toFixed(1) + '-' + b.acreage_range[1].toFixed(1) + ' ac</span>';
+            if (b.view_count) html += '<span class="ph-behavioral-chip">' + b.view_count + ' views</span>';
+            if (b.favorite_count) html += '<span class="ph-behavioral-chip">' + b.favorite_count + ' favs</span>';
+            html += '</div></div>';
+        }
+
+        // Intake forms
+        const forms = data.intake_forms || [];
+        if (forms.length) {
+            for (const f of forms) {
+                const ntBadge = (f.need_type || 'primary').toLowerCase();
+                const statusBadge = (f.status || 'active').toLowerCase();
+                html += '<div class="ph-intake-card">';
+                html += '<div class="ph-intake-header">';
+                html += '<span class="ph-intake-name">' + escapeHtml(f.form_name || f.need_type || 'Intake Form') + '</span>';
+                html += '<span class="ph-intake-badge ' + ntBadge + '">' + escapeHtml(f.need_type || 'Primary') + '</span>';
+                html += '<span class="ph-intake-badge ' + statusBadge + '">' + escapeHtml(f.status || 'active') + '</span>';
+                html += '<a class="ph-intake-edit" href="/contacts/' + encodeURIComponent(f.lead_id) + '?tab=requirements" target="_blank">Edit</a>';
+                html += '</div>';
+                html += '<div class="ph-intake-details">';
+                const details = [];
+                if (f.min_price || f.max_price) details.push(fmtPrice(f.min_price) + '-' + fmtPrice(f.max_price));
+                if (f.preferred_counties) details.push(escapeHtml(f.preferred_counties));
+                if (f.preferred_cities) details.push(escapeHtml(f.preferred_cities));
+                if (f.min_beds || f.min_baths) details.push((f.min_beds || '?') + '+bd/' + (f.min_baths || '?') + '+ba');
+                if (f.min_acreage) details.push(f.min_acreage + '+ acre');
+                if (f.must_haves) details.push('Must: ' + escapeHtml(f.must_haves));
+                if (f.deal_breakers) details.push('No: ' + escapeHtml(f.deal_breakers));
+                html += details.join(' &middot; ');
+                html += '</div></div>';
+            }
+        }
+
+        // CTA for new form
+        const leadId = forms.length ? forms[0].lead_id : '';
+        if (leadId) {
+            html += '<a class="ph-intel-cta" href="/contacts/' + encodeURIComponent(leadId) + '?tab=requirements&new=1" target="_blank">+ New Intake Form</a>';
+        }
+
+        if (!html) {
+            html = '<div class="ph-intel-empty">No requirements data yet</div>';
+        }
+        return html;
+    }
+
+    function renderIntelActivity(data) {
+        const views = data.property_views || [];
+        if (!views.length) return '<div class="ph-intel-empty">No property views yet</div>';
+
+        let html = '<div class="ph-intel-section">';
+        html += '<div class="ph-intel-section-title">Recent Property Views <span style="margin-left:auto; font-size:10px; color:#94a3b8;">last 30 days</span></div>';
+        html += '<div class="ph-view-table">';
+        for (const v of views) {
+            const addr = escapeHtml(v.property_address || v.property_mls || 'Unknown');
+            html += '<div class="ph-view-row">';
+            html += '<span class="ph-view-addr">' + addr + '</span>';
+            html += '<span class="ph-view-price">' + fmtPrice(v.property_price) + '</span>';
+            html += '<span class="ph-view-count">' + (v.view_count || 1) + 'x</span>';
+            html += '<span class="ph-view-fav">' + (v.is_favorited ? '\u2605' : '') + '</span>';
+            html += '<span class="ph-view-time">' + relativeTime(v.last_viewed) + '</span>';
+            html += '</div>';
+        }
+        html += '</div>';
+
+        // Link to workspace
+        const contactId = views[0]?.property_address ? data._contactId : '';
+        if (contactId) {
+            html += '<a class="ph-intel-link" href="/contacts/' + encodeURIComponent(contactId) + '?tab=activity" target="_blank">View all in Workspace &rarr;</a>';
+        }
+        html += '</div>';
+        return html;
+    }
+
+    function renderIntelProfile(data) {
+        const b = data.behavioral;
+        if (!b || b.confidence === 0) return '<div class="ph-intel-empty">No browsing data available</div>';
+
+        let html = '<div class="ph-intel-section">';
+        html += '<div class="ph-intel-section-title">Behavioral Profile <span class="conf-badge">' + Math.round(b.confidence * 100) + '% confidence</span></div>';
+        html += '<div class="ph-behavioral-grid">';
+        if (b.price_range) html += '<span class="ph-behavioral-chip">' + fmtPrice(b.price_range[0]) + '-' + fmtPrice(b.price_range[1]) + '</span>';
+        if (b.avg_price) html += '<span class="ph-behavioral-chip">Avg ' + fmtPrice(b.avg_price) + '</span>';
+        if (b.cities && b.cities.length) html += '<span class="ph-behavioral-chip">Cities: ' + escapeHtml(b.cities.join(', ')) + '</span>';
+        if (b.counties && b.counties.length) html += '<span class="ph-behavioral-chip">Counties: ' + escapeHtml(b.counties.join(', ')) + '</span>';
+        if (b.beds_range) html += '<span class="ph-behavioral-chip">Beds: ' + b.beds_range[0] + '-' + b.beds_range[1] + '</span>';
+        if (b.avg_beds) html += '<span class="ph-behavioral-chip">Avg ' + b.avg_beds.toFixed(1) + ' bd</span>';
+        if (b.baths_range) html += '<span class="ph-behavioral-chip">Baths: ' + b.baths_range[0] + '-' + b.baths_range[1] + '</span>';
+        if (b.avg_baths) html += '<span class="ph-behavioral-chip">Avg ' + b.avg_baths.toFixed(1) + ' ba</span>';
+        if (b.sqft_range) html += '<span class="ph-behavioral-chip">Sqft: ' + b.sqft_range[0].toLocaleString() + '-' + b.sqft_range[1].toLocaleString() + '</span>';
+        if (b.acreage_range) html += '<span class="ph-behavioral-chip">Acreage: ' + b.acreage_range[0].toFixed(1) + '-' + b.acreage_range[1].toFixed(1) + '</span>';
+        if (b.view_count) html += '<span class="ph-behavioral-chip">' + b.view_count + ' total views</span>';
+        if (b.favorite_count) html += '<span class="ph-behavioral-chip">' + b.favorite_count + ' favorites</span>';
+        html += '</div></div>';
+        return html;
+    }
+
+    window.toggleIntelPanel = async function(btn, contactId, panel) {
+        const panelEl = document.getElementById('intel-panel-' + contactId);
+        if (!panelEl) return;
+
+        // Toggle: if same tab clicked, close
+        const wasActive = btn.classList.contains('active') && btn.dataset.panel === panel;
+
+        // Deactivate all tabs in this bar
+        btn.parentElement.querySelectorAll('.ph-intel-tab').forEach(t => t.classList.remove('active'));
+
+        if (wasActive) {
+            panelEl.classList.remove('open');
+            return;
+        }
+
+        btn.classList.add('active');
+        panelEl.classList.add('open');
+
+        // Fetch data if not cached
+        if (!intelCache[contactId]) {
+            panelEl.innerHTML = '<div class="ph-intel-empty" style="padding:12px;">Loading...</div>';
+            try {
+                const resp = await fetch('/api/contacts/' + encodeURIComponent(contactId) + '/intel');
+                const data = await resp.json();
+                if (data.success) {
+                    data._contactId = contactId;
+                    intelCache[contactId] = data;
+                } else {
+                    panelEl.innerHTML = '<div class="ph-intel-empty">Failed to load data</div>';
+                    return;
+                }
+            } catch (e) {
+                console.error('Intel fetch failed:', e);
+                panelEl.innerHTML = '<div class="ph-intel-empty">Failed to load data</div>';
+                return;
+            }
+        }
+
+        const cached = intelCache[contactId];
+        if (panel === 'requirements') panelEl.innerHTML = renderIntelRequirements(cached);
+        else if (panel === 'activity') panelEl.innerHTML = renderIntelActivity(cached);
+        else if (panel === 'profile') panelEl.innerHTML = renderIntelProfile(cached);
+    };
 
     window.recordDisposition = async function(disposition) {
         if (currentContactIdx >= phQueueContacts.length) return;

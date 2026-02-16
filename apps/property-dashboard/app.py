@@ -1021,6 +1021,35 @@ def _batch_fub_activity_stats(db, fub_ids: list) -> dict:
                 if fub_key:
                     comm_stats[fub_key] = r['days_since']
 
+        # Distinct property view counts (for intel tab badge)
+        pv_counts = {}
+        pv_rows = conn.execute(f'''
+            SELECT contact_id, COUNT(DISTINCT COALESCE(property_mls, property_address)) AS cnt
+            FROM contact_events
+            WHERE contact_id IN ({placeholders})
+            AND event_type IN ('property_view', 'property_favorite', 'property_share')
+            GROUP BY contact_id
+        ''', fub_ids).fetchall()
+        for r in pv_rows:
+            pv_counts[r['contact_id']] = r['cnt']
+
+        # Intake form counts (for intel tab badge)
+        intake_counts = {}
+        if lead_map:
+            lead_ids = list(lead_map.values())
+            lp2 = ','.join('?' * len(lead_ids))
+            fp2 = ','.join('?' * len(fub_ids))
+            intake_rows = conn.execute(f'''
+                SELECT lead_id, COUNT(*) AS cnt FROM intake_forms
+                WHERE lead_id IN ({lp2}) OR lead_id IN ({fp2})
+                GROUP BY lead_id
+            ''', lead_ids + fub_ids).fetchall()
+            # Map back to fub_id
+            lead_to_fub2 = {v: k for k, v in lead_map.items()}
+            for r in intake_rows:
+                fub_key = lead_to_fub2.get(r['lead_id']) or r['lead_id']
+                intake_counts[fub_key] = intake_counts.get(fub_key, 0) + r['cnt']
+
         # Build result dict
         result = {}
         city_map = {}
@@ -1039,6 +1068,8 @@ def _batch_fub_activity_stats(db, fub_ids: list) -> dict:
                 'favorites_7d': 0,
                 'recent_cities': city_map.get(fid, []),
                 'days_since_last_comm': comm_stats.get(fid),
+                'property_view_count': pv_counts.get(fid, 0),
+                'intake_count': intake_counts.get(fid, 0),
             }
 
         for r in fav_rows:
@@ -1159,6 +1190,8 @@ def api_power_hour_fub_queue(dreams_key):
             ph['property_views_7d'] = stats.get('views_7d', 0)
             ph['favorites_7d'] = stats.get('favorites_7d', 0)
             ph['days_since_last_comm'] = stats.get('days_since_last_comm')
+            ph['property_view_count'] = stats.get('property_view_count', 0)
+            ph['intake_count'] = stats.get('intake_count', 0)
             # Override cities with event-based cities if available
             if stats.get('recent_cities'):
                 ph['recent_cities'] = stats['recent_cities']
@@ -2288,6 +2321,52 @@ def get_contact_matches_api(contact_id):
         'stated_requirements': stated,
         'matches': matches,
         'count': len(matches)
+    })
+
+
+def _resolve_contact_id(db, contact_id: str) -> Optional[str]:
+    """Resolve various contact ID formats to a DREAMS lead ID (UUID).
+
+    Handles:
+    - "fub_123" composite → strips prefix, looks up by fub_id
+    - UUID format → returns directly
+    - Numeric string → looks up by fub_id
+    Returns the UUID lead ID, or the original contact_id if no match found.
+    """
+    if contact_id.startswith('fub_'):
+        fub_id = contact_id[4:]
+        lead = db.get_contact_by_fub_id(fub_id)
+        return lead['id'] if lead else fub_id
+    elif contact_id.isdigit():
+        lead = db.get_contact_by_fub_id(contact_id)
+        return lead['id'] if lead else contact_id
+    return contact_id
+
+
+@app.route('/api/contacts/<contact_id>/intel')
+@requires_auth
+def api_contact_intel(contact_id):
+    """Get contact intelligence data for Power Hour expandable sections.
+    Returns intake forms, behavioral preferences, and property view summary."""
+    db = get_db()
+    resolved_id = _resolve_contact_id(db, contact_id)
+
+    intake_forms = db.get_intake_forms_for_lead(resolved_id)
+    behavioral = db.get_behavioral_preferences(resolved_id)
+    property_views = db.get_contact_property_summary(resolved_id)
+
+    # Limit property views to top 10, sorted by last_viewed
+    property_views = sorted(
+        property_views,
+        key=lambda x: x.get('last_viewed') or '',
+        reverse=True
+    )[:10]
+
+    return jsonify({
+        'success': True,
+        'intake_forms': intake_forms,
+        'behavioral': behavioral,
+        'property_views': property_views
     })
 
 
