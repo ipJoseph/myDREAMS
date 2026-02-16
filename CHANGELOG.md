@@ -9,6 +9,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Power Hour Expandable Intel Sections** — Three on-demand tabs on each PH contact card
+  - Requirements tab: behavioral preference chips (inferred from browsing) + intake form cards with edit links
+  - Activity tab: top 10 property views with address, price, view count, favorites, relative time
+  - Profile tab: expanded behavioral preferences (price, cities, beds/baths, acreage, sqft)
+  - Data loads lazily on first tab click via new `/api/contacts/<id>/intel` endpoint, cached per session
+  - `intake_count` and `property_view_count` badge counts on tabs for both DREAMS and FUB contacts
+  - `_resolve_contact_id()` helper handles UUID, `fub_NNN`, and numeric ID formats
 - **Briefing Tab Card-Grid Dashboard** — Modular card-based layout replacing flat number strips
   - Zone A: Color-coded metric cards (Pipeline/Buyers/Pending/New Leads/Ready/Reassigned) with hover lift, clickable drill-down to filtered contacts
   - Zone B: Morning summary with blue accent border
