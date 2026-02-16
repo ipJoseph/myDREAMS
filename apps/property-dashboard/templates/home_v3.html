@@ -1735,6 +1735,14 @@
                                 <div class="ph-score-label">VMs</div>
                             </div>
                             <div class="ph-score">
+                                <div class="ph-score-value" id="ph-texts">0</div>
+                                <div class="ph-score-label">Texts</div>
+                            </div>
+                            <div class="ph-score">
+                                <div class="ph-score-value" id="ph-emails">0</div>
+                                <div class="ph-score-label">Emails</div>
+                            </div>
+                            <div class="ph-score">
                                 <div class="ph-score-value" id="ph-appts">0</div>
                                 <div class="ph-score-label">Appts</div>
                             </div>
@@ -2398,6 +2406,8 @@
     function updateScoreboard() {
         document.getElementById('ph-reached').textContent = phStats.reached;
         document.getElementById('ph-vms').textContent = phStats.vms;
+        document.getElementById('ph-texts').textContent = phStats.texts;
+        document.getElementById('ph-emails').textContent = phStats.emailed;
         document.getElementById('ph-appts').textContent = phStats.appts;
 
         // Update hidden top bar stats (used as data source)
