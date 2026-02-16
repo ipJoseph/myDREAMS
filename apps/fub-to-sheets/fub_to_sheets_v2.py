@@ -1961,6 +1961,7 @@ def sync_communications_to_sqlite(
             logger.debug(f"Error syncing call: {e}")
 
     # Process texts
+    # FUB text structure: top-level personId, isIncoming (bool), userName (string)
     for text in texts:
         try:
             fub_id = text.get("id")
@@ -1970,22 +1971,23 @@ def sync_communications_to_sqlite(
 
             person_id = str(person_id)
 
-            # Determine direction
-            direction = text.get("direction", "").lower()
-            if direction not in ("inbound", "outbound"):
-                direction = "outbound"  # Default
+            # Determine direction from isIncoming boolean
+            is_incoming = text.get("isIncoming")
+            if is_incoming is not None:
+                direction = "inbound" if is_incoming else "outbound"
+            else:
+                # Fallback: check status field ("Received" = inbound)
+                status = (text.get("status") or "").lower()
+                direction = "inbound" if status == "received" else "outbound"
 
             # Create unique ID for this text
             comm_id = f"text_{fub_id}" if fub_id else f"text_{uuid.uuid4()}"
 
             # Get timestamp
-            occurred_at = text.get("created") or text.get("timestamp")
+            occurred_at = text.get("created") or text.get("sent")
 
-            # Get agent name
-            agent_name = None
-            user = text.get("user")
-            if isinstance(user, dict):
-                agent_name = user.get("name")
+            # Get agent name (FUB texts have userName as a string, not nested object)
+            agent_name = text.get("userName")
 
             if db.insert_communication(
                 comm_id=comm_id,

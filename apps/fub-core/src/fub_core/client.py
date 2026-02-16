@@ -225,7 +225,7 @@ class FUBClient:
     def fetch_text_messages_for_person(self, person_id: str) -> List[Dict]:
         params = {"personId": person_id, "limit": 100}
         try:
-            return self.fetch_collection("/textMessages", "textMessages", params, use_cache=False)
+            return self.fetch_collection("/textMessages", "textmessages", params, use_cache=False)
         except Exception as e:
             if self.logger:
                 self.logger.warning(f"Failed to fetch texts for person {person_id}: {e}")
