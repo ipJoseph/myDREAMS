@@ -2223,10 +2223,11 @@
             }
         }
 
-        // CTA for new form
-        const leadId = forms.length ? forms[0].lead_id : '';
-        if (leadId) {
-            html += '<a class="ph-intel-cta" href="/contacts/' + encodeURIComponent(leadId) + '?tab=requirements&new=1" target="_blank">+ New Intake Form</a>';
+        // CTA + workspace link (always show using contactId)
+        const cid = data._contactId || '';
+        if (cid) {
+            html += '<a class="ph-intel-cta" href="/contacts/' + encodeURIComponent(cid) + '?tab=requirements&new=1" target="_blank">+ New Intake Form</a>';
+            html += '<a class="ph-intel-link" href="/contacts/' + encodeURIComponent(cid) + '?tab=requirements" target="_blank">Open in Workspace &rarr;</a>';
         }
 
         if (!html) {
