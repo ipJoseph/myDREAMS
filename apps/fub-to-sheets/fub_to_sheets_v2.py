@@ -1793,8 +1793,12 @@ def send_top_priority_email(
                 try:
                     dt = parse_datetime_safe(reassigned_at)
                     if dt:
+                        # Ensure naive datetimes can be compared
+                        now = datetime.now()
+                        if dt.tzinfo is not None:
+                            now = datetime.now(timezone.utc)
                         date_fmt = dt.strftime('%b %d, %I:%M %p')
-                        days_ago = (datetime.now(timezone.utc) - dt).days
+                        days_ago = (now - dt).days
                         if days_ago == 0:
                             time_str = f"<strong style='color: #ef4444;'>Today {dt.strftime('%I:%M %p')}</strong>"
                         elif days_ago == 1:
@@ -1809,7 +1813,8 @@ def send_top_priority_email(
                 time_str = ""
 
             reason_str = f" <span style='color: #666; font-size: 12px;'>({reason})</span>" if reason else ""
-            body_lines.append(f"<li style='padding: 4px 0; color: #dc2626;'>{name} - {time_str}{reason_str}</li>")
+            time_sep = f" &mdash; {time_str}" if time_str else ""
+            body_lines.append(f"<li style='padding: 4px 0; color: #dc2626;'>{name}{time_sep}{reason_str}</li>")
         body_lines.append("</ul>")
 
     # Top priority contacts
