@@ -1891,7 +1891,8 @@ def send_top_priority_email(
 def sync_communications_to_sqlite(
     calls: List[Dict],
     texts: List[Dict],
-    db
+    db,
+    emails: List[Dict] = None
 ) -> Tuple[int, int]:
     """
     Sync individual communication records to SQLite.
@@ -1900,14 +1901,16 @@ def sync_communications_to_sqlite(
         calls: List of call records from FUB
         texts: List of text records from FUB
         db: DREAMSDatabase instance
+        emails: List of email records from FUB
 
     Returns:
-        Tuple of (calls_synced, texts_synced)
+        Tuple of (calls_synced, texts_synced) — emails included in texts count
     """
     import uuid
 
     calls_synced = 0
     texts_synced = 0
+    emails_synced = 0
 
     # Process calls
     for call in calls:
@@ -1999,7 +2002,53 @@ def sync_communications_to_sqlite(
         except Exception as e:
             logger.debug(f"Error syncing text: {e}")
 
-    logger.info(f"✓ Communications synced: {calls_synced} calls, {texts_synced} texts")
+    # Process emails
+    for email in (emails or []):
+        try:
+            fub_id = email.get("id")
+            person_id = email.get("personId")
+            if not person_id:
+                continue
+
+            person_id = str(person_id)
+
+            # Determine direction from isIncoming or type field
+            is_incoming = email.get("isIncoming")
+            if is_incoming is not None:
+                direction = "inbound" if is_incoming else "outbound"
+            else:
+                # FUB emails may use "type" field: "received" vs "sent"
+                email_type = (email.get("type") or "").lower()
+                direction = "inbound" if email_type in ("received", "incoming") else "outbound"
+
+            # Create unique ID for this email
+            comm_id = f"email_{fub_id}" if fub_id else f"email_{uuid.uuid4()}"
+
+            # Get timestamp
+            occurred_at = email.get("created") or email.get("timestamp") or email.get("date")
+
+            # Get agent name
+            agent_name = None
+            user = email.get("user")
+            if isinstance(user, dict):
+                agent_name = user.get("name")
+
+            if db.insert_communication(
+                comm_id=comm_id,
+                contact_id=person_id,
+                comm_type="email",
+                direction=direction,
+                occurred_at=occurred_at,
+                fub_id=str(fub_id) if fub_id else None,
+                fub_user_name=agent_name,
+                status="delivered"
+            ):
+                emails_synced += 1
+
+        except Exception as e:
+            logger.debug(f"Error syncing email: {e}")
+
+    logger.info(f"✓ Communications synced: {calls_synced} calls, {texts_synced} texts, {emails_synced} emails")
     return calls_synced, texts_synced
 
 
@@ -2806,8 +2855,8 @@ def main():
                     from src.core.database import DREAMSDatabase
                     db = DREAMSDatabase(Config.DREAMS_DB_PATH)
 
-                # Sync individual communications (calls/texts)
-                sync_communications_to_sqlite(calls, texts, db)
+                # Sync individual communications (calls/texts/emails)
+                sync_communications_to_sqlite(calls, texts, db, emails=emails)
 
                 # Sync individual events (with scoring guard exclusions)
                 sync_events_to_sqlite(events, db, excluded_pids=all_filtered_pids)

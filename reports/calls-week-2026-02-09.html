@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Call Activity Report | Feb 9–15, 2026</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8fafc;
+            color: #1a1a1a;
+            padding: 32px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        h1 {
+            font-size: 26px;
+            font-weight: 800;
+            margin-bottom: 4px;
+        }
+        .subtitle {
+            font-size: 14px;
+            color: #64748b;
+            margin-bottom: 32px;
+        }
+        .section-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 14px;
+            margin-top: 36px;
+        }
+
+        /* Summary Cards */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 14px;
+            margin-bottom: 12px;
+        }
+        .summary-card {
+            background: white;
+            border-radius: 10px;
+            padding: 18px 16px;
+            text-align: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        }
+        .summary-card .value {
+            font-size: 32px;
+            font-weight: 800;
+            line-height: 1;
+            margin-bottom: 4px;
+        }
+        .summary-card .label {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #64748b;
+        }
+        .total .value { color: #1e3a5f; }
+        .outbound .value { color: #2563eb; }
+        .inbound .value { color: #16a34a; }
+        .connected .value { color: #7c3aed; }
+        .duration .value { color: #ea580c; font-size: 24px; }
+
+        /* Summary Table */
+        .summary-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+            margin-bottom: 32px;
+        }
+        .summary-table th {
+            background: #f8fafc;
+            padding: 10px 14px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #64748b;
+            text-align: center;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        .summary-table th:first-child { text-align: left; }
+        .summary-table td {
+            padding: 10px 14px;
+            font-size: 14px;
+            text-align: center;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .summary-table td:first-child {
+            text-align: left;
+            font-weight: 600;
+        }
+        .summary-table tr:last-child td {
+            border-bottom: none;
+        }
+        .summary-table .total-row {
+            background: #f0f9ff;
+            font-weight: 700;
+        }
+        .summary-table .total-row td { border-top: 2px solid #bfdbfe; }
+
+        /* Detail Table */
+        .detail-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+            font-size: 13px;
+        }
+        .detail-table th {
+            background: #f8fafc;
+            padding: 9px 12px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #64748b;
+            text-align: left;
+            border-bottom: 2px solid #e2e8f0;
+            position: sticky;
+            top: 0;
+        }
+        .detail-table td {
+            padding: 8px 12px;
+            border-bottom: 1px solid #f1f5f9;
+            vertical-align: middle;
+        }
+        .detail-table tr:hover { background: #f8fafc; }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+        .badge.outbound { background: #eff6ff; color: #2563eb; }
+        .badge.inbound { background: #f0fdf4; color: #16a34a; }
+        .badge.no-answer { color: #d97706; }
+        .badge.bad-number { color: #dc2626; }
+        .badge.left-message { color: #7c3aed; }
+
+        .day-divider td {
+            background: #f1f5f9;
+            font-weight: 700;
+            font-size: 12px;
+            color: #475569;
+            padding: 6px 12px;
+        }
+
+        .duration-bar {
+            display: inline-block;
+            height: 6px;
+            background: #3b82f6;
+            border-radius: 3px;
+            margin-left: 6px;
+            vertical-align: middle;
+            opacity: 0.5;
+        }
+
+        .contact-unknown { color: #94a3b8; font-style: italic; }
+
+        .footer {
+            text-align: center;
+            font-size: 12px;
+            color: #94a3b8;
+            margin-top: 32px;
+            padding-top: 16px;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        @media print {
+            body { padding: 16px; }
+            .detail-table th { position: static; }
+        }
+    </style>
+</head>
+<body>
+
+<h1>Call Activity Report</h1>
+<p class="subtitle">Joseph Williams &mdash; Week of February 9&ndash;15, 2026 &mdash; Source: FUB via DREAMS</p>
+
+<!-- Summary Cards -->
+<div class="summary-grid">
+    <div class="summary-card total">
+        <div class="value">93</div>
+        <div class="label">Total Calls</div>
+    </div>
+    <div class="summary-card outbound">
+        <div class="value">73</div>
+        <div class="label">Made</div>
+    </div>
+    <div class="summary-card inbound">
+        <div class="value">20</div>
+        <div class="label">Received</div>
+    </div>
+    <div class="summary-card connected">
+        <div class="value">72</div>
+        <div class="label">Connected</div>
+    </div>
+    <div class="summary-card duration">
+        <div class="value">3h 22m</div>
+        <div class="label">Total Talk Time</div>
+    </div>
+</div>
+
+<!-- Daily Summary Table -->
+<h2 class="section-title">Daily Summary</h2>
+<table class="summary-table">
+    <thead>
+        <tr>
+            <th>Day</th>
+            <th>Made</th>
+            <th>Received</th>
+            <th>Total</th>
+            <th>Connected</th>
+            <th>No Answer</th>
+            <th>Talk Time</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>Sun 2/9</td>
+            <td>9</td>
+            <td>4</td>
+            <td>13</td>
+            <td>9</td>
+            <td>4</td>
+            <td>26m 52s</td>
+        </tr>
+        <tr>
+            <td>Mon 2/10</td>
+            <td>13</td>
+            <td>6</td>
+            <td>19</td>
+            <td>16</td>
+            <td>3</td>
+            <td>58m 52s</td>
+        </tr>
+        <tr>
+            <td>Tue 2/11</td>
+            <td>11</td>
+            <td>1</td>
+            <td>12</td>
+            <td>11</td>
+            <td>1</td>
+            <td>22m 19s</td>
+        </tr>
+        <tr>
+            <td>Wed 2/12</td>
+            <td>29</td>
+            <td>4</td>
+            <td>33</td>
+            <td>23</td>
+            <td>10</td>
+            <td>54m 25s</td>
+        </tr>
+        <tr>
+            <td>Thu 2/13</td>
+            <td>11</td>
+            <td>5</td>
+            <td>16</td>
+            <td>13</td>
+            <td>3</td>
+            <td>25m 50s</td>
+        </tr>
+        <tr>
+            <td>Fri 2/14</td>
+            <td colspan="6" style="color:#94a3b8; font-style:italic;">No sync data (sync ran 2/13 11pm)</td>
+        </tr>
+        <tr>
+            <td>Sat 2/15</td>
+            <td colspan="6" style="color:#94a3b8; font-style:italic;">No sync data</td>
+        </tr>
+        <tr class="total-row">
+            <td>Week Total</td>
+            <td>73</td>
+            <td>20</td>
+            <td>93</td>
+            <td>72</td>
+            <td>21</td>
+            <td>3h 8m 18s</td>
+        </tr>
+    </tbody>
+</table>
+
+<!-- Detail Table -->
+<h2 class="section-title">Call Detail Log</h2>
+<table class="detail-table">
+    <thead>
+        <tr>
+            <th>Date</th>
+            <th>Time</th>
+            <th>Direction</th>
+            <th>Contact</th>
+            <th>Status</th>
+            <th>Duration</th>
+        </tr>
+    </thead>
+    <tbody>
+        <!-- SUNDAY FEB 9 -->
+        <tr class="day-divider"><td colspan="6">Sunday, February 9</td></tr>
+        <tr><td>2/9</td><td>9:14 AM</td><td><span class="badge outbound">Made</span></td><td class="contact-unknown">Unknown</td><td>completed</td><td>0:27</td></tr>
+        <tr><td>2/9</td><td>3:42 PM</td><td><span class="badge outbound">Made</span></td><td class="contact-unknown">Unknown</td><td>completed</td><td>5:17</td></tr>
+        <tr><td>2/9</td><td>3:43 PM</td><td><span class="badge outbound">Made</span></td><td>Bryan Kay (L)</td><td>completed</td><td>0:57</td></tr>
+        <tr><td>2/9</td><td>3:52 PM</td><td><span class="badge outbound">Made</span></td><td class="contact-unknown">Unknown</td><td>completed</td><td>0:20</td></tr>
+        <tr><td>2/9</td><td>4:05 PM</td><td><span class="badge inbound">Received</span></td><td class="contact-unknown">Unknown</td><td class="badge no-answer">No Answer</td><td>&mdash;</td></tr>
+        <tr><td>2/9</td><td>4:05 PM</td><td><span class="badge inbound">Received</span></td><td class="contact-unknown">Unknown</td><td class="badge no-answer">No Answer</td><td>0:03</td></tr>
+        <tr><td>2/9</td><td>4:05 PM</td><td><span class="badge outbound">Made</span></td><td class="contact-unknown">Unknown</td><td class="badge no-answer">No Answer</td><td>&mdash;</td></tr>
+        <tr><td>2/9</td><td>4:06 PM</td><td><span class="badge outbound">Made</span></td><td class="contact-unknown">Unknown</td><td>completed</td><td>0:19</td></tr>
+        <tr><td>2/9</td><td>4:17 PM</td><td><span class="badge inbound">Received</span></td><td class="contact-unknown">Unknown</td><td>completed</td><td>10:50</td></tr>
+        <tr><td>2/9</td><td>5:09 PM</td><td><span class="badge outbound">Made</span></td><td class="contact-unknown">Unknown</td><td>completed</td><td>0:27</td></tr>
+        <tr><td>2/9</td><td>5:11 PM</td><td><span class="badge outbound">Made</span></td><td class="contact-unknown">Unknown</td><td>completed</td><td>0:41</td></tr>
+        <tr><td>2/9</td><td>5:29 PM</td><td><span class="badge inbound">Received</span></td><td class="contact-unknown">Unknown</td><td class="badge no-answer">No Answer</td><td>0:12</td></tr>
+        <tr><td>2/9</td><td>5:37 PM</td><td><span class="badge outbound">Made</span></td><td class="contact-unknown">Unknown</td><td>completed</td><td>7:38</td></tr>
+
+        <!-- MONDAY FEB 10 -->
+        <tr class="day-divider"><td colspan="6">Monday, February 10</td></tr>
+        <tr><td>2/10</td><td>8:32 PM*</td><td><span class="badge outbound">Made</span></td><td class="contact-unknown">Unknown</td><td>completed</td><td>13:19 <span class="duration-bar" style="width:50px;"></span></td></tr>
+        <tr><td>2/10</td><td>7:34 AM</td><td><span class="badge inbound">Received</span></td><td class="contact-unknown">Unknown</td><td class="badge no-answer">No Answer</td><td>0:25</td></tr>
+        <tr><td>2/10</td><td>8:25 AM</td><td><span class="badge outbound">Made</span></td><td class="contact-unknown">Unknown</td><td>completed</td><td>8:00</td></tr>
+        <tr><td>2/10</td><td>9:26 AM</td><td><span class="badge outbound">Made</span></td><td>Christopher Graney</td><td>completed</td><td>0:18</td></tr>
+        <tr><td>2/10</td><td>9:40 AM</td><td><span class="badge outbound">Made</span></td><td class="contact-unknown">Unknown</td><td>completed</td><td>12:08 <span class="duration-bar" style="width:44px;"></span></td></tr>
+        <tr><td>2/10</td><td>10:02 AM</td><td><span class="badge outbound">Made</span></td><td class="contact-unknown">Unknown</td><td>completed</td><td>0:30</td></tr>
+        <tr><td>2/10</td><td>10:04 AM</td><td><span class="badge outbound">Made</span></td><td class="contact-unknown">Unknown</td><td>completed</td><td>1:29</td></tr>
+        <tr><td>2/10</td><td>10:10 AM</td><td><span class="badge outbound">Made</span></td><td>Patrick Scan</td><td class="badge no-answer">No Answer</td><td>&mdash;</td></tr>
+        <tr><td>2/10</td><td>1:56 PM</td><td><span class="badge inbound">Received</span></td><td class="contact-unknown">Unknown</td><td>completed</td><td>10:04 <span class="duration-bar" style="width:38px;"></span></td></tr>
+        <tr><td>2/10</td><td>2:13 PM</td><td><span class="badge outbound">Made</span></td><td class="contact-unknown">Unknown</td><td>completed</td><td>0:23</td></tr>
+        <tr><td>2/10</td><td>2:23 PM</td><td><span class="badge inbound">Received</span></td><td class="contact-unknown">Unknown</td><td>completed</td><td>1:06</td></tr>
+        <tr><td>2/10</td><td>2:28 PM</td><td><span class="badge outbound">Made</span></td><td>Bryan Kay (L)</td><td>completed</td><td>3:20</td></tr>
+        <tr><td>2/10</td><td>2:39 PM</td><td><span class="badge outbound">Made</span></td><td class="contact-unknown">Unknown</td><td>completed</td><td>0:05</td></tr>
+        <tr><td>2/10</td><td>2:52 PM</td><td><span class="badge inbound">Received</span></td><td class="contact-unknown">Unknown</td><td>completed</td><td>8:53</td></tr>
+        <tr><td>2/10</td><td>2:58 PM</td><td><span class="badge inbound">Received</span></td><td class="contact-unknown">Unknown</td><td>completed</td><td>2:34</td></tr>
+        <tr><td>2/10</td><td>3:03 PM</td><td><span class="badge inbound">Received</span></td><td class="contact-unknown">Unknown</td><td class="badge no-answer">No Answer</td><td>&mdash;</td></tr>
+        <tr><td>2/10</td><td>3:07 PM</td><td><span class="badge outbound">Made</span></td><td>Erica Sosa</td><td>completed</td><td>7:51</td></tr>
+        <tr><td>2/10</td><td>3:08 PM</td><td><span class="badge outbound">Made</span></td><td>Bryan Kay (L)</td><td>completed</td><td>0:39</td></tr>
+        <tr><td>2/10</td><td>3:09 PM</td><td><span class="badge outbound">Made</span></td><td>Bryan Kay (L)</td><td>completed</td><td>0:45</td></tr>
+
+        <!-- TUESDAY FEB 11 -->
+        <tr class="day-divider"><td colspan="6">Tuesday, February 11</td></tr>
+        <tr><td>2/11</td><td>11:14 AM</td><td><span class="badge outbound">Made</span></td><td class="contact-unknown">Unknown</td><td>completed</td><td>6:25</td></tr>
+        <tr><td>2/11</td><td>11:18 AM</td><td><span class="badge outbound">Made</span></td><td class="contact-unknown">Unknown</td><td>completed</td><td>2:54</td></tr>
+        <tr><td>2/11</td><td>11:31 AM</td><td><span class="badge outbound">Made</span></td><td>Bryan Kay (L)</td><td>completed</td><td>0:04</td></tr>
+        <tr><td>2/11</td><td>11:36 AM</td><td><span class="badge outbound">Made</span></td><td>Bryan Kay (L)</td><td>completed</td><td>1:00</td></tr>
+        <tr><td>2/11</td><td>11:52 AM</td><td><span class="badge outbound">Made</span></td><td>Erica Sosa</td><td>completed</td><td>1:56</td></tr>
+        <tr><td>2/11</td><td>11:55 AM</td><td><span class="badge outbound">Made</span></td><td>Bryan Kay (L)</td><td>completed</td><td>3:12</td></tr>
+        <tr><td>2/11</td><td>12:01 PM</td><td><span class="badge outbound">Made</span></td><td class="contact-unknown">Unknown</td><td>completed</td><td>5:03</td></tr>
+        <tr><td>2/11</td><td>2:31 PM</td><td><span class="badge outbound">Made</span></td><td class="contact-unknown">Unknown</td><td>completed</td><td>2:20</td></tr>
+        <tr><td>2/11</td><td>3:22 PM</td><td><span class="badge inbound">Received</span></td><td class="contact-unknown">Unknown</td><td class="badge no-answer">No Answer</td><td>0:30</td></tr>
+        <tr><td>2/11</td><td>5:03 PM</td><td><span class="badge outbound">Made</span></td><td>Bryan Kay (L)</td><td>completed</td><td>0:49</td></tr>
+        <tr><td>2/11</td><td>5:38 PM</td><td><span class="badge outbound">Made</span></td><td>Bryan Kay (L)</td><td>completed</td><td>1:11</td></tr>
+        <tr><td>2/11</td><td>5:39 PM</td><td><span class="badge outbound">Made</span></td><td>Erica Sosa</td><td>completed</td><td>1:15</td></tr>
+
+        <!-- WEDNESDAY FEB 12 -->
+        <tr class="day-divider"><td colspan="6">Wednesday, February 12</td></tr>
+        <tr><td>2/12</td><td>9:58 AM</td><td><span class="badge outbound">Made</span></td><td class="contact-unknown">Unknown</td><td>completed</td><td>0:30</td></tr>
+        <tr><td>2/12</td><td>10:00 AM</td><td><span class="badge outbound">Made</span></td><td>Bryan Kay (L)</td><td>completed</td><td>1:07</td></tr>
+        <tr><td>2/12</td><td>10:05 AM</td><td><span class="badge outbound">Made</span></td><td>Erica Sosa</td><td>completed</td><td>4:52</td></tr>
+        <tr><td>2/12</td><td>10:20 AM</td><td><span class="badge outbound">Made</span></td><td>Christopher Graney</td><td>completed</td><td>0:18</td></tr>
+        <tr><td>2/12</td><td>10:23 AM</td><td><span class="badge outbound">Made</span></td><td class="contact-unknown">Unknown</td><td>completed</td><td>0:01</td></tr>
+        <tr><td>2/12</td><td>11:06 AM</td><td><span class="badge outbound">Made</span></td><td>Erica Sosa</td><td>completed</td><td>0:58</td></tr>
+        <tr><td>2/12</td><td>11:09 AM</td><td><span class="badge inbound">Received</span></td><td class="contact-unknown">Unknown</td><td>completed</td><td>2:46</td></tr>
+        <tr><td>2/12</td><td>11:14 AM</td><td><span class="badge outbound">Made</span></td><td class="contact-unknown">Unknown</td><td>completed</td><td>2:08</td></tr>
+        <tr><td>2/12</td><td>11:20 AM</td><td><span class="badge inbound">Received</span></td><td class="contact-unknown">Unknown</td><td>completed</td><td>6:55</td></tr>
+        <tr><td>2/12</td><td>11:28 AM</td><td><span class="badge outbound">Made</span></td><td class="contact-unknown">Unknown</td><td>completed</td><td>4:53</td></tr>
+        <tr><td>2/12</td><td>2:22 PM</td><td><span class="badge inbound">Received</span></td><td class="contact-unknown">Unknown</td><td>completed</td><td>7:50</td></tr>
+        <tr><td>2/12</td><td>3:19 PM</td><td><span class="badge outbound">Made</span></td><td>Patrick Scan</td><td class="badge no-answer">No Answer</td><td>&mdash;</td></tr>
+        <tr><td>2/12</td><td>3:20 PM</td><td><span class="badge outbound">Made</span></td><td>Patrick Scan</td><td class="badge no-answer">No Answer</td><td>&mdash;</td></tr>
+        <tr><td>2/12</td><td>3:21 PM</td><td><span class="badge outbound">Made</span></td><td>Patrick Scan</td><td class="badge no-answer">No Answer</td><td>&mdash;</td></tr>
+        <tr><td>2/12</td><td>3:40 PM</td><td><span class="badge outbound">Made</span></td><td>James Sharpe</td><td>completed</td><td>2:56</td></tr>
+        <tr><td>2/12</td><td>3:54 PM</td><td><span class="badge outbound">Made</span></td><td>Susan Carlen</td><td>completed</td><td>5:19</td></tr>
+        <tr><td>2/12</td><td>4:11 PM</td><td><span class="badge inbound">Received</span></td><td class="contact-unknown">Unknown</td><td class="badge no-answer">No Answer</td><td>0:16</td></tr>
+        <tr><td>2/12</td><td>4:13 PM</td><td><span class="badge outbound">Made</span></td><td>Erica Sosa</td><td>completed</td><td>1:20</td></tr>
+        <tr><td>2/12</td><td>4:18 PM</td><td><span class="badge outbound">Made</span></td><td class="contact-unknown">Unknown</td><td>completed</td><td>4:30</td></tr>
+        <tr><td>2/12</td><td>4:20 PM</td><td><span class="badge outbound">Made</span></td><td>Erica Sosa</td><td>completed</td><td>1:08</td></tr>
+        <tr><td>2/12</td><td>4:20 PM</td><td><span class="badge outbound">Made</span></td><td>K S</td><td class="badge bad-number">Bad Number</td><td>&mdash;</td></tr>
+        <tr><td>2/12</td><td>4:21 PM</td><td><span class="badge outbound">Made</span></td><td>K S</td><td class="badge no-answer">No Answer</td><td>&mdash;</td></tr>
+        <tr><td>2/12</td><td>4:27 PM</td><td><span class="badge outbound">Made</span></td><td>Eric Crabtree</td><td class="badge no-answer">No Answer</td><td>&mdash;</td></tr>
+        <tr><td>2/12</td><td>4:27 PM</td><td><span class="badge outbound">Made</span></td><td>Eric Crabtree</td><td class="badge no-answer">No Answer</td><td>&mdash;</td></tr>
+        <tr><td>2/12</td><td>5:09 PM</td><td><span class="badge outbound">Made</span></td><td>Nancylee Jaworski</td><td>completed</td><td>0:05</td></tr>
+        <tr><td>2/12</td><td>5:10 PM</td><td><span class="badge outbound">Made</span></td><td>Nancylee Jaworski</td><td>completed</td><td>0:46</td></tr>
+        <tr><td>2/12</td><td>5:12 PM</td><td><span class="badge outbound">Made</span></td><td>Mark Bell</td><td>completed</td><td>0:07</td></tr>
+        <tr><td>2/12</td><td>5:13 PM</td><td><span class="badge outbound">Made</span></td><td>Mark Bell</td><td>completed</td><td>0:15</td></tr>
+        <tr><td>2/12</td><td>5:49 PM</td><td><span class="badge outbound">Made</span></td><td>Bobby Thompson</td><td class="badge left-message">Left VM</td><td>&mdash;</td></tr>
+        <tr><td>2/12</td><td>5:50 PM</td><td><span class="badge outbound">Made</span></td><td>Bobby Thompson</td><td>completed</td><td>1:07</td></tr>
+        <tr><td>2/12</td><td>6:21 PM</td><td><span class="badge outbound">Made</span></td><td>Michelle Michelle</td><td>completed</td><td>0:11</td></tr>
+        <tr><td>2/12</td><td>6:22 PM</td><td><span class="badge outbound">Made</span></td><td>Michelle Michelle</td><td>completed</td><td>0:49</td></tr>
+        <tr><td>2/12</td><td>6:26 PM</td><td><span class="badge outbound">Made</span></td><td>Robert Blattler</td><td>completed</td><td>1:04</td></tr>
+
+        <!-- THURSDAY FEB 13 -->
+        <tr class="day-divider"><td colspan="6">Thursday, February 13</td></tr>
+        <tr><td>2/13</td><td>9:02 AM</td><td><span class="badge inbound">Received</span></td><td class="contact-unknown">Unknown</td><td class="badge no-answer">No Answer</td><td>0:10</td></tr>
+        <tr><td>2/13</td><td>9:05 AM</td><td><span class="badge outbound">Made</span></td><td>Jana Osada</td><td>completed</td><td>7:49</td></tr>
+        <tr><td>2/13</td><td>9:19 AM</td><td><span class="badge outbound">Made</span></td><td class="contact-unknown">Unknown</td><td>completed</td><td>11:25 <span class="duration-bar" style="width:42px;"></span></td></tr>
+        <tr><td>2/13</td><td>9:27 AM</td><td><span class="badge outbound">Made</span></td><td>Erica Sosa</td><td>completed</td><td>1:29</td></tr>
+        <tr><td>2/13</td><td>9:28 AM</td><td><span class="badge outbound">Made</span></td><td class="contact-unknown">Unknown</td><td>completed</td><td>0:37</td></tr>
+        <tr><td>2/13</td><td>9:30 AM</td><td><span class="badge outbound">Made</span></td><td class="contact-unknown">Unknown</td><td>completed</td><td>1:36</td></tr>
+        <tr><td>2/13</td><td>9:38 AM</td><td><span class="badge outbound">Made</span></td><td>Jan Nev</td><td class="badge bad-number">Bad Number</td><td>&mdash;</td></tr>
+        <tr><td>2/13</td><td>9:38 AM</td><td><span class="badge outbound">Made</span></td><td>Jan Nev</td><td>completed</td><td>&mdash;</td></tr>
+        <tr><td>2/13</td><td>9:39 AM</td><td><span class="badge outbound">Made</span></td><td>Jan Nev</td><td class="badge no-answer">No Answer</td><td>&mdash;</td></tr>
+        <tr><td>2/13</td><td>9:40 AM</td><td><span class="badge outbound">Made</span></td><td>Tommy Cleland</td><td class="badge left-message">Left VM</td><td>&mdash;</td></tr>
+        <tr><td>2/13</td><td>9:41 AM</td><td><span class="badge outbound">Made</span></td><td>Tommy Cleland</td><td>completed</td><td>0:55</td></tr>
+        <tr><td>2/13</td><td>9:52 AM</td><td><span class="badge inbound">Received</span></td><td class="contact-unknown">Unknown</td><td>completed</td><td>1:18</td></tr>
+        <tr><td>2/13</td><td>10:41 AM</td><td><span class="badge inbound">Received</span></td><td class="contact-unknown">Unknown</td><td>completed</td><td>0:13</td></tr>
+        <tr><td>2/13</td><td>12:17 PM</td><td><span class="badge inbound">Received</span></td><td class="contact-unknown">Unknown</td><td>completed</td><td>0:40</td></tr>
+        <tr><td>2/13</td><td>3:45 PM</td><td><span class="badge outbound">Made</span></td><td>Bryan Kay (L)</td><td>completed</td><td>1:15</td></tr>
+        <tr><td>2/13</td><td>4:49 PM</td><td><span class="badge inbound">Received</span></td><td class="contact-unknown">Unknown</td><td class="badge no-answer">No Answer</td><td>0:21</td></tr>
+    </tbody>
+</table>
+
+<div class="footer">
+    Generated by DREAMS &mdash; Data synced through Feb 13, 2026 11:04 PM<br>
+    Feb 14&ndash;15 data not yet synced. Texts and emails not currently tracked &mdash; sync upgrade in progress.
+</div>
+
+</body>
+</html>
