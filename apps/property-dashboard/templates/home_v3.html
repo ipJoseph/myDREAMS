@@ -1562,6 +1562,9 @@
                                 <div class="ph-timer" id="ph-timer">0:00</div>
                                 <div class="ph-score-label">Elapsed</div>
                             </div>
+                            <div class="ph-score">
+                                <button class="action-btn" id="ph-pause-btn" onclick="togglePause()" style="padding:8px 18px; font-size:13px;">Pause</button>
+                            </div>
                         </div>
 
                         <!-- Current contact card -->
@@ -1780,7 +1783,10 @@
     let currentContactIdx = 0;
     let timerInterval = null;
     let startTime = null;
-    let phStats = { reached: 0, vms: 0, texts: 0, appts: 0, skipped: 0, noAnswer: 0 };
+    let pausedElapsed = 0;
+    let pauseStart = null;
+    let isPaused = false;
+    let phStats = { reached: 0, vms: 0, texts: 0, emailed: 0, appts: 0, skipped: 0, noAnswer: 0 };
 
     // ═══════════ QUEUE PANEL STATE ═══════════
     let phSource = 'dreams';
@@ -1855,6 +1861,7 @@
                 case '3': recordDisposition('texted'); break;
                 case '4': recordDisposition('no_answer'); break;
                 case '5': recordDisposition('appointment'); break;
+                case '6': recordDisposition('emailed'); break;
                 case '0': case 's': recordDisposition('skip'); break;
             }
         }
@@ -1882,9 +1889,12 @@
         }
 
         currentContactIdx = 0;
-        phStats = { reached: 0, vms: 0, texts: 0, appts: 0, skipped: 0, noAnswer: 0 };
+        phStats = { reached: 0, vms: 0, texts: 0, emailed: 0, appts: 0, skipped: 0, noAnswer: 0 };
         phDispositioned = new Set();
         startTime = Date.now();
+        pausedElapsed = 0;
+        pauseStart = null;
+        isPaused = false;
 
         document.getElementById('ph-start-screen').style.display = 'none';
         document.getElementById('ph-active').style.display = 'block';
@@ -1896,12 +1906,31 @@
     };
 
     function updateTimer() {
-        if (!startTime) return;
-        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        if (!startTime || isPaused) return;
+        const elapsed = Math.floor((Date.now() - startTime) / 1000) - pausedElapsed;
         const mins = Math.floor(elapsed / 60);
         const secs = elapsed % 60;
         document.getElementById('ph-timer').textContent = mins + ':' + (secs < 10 ? '0' : '') + secs;
     }
+
+    window.togglePause = function() {
+        const btn = document.getElementById('ph-pause-btn');
+        const timerEl = document.getElementById('ph-timer');
+        if (isPaused) {
+            // Resume: adjust startTime to account for paused duration
+            const now = Date.now();
+            pausedElapsed += Math.floor((now - pauseStart) / 1000);
+            isPaused = false;
+            btn.textContent = 'Pause';
+            timerEl.style.opacity = '1';
+        } else {
+            // Pause
+            isPaused = true;
+            pauseStart = Date.now();
+            btn.textContent = 'Resume';
+            timerEl.style.opacity = '0.5';
+        }
+    };
 
     function showCurrentContact() {
         if (currentContactIdx >= phQueueContacts.length) {
@@ -1916,14 +1945,18 @@
             (currentContactIdx + 1) + ' of ' + phQueueContacts.length;
         updateQueuePanel();
 
+        const fubLink = c.fub_id ? FUB_URL + '/2/people/view/' + c.fub_id : '';
         const card = `
             <div class="ph-card">
                 <div class="ph-card-header">
-                    <div class="ph-card-name">${c.first_name || ''} ${c.last_name || ''}</div>
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
+                        <div class="ph-card-name">${c.first_name || ''} ${c.last_name || ''}</div>
+                        ${fubLink ? '<a href="' + fubLink + '" target="_blank" class="action-btn primary" style="flex-shrink:0; font-size:12px; padding:6px 14px;">Contact</a>' : ''}
+                    </div>
                     <div class="ph-card-briefing">${b.text || ''}</div>
                 </div>
                 <div class="ph-card-body">
-                    ${c.phone ? '<div class="ph-detail-row"><span class="ph-detail-label">Phone</span><span class="ph-detail-value">' + (c.fub_id ? '<a href="' + FUB_URL + '/2/people/view/' + c.fub_id + '" target="_blank">' + c.phone + '</a>' : c.phone) + '</span></div>' : ''}
+                    ${c.phone ? '<div class="ph-detail-row"><span class="ph-detail-label">Phone</span><span class="ph-detail-value">' + (c.fub_id ? '<a href="' + fubLink + '" target="_blank">' + c.phone + '</a>' : c.phone) + '</span></div>' : ''}
                     ${c.email ? '<div class="ph-detail-row"><span class="ph-detail-label">Email</span><span class="ph-detail-value"><a href="https://mail.google.com/mail/u/0/?authuser=eugy@jontharphomes.com&view=cm&to=' + encodeURIComponent(c.email) + '" target="_blank">' + c.email + '</a></span></div>' : ''}
                     <div class="ph-detail-row"><span class="ph-detail-label">Stage</span><span class="ph-detail-value">${c.stage || 'Unknown'}</span></div>
                     ${c.heat_score ? '<div class="ph-detail-row"><span class="ph-detail-label">Heat</span><span class="ph-detail-value">' + Math.round(c.heat_score) + (c.score_trend ? ' (' + c.score_trend + ')' : '') + '</span></div>' : ''}
@@ -1939,6 +1972,7 @@
                     <button class="ph-dispo-btn texted" onclick="recordDisposition('texted')">Texted <kbd>3</kbd></button>
                     <button class="ph-dispo-btn no-answer" onclick="recordDisposition('no_answer')">No Answer <kbd>4</kbd></button>
                     <button class="ph-dispo-btn appointment" onclick="recordDisposition('appointment')">Appointment! <kbd>5</kbd></button>
+                    <button class="ph-dispo-btn" style="border-color:#3b82f6; color:#2563eb;" onclick="recordDisposition('emailed')">Emailed <kbd>6</kbd></button>
                     <button class="ph-dispo-btn skip" onclick="recordDisposition('skip')">Skip <kbd>0</kbd></button>
                 </div>
             </div>
@@ -1955,6 +1989,7 @@
             case 'called': phStats.reached++; break;
             case 'left_vm': phStats.vms++; break;
             case 'texted': phStats.texts++; break;
+            case 'emailed': phStats.emailed++; break;
             case 'appointment': phStats.appts++; phStats.reached++; break;
             case 'no_answer': phStats.noAnswer++; break;
             case 'skip': phStats.skipped++; break;
@@ -2031,12 +2066,13 @@
         document.getElementById('ph-active').style.display = 'none';
         document.getElementById('ph-complete').style.display = 'block';
 
-        const elapsed = startTime ? Math.floor((Date.now() - startTime) / 1000) : 0;
+        const elapsed = startTime ? Math.floor((Date.now() - startTime) / 1000) - pausedElapsed : 0;
         const mins = Math.floor(elapsed / 60);
 
         document.getElementById('ph-final-stats').innerHTML = `
             <div class="ph-score"><div class="ph-score-value">${phStats.reached}</div><div class="ph-score-label">Reached</div></div>
             <div class="ph-score"><div class="ph-score-value">${phStats.vms}</div><div class="ph-score-label">VMs</div></div>
+            <div class="ph-score"><div class="ph-score-value">${phStats.emailed}</div><div class="ph-score-label">Emailed</div></div>
             <div class="ph-score"><div class="ph-score-value">${phStats.appts}</div><div class="ph-score-label">Appts</div></div>
             <div class="ph-score"><div class="ph-score-value">${mins}m</div><div class="ph-score-label">Duration</div></div>
             <div class="ph-score"><div class="ph-score-value">${currentContactIdx}</div><div class="ph-score-label">Contacts</div></div>
