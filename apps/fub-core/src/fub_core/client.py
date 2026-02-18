@@ -219,6 +219,10 @@ class FUBClient:
     def fetch_calls(self) -> List[Dict]:
         return self.fetch_collection("/calls", "calls")
 
+    def fetch_calls_since(self, after_date: str) -> List[Dict]:
+        """Fetch calls created on or after a date (YYYY-MM-DD)."""
+        return self.fetch_collection("/calls", "calls", {"createdAfter": after_date}, use_cache=False)
+
     def fetch_events(self, limit: int = 100) -> List[Dict]:
         return self.fetch_collection("/events", "events", {"limit": limit})
 

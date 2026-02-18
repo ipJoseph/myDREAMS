@@ -162,6 +162,84 @@ def _build_output_filename(start_date, end_date, output_dir):
     return os.path.join(output_dir, filename)
 
 
+def sync_calls_from_fub(db_path, since_date):
+    """Fetch recent calls from FUB and insert into the DREAMS database.
+
+    Args:
+        db_path: Path to DREAMS SQLite database
+        since_date: ISO date string (YYYY-MM-DD) to fetch calls from
+
+    Returns:
+        Number of new calls synced, or -1 if sync was skipped
+    """
+    import logging
+    sync_logger = logging.getLogger(__name__)
+
+    api_key = os.environ.get('FUB_API_KEY')
+    if not api_key:
+        sync_logger.warning("FUB_API_KEY not set; skipping live call sync")
+        return -1
+
+    try:
+        # Import FUBClient and database
+        fub_core_path = os.path.join(PROJECT_ROOT, 'apps', 'fub-core', 'src')
+        if fub_core_path not in sys.path:
+            sys.path.insert(0, fub_core_path)
+        from fub_core.client import FUBClient
+
+        src_path = os.path.join(PROJECT_ROOT, 'src')
+        if src_path not in sys.path:
+            sys.path.insert(0, src_path)
+        from core.database import DREAMSDatabase
+
+        client = FUBClient(api_key, logger=sync_logger)
+        calls = client.fetch_calls_since(since_date)
+        sync_logger.info(f"Fetched {len(calls)} calls from FUB since {since_date}")
+
+        db = DREAMSDatabase(db_path)
+        synced = 0
+        for call in calls:
+            fub_id = call.get("id")
+            person_id = call.get("personId")
+            if not person_id:
+                continue
+
+            comm_id = f"call_{fub_id}" if fub_id else None
+            if not comm_id:
+                continue
+
+            direction = "inbound" if call.get("isIncoming") else "outbound"
+            occurred_at = call.get("created") or call.get("timestamp")
+            duration = call.get("duration") or call.get("durationSeconds")
+
+            agent_name = None
+            user = call.get("user")
+            if isinstance(user, dict):
+                agent_name = user.get("name")
+
+            status = call.get("outcome") or call.get("status") or "completed"
+
+            if db.insert_communication(
+                comm_id=comm_id,
+                contact_id=str(person_id),
+                comm_type="call",
+                direction=direction,
+                occurred_at=occurred_at,
+                duration_seconds=duration,
+                fub_id=str(fub_id),
+                fub_user_name=agent_name,
+                status=status,
+            ):
+                synced += 1
+
+        sync_logger.info(f"Synced {synced} new calls to database")
+        return synced
+
+    except Exception as e:
+        sync_logger.warning(f"Live FUB call sync failed (report will use existing data): {e}")
+        return -1
+
+
 def generate_date_range_report(db_path, start_date, end_date, output_dir):
     """Generate a call report for an arbitrary date range.
 

@@ -891,7 +891,7 @@ REPORTS_DIR = PROJECT_ROOT / 'reports'
 # Import report generator (for on-demand generation)
 try:
     sys.path.insert(0, str(REPORTS_DIR))
-    from generate_calls_report import generate_date_range_report
+    from generate_calls_report import generate_date_range_report, sync_calls_from_fub
     REPORT_GENERATOR_AVAILABLE = True
 except ImportError:
     REPORT_GENERATOR_AVAILABLE = False
@@ -947,6 +947,15 @@ def api_generate_calls_report():
         end_date = date_type.fromisoformat(end_str) if end_str else start_date
     except ValueError:
         return jsonify({'success': False, 'error': 'Invalid date format (expected YYYY-MM-DD)'}), 400
+
+    # If the date range includes today, sync fresh calls from FUB first
+    if end_date >= date_type.today():
+        try:
+            count = sync_calls_from_fub(DB_PATH, start_date.isoformat())
+            if count >= 0:
+                logger.info(f"Live FUB sync: {count} new calls synced before report generation")
+        except Exception as e:
+            logger.warning(f"FUB call sync failed, generating report with existing data: {e}")
 
     try:
         output_file = generate_date_range_report(
