@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Missing/Bad Phone Report | Feb 18, 2026</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8fafc;
+            color: #1a1a1a;
+            padding: 32px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        h1 {
+            font-size: 26px;
+            font-weight: 800;
+            margin-bottom: 4px;
+        }
+        .subtitle {
+            font-size: 14px;
+            color: #64748b;
+            margin-bottom: 32px;
+        }
+        .section-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 14px;
+            margin-top: 36px;
+        }
+        .section-subtitle {
+            font-size: 13px;
+            color: #64748b;
+            margin-bottom: 16px;
+            margin-top: -8px;
+        }
+
+        /* Summary Cards */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 14px;
+            margin-bottom: 12px;
+        }
+        .summary-card {
+            background: white;
+            border-radius: 10px;
+            padding: 18px 16px;
+            text-align: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        }
+        .summary-card .value {
+            font-size: 32px;
+            font-weight: 800;
+            line-height: 1;
+            margin-bottom: 4px;
+        }
+        .summary-card .label {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #64748b;
+        }
+        .red .value { color: #dc2626; }
+        .orange .value { color: #ea580c; }
+        .blue .value { color: #2563eb; }
+        .purple .value { color: #7c3aed; }
+
+        /* Tables */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+            font-size: 13px;
+            margin-bottom: 32px;
+        }
+        .data-table th {
+            background: #f8fafc;
+            padding: 10px 12px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #64748b;
+            text-align: left;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        .data-table td {
+            padding: 8px 12px;
+            border-bottom: 1px solid #f1f5f9;
+            vertical-align: middle;
+        }
+        .data-table tr:hover { background: #f8fafc; }
+        .data-table tr:last-child td { border-bottom: none; }
+        .data-table .num { text-align: center; }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+        .badge-lead { background: #eff6ff; color: #2563eb; }
+        .badge-nurture { background: #f0fdf4; color: #16a34a; }
+        .badge-bad { background: #fee2e2; color: #dc2626; }
+        .badge-hot { background: #fef3c7; color: #92400e; }
+
+        .email-link {
+            color: #2563eb;
+            text-decoration: none;
+        }
+        .email-link:hover { text-decoration: underline; }
+
+        .footer {
+            text-align: center;
+            font-size: 12px;
+            color: #94a3b8;
+            margin-top: 32px;
+            padding-top: 16px;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        @media print {
+            body { padding: 16px; }
+        }
+    </style>
+</head>
+<body>
+
+<h1>Contacts Missing Phone Numbers</h1>
+<p class="subtitle">Lead &amp; Nurture stages | Generated February 18, 2026 | Source: DREAMS database</p>
+
+<!-- Summary Cards -->
+<div class="summary-grid">
+    <div class="summary-card red">
+        <div class="value">97</div>
+        <div class="label">No Phone Number</div>
+    </div>
+    <div class="summary-card orange">
+        <div class="value">4</div>
+        <div class="label">Bad Number Flagged</div>
+    </div>
+    <div class="summary-card blue">
+        <div class="value">89</div>
+        <div class="label">Leads (No Phone)</div>
+    </div>
+    <div class="summary-card purple">
+        <div class="value">8</div>
+        <div class="label">Nurture (No Phone)</div>
+    </div>
+</div>
+
+<!-- Bad Number Section -->
+<h2 class="section-title">Bad Numbers (4 contacts)</h2>
+<p class="section-subtitle">These contacts have phone numbers on file but were flagged "Bad Number" during calls</p>
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Name</th>
+            <th>Stage</th>
+            <th>Phone (Bad)</th>
+            <th>Email</th>
+            <th>Priority</th>
+            <th>Heat</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td class="num">1</td>
+            <td><strong>Jan Nev</strong></td>
+            <td><span class="badge badge-lead">Lead</span></td>
+            <td><span class="badge badge-bad">703-978-9277</span></td>
+            <td><a href="mailto:nevthe5th@gmail.com" class="email-link">nevthe5th@gmail.com</a></td>
+            <td class="num">20.7</td>
+            <td class="num"><span class="badge badge-hot">33.0</span></td>
+        </tr>
+        <tr>
+            <td class="num">2</td>
+            <td><strong>Patrick Scan</strong></td>
+            <td><span class="badge badge-lead">Lead</span></td>
+            <td><span class="badge badge-bad">727-448-8405</span></td>
+            <td><a href="mailto:patrickscan68@gmail.com" class="email-link">patrickscan68@gmail.com</a></td>
+            <td class="num">19.7</td>
+            <td class="num"><span class="badge badge-hot">18.9</span></td>
+        </tr>
+        <tr>
+            <td class="num">3</td>
+            <td><strong>K S</strong></td>
+            <td><span class="badge badge-lead">Lead</span></td>
+            <td><span class="badge badge-bad">303-593-9689</span></td>
+            <td><a href="mailto:kksharp5@gmail.com" class="email-link">kksharp5@gmail.com</a></td>
+            <td class="num">17.0</td>
+            <td class="num"><span class="badge badge-hot">13.0</span></td>
+        </tr>
+        <tr>
+            <td class="num">4</td>
+            <td><strong>Darrell Young</strong></td>
+            <td><span class="badge badge-lead">Lead</span></td>
+            <td><span class="badge badge-bad">839-235-0616</span></td>
+            <td><a href="mailto:youngholymusic@gmail.com" class="email-link">youngholymusic@gmail.com</a></td>
+            <td class="num">13.8</td>
+            <td class="num">3.5</td>
+        </tr>
+    </tbody>
+</table>
+
+<!-- No Phone - Lead Stage -->
+<h2 class="section-title">Leads with No Phone (89 contacts)</h2>
+<p class="section-subtitle">89 of 342 Leads (26%) have no phone number on file. Sorted by priority score.</p>
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Name</th>
+            <th>Email</th>
+            <th>FUB ID</th>
+            <th>Priority</th>
+            <th>Heat</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr><td class="num">1</td><td><strong>Ken Potts</strong></td><td><a href="mailto:kenpotts@gmail.com" class="email-link">kenpotts@gmail.com</a></td><td class="num">25989</td><td class="num">16.3</td><td class="num"><span class="badge badge-hot">32.6</span></td></tr>
+        <tr><td class="num">2</td><td><strong>Dawn Nichols</strong></td><td><a href="mailto:dawn.nichols@evsck12.com" class="email-link">dawn.nichols@evsck12.com</a></td><td class="num">25130</td><td class="num">27.9</td><td class="num">0.8</td></tr>
+        <tr><td class="num">3</td><td><strong>Davis Suggs</strong></td><td><a href="mailto:dsuggsjr@gmail.com" class="email-link">dsuggsjr@gmail.com</a></td><td class="num">25872</td><td class="num">14.0</td><td class="num"><span class="badge badge-hot">28.0</span></td></tr>
+        <tr><td class="num">4</td><td><strong>Dimitar Dimitrov</strong></td><td><a href="mailto:plavashtiqt@gmail.com" class="email-link">plavashtiqt@gmail.com</a></td><td class="num">25971</td><td class="num">14.0</td><td class="num"><span class="badge badge-hot">28.0</span></td></tr>
+        <tr><td class="num">5</td><td><strong>Paula Nelson</strong></td><td><a href="mailto:paulanelson53@gmail.com" class="email-link">paulanelson53@gmail.com</a></td><td class="num">25979</td><td class="num">14.0</td><td class="num"><span class="badge badge-hot">28.0</span></td></tr>
+        <tr><td class="num">6</td><td><strong>Mimi Rodriguez</strong></td><td><a href="mailto:babyminta1@gmail.com" class="email-link">babyminta1@gmail.com</a></td><td class="num">25981</td><td class="num">14.0</td><td class="num"><span class="badge badge-hot">28.0</span></td></tr>
+        <tr><td class="num">7</td><td><strong>Steve Colwell</strong></td><td><a href="mailto:scolwell1958@gmail.com" class="email-link">scolwell1958@gmail.com</a></td><td class="num">25046</td><td class="num">26.1</td><td class="num">0.4</td></tr>
+        <tr><td class="num">8</td><td><strong>Tim Miller</strong></td><td><a href="mailto:tmillerpar@zoominternet.net" class="email-link">tmillerpar@zoominternet.net</a></td><td class="num">25914</td><td class="num">13.2</td><td class="num"><span class="badge badge-hot">26.5</span></td></tr>
+        <tr><td class="num">9</td><td><strong>Greg Plapp</strong></td><td><a href="mailto:gregplapp@gmail.com" class="email-link">gregplapp@gmail.com</a></td><td class="num">26000</td><td class="num">12.5</td><td class="num"><span class="badge badge-hot">25.0</span></td></tr>
+        <tr><td class="num">10</td><td><strong>Kenna Armstrong</strong></td><td><a href="mailto:armstrongkenna@gmail.com" class="email-link">armstrongkenna@gmail.com</a></td><td class="num">25160</td><td class="num">24.6</td><td class="num">0.8</td></tr>
+        <tr><td class="num">11</td><td><strong>Margaret Bacon</strong></td><td><a href="mailto:buddy.gb25@gmail.com" class="email-link">buddy.gb25@gmail.com</a></td><td class="num">25699</td><td class="num">22.0</td><td class="num">2.2</td></tr>
+        <tr><td class="num">12</td><td><strong>Grenda Hawk</strong></td><td><a href="mailto:hawkgrenda@gmail.com" class="email-link">hawkgrenda@gmail.com</a></td><td class="num">25420</td><td class="num">20.9</td><td class="num">0.8</td></tr>
+        <tr><td class="num">13</td><td><strong>Louann Agnelli</strong></td><td><a href="mailto:agnellilouann@gmail.com" class="email-link">agnellilouann@gmail.com</a></td><td class="num">25845</td><td class="num">9.0</td><td class="num"><span class="badge badge-hot">18.0</span></td></tr>
+        <tr><td class="num">14</td><td><strong>Candy Williams</strong></td><td><a href="mailto:liv4kim1223@gmail.com" class="email-link">liv4kim1223@gmail.com</a></td><td class="num">25897</td><td class="num">9.0</td><td class="num"><span class="badge badge-hot">18.0</span></td></tr>
+        <tr><td class="num">15</td><td><strong>Karen Smith</strong></td><td><a href="mailto:kg4oup1564@gmail.com" class="email-link">kg4oup1564@gmail.com</a></td><td class="num">25092</td><td class="num">17.9</td><td class="num">4.2</td></tr>
+        <tr><td class="num">16</td><td><strong>Josiah Watson</strong></td><td><a href="mailto:jjwatson888@gmail.com" class="email-link">jjwatson888@gmail.com</a></td><td class="num">25040</td><td class="num">17.9</td><td class="num">4.2</td></tr>
+        <tr><td class="num">17</td><td><strong>Tim Smithson</strong></td><td><a href="mailto:boingotim@gmail.com" class="email-link">boingotim@gmail.com</a></td><td class="num">25486</td><td class="num">17.4</td><td class="num">1.0</td></tr>
+        <tr><td class="num">18</td><td><strong>Rion Salley</strong></td><td><a href="mailto:rionsalley@gmail.com" class="email-link">rionsalley@gmail.com</a></td><td class="num">25939</td><td class="num">7.5</td><td class="num"><span class="badge badge-hot">15.0</span></td></tr>
+        <tr><td class="num">19</td><td><strong>Niko Lowe</strong></td><td><a href="mailto:lowejojo90@gmail.com" class="email-link">lowejojo90@gmail.com</a></td><td class="num">25990</td><td class="num">7.2</td><td class="num"><span class="badge badge-hot">14.5</span></td></tr>
+        <tr><td class="num">20</td><td><strong>Tom Gilson</strong></td><td><a href="mailto:tomgilson58@gmail.com" class="email-link">tomgilson58@gmail.com</a></td><td class="num">25966</td><td class="num">6.5</td><td class="num"><span class="badge badge-hot">13.0</span></td></tr>
+        <tr><td class="num">21</td><td><strong>Mark Sater</strong></td><td><a href="mailto:marksater147@gmail.com" class="email-link">marksater147@gmail.com</a></td><td class="num">25170</td><td class="num">16.4</td><td class="num">0.8</td></tr>
+        <tr><td class="num">22</td><td><strong>Diane Sims</strong></td><td><a href="mailto:dianesims1020@gmail.com" class="email-link">dianesims1020@gmail.com</a></td><td class="num">25048</td><td class="num">16.1</td><td class="num">0.8</td></tr>
+        <tr><td class="num">23</td><td><strong>Carl Kaminer</strong></td><td><a href="mailto:cdkaminer@bellsouth.net" class="email-link">cdkaminer@bellsouth.net</a></td><td class="num">25105</td><td class="num">15.9</td><td class="num">0.4</td></tr>
+        <tr><td class="num">24</td><td><strong>Poppy S</strong></td><td><a href="mailto:lindaandalfraker@gmail.com" class="email-link">lindaandalfraker@gmail.com</a></td><td class="num">25097</td><td class="num">15.9</td><td class="num">0.4</td></tr>
+        <tr><td class="num">25</td><td><strong>Mark Flanders</strong></td><td><a href="mailto:markim081499@gmail.com" class="email-link">markim081499@gmail.com</a></td><td class="num">25085</td><td class="num">15.9</td><td class="num">0.4</td></tr>
+        <tr><td class="num">26</td><td><strong>Stephanie Bradford</strong></td><td><a href="mailto:suenlight320@gmail.com" class="email-link">suenlight320@gmail.com</a></td><td class="num">25063</td><td class="num">15.9</td><td class="num">0.4</td></tr>
+        <tr><td class="num">27</td><td><strong>Shane Graser</strong></td><td><a href="mailto:shane.graser@gmail.com" class="email-link">shane.graser@gmail.com</a></td><td class="num">25056</td><td class="num">15.9</td><td class="num">0.4</td></tr>
+        <tr><td class="num">28</td><td><strong>Mark Moffitt</strong></td><td><a href="mailto:moffitt524@gmail.com" class="email-link">moffitt524@gmail.com</a></td><td class="num">25050</td><td class="num">15.9</td><td class="num">0.4</td></tr>
+        <tr><td class="num">29</td><td><strong>Kimberly Horton</strong></td><td><a href="mailto:klazar75@gmail.com" class="email-link">klazar75@gmail.com</a></td><td class="num">25089</td><td class="num">15.8</td><td class="num">0.0</td></tr>
+        <tr><td class="num">30</td><td><strong>Lauren Cavenaugh</strong></td><td><a href="mailto:lmcavenaugh@gmail.com" class="email-link">lmcavenaugh@gmail.com</a></td><td class="num">25044</td><td class="num">15.8</td><td class="num">0.0</td></tr>
+        <tr><td class="num">31</td><td><strong>Mike Karras</strong></td><td><a href="mailto:capecodrealtor@gmail.com" class="email-link">capecodrealtor@gmail.com</a></td><td class="num">25255</td><td class="num">15.0</td><td class="num">0.8</td></tr>
+        <tr><td class="num">32</td><td><strong>Melissa Jeanne</strong></td><td><a href="mailto:melissajeanne34@gmail.com" class="email-link">melissajeanne34@gmail.com</a></td><td class="num">25254</td><td class="num">15.0</td><td class="num">0.8</td></tr>
+        <tr><td class="num">33</td><td><strong>Scott Loper</strong></td><td><a href="mailto:AmCannabisBank@gmail.com" class="email-link">AmCannabisBank@gmail.com</a></td><td class="num">12715</td><td class="num">14.1</td><td class="num">4.2</td></tr>
+        <tr><td class="num">34</td><td><strong>Jessie Fail</strong></td><td><a href="mailto:jessief571@gmail.com" class="email-link">jessief571@gmail.com</a></td><td class="num">25202</td><td class="num">13.9</td><td class="num">0.8</td></tr>
+        <tr><td class="num">35</td><td><strong>John Gover</strong></td><td><a href="mailto:mechanic239@engineer.com" class="email-link">mechanic239@engineer.com</a></td><td class="num">25190</td><td class="num">13.9</td><td class="num">0.8</td></tr>
+        <tr><td class="num">36</td><td><strong>Sandy Maschmeier</strong></td><td><a href="mailto:47ysmsj47@gmail.com" class="email-link">47ysmsj47@gmail.com</a></td><td class="num">25140</td><td class="num">13.9</td><td class="num">0.8</td></tr>
+        <tr><td class="num">37</td><td><strong>Vicki Chunn</strong></td><td><a href="mailto:vickichunn@gmail.com" class="email-link">vickichunn@gmail.com</a></td><td class="num">25129</td><td class="num">13.9</td><td class="num">0.8</td></tr>
+        <tr><td class="num">38</td><td><strong>Rob S</strong></td><td><a href="mailto:rob100x@gmail.com" class="email-link">rob100x@gmail.com</a></td><td class="num">25818</td><td class="num">12.7</td><td class="num"><span class="badge badge-hot">10.9</span></td></tr>
+        <tr><td class="num">39</td><td><strong>Samuel Wente</strong></td><td><a href="mailto:wentesam@gmail.com" class="email-link">wentesam@gmail.com</a></td><td class="num">25712</td><td class="num">12.6</td><td class="num">4.2</td></tr>
+        <tr><td class="num">40</td><td><strong>Arlene R</strong></td><td><a href="mailto:oratz101@gmail.com" class="email-link">oratz101@gmail.com</a></td><td class="num">25820</td><td class="num">12.6</td><td class="num">4.2</td></tr>
+        <tr><td class="num">41</td><td><strong>Richard Compton</strong></td><td><a href="mailto:rcomptonrealestate@gmail.com" class="email-link">rcomptonrealestate@gmail.com</a></td><td class="num">25188</td><td class="num">12.4</td><td class="num">0.8</td></tr>
+        <tr><td class="num">42</td><td><strong>Scott Armstrong</strong></td><td><a href="mailto:scottarmstrongverustitle@gmail.com" class="email-link">scottarmstrongverustitle@gmail.com</a></td><td class="num">25479</td><td class="num">11.3</td><td class="num">0.8</td></tr>
+        <tr><td class="num">43</td><td><strong>Sandy Mizell</strong></td><td><a href="mailto:sandymiz75@gmail.com" class="email-link">sandymiz75@gmail.com</a></td><td class="num">25204</td><td class="num">11.3</td><td class="num">0.8</td></tr>
+        <tr><td class="num">44</td><td><strong>Terri Roberts</strong></td><td><a href="mailto:teecee0854@gmail.com" class="email-link">teecee0854@gmail.com</a></td><td class="num">25945</td><td class="num">5.5</td><td class="num"><span class="badge badge-hot">10.9</span></td></tr>
+        <tr><td class="num">45</td><td><strong>David Swope</strong></td><td><a href="mailto:swago9920@gmail.com" class="email-link">swago9920@gmail.com</a></td><td class="num">25944</td><td class="num">5.5</td><td class="num"><span class="badge badge-hot">10.9</span></td></tr>
+        <tr><td class="num">46</td><td><strong>John Thompson</strong></td><td><a href="mailto:johnit99@gmail.com" class="email-link">johnit99@gmail.com</a></td><td class="num">25978</td><td class="num">5.5</td><td class="num"><span class="badge badge-hot">10.9</span></td></tr>
+        <tr><td class="num">47</td><td><strong>Holly Woods</strong></td><td><a href="mailto:hpw1989@gmail.com" class="email-link">hpw1989@gmail.com</a></td><td class="num">25750</td><td class="num">10.6</td><td class="num">1.0</td></tr>
+        <tr><td class="num">48</td><td><strong>Billy Peterson</strong></td><td><a href="mailto:bpete814@gmail.com" class="email-link">bpete814@gmail.com</a></td><td class="num">25748</td><td class="num">10.6</td><td class="num">1.0</td></tr>
+        <tr><td class="num">49</td><td><strong>Clay Rawlings</strong></td><td><a href="mailto:clayrawlings@aol.com" class="email-link">clayrawlings@aol.com</a></td><td class="num">25747</td><td class="num">10.6</td><td class="num">1.0</td></tr>
+        <tr><td class="num">50</td><td><strong>Mitali Ghosh</strong></td><td><a href="mailto:mitalighosh@google.com" class="email-link">mitalighosh@google.com</a></td><td class="num">25528</td><td class="num">10.6</td><td class="num">1.0</td></tr>
+        <tr><td class="num">51</td><td><strong>Sandra Penley</strong></td><td><a href="mailto:penley248@gmail.com" class="email-link">penley248@gmail.com</a></td><td class="num">25418</td><td class="num">10.5</td><td class="num">0.8</td></tr>
+        <tr><td class="num">52</td><td><strong>Rick Kenton</strong></td><td><a href="mailto:rlkenton710@gmail.com" class="email-link">rlkenton710@gmail.com</a></td><td class="num">25430</td><td class="num">10.3</td><td class="num">1.6</td></tr>
+        <tr><td class="num">53</td><td><strong>Robin Drake</strong></td><td><a href="mailto:rdrake@byramhills.net" class="email-link">rdrake@byramhills.net</a></td><td class="num">25708</td><td class="num">10.0</td><td class="num">1.0</td></tr>
+        <tr><td class="num">54</td><td><strong>Chuck Wood</strong></td><td><a href="mailto:jedjackson1995@gmail.com" class="email-link">jedjackson1995@gmail.com</a></td><td class="num">25828</td><td class="num">4.8</td><td class="num"><span class="badge badge-hot">9.5</span></td></tr>
+        <tr><td class="num">55</td><td><strong>Josephina Huntington</strong></td><td><a href="mailto:empressoflax@gmail.com" class="email-link">empressoflax@gmail.com</a></td><td class="num">25923</td><td class="num">4.8</td><td class="num"><span class="badge badge-hot">9.5</span></td></tr>
+        <tr><td class="num">56</td><td><strong>Nikunj Dave</strong></td><td><a href="mailto:nikunjdaveprojectmanager@gmail.com" class="email-link">nikunjdaveprojectmanager@gmail.com</a></td><td class="num">25924</td><td class="num">4.8</td><td class="num"><span class="badge badge-hot">9.5</span></td></tr>
+        <tr><td class="num">57</td><td><strong>Betty yochem</strong></td><td><a href="mailto:bgyochem@gmail.com" class="email-link">bgyochem@gmail.com</a></td><td class="num">25093</td><td class="num">9.2</td><td class="num">0.4</td></tr>
+        <tr><td class="num">58</td><td><strong>Annie Vibbert</strong></td><td><a href="mailto:72bluescorpio@gmail.com" class="email-link">72bluescorpio@gmail.com</a></td><td class="num">25935</td><td class="num">3.5</td><td class="num"><span class="badge badge-hot">7.1</span></td></tr>
+        <tr><td class="num">59</td><td><strong>John Cherrington</strong></td><td><a href="mailto:jwcherry0266@gmail.com" class="email-link">jwcherry0266@gmail.com</a></td><td class="num">25826</td><td class="num">7.8</td><td class="num">1.0</td></tr>
+        <tr><td class="num">60</td><td><strong>Suzan Seilinger</strong></td><td><a href="mailto:suzieseilinger@gmail.com" class="email-link">suzieseilinger@gmail.com</a></td><td class="num">25805</td><td class="num">7.8</td><td class="num">1.0</td></tr>
+        <tr><td class="num">61</td><td><strong>Sharon Wright</strong></td><td><a href="mailto:srconner74@gmail.com" class="email-link">srconner74@gmail.com</a></td><td class="num">25816</td><td class="num">7.3</td><td class="num">0.0</td></tr>
+        <tr><td class="num">62</td><td><strong>Scott Bebout</strong></td><td><a href="mailto:scott@msradiogroup.com" class="email-link">scott@msradiogroup.com</a></td><td class="num">25452</td><td class="num">5.7</td><td class="num">0.8</td></tr>
+        <tr><td class="num">63</td><td><strong>Jeffrey Meek</strong></td><td><a href="mailto:oldschoollinemen@gmail.com" class="email-link">oldschoollinemen@gmail.com</a></td><td class="num">25829</td><td class="num">5.1</td><td class="num">2.2</td></tr>
+        <tr><td class="num">64</td><td><strong>Jennifer Fernald</strong></td><td><a href="mailto:jenfernald.nh@gmail.com" class="email-link">jenfernald.nh@gmail.com</a></td><td class="num">25780</td><td class="num">5.1</td><td class="num">2.2</td></tr>
+        <tr><td class="num">65</td><td><strong>Shauna Oocumma</strong></td><td><a href="mailto:shaunaoocumma@gmail.com" class="email-link">shaunaoocumma@gmail.com</a></td><td class="num">25773</td><td class="num">5.1</td><td class="num">2.2</td></tr>
+        <tr><td class="num">66</td><td><strong>Oswald Zammit</strong></td><td><a href="mailto:oswaldzammit@gmail.com" class="email-link">oswaldzammit@gmail.com</a></td><td class="num">25788</td><td class="num">4.7</td><td class="num">2.2</td></tr>
+        <tr><td class="num">67</td><td><strong>Caroline Jinks</strong></td><td><a href="mailto:cjinks112@gmail.com" class="email-link">cjinks112@gmail.com</a></td><td class="num">25783</td><td class="num">4.5</td><td class="num">1.0</td></tr>
+        <tr><td class="num">68</td><td><strong>Leah Pearcy</strong></td><td><a href="mailto:leahmogle@gmail.com" class="email-link">leahmogle@gmail.com</a></td><td class="num">25850</td><td class="num">1.1</td><td class="num">2.2</td></tr>
+        <tr><td class="num">69</td><td><strong>Aaron Jones</strong></td><td><a href="mailto:jonesaaron99@yahoo.com" class="email-link">jonesaaron99@yahoo.com</a></td><td class="num">25098</td><td class="num">0.2</td><td class="num">0.4</td></tr>
+        <tr><td class="num">70</td><td><strong>Doug Brandberg</strong></td><td><a href="mailto:dougbrandberg@gmail.com" class="email-link">dougbrandberg@gmail.com</a></td><td class="num">25749</td><td class="num">0.0</td><td class="num">0.0</td></tr>
+        <tr><td class="num">71</td><td><strong>Timothy Riley</strong></td><td><a href="mailto:timrileytrucking@gmail.com" class="email-link">timrileytrucking@gmail.com</a></td><td class="num">25746</td><td class="num">0.0</td><td class="num">0.0</td></tr>
+        <tr><td class="num">72</td><td><strong>John Kolacki</strong></td><td><a href="mailto:johnkolackinc@gmail.com" class="email-link">johnkolackinc@gmail.com</a></td><td class="num">25740</td><td class="num">0.0</td><td class="num">0.0</td></tr>
+        <tr><td class="num">73</td><td><strong>Brooke Pond</strong></td><td><a href="mailto:punky_2003@hotmail.com" class="email-link">punky_2003@hotmail.com</a></td><td class="num">25733</td><td class="num">0.0</td><td class="num">0.0</td></tr>
+        <tr><td class="num">74</td><td><strong>Rich Rice</strong></td><td><a href="mailto:ricrice@gmail.com" class="email-link">ricrice@gmail.com</a></td><td class="num">25499</td><td class="num">0.0</td><td class="num">0.0</td></tr>
+        <tr><td class="num">75</td><td><strong>Steve Clobridge</strong></td><td><a href="mailto:steveclobridge@yahoo.com" class="email-link">steveclobridge@yahoo.com</a></td><td class="num">25497</td><td class="num">0.0</td><td class="num">0.0</td></tr>
+        <tr><td class="num">76</td><td><strong>Silvina Albornoz</strong></td><td><a href="mailto:silvinalbornozph@gmail.com" class="email-link">silvinalbornozph@gmail.com</a></td><td class="num">25110</td><td class="num">0.0</td><td class="num">0.0</td></tr>
+        <tr><td class="num">77</td><td><strong>Bryan Kay (L)</strong></td><td><a href="mailto:bryan.kay@vu.com" class="email-link">bryan.kay@vu.com</a></td><td class="num">25802</td><td class="num">0.0</td><td class="num">0.0</td></tr>
+        <tr><td class="num">78</td><td><strong>Dumitru Colibaseanu</strong></td><td><a href="mailto:dumitrucolibaseanu@gmail.com" class="email-link">dumitrucolibaseanu@gmail.com</a></td><td class="num">25785</td><td class="num">0.0</td><td class="num">0.0</td></tr>
+        <tr><td class="num">79</td><td><strong>Jorge Arroyo</strong></td><td><a href="mailto:jorge.arroyo04231972@gmail.com" class="email-link">jorge.arroyo04231972@gmail.com</a></td><td class="num">25779</td><td class="num">0.0</td><td class="num">0.0</td></tr>
+        <tr><td class="num">80</td><td><strong>Matt Miller</strong></td><td><a href="mailto:memiller6367@gmail.com" class="email-link">memiller6367@gmail.com</a></td><td class="num">25772</td><td class="num">0.0</td><td class="num">0.0</td></tr>
+        <tr><td class="num">81</td><td><strong>Steven Stowers</strong></td><td><a href="mailto:stowerssteve89@gmail.com" class="email-link">stowerssteve89@gmail.com</a></td><td class="num">25771</td><td class="num">0.0</td><td class="num">0.0</td></tr>
+        <tr><td class="num">82</td><td><strong>Amanda Tant</strong></td><td><a href="mailto:amandatant69@gmail.com" class="email-link">amandatant69@gmail.com</a></td><td class="num">25767</td><td class="num">0.0</td><td class="num">0.0</td></tr>
+        <tr><td class="num">83</td><td><strong>Kyle James</strong></td><td><a href="mailto:kyle@gccmiami.com" class="email-link">kyle@gccmiami.com</a></td><td class="num">25765</td><td class="num">0.0</td><td class="num">0.0</td></tr>
+        <tr><td class="num">84</td><td><strong>Tommy Garrett</strong></td><td><a href="mailto:tgarrett1649@gmail.com" class="email-link">tgarrett1649@gmail.com</a></td><td class="num">25431</td><td class="num">0.0</td><td class="num">0.0</td></tr>
+        <tr><td class="num">85</td><td><strong>Tommy Bridges</strong></td><td><a href="mailto:snakemanlives60@gmail.com" class="email-link">snakemanlives60@gmail.com</a></td><td class="num">25018</td><td class="num">0.0</td><td class="num">0.0</td></tr>
+        <tr><td class="num">86</td><td><strong>Michael Armbrust</strong></td><td><a href="mailto:mike@kktransfer.com" class="email-link">mike@kktransfer.com</a></td><td class="num">5361</td><td class="num">0.0</td><td class="num">0.0</td></tr>
+        <tr><td class="num">87</td><td><strong>Tina Shepherd</strong></td><td><a href="mailto:tinashepherd115@gmail.com" class="email-link">tinashepherd115@gmail.com</a></td><td class="num">25146</td><td class="num">0.0</td><td class="num">0.0</td></tr>
+        <tr><td class="num">88</td><td><strong>Suzanne Zilvetti</strong></td><td><a href="mailto:szilvetti@yahoo.com" class="email-link">szilvetti@yahoo.com</a></td><td class="num">24566</td><td class="num">0.0</td><td class="num">0.0</td></tr>
+        <tr><td class="num">89</td><td><strong>Josh Ball</strong></td><td><a href="mailto:krazyvol10@yahoo.com" class="email-link">krazyvol10@yahoo.com</a></td><td class="num">24219</td><td class="num">0.0</td><td class="num">0.0</td></tr>
+    </tbody>
+</table>
+
+<!-- No Phone - Nurture Stage -->
+<h2 class="section-title">Nurture with No Phone (8 contacts)</h2>
+<p class="section-subtitle">8 of 399 Nurture contacts (2%) have no phone number on file</p>
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Name</th>
+            <th>Email</th>
+            <th>FUB ID</th>
+            <th>Priority</th>
+            <th>Heat</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr><td class="num">1</td><td><strong>Nicholas Vincent</strong></td><td><a href="mailto:nvincent24.nv@gmail.com" class="email-link">nvincent24.nv@gmail.com</a></td><td class="num">12944</td><td class="num">15.1</td><td class="num">4.2</td></tr>
+        <tr><td class="num">2</td><td><strong>Gina Mathis</strong></td><td><a href="mailto:ginamathis2@gmail.com" class="email-link">ginamathis2@gmail.com</a></td><td class="num">25447</td><td class="num">0.0</td><td class="num">0.0</td></tr>
+        <tr><td class="num">3</td><td><strong>Craig Martin</strong></td><td><a href="mailto:melltin2001@yahoo.com" class="email-link">melltin2001@yahoo.com</a></td><td class="num">25413</td><td class="num">0.0</td><td class="num">0.0</td></tr>
+        <tr><td class="num">4</td><td><strong>Joyce Holland</strong></td><td><a href="mailto:jh.holland1941@gmail.com" class="email-link">jh.holland1941@gmail.com</a></td><td class="num">24040</td><td class="num">0.0</td><td class="num">0.0</td></tr>
+        <tr><td class="num">5</td><td><strong>Jim Henderson</strong></td><td><a href="mailto:jhendrsn20@yahoo.com" class="email-link">jhendrsn20@yahoo.com</a></td><td class="num">22683</td><td class="num">0.0</td><td class="num">0.0</td></tr>
+        <tr><td class="num">6</td><td><strong>Denise Aldrich</strong></td><td><a href="mailto:aldrichdma@yahoo.com" class="email-link">aldrichdma@yahoo.com</a></td><td class="num">22433</td><td class="num">0.0</td><td class="num">0.0</td></tr>
+        <tr><td class="num">7</td><td><strong>Steven Grey</strong></td><td><a href="mailto:gotham4962@yahoo.com" class="email-link">gotham4962@yahoo.com</a></td><td class="num">21841</td><td class="num">0.0</td><td class="num">0.0</td></tr>
+        <tr><td class="num">8</td><td><strong>Sharon Mcalpin</strong></td><td><a href="mailto:sharonrmcalpin@yahoo.com" class="email-link">sharonrmcalpin@yahoo.com</a></td><td class="num">21752</td><td class="num">0.0</td><td class="num">0.0</td></tr>
+    </tbody>
+</table>
+
+<div class="footer">
+    Generated by DREAMS on February 18, 2026 | Stages: Lead, Nurture | Source: DREAMS database
+</div>
+
+</body>
+</html>
