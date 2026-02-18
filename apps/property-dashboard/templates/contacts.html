@@ -536,23 +536,24 @@
         /* Smart List Cards Row */
         .smart-list-row {
             display: flex;
-            gap: 8px;
+            gap: 6px;
             padding: 10px var(--space-lg, 24px);
             overflow-x: auto;
             flex-wrap: nowrap;
         }
         .sl-card {
-            flex: 1;
-            min-width: 0;
+            flex: 1 1 0;
+            min-width: 60px;
             background: var(--bg-primary);
             border: 1px solid var(--border);
             border-radius: 10px;
-            padding: 10px 12px;
+            padding: 8px 6px;
             text-align: center;
             cursor: pointer;
             transition: all 0.15s;
             text-decoration: none;
             display: block;
+            overflow: hidden;
         }
         .sl-card:hover {
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
@@ -570,6 +571,8 @@
             letter-spacing: 0.3px;
             margin-bottom: 2px;
             white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         .sl-card-count {
             font-size: 22px;
@@ -647,24 +650,26 @@
         .view-pills {
             display: flex;
             justify-content: center;
-            gap: 6px;
-            padding: 6px;
+            gap: 4px;
+            padding: 4px;
             background: var(--bg-secondary);
             border: 1px solid var(--border);
             border-radius: 10px;
             margin: 0 var(--space-lg, 24px) 16px;
             overflow-x: auto;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+            flex-wrap: nowrap;
         }
         .view-pill {
-            padding: 8px 18px;
+            padding: 6px 10px;
             border-radius: 8px;
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 600;
             color: var(--text-secondary);
             text-decoration: none;
             white-space: nowrap;
             transition: all 0.15s;
+            flex-shrink: 0;
         }
         .view-pill:hover { background: var(--bg-tertiary); color: var(--text-primary); }
         .view-pill.active { background: var(--color-primary); color: #ffffff; text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2); }

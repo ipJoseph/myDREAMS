@@ -13,6 +13,9 @@ import statistics
 import re
 from functools import wraps
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
+
+ET = ZoneInfo("America/New_York")
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from flask import Flask, render_template, render_template_string, request, jsonify, Response, redirect, url_for, send_from_directory
@@ -750,7 +753,7 @@ def home():
                                  reassigned_leads=reassigned_leads,
                                  new_leads_detail=new_leads_detail,
                                  current_user_id=CURRENT_USER_ID,
-                                 refresh_time=datetime.now().strftime('%B %d, %Y %I:%M %p'))
+                                 refresh_time=datetime.now(tz=ET).strftime('%B %d, %Y %I:%M %p'))
         except Exception as e:
             logger.error(f"Mission Control v3 failed, falling back to v2: {e}", exc_info=True)
             # Fall through to v2
@@ -817,7 +820,7 @@ def home():
                              buyers_needing_work=buyers_needing_work,
                              call_list_data=call_list_data,
                              call_list_counts=call_list_counts,
-                             refresh_time=datetime.now().strftime('%B %d, %Y %I:%M %p'))
+                             refresh_time=datetime.now(tz=ET).strftime('%B %d, %Y %I:%M %p'))
 
     # ===== LEGACY DATA (for v1 backward compatibility) =====
     # Get property stats
@@ -866,7 +869,7 @@ def home():
                          todays_changes=todays_changes,
                          change_summary=change_summary,
                          current_view=current_view,
-                         refresh_time=datetime.now().strftime('%B %d, %Y %I:%M %p'))
+                         refresh_time=datetime.now(tz=ET).strftime('%B %d, %Y %I:%M %p'))
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -883,7 +886,7 @@ def end_of_day():
     return render_template('eod_report.html',
                          eod=eod_data, narrative=eod_narrative,
                          active_nav='eod',
-                         refresh_time=datetime.now().strftime('%B %d, %Y %I:%M %p'))
+                         refresh_time=datetime.now(tz=ET).strftime('%B %d, %Y %I:%M %p'))
 
 
 REPORTS_DIR = PROJECT_ROOT / 'reports'
@@ -918,13 +921,13 @@ def reports_index():
             reports.append({
                 'name': f.name,
                 'size': _format_file_size(stat.st_size),
-                'modified': datetime.fromtimestamp(stat.st_mtime).strftime('%b %d, %Y %I:%M %p'),
+                'modified': datetime.fromtimestamp(stat.st_mtime, tz=ET).strftime('%b %d, %Y %I:%M %p'),
             })
 
     return render_template('reports.html',
                          reports=reports,
                          active_nav='reports',
-                         refresh_time=datetime.now().strftime('%B %d, %Y %I:%M %p'))
+                         refresh_time=datetime.now(tz=ET).strftime('%B %d, %Y %I:%M %p'))
 
 
 @app.route('/api/reports/generate-calls', methods=['POST'])
@@ -1408,7 +1411,7 @@ def pursuits_list():
     return render_template('pursuits.html',
                          pursuits=pursuits,
                          potential_buyers=potential_buyers,
-                         refresh_time=datetime.now().strftime('%B %d, %Y %I:%M %p'))
+                         refresh_time=datetime.now(tz=ET).strftime('%B %d, %Y %I:%M %p'))
 
 
 @app.route('/pursuits/create', methods=['POST'])
@@ -1511,7 +1514,7 @@ def properties_list():
                          total_pages=total_pages,
                          total_count=total_count,
                          per_page=per_page,
-                         refresh_time=datetime.now().strftime('%B %d, %Y %I:%M %p'))
+                         refresh_time=datetime.now(tz=ET).strftime('%B %d, %Y %I:%M %p'))
 
 
 @app.route('/properties/map')
@@ -1664,7 +1667,7 @@ def client_dashboard(client_name):
                          selected_status=status,
                          selected_city=city,
                          selected_county=county,
-                         refresh_time=datetime.now().strftime('%B %d, %Y %I:%M %p'))
+                         refresh_time=datetime.now(tz=ET).strftime('%B %d, %Y %I:%M %p'))
 
 
 @app.route('/api/properties')
@@ -2080,7 +2083,7 @@ def contacts_list():
                          strategic_insights=strategic_insights,
                          trends=trends,
                          smart_lists=smart_lists,
-                         refresh_time=datetime.now().strftime('%B %d, %Y %I:%M %p'))
+                         refresh_time=datetime.now(tz=ET).strftime('%B %d, %Y %I:%M %p'))
 
 
 def populate_idx_cache_for_contact(db, contact_id: str, limit: int = 20):
@@ -2192,7 +2195,7 @@ def contact_detail(contact_id):
                          trend_summary=trend_summary,
                          actions=actions,
                          today=today,
-                         refresh_time=datetime.now().strftime('%B %d, %Y %I:%M %p'))
+                         refresh_time=datetime.now(tz=ET).strftime('%B %d, %Y %I:%M %p'))
 
 
 # =========================================================================
@@ -2903,7 +2906,7 @@ def contact_workspace(contact_id):
         property_types=PROPERTY_TYPES,
         view_options=VIEW_OPTIONS,
         water_options=WATER_OPTIONS,
-        refresh_time=datetime.now().strftime('%B %d, %Y %I:%M %p'))
+        refresh_time=datetime.now(tz=ET).strftime('%B %d, %Y %I:%M %p'))
 
 
 @app.route('/contacts/<contact_id>/intake/save', methods=['POST'])
@@ -3831,7 +3834,7 @@ def property_changes():
                            selected_county=county,
                            selected_days=days,
                            cutoff_date=cutoff,
-                           refresh_time=datetime.now().strftime('%B %d, %Y %I:%M %p'))
+                           refresh_time=datetime.now(tz=ET).strftime('%B %d, %Y %I:%M %p'))
 
 
 # ==========================================
@@ -4845,7 +4848,7 @@ def data_quality():
                           city_coverage=[dict(c) for c in city_coverage],
                           recent_imports=[dict(i) for i in recent_imports],
                           mlsgrid_state=mlsgrid_state,
-                          refresh_time=datetime.now().strftime('%B %d, %Y %I:%M %p'))
+                          refresh_time=datetime.now(tz=ET).strftime('%B %d, %Y %I:%M %p'))
 
 
 @app.route('/api/data-quality')
