@@ -159,17 +159,20 @@
 
         /* ========== BRIEFING METRIC CARDS ========== */
         .briefing-metrics {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-            gap: 12px;
+            display: flex;
+            gap: 10px;
             margin-bottom: 16px;
+            flex-wrap: nowrap;
+            overflow-x: auto;
         }
         .metric-card {
             display: block;
+            flex: 1 1 0;
+            min-width: 0;
             background: white;
             border-radius: 12px;
             border-left: 4px solid var(--metric-color, #64748b);
-            padding: 16px 18px;
+            padding: 14px 12px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.06);
             text-decoration: none;
             color: inherit;
@@ -186,12 +189,15 @@
             line-height: 1.1;
         }
         .metric-card-label {
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.3px;
             color: var(--text-secondary);
             margin-top: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         .metric-card-context {
             font-size: 11px;
@@ -1283,7 +1289,10 @@
             .daily-stats { gap: 12px; }
             .pulse-strip { flex-wrap: wrap; gap: 8px; }
             .pulse-item { min-width: 80px; }
-            .briefing-metrics { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+            .briefing-metrics { gap: 8px; }
+            .metric-card { padding: 10px 8px; }
+            .metric-card-value { font-size: 22px; }
+            .metric-card-label { font-size: 10px; }
             .contact-card { grid-template-columns: 40px 1fr; }
             .contact-actions { grid-column: 1 / -1; justify-content: flex-start; margin-top: 8px; }
         }
@@ -1292,7 +1301,8 @@
             .daily-stats { display: none; }
             .pipeline-strip { flex-wrap: wrap; }
             .pipe-item { min-width: 60px; }
-            .briefing-metrics { grid-template-columns: repeat(2, 1fr); }
+            .metric-card-value { font-size: 18px; }
+            .metric-card-context { display: none; }
         }
     </style>
 {% set active_nav = 'dashboard' %}
