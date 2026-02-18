@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Weekly Call Activity Report Generator
+Call Activity Report Generator
 
-Generates an HTML report of call activity for a Mon-Sun week.
+Generates an HTML report of call activity for any date range.
 Reads from DREAMS SQLite database, converts UTC to Eastern time,
 resolves contact names via leads table.
 
@@ -12,6 +12,12 @@ Usage:
 
     # Specific week starting on a Monday:
     python3 generate_calls_report.py --week-start 2026-02-09
+
+    # Arbitrary date range:
+    python3 generate_calls_report.py --start-date 2026-02-10 --end-date 2026-02-14
+
+    # Single day:
+    python3 generate_calls_report.py --start-date 2026-02-12
 
     # Custom DB path:
     python3 generate_calls_report.py --db /path/to/dreams.db
@@ -30,6 +36,12 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
 DEFAULT_DB = os.path.join(PROJECT_ROOT, "data", "dreams.db")
 DEFAULT_OUTPUT_DIR = SCRIPT_DIR  # reports/ directory
+
+DAY_ABBR = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+MONTH_NAMES = [
+    "", "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+]
 
 
 def get_eastern_offset(dt_date):
@@ -56,15 +68,10 @@ def get_eastern_offset(dt_date):
 def get_previous_monday():
     """Get the Monday of the most recently completed Mon-Sun week."""
     today = date.today()
-    # today.weekday(): Mon=0, Tue=1, ..., Sun=6
-    # If today is Monday, the previous completed week started 7 days ago
-    # If today is Tuesday, it started 8 days ago, etc.
     days_since_monday = today.weekday()  # 0 for Monday
     if days_since_monday == 0:
-        # It's Monday — last completed week started 7 days ago
         return today - timedelta(days=7)
     else:
-        # Go back to this week's Monday, then back another 7
         return today - timedelta(days=days_since_monday + 7)
 
 
@@ -122,23 +129,74 @@ def esc(text):
     return html_mod.escape(str(text))
 
 
-def generate_report(db_path, week_start, output_dir):
-    """Generate the weekly call report for the week starting at week_start (Monday)."""
-    if week_start.weekday() != 0:
-        print(f"Error: {week_start} is not a Monday (weekday={week_start.weekday()})")
-        sys.exit(1)
+def _build_report_title(start_date, end_date):
+    """Build human-readable title and subtitle for a date range."""
+    single_day = (start_date == end_date)
 
-    week_end = week_start + timedelta(days=7)  # Following Monday (exclusive)
-    week_sunday = week_start + timedelta(days=6)
+    if single_day:
+        day_name = start_date.strftime('%A')
+        month = MONTH_NAMES[start_date.month]
+        date_range_html = f"{day_name}, {month} {start_date.day}, {start_date.year}"
+        title_range = f"{month[:3]} {start_date.day}, {start_date.year}"
+        report_title = "Call Activity Report"
+    else:
+        start_month = MONTH_NAMES[start_date.month]
+        end_month = MONTH_NAMES[end_date.month]
+        if start_date.month == end_date.month:
+            date_range_html = f"{start_month} {start_date.day}&ndash;{end_date.day}, {start_date.year}"
+            title_range = f"{start_month[:3]} {start_date.day}-{end_date.day}, {start_date.year}"
+        else:
+            date_range_html = f"{start_month} {start_date.day} &ndash; {end_month} {end_date.day}, {start_date.year}"
+            title_range = f"{start_month[:3]} {start_date.day} - {end_month[:3]} {end_date.day}, {start_date.year}"
+        report_title = "Call Activity Report"
 
-    # Determine Eastern timezone for this week
-    et_offset, et_label = get_eastern_offset(week_start)
+    return report_title, date_range_html, title_range
 
-    # Build output filename
-    output_file = os.path.join(
-        output_dir,
-        f"calls-week-{week_start.isoformat()}.html"
-    )
+
+def _build_output_filename(start_date, end_date, output_dir):
+    """Build the output filename based on date range."""
+    if start_date == end_date:
+        filename = f"calls-{start_date.isoformat()}.html"
+    else:
+        filename = f"calls-{start_date.isoformat()}-to-{end_date.isoformat()}.html"
+    return os.path.join(output_dir, filename)
+
+
+def generate_date_range_report(db_path, start_date, end_date, output_dir):
+    """Generate a call report for an arbitrary date range.
+
+    Args:
+        db_path: Path to DREAMS SQLite database
+        start_date: First day of the range (date object)
+        end_date: Last day of the range, inclusive (date object)
+        output_dir: Directory to write the HTML file
+
+    Returns:
+        Path to the generated HTML file
+
+    Raises:
+        ValueError: If dates are invalid or range exceeds 90 days
+        FileNotFoundError: If database doesn't exist
+    """
+    if not os.path.exists(db_path):
+        raise FileNotFoundError(f"Database not found at {db_path}")
+
+    if end_date < start_date:
+        raise ValueError(f"end_date ({end_date}) is before start_date ({start_date})")
+
+    range_days = (end_date - start_date).days + 1
+    if range_days > 90:
+        raise ValueError(f"Date range of {range_days} days exceeds 90-day maximum")
+
+    single_day = (start_date == end_date)
+    query_end = end_date + timedelta(days=1)  # exclusive upper bound
+
+    # Determine Eastern timezone for this range
+    et_offset, et_label = get_eastern_offset(start_date)
+
+    # Build output path
+    os.makedirs(output_dir, exist_ok=True)
+    output_file = _build_output_filename(start_date, end_date, output_dir)
 
     # Query
     query = """
@@ -158,7 +216,7 @@ def generate_report(db_path, week_start, output_dir):
 
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
-    cur.execute(query, (week_start.isoformat(), week_end.isoformat()))
+    cur.execute(query, (start_date.isoformat(), query_end.isoformat()))
     rows = cur.fetchall()
     conn.close()
 
@@ -185,16 +243,11 @@ def generate_report(db_path, week_start, output_dir):
     connected = sum(1 for c in calls if c["status"] == "completed")
     total_duration = sum(c["duration"] for c in calls)
 
-    # Daily breakdown for Mon-Sun
-    week_dates = [week_start + timedelta(days=i) for i in range(7)]
-    DAY_ABBR = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-    MONTH_NAMES = [
-        "", "January", "February", "March", "April", "May", "June",
-        "July", "August", "September", "October", "November", "December"
-    ]
+    # Dynamic date iteration for the range
+    range_dates = [start_date + timedelta(days=i) for i in range(range_days)]
 
     daily_stats = OrderedDict()
-    for d in week_dates:
+    for d in range_dates:
         daily_stats[d] = {
             "made": 0, "received": 0, "total": 0,
             "connected": 0, "no_answer": 0, "duration": 0,
@@ -219,23 +272,15 @@ def generate_report(db_path, week_start, output_dir):
     for c in calls:
         calls_by_date[c["et_date"]].append(c)
 
-    # Format helpers for dates
+    # Format helpers
     def day_short(d):
         return f"{DAY_ABBR[d.weekday()]} {d.month}/{d.day}"
 
     def day_full(d):
         return f"{d.strftime('%A')}, {MONTH_NAMES[d.month]} {d.day}"
 
-    # Date range for title
-    start_month = MONTH_NAMES[week_start.month]
-    end_month = MONTH_NAMES[week_sunday.month]
-    if week_start.month == week_sunday.month:
-        date_range = f"{start_month} {week_start.day}&ndash;{week_sunday.day}, {week_start.year}"
-        title_range = f"{start_month[:3]} {week_start.day}-{week_sunday.day}, {week_start.year}"
-    else:
-        date_range = f"{start_month} {week_start.day} &ndash; {end_month} {week_sunday.day}, {week_start.year}"
-        title_range = f"{start_month[:3]} {week_start.day} - {end_month[:3]} {week_sunday.day}, {week_start.year}"
-
+    # Title and subtitle
+    report_title, date_range_html, title_range = _build_report_title(start_date, end_date)
     et_offset_str = "4" if et_label == "EDT" else "5"
 
     # ---- Build HTML ----
@@ -246,7 +291,7 @@ def generate_report(db_path, week_start, output_dir):
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Call Activity Report | {title_range}</title>
+    <title>{esc(report_title)} | {title_range}</title>
     <style>
         * {{ box-sizing: border-box; margin: 0; padding: 0; }}
         body {{
@@ -430,8 +475,8 @@ def generate_report(db_path, week_start, output_dir):
 
     # Title
     html_parts.append(f"""
-<h1>Call Activity Report</h1>
-<p class="subtitle">Joseph Williams &mdash; Week of {date_range} &mdash; All times {et_label} (UTC&minus;{et_offset_str}) &mdash; Source: FUB via DREAMS</p>
+<h1>{esc(report_title)}</h1>
+<p class="subtitle">Joseph Williams | {date_range_html} | All times {et_label} (UTC&minus;{et_offset_str}) | Source: FUB via DREAMS</p>
 """)
 
     # Summary Cards
@@ -461,8 +506,9 @@ def generate_report(db_path, week_start, output_dir):
 </div>
 """)
 
-    # Daily Summary Table
-    html_parts.append("""
+    # Daily Summary Table (skip for single-day reports)
+    if not single_day:
+        html_parts.append("""
 <!-- Daily Summary Table -->
 <h2 class="section-title">Daily Summary</h2>
 <table class="summary-table">
@@ -480,25 +526,25 @@ def generate_report(db_path, week_start, output_dir):
     <tbody>
 """)
 
-    week_made = week_received = week_total = 0
-    week_connected = week_no_answer = week_duration = 0
+        sum_made = sum_received = sum_total = 0
+        sum_connected = sum_no_answer = sum_duration = 0
 
-    for d in week_dates:
-        s = daily_stats[d]
-        label = day_short(d)
-        is_weekend = d.weekday() >= 5
+        for d in range_dates:
+            s = daily_stats[d]
+            label = day_short(d)
+            is_weekend = d.weekday() >= 5
 
-        week_made += s["made"]
-        week_received += s["received"]
-        week_total += s["total"]
-        week_connected += s["connected"]
-        week_no_answer += s["no_answer"]
-        week_duration += s["duration"]
+            sum_made += s["made"]
+            sum_received += s["received"]
+            sum_total += s["total"]
+            sum_connected += s["connected"]
+            sum_no_answer += s["no_answer"]
+            sum_duration += s["duration"]
 
-        row_class = ' class="weekend"' if is_weekend else ""
-        talk_time = format_duration_long(s["duration"]) if s["duration"] > 0 else "&mdash;"
+            row_class = ' class="weekend"' if is_weekend else ""
+            talk_time = format_duration_long(s["duration"]) if s["duration"] > 0 else "&#8212;"
 
-        html_parts.append(f"""        <tr{row_class}>
+            html_parts.append(f"""        <tr{row_class}>
             <td>{esc(label)}</td>
             <td>{s["made"]}</td>
             <td>{s["received"]}</td>
@@ -509,14 +555,15 @@ def generate_report(db_path, week_start, output_dir):
         </tr>
 """)
 
-    html_parts.append(f"""        <tr class="total-row">
-            <td>Week Total</td>
-            <td>{week_made}</td>
-            <td>{week_received}</td>
-            <td>{week_total}</td>
-            <td>{week_connected}</td>
-            <td>{week_no_answer}</td>
-            <td>{format_duration_long(week_duration)}</td>
+        total_label = "Total" if range_days != 7 else "Week Total"
+        html_parts.append(f"""        <tr class="total-row">
+            <td>{total_label}</td>
+            <td>{sum_made}</td>
+            <td>{sum_received}</td>
+            <td>{sum_total}</td>
+            <td>{sum_connected}</td>
+            <td>{sum_no_answer}</td>
+            <td>{format_duration_long(sum_duration)}</td>
         </tr>
     </tbody>
 </table>
@@ -543,7 +590,7 @@ def generate_report(db_path, week_start, output_dir):
     max_dur = max((c["duration"] for c in calls), default=1)
     LONG_CALL_THRESHOLD = 600  # 10 minutes
 
-    for d in week_dates:
+    for d in range_dates:
         day_calls = calls_by_date.get(d, [])
         html_parts.append(f'        <tr class="day-divider"><td colspan="6">{esc(day_full(d))}</td></tr>\n')
 
@@ -553,7 +600,7 @@ def generate_report(db_path, week_start, output_dir):
 
         for c in day_calls:
             et = c["et_dt"]
-            date_short = f"{et.month}/{et.day}"
+            date_short_str = f"{et.month}/{et.day}"
             time_str = format_time_12h(et)
 
             if c["direction"] == "outbound":
@@ -582,11 +629,11 @@ def generate_report(db_path, week_start, output_dir):
                     bar_width = max(10, int(60 * dur_secs / max_dur))
                     dur_str += f' <span class="duration-bar" style="width:{bar_width}px;"></span>'
             else:
-                dur_str = "&mdash;"
+                dur_str = "&#8212;"
 
             html_parts.append(
                 f'        <tr>'
-                f'<td>{date_short}</td>'
+                f'<td>{date_short_str}</td>'
                 f'<td>{time_str}</td>'
                 f'<td>{dir_badge}</td>'
                 f'<td>{contact_name}</td>'
@@ -600,7 +647,7 @@ def generate_report(db_path, week_start, output_dir):
 </table>
 
 <div class="footer">
-    Generated by DREAMS on {now_str} &mdash; All times {et_label} (UTC&minus;{et_offset_str})<br>
+    Generated by DREAMS on {now_str} | All times {et_label} (UTC&minus;{et_offset_str})<br>
     Data source: Follow Up Boss call log synced to DREAMS database
 </div>
 
@@ -612,28 +659,65 @@ def generate_report(db_path, week_start, output_dir):
     with open(output_file, "w") as f:
         f.write(html_content)
 
+    return output_file
+
+
+def generate_report(db_path, week_start, output_dir):
+    """Generate the weekly call report for the week starting at week_start (Monday).
+
+    Backward-compatible wrapper around generate_date_range_report().
+    """
+    if week_start.weekday() != 0:
+        raise ValueError(f"{week_start} is not a Monday (weekday={week_start.weekday()})")
+
+    week_end = week_start + timedelta(days=6)  # Sunday (inclusive)
+    output_file = generate_date_range_report(db_path, week_start, week_end, output_dir)
+
+    # Print summary for CLI usage
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
+    query_end = week_start + timedelta(days=7)
+    cur.execute("""
+        SELECT COUNT(*),
+               SUM(CASE WHEN direction='outbound' THEN 1 ELSE 0 END),
+               SUM(CASE WHEN direction='inbound' THEN 1 ELSE 0 END),
+               SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END),
+               COALESCE(SUM(duration_seconds), 0)
+        FROM contact_communications
+        WHERE comm_type = 'call' AND occurred_at >= ? AND occurred_at < ?
+    """, (week_start.isoformat(), query_end.isoformat()))
+    row = cur.fetchone()
+    conn.close()
+
+    total, out_, in_, conn_, dur_ = row
     print(f"Report generated: {output_file}")
-    print(f"Week: {week_start} to {week_sunday} ({et_label})")
-    print(f"Total calls: {total_calls}")
-    print(f"Outbound: {outbound}, Inbound: {inbound}, Connected: {connected}")
-    print(f"Total talk time: {format_duration_long(total_duration)}")
-    print()
-    print("Daily breakdown:")
-    for d in week_dates:
-        s = daily_stats[d]
-        print(f"  {day_short(d)}: {s['total']} calls ({s['made']} out, {s['received']} in), "
-              f"{s['connected']} connected, {format_duration_long(s['duration'])}")
+    print(f"Week: {week_start} to {week_end}")
+    print(f"Total calls: {total}")
+    print(f"Outbound: {out_}, Inbound: {in_}, Connected: {conn_}")
+    print(f"Total talk time: {format_duration_long(dur_)}")
 
     return output_file
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Generate weekly call activity report")
+    parser = argparse.ArgumentParser(description="Generate call activity report")
     parser.add_argument(
         "--week-start",
         type=str,
         default=None,
         help="Monday start date (YYYY-MM-DD). Defaults to previous completed week."
+    )
+    parser.add_argument(
+        "--start-date",
+        type=str,
+        default=None,
+        help="Start date for custom range (YYYY-MM-DD)."
+    )
+    parser.add_argument(
+        "--end-date",
+        type=str,
+        default=None,
+        help="End date for custom range (YYYY-MM-DD). Defaults to start-date if omitted."
     )
     parser.add_argument(
         "--db",
@@ -649,20 +733,43 @@ def main():
     )
     args = parser.parse_args()
 
-    if args.week_start:
-        week_start = date.fromisoformat(args.week_start)
-        if week_start.weekday() != 0:
-            print(f"Error: {week_start} is a {week_start.strftime('%A')}, not a Monday.")
+    # Determine which mode
+    if args.start_date:
+        # Custom date range mode
+        start = date.fromisoformat(args.start_date)
+        end = date.fromisoformat(args.end_date) if args.end_date else start
+
+        if not os.path.exists(args.db):
+            print(f"Error: Database not found at {args.db}")
+            sys.exit(1)
+
+        os.makedirs(args.output_dir, exist_ok=True)
+        try:
+            output_file = generate_date_range_report(args.db, start, end, args.output_dir)
+            print(f"Report generated: {output_file}")
+        except ValueError as e:
+            print(f"Error: {e}")
             sys.exit(1)
     else:
-        week_start = get_previous_monday()
+        # Weekly mode (backward compatible)
+        if args.week_start:
+            week_start = date.fromisoformat(args.week_start)
+            if week_start.weekday() != 0:
+                print(f"Error: {week_start} is a {week_start.strftime('%A')}, not a Monday.")
+                sys.exit(1)
+        else:
+            week_start = get_previous_monday()
 
-    if not os.path.exists(args.db):
-        print(f"Error: Database not found at {args.db}")
-        sys.exit(1)
+        if not os.path.exists(args.db):
+            print(f"Error: Database not found at {args.db}")
+            sys.exit(1)
 
-    os.makedirs(args.output_dir, exist_ok=True)
-    generate_report(args.db, week_start, args.output_dir)
+        os.makedirs(args.output_dir, exist_ok=True)
+        try:
+            generate_report(args.db, week_start, args.output_dir)
+        except ValueError as e:
+            print(f"Error: {e}")
+            sys.exit(1)
 
 
 if __name__ == "__main__":

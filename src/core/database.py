@@ -6952,6 +6952,31 @@ class DREAMSDatabase:
             ''', [session_id]).fetchall()
             return [dict(row) for row in rows]
 
+    def get_todays_call_log(self) -> List[Dict]:
+        """Get detailed call log for today, with contact names and Eastern time info."""
+        with self._get_connection() as conn:
+            today_start = datetime.now().strftime('%Y-%m-%d')
+            tomorrow = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
+
+            rows = [dict(r) for r in conn.execute('''
+                SELECT
+                    cc.occurred_at,
+                    cc.direction,
+                    cc.duration_seconds,
+                    cc.status,
+                    cc.contact_id,
+                    COALESCE(l.first_name || ' ' || l.last_name, '[FUB #' || cc.contact_id || ']') as contact_name,
+                    l.id as lead_id,
+                    l.fub_id
+                FROM contact_communications cc
+                LEFT JOIN leads l ON CAST(cc.contact_id AS TEXT) = CAST(l.fub_id AS TEXT)
+                WHERE cc.comm_type = 'call'
+                AND cc.occurred_at >= ? AND cc.occurred_at < ?
+                ORDER BY cc.occurred_at DESC
+            ''', [today_start, tomorrow]).fetchall()]
+
+            return rows
+
     def get_end_of_day_report(self, user_id: Optional[int] = None) -> Dict[str, Any]:
         """
         Compile end-of-day report: call stats, score movers, property activity,
@@ -6962,6 +6987,7 @@ class DREAMSDatabase:
         call_stats = self.get_todays_call_stats(user_id=user_id)
         pipeline = self.get_pipeline_narrative(user_id=user_id)
         tomorrow_priorities = self.get_morning_briefing_contacts(user_id=user_id, limit=5)
+        call_log = self.get_todays_call_log()
 
         with self._get_connection() as conn:
             today_start = datetime.now().strftime('%Y-%m-%d')
@@ -7049,6 +7075,7 @@ class DREAMSDatabase:
 
         return {
             'call_stats': call_stats,
+            'call_log': call_log,
             'disposition_breakdown': disposition_breakdown,
             'score_movers': score_movers,
             'property_activity': property_activity,

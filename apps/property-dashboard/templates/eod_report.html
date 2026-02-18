@@ -294,6 +294,43 @@
             font-size: 18px;
         }
 
+        /* ========== CALL LOG TABLE ========== */
+        .call-log-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            margin-bottom: 8px;
+        }
+        .call-log-table th {
+            background: #f8fafc;
+            padding: 8px 10px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #64748b;
+            text-align: left;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        .call-log-table td {
+            padding: 7px 10px;
+            border-bottom: 1px solid #f1f5f9;
+            vertical-align: middle;
+        }
+        .call-log-table tr:hover { background: #f8fafc; }
+        .call-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+        .call-made { background: #eff6ff; color: #2563eb; }
+        .call-received { background: #f0fdf4; color: #16a34a; }
+        .call-no-answer { color: #d97706; }
+        .call-left-vm { color: #7c3aed; }
+        .call-bad-num { color: #dc2626; }
+
         /* ========== EMPTY STATE ========== */
         .empty-state {
             padding: 24px;
@@ -401,6 +438,63 @@
                             {% endif %}
                         {% elif narrative.empty_states and narrative.empty_states.disposition_breakdown %}
                             <div class="empty-state">{{ narrative.empty_states.disposition_breakdown }}</div>
+                        {% endif %}
+
+                        <!-- Today's Call Log -->
+                        {% if eod.call_log %}
+                            <h4 style="font-size:13px; color:#2563eb; font-weight:700; margin: 20px 0 10px; text-transform:uppercase; letter-spacing:0.5px;">Today's Call Log</h4>
+                            <table class="call-log-table">
+                                <thead>
+                                    <tr>
+                                        <th>Time</th>
+                                        <th>Direction</th>
+                                        <th>Contact</th>
+                                        <th>Status</th>
+                                        <th>Duration</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for call in eod.call_log %}
+                                    <tr>
+                                        <td>{{ call.occurred_at|eastern_time }}</td>
+                                        <td>
+                                            {% if call.direction == 'outbound' %}
+                                                <span class="call-badge call-made">Made</span>
+                                            {% else %}
+                                                <span class="call-badge call-received">Received</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if call.lead_id %}
+                                                <a href="/contacts/{{ call.lead_id }}" class="contact-name">{{ call.contact_name }}</a>
+                                            {% else %}
+                                                {{ call.contact_name }}
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if call.status == 'completed' %}
+                                                completed
+                                            {% elif call.status == 'No Answer' %}
+                                                <span class="call-badge call-no-answer">No Answer</span>
+                                            {% elif call.status == 'Left Message' %}
+                                                <span class="call-badge call-left-vm">Left VM</span>
+                                            {% elif call.status == 'Bad Number' %}
+                                                <span class="call-badge call-bad-num">Bad Number</span>
+                                            {% else %}
+                                                {{ call.status }}
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if call.duration_seconds and call.duration_seconds > 0 %}
+                                                {{ call.duration_seconds|format_call_duration }}
+                                            {% else %}
+                                                &#8212;
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
                         {% endif %}
                     {% endif %}
                 </div>

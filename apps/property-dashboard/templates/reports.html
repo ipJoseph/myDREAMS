@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reports | DREAMS</title>
+    <link rel="icon" type="image/svg+xml" href="{{ favicon }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='shared/css/dreams.css') }}">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-page, #f8fafc);
+            color: var(--text-primary, #1a1a1a);
+            min-height: 100vh;
+        }
+
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 32px;
+            background: white;
+            border-bottom: 1px solid #e2e8f0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .topbar-title {
+            font-size: 20px;
+            font-weight: 800;
+            color: var(--text-primary);
+            letter-spacing: -0.5px;
+        }
+        .topbar-date {
+            font-size: 13px;
+            color: var(--text-secondary, #64748b);
+        }
+
+        .reports-content {
+            padding: 28px 32px;
+            max-width: 900px;
+        }
+
+        /* ========== GENERATOR CARD ========== */
+        .generator-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+            margin-bottom: 28px;
+        }
+        .generator-header {
+            padding: 18px 20px 14px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .generator-header h2 {
+            font-size: 16px;
+            font-weight: 700;
+        }
+        .generator-header p {
+            font-size: 13px;
+            color: var(--text-secondary, #64748b);
+            margin-top: 2px;
+        }
+        .generator-body {
+            padding: 20px;
+        }
+
+        /* Preset buttons */
+        .preset-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+        .preset-btn {
+            padding: 8px 16px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background: white;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary, #64748b);
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .preset-btn:hover {
+            border-color: #2563eb;
+            color: #2563eb;
+            background: #eff6ff;
+        }
+        .preset-btn.active {
+            border-color: #2563eb;
+            color: #2563eb;
+            background: #eff6ff;
+        }
+
+        /* Date range */
+        .date-range-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        .date-range-row label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary, #64748b);
+        }
+        .date-range-row input[type="date"] {
+            padding: 7px 10px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 13px;
+            color: var(--text-primary);
+            background: white;
+        }
+        .date-range-row input[type="date"]:focus {
+            outline: none;
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        /* Generate button */
+        .generate-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .generate-btn {
+            padding: 10px 24px;
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .generate-btn:hover { background: #1d4ed8; }
+        .generate-btn:disabled {
+            background: #94a3b8;
+            cursor: not-allowed;
+        }
+        .generate-btn.loading {
+            background: #94a3b8;
+            pointer-events: none;
+        }
+        .generate-status {
+            font-size: 13px;
+            color: var(--text-secondary, #64748b);
+        }
+        .generate-status a {
+            color: #2563eb;
+            font-weight: 600;
+            text-decoration: none;
+        }
+        .generate-status a:hover { text-decoration: underline; }
+        .generate-status.error { color: #dc2626; }
+
+        /* ========== SAVED REPORTS ========== */
+        .saved-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        }
+        .saved-header {
+            padding: 18px 20px 14px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .saved-header h2 {
+            font-size: 16px;
+            font-weight: 700;
+        }
+        .saved-list {
+            list-style: none;
+        }
+        .saved-list li {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 20px;
+            border-bottom: 1px solid #f1f5f9;
+            transition: background 0.1s;
+        }
+        .saved-list li:last-child { border-bottom: none; }
+        .saved-list li:hover { background: #f8fafc; }
+        .saved-list .file-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            background: #eff6ff;
+            color: #2563eb;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .saved-list .file-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            text-decoration: none;
+        }
+        .saved-list .file-name:hover { color: #2563eb; text-decoration: underline; }
+        .saved-list .file-meta {
+            margin-left: auto;
+            font-size: 12px;
+            color: var(--text-secondary, #64748b);
+            text-align: right;
+            white-space: nowrap;
+        }
+        .empty-state {
+            padding: 32px;
+            text-align: center;
+            color: var(--text-secondary, #64748b);
+            font-size: 14px;
+        }
+    </style>
+{% set active_nav = 'reports' %}
+</head>
+<body>
+{% include 'partials/sidebar.html' %}
+<div class="main-content">
+
+    <div class="topbar">
+        <div>
+            <div class="topbar-title">Reports</div>
+            <div class="topbar-date">{{ refresh_time }}</div>
+        </div>
+    </div>
+
+    <div class="reports-content">
+
+        <!-- ===== GENERATE CALL REPORT ===== -->
+        <div class="generator-card">
+            <div class="generator-header">
+                <h2>Generate Call Report</h2>
+                <p>Create a call activity report for any date range</p>
+            </div>
+            <div class="generator-body">
+                <div class="preset-row">
+                    <button class="preset-btn" onclick="setPreset('today')">Today</button>
+                    <button class="preset-btn" onclick="setPreset('yesterday')">Yesterday</button>
+                    <button class="preset-btn" onclick="setPreset('this_week')">This Week</button>
+                    <button class="preset-btn" onclick="setPreset('last_week')">Last Week</button>
+                </div>
+
+                <div class="date-range-row">
+                    <label for="start-date">From</label>
+                    <input type="date" id="start-date">
+                    <label for="end-date">To</label>
+                    <input type="date" id="end-date">
+                </div>
+
+                <div class="generate-row">
+                    <button class="generate-btn" id="generate-btn" onclick="generateReport()">Generate Report</button>
+                    <span class="generate-status" id="generate-status"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== SAVED REPORTS ===== -->
+        <div class="saved-card">
+            <div class="saved-header">
+                <h2>Saved Reports</h2>
+            </div>
+            {% if reports %}
+                <ul class="saved-list">
+                    {% for r in reports %}
+                    <li>
+                        <div class="file-icon">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                                <polyline points="14 2 14 8 20 8"/>
+                            </svg>
+                        </div>
+                        <a href="/reports/{{ r.name }}" class="file-name" target="_blank">{{ r.name }}</a>
+                        <div class="file-meta">
+                            {{ r.size }}<br>{{ r.modified }}
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <div class="empty-state">No reports generated yet</div>
+            {% endif %}
+        </div>
+
+    </div>
+</div>
+
+<script>
+function getToday() {
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+function getYesterday() {
+    var d = new Date();
+    d.setDate(d.getDate() - 1);
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+function getMonday(offset) {
+    // offset=0 for this week, offset=-1 for last week
+    var d = new Date();
+    var day = d.getDay();  // 0=Sun, 1=Mon, ...
+    var diff = d.getDate() - day + (day === 0 ? -6 : 1);  // Monday
+    d.setDate(diff + (offset * 7));
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+function getSunday(mondayStr) {
+    var d = new Date(mondayStr + 'T12:00:00');
+    d.setDate(d.getDate() + 6);
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+function setPreset(preset) {
+    // Clear active state
+    document.querySelectorAll('.preset-btn').forEach(function(b) { b.classList.remove('active'); });
+    event.target.classList.add('active');
+
+    var startInput = document.getElementById('start-date');
+    var endInput = document.getElementById('end-date');
+
+    if (preset === 'today') {
+        startInput.value = getToday();
+        endInput.value = getToday();
+    } else if (preset === 'yesterday') {
+        startInput.value = getYesterday();
+        endInput.value = getYesterday();
+    } else if (preset === 'this_week') {
+        var mon = getMonday(0);
+        startInput.value = mon;
+        endInput.value = getSunday(mon);
+    } else if (preset === 'last_week') {
+        var mon = getMonday(-1);
+        startInput.value = mon;
+        endInput.value = getSunday(mon);
+    }
+}
+
+function generateReport() {
+    var startDate = document.getElementById('start-date').value;
+    var endDate = document.getElementById('end-date').value;
+    var btn = document.getElementById('generate-btn');
+    var status = document.getElementById('generate-status');
+
+    if (!startDate) {
+        status.textContent = 'Please select a start date';
+        status.className = 'generate-status error';
+        return;
+    }
+    if (!endDate) {
+        endDate = startDate;
+        document.getElementById('end-date').value = startDate;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Generating...';
+    btn.classList.add('loading');
+    status.textContent = '';
+    status.className = 'generate-status';
+
+    fetch('/api/reports/generate-calls', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({start_date: startDate, end_date: endDate})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        btn.disabled = false;
+        btn.textContent = 'Generate Report';
+        btn.classList.remove('loading');
+
+        if (data.success) {
+            status.innerHTML = 'Report ready: <a href="' + data.url + '" target="_blank">' + data.filename + '</a>';
+            status.className = 'generate-status';
+            // Reload page to update the saved reports list
+            setTimeout(function() { location.reload(); }, 1500);
+        } else {
+            status.textContent = data.error || 'Failed to generate report';
+            status.className = 'generate-status error';
+        }
+    })
+    .catch(function(err) {
+        btn.disabled = false;
+        btn.textContent = 'Generate Report';
+        btn.classList.remove('loading');
+        status.textContent = 'Network error. Please try again.';
+        status.className = 'generate-status error';
+    });
+}
+
+// Clear active preset when dates are manually changed
+document.getElementById('start-date').addEventListener('input', function() {
+    document.querySelectorAll('.preset-btn').forEach(function(b) { b.classList.remove('active'); });
+});
+document.getElementById('end-date').addEventListener('input', function() {
+    document.querySelectorAll('.preset-btn').forEach(function(b) { b.classList.remove('active'); });
+});
+</script>
+</body>
+</html>

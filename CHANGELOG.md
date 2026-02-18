@@ -9,6 +9,21 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **On-Demand Call Report Generation** from the Reports page
+  - Refactored `generate_calls_report.py` to support arbitrary date ranges (not just Mon-Sun weeks)
+  - New `generate_date_range_report()` function callable from Flask or CLI
+  - Preset buttons: Today, Yesterday, This Week, Last Week
+  - Custom date range picker with max 90-day cap
+  - Smart filenames: `calls-YYYY-MM-DD.html` (single day) or `calls-YYYY-MM-DD-to-YYYY-MM-DD.html` (range)
+  - `POST /api/reports/generate-calls` endpoint with JSON response
+  - Reports page now uses proper template with sidebar navigation
+  - Saved reports list shows filename, size, and modification date
+  - CLI backward compatible: `--week-start` still works, new `--start-date`/`--end-date` args added
+  - Replaced `sys.exit()` calls with `ValueError` raises (Flask-safe)
+- **Today's Call Log in EOD Report** (Section 1: "Did I Do the Work?")
+  - New `get_todays_call_log()` method in `database.py`
+  - Call log table with Time (Eastern), Direction (Made/Received badges), Contact (linked), Status, Duration
+  - New Jinja2 filters: `eastern_time` (UTC to ET conversion), `format_call_duration` (seconds to M:SS)
 - **Power Hour Expandable Intel Sections** — Three on-demand tabs on each PH contact card
   - Requirements tab: behavioral preference chips (inferred from browsing) + intake form cards with edit links
   - Activity tab: top 10 property views with address, price, view count, favorites, relative time

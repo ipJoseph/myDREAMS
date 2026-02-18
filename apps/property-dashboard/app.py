@@ -84,6 +84,42 @@ def format_phone(value):
     return value
 
 
+@app.template_filter('eastern_time')
+def filter_eastern_time(utc_str):
+    """Convert a UTC timestamp string to Eastern 12-hour time."""
+    if not utc_str:
+        return ''
+    try:
+        dt = datetime.fromisoformat(str(utc_str).rstrip('Z'))
+        # Determine EST/EDT offset
+        d = dt.date()
+        year = d.year
+        from datetime import date as date_type
+        mar1 = date_type(year, 3, 1)
+        dst_start = mar1 + timedelta(days=(6 - mar1.weekday()) % 7 + 7)
+        nov1 = date_type(year, 11, 1)
+        dst_end = nov1 + timedelta(days=(6 - nov1.weekday()) % 7)
+        offset = timedelta(hours=-4) if dst_start <= d < dst_end else timedelta(hours=-5)
+        et_dt = dt + offset
+        return et_dt.strftime('%-I:%M %p')
+    except (ValueError, TypeError):
+        return str(utc_str)
+
+
+@app.template_filter('format_call_duration')
+def filter_format_call_duration(seconds):
+    """Format call duration in seconds to M:SS or H:MM:SS."""
+    if not seconds or seconds == 0:
+        return ''
+    seconds = int(seconds)
+    h = seconds // 3600
+    m = (seconds % 3600) // 60
+    s = seconds % 60
+    if h > 0:
+        return f"{h}:{m:02d}:{s:02d}"
+    return f"{m}:{s:02d}"
+
+
 # Basic Auth Configuration
 DASHBOARD_USERNAME = os.getenv('DASHBOARD_USERNAME')
 DASHBOARD_PASSWORD = os.getenv('DASHBOARD_PASSWORD')
@@ -852,21 +888,81 @@ def end_of_day():
 
 REPORTS_DIR = PROJECT_ROOT / 'reports'
 
+# Import report generator (for on-demand generation)
+try:
+    sys.path.insert(0, str(REPORTS_DIR))
+    from generate_calls_report import generate_date_range_report
+    REPORT_GENERATOR_AVAILABLE = True
+except ImportError:
+    REPORT_GENERATOR_AVAILABLE = False
+    logger.warning("generate_calls_report not available; report generation disabled")
+
+
+def _format_file_size(size_bytes):
+    """Format file size in human-readable form."""
+    if size_bytes < 1024:
+        return f"{size_bytes} B"
+    elif size_bytes < 1024 * 1024:
+        return f"{size_bytes / 1024:.1f} KB"
+    return f"{size_bytes / (1024 * 1024):.1f} MB"
+
+
 @app.route('/reports/')
 @requires_auth
 def reports_index():
-    """List available HTML reports."""
-    if not REPORTS_DIR.is_dir():
-        return "No reports directory found.", 404
-    files = sorted(REPORTS_DIR.glob('*.html'), reverse=True)
-    links = ''.join(f'<li><a href="/reports/{f.name}">{f.name}</a></li>' for f in files)
-    return render_template_string('''
-        <!DOCTYPE html><html><head><title>Reports</title>
-        <link rel="stylesheet" href="/static/css/dreams.css"></head>
-        <body style="padding:40px;font-family:system-ui"><h1>Reports</h1>
-        <ul>{{ links|safe }}</ul>
-        <a href="/">← Back to Dashboard</a></body></html>
-    ''', links=links)
+    """Reports hub with generator UI and saved reports list."""
+    reports = []
+    if REPORTS_DIR.is_dir():
+        for f in sorted(REPORTS_DIR.glob('*.html'), reverse=True):
+            stat = f.stat()
+            reports.append({
+                'name': f.name,
+                'size': _format_file_size(stat.st_size),
+                'modified': datetime.fromtimestamp(stat.st_mtime).strftime('%b %d, %Y %I:%M %p'),
+            })
+
+    return render_template('reports.html',
+                         reports=reports,
+                         active_nav='reports',
+                         refresh_time=datetime.now().strftime('%B %d, %Y %I:%M %p'))
+
+
+@app.route('/api/reports/generate-calls', methods=['POST'])
+@requires_auth
+def api_generate_calls_report():
+    """Generate a call activity report for a date range."""
+    if not REPORT_GENERATOR_AVAILABLE:
+        return jsonify({'success': False, 'error': 'Report generator not available'}), 500
+
+    data = request.get_json() or {}
+    start_str = data.get('start_date', '').strip()
+    end_str = data.get('end_date', '').strip()
+
+    if not start_str:
+        return jsonify({'success': False, 'error': 'start_date is required'}), 400
+
+    try:
+        from datetime import date as date_type
+        start_date = date_type.fromisoformat(start_str)
+        end_date = date_type.fromisoformat(end_str) if end_str else start_date
+    except ValueError:
+        return jsonify({'success': False, 'error': 'Invalid date format (expected YYYY-MM-DD)'}), 400
+
+    try:
+        output_file = generate_date_range_report(
+            db_path=DB_PATH,
+            start_date=start_date,
+            end_date=end_date,
+            output_dir=str(REPORTS_DIR)
+        )
+        filename = Path(output_file).name
+        return jsonify({
+            'success': True,
+            'filename': filename,
+            'url': f'/reports/{filename}'
+        })
+    except (ValueError, FileNotFoundError) as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
 
 
 @app.route('/reports/<path:filename>')
