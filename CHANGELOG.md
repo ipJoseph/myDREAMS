@@ -8,6 +8,23 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Changed
+- **Property Database Cleanup for Navica Migration** (pre-Navica prep)
+  - `listings` table is now the single canonical property table; `properties` table (153 columns, legacy) fully retired
+  - All code updated to query `listings` instead of `properties`: dashboard, automation, buyer-workflow, MCP server, core database module
+  - Column mappings applied: `price` to `list_price`, `created_at` to `captured_at`, `photo_urls` to `photos`
+  - `PROPERTIES_COLUMNS` whitelist replaced with `LISTINGS_COLUMNS` in `database.py`
+  - `upsert_property_dict()` renamed to `upsert_listing_dict()` (backward-compatible alias kept)
+  - Database indexes updated from `properties` to `listings` table references
+  - Property change tracking and price history temporarily stubbed (pending Navica change detection)
+
+### Removed
+- **Dropped 18 legacy/orphaned tables**: `properties`, `property_changes`, `redfin_scrape_queue`, `idx_property_cache`, `listing_photos`, `parcels`, `contact_properties`, `contact_listings`, `matches`, `pursuits`, `pursuit_properties`, `showings`, `showing_properties`, `enrichment_queue`, `property_monitors`, `package_properties`, `packages`, `properties_v2` (view)
+- **Archived retired importers**: `apps/redfin-importer/`, `apps/apify-importer/` moved to `archive/pre-navica-2026-02-19/`
+- **Archived 13 one-time migration scripts**: `migrate_redfin_to_dreams.py`, `migrate_property_schema*.py`, `create_properties_view.py`, `import_mlsgrid.py`, `import_mls_export.py`, `import_propstream.py`, `deduplicate_listings.py`, `enrich_csmls_portal.py`, `fix_csmls_photos.py`, `enrich_photos*.py`
+- Removed legacy cron jobs: Property Monitor (5 AM), IDX Cache Populator (6:30 AM)
+- Database reduced from 23MB to 6.5MB after table drops and VACUUM
+
 ### Added
 - **On-Demand Call Report Generation** from the Reports page
   - Refactored `generate_calls_report.py` to support arbitrary date ranges (not just Mon-Sun weeks)

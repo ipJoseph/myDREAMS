@@ -146,13 +146,13 @@ def get_new_listings(hours: int = 24) -> List[Dict[str, Any]]:
         listings = conn.execute('''
             SELECT
                 id, mls_number, address, city, state, zip, county,
-                price, beds, baths, sqft, acreage,
-                property_type, status, views, water_features,
-                photo_urls, zillow_url, redfin_url, idx_url,
-                created_at
-            FROM properties
-            WHERE status = 'active'
-            AND created_at >= ?
+                list_price as price, beds, baths, sqft, acreage,
+                property_type, status, views,
+                photos, primary_photo, zillow_url, redfin_url, idx_url,
+                captured_at as created_at
+            FROM listings
+            WHERE LOWER(status) = 'active'
+            AND captured_at >= ?
             AND county IN ({})
         '''.format(','.join(['?' for _ in config.TRACKED_COUNTIES])),
             [cutoff] + config.TRACKED_COUNTIES
@@ -162,15 +162,14 @@ def get_new_listings(hours: int = 24) -> List[Dict[str, Any]]:
         for listing in listings:
             prop = dict(listing)
 
-            # Parse photo_urls JSON
-            if prop.get('photo_urls'):
+            # Use primary_photo, or parse first from photos JSON
+            prop['photo_url'] = prop.get('primary_photo')
+            if not prop['photo_url'] and prop.get('photos'):
                 try:
-                    photos = json.loads(prop['photo_urls'])
-                    prop['photo_url'] = photos[0] if photos else None
+                    photo_list = json.loads(prop['photos'])
+                    prop['photo_url'] = photo_list[0] if photo_list else None
                 except json.JSONDecodeError:
                     prop['photo_url'] = None
-            else:
-                prop['photo_url'] = None
 
             # Determine best listing URL
             prop['listing_url'] = prop.get('idx_url') or prop.get('zillow_url') or prop.get('redfin_url')
@@ -579,96 +578,12 @@ def send_listing_alerts() -> Dict[str, int]:
 
 def get_price_drops(hours: int = 24, min_drop_pct: float = 5.0) -> List[Dict[str, Any]]:
     """
-    Get significant price drops from the property_changes table.
-
-    Args:
-        hours: Look back period in hours
-        min_drop_pct: Minimum percentage drop to include (default 5%)
-
-    Returns:
-        List of property dictionaries with price drop info
+    Get significant price drops.
+    Note: property_changes table dropped during Navica migration.
+    Will be rebuilt by Navica sync change detection.
     """
-    cutoff = (datetime.now() - timedelta(hours=hours)).isoformat()
-    conn = get_db_connection()
-
-    try:
-        # Get price drops from property_changes table
-        drops = conn.execute('''
-            SELECT
-                pc.id as change_id,
-                pc.property_id,
-                pc.property_address as address,
-                pc.old_value,
-                pc.new_value,
-                pc.change_amount,
-                pc.detected_at,
-                p.city,
-                p.state,
-                p.zip,
-                p.county,
-                p.beds,
-                p.baths,
-                p.sqft,
-                p.acreage,
-                p.property_type,
-                p.redfin_url,
-                p.idx_url,
-                p.photo_urls
-            FROM property_changes pc
-            JOIN properties p ON pc.property_id = p.id
-            WHERE pc.change_type = 'price_change'
-            AND pc.change_amount < 0
-            AND pc.detected_at >= ?
-            AND pc.notified = 0
-            AND p.county IN ({})
-            ORDER BY pc.change_amount ASC
-        '''.format(','.join(['?' for _ in config.TRACKED_COUNTIES])),
-            [cutoff] + config.TRACKED_COUNTIES
-        ).fetchall()
-
-        results = []
-        for drop in drops:
-            prop = dict(drop)
-
-            # Calculate drop percentage
-            old_price = int(prop['old_value']) if prop['old_value'] else 0
-            new_price = int(prop['new_value']) if prop['new_value'] else 0
-
-            if old_price > 0:
-                drop_pct = abs((new_price - old_price) / old_price * 100)
-            else:
-                drop_pct = 0
-
-            # Skip if below threshold
-            if drop_pct < min_drop_pct:
-                continue
-
-            prop['id'] = prop['property_id']
-            prop['price'] = new_price
-            prop['old_price'] = old_price
-            prop['drop_amount'] = abs(prop['change_amount'])
-            prop['drop_pct'] = round(drop_pct, 1)
-
-            # Parse photo_urls JSON
-            if prop.get('photo_urls'):
-                try:
-                    photos = json.loads(prop['photo_urls'])
-                    prop['photo_url'] = photos[0] if photos else None
-                except json.JSONDecodeError:
-                    prop['photo_url'] = None
-            else:
-                prop['photo_url'] = None
-
-            # Determine best listing URL
-            prop['listing_url'] = prop.get('idx_url') or prop.get('redfin_url')
-
-            results.append(prop)
-
-        logger.info(f"Found {len(results)} significant price drops (>={min_drop_pct}%) in last {hours} hours")
-        return results
-
-    finally:
-        conn.close()
+    logger.info("Price drop detection disabled (pending Navica change tracking)")
+    return []
 
 
 def match_price_drops_to_buyers(drops: List[Dict], buyers: List[Dict]) -> Dict[str, Dict]:

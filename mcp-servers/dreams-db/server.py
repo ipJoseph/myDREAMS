@@ -251,9 +251,8 @@ Available tables:
 - contact_events: Website visits, property views
 - contact_communications: Calls, texts, emails
 - contact_scoring_history: Score trends over time
-- properties: Property listings
-- property_changes: Price/status change history
-- matches: Lead-property matching results
+- listings: Property listings (canonical source, key columns: list_price, address, city, county, beds, baths, sqft, acreage, status, mls_number)
+- agents: MLS agent/office records
 - intake_forms: Buyer requirement forms
 - property_packages: Client property collections
 - system_settings: Configuration values
@@ -471,11 +470,11 @@ async def query_properties(args: dict) -> str:
     query = """
         SELECT
             id, address, city, state, zip, county,
-            price, beds, baths, sqft, acreage,
+            list_price as price, beds, baths, sqft, acreage,
             status, days_on_market, mls_number,
             listing_agent_name, added_for,
-            created_at
-        FROM properties
+            captured_at as created_at
+        FROM listings
         WHERE 1=1
     """
     params = []
@@ -498,11 +497,11 @@ async def query_properties(args: dict) -> str:
         params.append(args["status"])
 
     if args.get("min_price"):
-        query += " AND price >= ?"
+        query += " AND list_price >= ?"
         params.append(args["min_price"])
 
     if args.get("max_price"):
-        query += " AND price <= ?"
+        query += " AND list_price <= ?"
         params.append(args["max_price"])
 
     if args.get("min_beds"):
@@ -525,7 +524,7 @@ async def query_properties(args: dict) -> str:
         query += " AND added_for LIKE ?"
         params.append(f"%{args['added_for']}%")
 
-    query += " ORDER BY created_at DESC"
+    query += " ORDER BY captured_at DESC"
 
     limit = min(args.get("limit", 25), 100)
     query += f" LIMIT {limit}"
@@ -619,10 +618,10 @@ async def get_stats() -> str:
     stats["active_leads"] = conn.execute("SELECT COUNT(*) FROM leads WHERE stage NOT IN ('trash', 'closed')").fetchone()[0]
     stats["hot_leads"] = conn.execute("SELECT COUNT(*) FROM leads WHERE heat_score >= 70").fetchone()[0]
 
-    # Property counts
-    stats["total_properties"] = conn.execute("SELECT COUNT(*) FROM properties").fetchone()[0]
-    stats["active_listings"] = conn.execute("SELECT COUNT(*) FROM properties WHERE status = 'active'").fetchone()[0]
-    stats["pending_listings"] = conn.execute("SELECT COUNT(*) FROM properties WHERE status = 'pending'").fetchone()[0]
+    # Property counts (from listings table, canonical source)
+    stats["total_properties"] = conn.execute("SELECT COUNT(*) FROM listings").fetchone()[0]
+    stats["active_listings"] = conn.execute("SELECT COUNT(*) FROM listings WHERE LOWER(status) = 'active'").fetchone()[0]
+    stats["pending_listings"] = conn.execute("SELECT COUNT(*) FROM listings WHERE LOWER(status) = 'pending'").fetchone()[0]
 
     # Activity counts
     stats["total_events"] = conn.execute("SELECT COUNT(*) FROM contact_events").fetchone()[0]

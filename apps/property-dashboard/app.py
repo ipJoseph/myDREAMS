@@ -500,13 +500,7 @@ def get_filter_options() -> Dict[str, List[str]]:
     """Get distinct values for filter dropdowns - efficient single query approach"""
     with db._get_connection() as conn:
         options = {}
-        # Use properties_v2 view (backed by normalized parcels + listings tables)
-        # Falls back to properties table if view doesn't exist
-        table = 'properties_v2'
-        try:
-            conn.execute(f"SELECT 1 FROM {table} LIMIT 1")
-        except:
-            table = 'properties'
+        table = 'listings'
 
         # Use indexed columns with DISTINCT for fast retrieval
         options['clients'] = sorted([r[0] for r in conn.execute(
@@ -528,12 +522,7 @@ def count_properties(added_for: Optional[str] = None, status: Optional[str] = No
                      city: Optional[str] = None, county: Optional[str] = None) -> int:
     """Count properties matching filters (for pagination)"""
     with db._get_connection() as conn:
-        # Use properties_v2 view (backed by normalized schema)
-        table = 'properties_v2'
-        try:
-            conn.execute(f"SELECT 1 FROM {table} LIMIT 1")
-        except:
-            table = 'properties'
+        table = 'listings'
 
         query = f'SELECT COUNT(*) FROM {table} WHERE 1=1'
         params = []
@@ -558,24 +547,19 @@ def fetch_properties(added_for: Optional[str] = None, status: Optional[str] = No
                       city: Optional[str] = None, county: Optional[str] = None,
                       sort_by: str = 'price', sort_order: str = 'desc',
                       limit: Optional[int] = None, offset: int = 0) -> List[Dict[str, Any]]:
-    """Fetch properties from SQLite with optional filters, sorting, and pagination"""
+    """Fetch properties from listings table with optional filters, sorting, and pagination"""
     # Whitelist of allowed sort columns (prevents SQL injection)
     ALLOWED_SORTS = {
-        'price': 'price', 'address': 'address', 'city': 'city', 'county': 'county',
+        'price': 'list_price', 'address': 'address', 'city': 'city', 'county': 'county',
         'beds': 'beds', 'baths': 'baths', 'sqft': 'sqft', 'acreage': 'acreage',
         'status': 'status', 'dom': 'days_on_market', 'year_built': 'year_built',
-        'created_at': 'created_at', 'mls_number': 'mls_number'
+        'created_at': 'captured_at', 'mls_number': 'mls_number'
     }
-    sort_column = ALLOWED_SORTS.get(sort_by, 'price')
+    sort_column = ALLOWED_SORTS.get(sort_by, 'list_price')
     sort_dir = 'ASC' if sort_order == 'asc' else 'DESC'
 
     with db._get_connection() as conn:
-        # Use properties_v2 view (backed by normalized schema)
-        table = 'properties_v2'
-        try:
-            conn.execute(f"SELECT 1 FROM {table} LIMIT 1")
-        except:
-            table = 'properties'
+        table = 'listings'
 
         query = f'SELECT * FROM {table} WHERE 1=1'
         params = []
@@ -609,6 +593,9 @@ def fetch_properties(added_for: Optional[str] = None, status: Optional[str] = No
         properties = []
         for row in rows:
             prop = dict(row)
+            # Normalize list_price to price for template compatibility
+            prop['price'] = prop.get('list_price')
+
             # Calculate price per sqft
             price = prop.get('price')
             sqft = prop.get('sqft')
@@ -622,13 +609,12 @@ def fetch_properties(added_for: Optional[str] = None, status: Optional[str] = No
             # Calculate DOM from list_date (preferred) or fall back to stored days_on_market
             prop['dom'] = _calculate_dom(prop)
 
-            prop['tax_annual'] = prop.get('tax_annual_amount')
+            prop['tax_annual'] = None
             prop['hoa'] = prop.get('hoa_fee')
-            prop['date_saved'] = prop.get('created_at')
+            prop['date_saved'] = prop.get('captured_at')
             prop['last_updated'] = prop.get('updated_at')
             prop['photo_url'] = prop.get('primary_photo')
-            prop['favorites'] = prop.get('favorites_count')
-            prop['notion_url'] = f"https://notion.so/{prop.get('notion_page_id', '').replace('-', '')}" if prop.get('notion_page_id') else None
+            prop['favorites'] = None
 
             # Clean county name (remove 'County' suffix)
             if prop.get('county'):
@@ -1534,19 +1520,11 @@ def properties_map():
 
     # Fetch properties with coordinates
     with db._get_connection() as conn:
-        # Use properties_v2 view (backed by normalized schema)
-        table = 'properties_v2'
-        try:
-            conn.execute(f"SELECT 1 FROM {table} LIMIT 1")
-        except:
-            table = 'properties'
-
-        query = f'''
-            SELECT id, address, city, county, state, zip, price, beds, baths, sqft, acreage,
-                   status, latitude, longitude, photo_urls,
-                   flood_zone, flood_factor, elevation_feet, view_potential,
-                   wildfire_risk, wildfire_score, slope_percent, aspect
-            FROM {table}
+        query = '''
+            SELECT id, address, city, county, state, zip, list_price as price,
+                   beds, baths, sqft, acreage,
+                   status, latitude, longitude, photos, primary_photo
+            FROM listings
             WHERE latitude IS NOT NULL AND longitude IS NOT NULL
         '''
         params = []
@@ -1560,14 +1538,14 @@ def properties_map():
             params.append(f'%{county}%')
 
         if min_price:
-            query += ' AND price >= ?'
+            query += ' AND list_price >= ?'
             params.append(int(min_price))
 
         if max_price:
-            query += ' AND price <= ?'
+            query += ' AND list_price <= ?'
             params.append(int(max_price))
 
-        query += ' ORDER BY price DESC LIMIT 500'
+        query += ' ORDER BY list_price DESC LIMIT 500'
 
         rows = conn.execute(query, params).fetchall()
 
@@ -1575,15 +1553,13 @@ def properties_map():
         for row in rows:
             prop = dict(row)
 
-            # Parse first photo URL
-            if prop.get('photo_urls'):
+            # Use primary_photo, or parse first from photos JSON
+            if not prop.get('primary_photo') and prop.get('photos'):
                 try:
-                    photos = json.loads(prop['photo_urls'])
-                    prop['primary_photo'] = photos[0] if photos else None
+                    photo_list = json.loads(prop['photos'])
+                    prop['primary_photo'] = photo_list[0] if photo_list else None
                 except (json.JSONDecodeError, IndexError):
                     prop['primary_photo'] = None
-            else:
-                prop['primary_photo'] = None
 
             # Clean county name
             if prop.get('county'):
@@ -1692,70 +1668,40 @@ def api_properties():
 @app.route('/properties/<property_id>')
 @requires_auth
 def property_detail(property_id):
-    """Property detail page with price history chart."""
+    """Property detail page."""
     with db._get_connection() as conn:
-        # Try properties_v2 view first (covers listings table with lst_* IDs),
-        # then fall back to legacy properties table (UUID IDs)
-        prop = None
-        try:
-            prop = conn.execute('''
-                SELECT p.*,
-                       (SELECT COUNT(*) FROM property_changes WHERE property_id = p.id) as change_count
-                FROM properties_v2 p
-                WHERE p.id = ?
-            ''', [property_id]).fetchone()
-        except Exception:
-            pass
-
-        if not prop:
-            prop = conn.execute('''
-                SELECT p.*,
-                       (SELECT COUNT(*) FROM property_changes WHERE property_id = p.id) as change_count
-                FROM properties p
-                WHERE p.id = ?
-            ''', [property_id]).fetchone()
+        prop = conn.execute('''
+            SELECT * FROM listings WHERE id = ?
+        ''', [property_id]).fetchone()
 
         if not prop:
             return "Property not found", 404
 
         prop_dict = dict(prop)
 
-        # Parse photo URLs
-        if prop_dict.get('photo_urls'):
+        # Normalize list_price to price for template
+        prop_dict['price'] = prop_dict.get('list_price')
+
+        # Parse photos JSON
+        if prop_dict.get('photos'):
             try:
-                prop_dict['photos'] = json.loads(prop_dict['photo_urls'])
+                prop_dict['photos'] = json.loads(prop_dict['photos'])
             except json.JSONDecodeError:
                 prop_dict['photos'] = []
         else:
             prop_dict['photos'] = []
 
-        # Get price history
-        price_history = db.get_property_price_history(property_id)
-
-        # Get recent changes
-        changes = conn.execute('''
-            SELECT change_type, old_value, new_value, change_amount, detected_at
-            FROM property_changes
-            WHERE property_id = ?
-            ORDER BY detected_at DESC
-            LIMIT 10
-        ''', [property_id]).fetchall()
-
-        # Get contacts interested in this property
-        interested = conn.execute('''
-            SELECT l.id, l.first_name, l.last_name, l.email,
-                   cp.relationship, cp.notes, cp.created_at
-            FROM contact_properties cp
-            JOIN leads l ON l.id = cp.contact_id
-            WHERE cp.property_id = ?
-            ORDER BY cp.created_at DESC
-        ''', [property_id]).fetchall()
+        # Price history and changes are not yet tracked for listings
+        # (will be rebuilt by Navica sync change detection)
+        price_history = []
+        changes = []
+        interested = []
 
         return render_template('property_detail.html',
                              property=prop_dict,
                              price_history=price_history,
-                             changes=[dict(c) for c in changes],
-                             interested_contacts=[dict(i) for i in interested])
+                             changes=changes,
+                             interested_contacts=interested)
 
 
 @app.route('/api/properties/<property_id>/price-history')
@@ -2166,11 +2112,8 @@ def contact_detail(contact_id):
     if not contact:
         return "Contact not found", 404
 
-    # Auto-populate IDX cache for this contact's uncached MLS numbers
-    populate_idx_cache_for_contact(db, contact_id, limit=20)
-
-    # Get linked properties (from contact_properties table)
-    properties = db.get_contact_properties(contact_id)
+    # Contact-property links will be rebuilt with Navica data
+    properties = []
 
     # Get property view summary (aggregated from contact_events)
     property_summary = db.get_contact_property_summary(contact_id)
@@ -2848,37 +2791,22 @@ def contact_workspace(contact_id):
     # Get property view summary
     property_summary = db.get_contact_property_summary(contact_id)
 
-    # Get packages for this contact
+    # Get packages for this contact (package_properties table dropped, count will be 0)
     packages = []
     try:
         with db._get_connection() as conn:
             packages = conn.execute('''
-                SELECT p.*, COUNT(pp.id) as property_count
+                SELECT p.*, 0 as property_count
                 FROM property_packages p
-                LEFT JOIN package_properties pp ON p.id = pp.package_id
                 WHERE p.lead_id = ?
-                GROUP BY p.id
                 ORDER BY p.created_at DESC
             ''', (contact_id,)).fetchall()
             packages = [dict(row) for row in packages]
     except Exception as e:
         logger.warning(f"Error fetching packages: {e}")
 
-    # Get showings for this contact
+    # Showings table dropped during Navica migration; will rebuild later
     showings = []
-    try:
-        with db._get_connection() as conn:
-            showings = conn.execute('''
-                SELECT s.*, COUNT(sp.id) as property_count
-                FROM showings s
-                LEFT JOIN showing_properties sp ON s.id = sp.showing_id
-                WHERE s.lead_id = ?
-                GROUP BY s.id
-                ORDER BY s.scheduled_date DESC
-            ''', (contact_id,)).fetchall()
-            showings = [dict(row) for row in showings]
-    except Exception as e:
-        logger.warning(f"Error fetching showings: {e}")
 
     # Today's date for due date comparisons
     today = datetime.now().strftime('%Y-%m-%d')
@@ -3120,64 +3048,65 @@ def contact_property_search(contact_id):
     if request.args.get('county'):
         search_criteria['counties'] = json.dumps([request.args.get('county')])
 
-    # Query redfin_imports database
+    # Query listings table (canonical property source)
     properties = []
     try:
-        props_db = get_properties_db()
+        with db._get_connection() as conn:
+            query = 'SELECT * FROM listings WHERE LOWER(status) = \'active\''
+            params = []
 
-        query = 'SELECT * FROM properties WHERE (status = "active" OR status = "Active")'
-        params = []
+            # Apply search criteria
+            if search_criteria.get('min_price'):
+                query += ' AND list_price >= ?'
+                params.append(int(search_criteria['min_price']))
+            if search_criteria.get('max_price'):
+                query += ' AND list_price <= ?'
+                params.append(int(search_criteria['max_price']))
+            if search_criteria.get('min_beds'):
+                query += ' AND beds >= ?'
+                params.append(int(search_criteria['min_beds']))
+            if search_criteria.get('min_baths'):
+                query += ' AND baths >= ?'
+                params.append(float(search_criteria['min_baths']))
+            if search_criteria.get('min_sqft'):
+                query += ' AND sqft >= ?'
+                params.append(int(search_criteria['min_sqft']))
+            if search_criteria.get('min_acreage'):
+                query += ' AND acreage >= ?'
+                params.append(float(search_criteria['min_acreage']))
 
-        # Apply search criteria
-        if search_criteria.get('min_price'):
-            query += ' AND price >= ?'
-            params.append(int(search_criteria['min_price']))
-        if search_criteria.get('max_price'):
-            query += ' AND price <= ?'
-            params.append(int(search_criteria['max_price']))
-        if search_criteria.get('min_beds'):
-            query += ' AND beds >= ?'
-            params.append(int(search_criteria['min_beds']))
-        if search_criteria.get('min_baths'):
-            query += ' AND baths >= ?'
-            params.append(float(search_criteria['min_baths']))
-        if search_criteria.get('min_sqft'):
-            query += ' AND sqft >= ?'
-            params.append(int(search_criteria['min_sqft']))
-        if search_criteria.get('min_acreage'):
-            query += ' AND acreage >= ?'
-            params.append(float(search_criteria['min_acreage']))
+            # Counties filter
+            if search_criteria.get('counties'):
+                try:
+                    counties = json.loads(search_criteria['counties'])
+                    if counties:
+                        placeholders = ','.join(['?' for _ in counties])
+                        query += f' AND county IN ({placeholders})'
+                        params.extend(counties)
+                except (json.JSONDecodeError, TypeError):
+                    pass
 
-        # Counties filter
-        if search_criteria.get('counties'):
-            try:
-                counties = json.loads(search_criteria['counties'])
-                if counties:
-                    placeholders = ','.join(['?' for _ in counties])
-                    query += f' AND county IN ({placeholders})'
-                    params.extend(counties)
-            except (json.JSONDecodeError, TypeError):
-                pass
+            # Property types filter
+            if search_criteria.get('property_types'):
+                try:
+                    types = json.loads(search_criteria['property_types'])
+                    if types:
+                        placeholders = ','.join(['?' for _ in types])
+                        query += f' AND property_type IN ({placeholders})'
+                        params.extend(types)
+                except (json.JSONDecodeError, TypeError):
+                    pass
 
-        # Property types filter
-        if search_criteria.get('property_types'):
-            try:
-                types = json.loads(search_criteria['property_types'])
-                if types:
-                    placeholders = ','.join(['?' for _ in types])
-                    query += f' AND property_type IN ({placeholders})'
-                    params.extend(types)
-            except (json.JSONDecodeError, TypeError):
-                pass
+            query += ' ORDER BY days_on_market ASC, list_price ASC LIMIT 100'
 
-        query += ' ORDER BY days_on_market ASC, price ASC LIMIT 100'
+            logger.info(f"Property search query: {query}")
+            logger.info(f"Property search params: {params}")
 
-        logger.info(f"Property search query: {query}")
-        logger.info(f"Property search params: {params}")
-
-        rows = props_db.execute(query, params).fetchall()
-        properties = [dict(row) for row in rows]
-        props_db.close()
+            rows = conn.execute(query, params).fetchall()
+            properties = [dict(row) for row in rows]
+            # Normalize list_price to price for templates
+            for prop in properties:
+                prop['price'] = prop.get('list_price')
 
     except Exception as e:
         logger.error(f"Property search error: {e}")
@@ -3245,13 +3174,9 @@ def contact_create_package(contact_id):
             ''', (package_id, contact_id, intake_form_id, package_name, share_token,
                   datetime.now().isoformat(), datetime.now().isoformat()))
 
-            # Add properties to package
-            for i, prop_id in enumerate(property_ids):
-                pp_id = str(uuid.uuid4())
-                conn.execute('''
-                    INSERT INTO package_properties (id, package_id, property_id, display_order, added_at)
-                    VALUES (?, ?, ?, ?, ?)
-                ''', (pp_id, package_id, prop_id, i + 1, datetime.now().isoformat()))
+            # TODO: Rebuild package_properties table with listings-compatible schema
+            # Package-property linking disabled during Navica migration
+            pass
 
             conn.commit()
     except Exception as e:
@@ -3288,36 +3213,9 @@ def contact_package_detail(contact_id, package_id):
 
             package = dict(package)
 
-            # Get package properties metadata
-            pkg_props = conn.execute('''
-                SELECT property_id, display_order, agent_notes as package_notes,
-                       client_favorited, client_rating, showing_requested
-                FROM package_properties
-                WHERE package_id = ?
-                ORDER BY display_order
-            ''', (package_id,)).fetchall()
-
-        # Fetch property details from redfin_imports
-        if pkg_props:
-            props_db = get_properties_db()
-            prop_ids = [p['property_id'] for p in pkg_props]
-            placeholders = ','.join(['?' for _ in prop_ids])
-            props_data = props_db.execute(f'SELECT * FROM properties WHERE id IN ({placeholders})', prop_ids).fetchall()
-            props_dict = {p['id']: dict(p) for p in props_data}
-            props_db.close()
-
-            # Merge property data with package metadata
-            for pp in pkg_props:
-                prop = props_dict.get(pp['property_id'])
-                if prop:
-                    prop.update({
-                        'display_order': pp['display_order'],
-                        'package_notes': pp['package_notes'],
-                        'client_favorited': pp['client_favorited'],
-                        'client_rating': pp['client_rating'],
-                        'showing_requested': pp['showing_requested'],
-                    })
-                    properties.append(prop)
+            # Package properties table was dropped during Navica migration.
+            # Property packages will be rebuilt with listings-compatible schema.
+            pass
 
     except Exception as e:
         logger.error(f"Error fetching package: {e}")
@@ -3347,37 +3245,8 @@ def contact_package_add_properties(contact_id, package_id):
     if not property_ids:
         return jsonify({'success': False, 'error': 'No properties selected'}), 400
 
-    try:
-        with db._get_connection() as conn:
-            # Get current max order
-            max_order = conn.execute(
-                'SELECT MAX(display_order) FROM package_properties WHERE package_id = ?',
-                (package_id,)
-            ).fetchone()[0] or 0
-
-            for i, prop_id in enumerate(property_ids):
-                # Check if already in package
-                existing = conn.execute(
-                    'SELECT id FROM package_properties WHERE package_id = ? AND property_id = ?',
-                    (package_id, prop_id)
-                ).fetchone()
-
-                if not existing:
-                    pp_id = str(uuid.uuid4())
-                    conn.execute('''
-                        INSERT INTO package_properties (id, package_id, property_id, display_order, added_at)
-                        VALUES (?, ?, ?, ?, ?)
-                    ''', (pp_id, package_id, prop_id, max_order + i + 1, datetime.now().isoformat()))
-
-            # Update package timestamp
-            conn.execute('UPDATE property_packages SET updated_at = ? WHERE id = ?',
-                        (datetime.now().isoformat(), package_id))
-            conn.commit()
-    except Exception as e:
-        logger.error(f"Error adding properties to package: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-    return redirect(url_for('contact_package_detail', contact_id=contact_id, package_id=package_id))
+    # TODO: Rebuild package_properties table with listings-compatible schema
+    return jsonify({'success': False, 'error': 'Package property linking not yet available (Navica migration in progress)'}), 501
 
 
 @app.route('/contacts/<contact_id>/packages/<package_id>/remove/<property_id>', methods=['POST'])
@@ -3386,20 +3255,8 @@ def contact_package_remove_property(contact_id, package_id, property_id):
     """Remove a property from a package."""
     db = get_db()
 
-    try:
-        with db._get_connection() as conn:
-            conn.execute(
-                'DELETE FROM package_properties WHERE package_id = ? AND property_id = ?',
-                (package_id, property_id)
-            )
-            conn.execute('UPDATE property_packages SET updated_at = ? WHERE id = ?',
-                        (datetime.now().isoformat(), package_id))
-            conn.commit()
-    except Exception as e:
-        logger.error(f"Error removing property from package: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-    return jsonify({'success': True})
+    # TODO: Rebuild package_properties table with listings-compatible schema
+    return jsonify({'success': False, 'error': 'Package property linking not yet available (Navica migration in progress)'}), 501
 
 
 @app.route('/contacts/<contact_id>/packages/<package_id>/pdf')
@@ -3710,79 +3567,11 @@ def property_changes():
     cutoff = (datetime.now() - timedelta(days=days)).isoformat()
 
     with db._get_connection() as conn:
-        # Build query
-        query = '''
-            SELECT
-                pc.id,
-                pc.property_id,
-                pc.property_address,
-                pc.change_type,
-                pc.old_value,
-                pc.new_value,
-                pc.change_amount,
-                pc.detected_at,
-                pc.source,
-                pc.notified,
-                p.city,
-                p.county,
-                p.beds,
-                p.baths,
-                p.sqft,
-                p.price as current_price,
-                p.status as current_status,
-                p.redfin_url
-            FROM property_changes pc
-            LEFT JOIN properties p ON pc.property_id = p.id
-            WHERE pc.detected_at >= ?
-        '''
-        params = [cutoff]
-
-        if change_type:
-            query += ' AND pc.change_type = ?'
-            params.append(change_type)
-
-        if county:
-            query += ' AND p.county = ?'
-            params.append(county)
-
-        query += ' ORDER BY pc.detected_at DESC LIMIT 200'
-
-        changes = [dict(row) for row in conn.execute(query, params).fetchall()]
-
-        # Process changes for display
-        for change in changes:
-            # Calculate percentage for price changes
-            if change['change_type'] == 'price_change' and change['old_value'] and change['new_value']:
-                try:
-                    old_price = int(change['old_value'])
-                    new_price = int(change['new_value'])
-                    if old_price > 0:
-                        change['change_pct'] = round((new_price - old_price) / old_price * 100, 1)
-                    else:
-                        change['change_pct'] = 0
-                except (ValueError, TypeError):
-                    change['change_pct'] = 0
-            else:
-                change['change_pct'] = 0
-
-        # Get summary counts
-        summary_query = '''
-            SELECT change_type, COUNT(*) as count
-            FROM property_changes
-            WHERE detected_at >= ?
-            GROUP BY change_type
-        '''
-        summary = {row['change_type']: row['count'] for row in conn.execute(summary_query, [cutoff]).fetchall()}
-
-        # Get counties for filter dropdown
-        counties = [row['county'] for row in conn.execute('''
-            SELECT DISTINCT p.county
-            FROM property_changes pc
-            JOIN properties p ON pc.property_id = p.id
-            WHERE pc.detected_at >= ?
-            AND p.county IS NOT NULL
-            ORDER BY p.county
-        ''', [cutoff]).fetchall()]
+        # Property changes table was dropped during Navica migration.
+        # Change tracking will be rebuilt by Navica sync_engine's change detection.
+        changes = []
+        summary = {}
+        counties = []
 
     # Separate changes by type for easier rendering
     # Handle both old format (price, status) and new format (price_change, status_change)

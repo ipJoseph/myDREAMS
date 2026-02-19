@@ -124,7 +124,7 @@ class PropertyMonitor:
         query = '''
             SELECT p.*, pm.last_price, pm.last_status, pm.last_dom,
                    pm.last_checked_at, pm.is_active as monitor_active
-            FROM properties p
+            FROM listings p
             LEFT JOIN property_monitors pm ON p.id = pm.property_id
             WHERE p.status IN ('active', 'Active', 'pending', 'Pending', 'contingent', 'Contingent')
         '''
@@ -181,16 +181,16 @@ class PropertyMonitor:
             cursor.execute('''
                 INSERT INTO property_monitors (id, property_id, last_price, last_status, last_dom, last_checked_at)
                 VALUES (?, ?, ?, ?, ?, ?)
-            ''', (str(uuid.uuid4()), prop_id, prop.get('price'), prop.get('status'),
+            ''', (str(uuid.uuid4()), prop_id, prop.get('list_price'), prop.get('status'),
                   prop.get('days_on_market'), now))
             return changes
 
         monitor = dict(monitor)
 
         # Check for price changes
-        if monitor.get('last_price') and prop.get('price'):
+        if monitor.get('last_price') and prop.get('list_price'):
             old_price = monitor['last_price']
-            new_price = prop['price']
+            new_price = prop['list_price']
             if old_price != new_price:
                 change_pct = (new_price - old_price) / old_price if old_price else 0
                 changes.append({
@@ -224,7 +224,7 @@ class PropertyMonitor:
             SET last_price = ?, last_status = ?, last_dom = ?,
                 last_checked_at = ?, last_changed_at = CASE WHEN ? > 0 THEN ? ELSE last_changed_at END
             WHERE property_id = ?
-        ''', (prop.get('price'), prop.get('status'), prop.get('days_on_market'),
+        ''', (prop.get('list_price'), prop.get('status'), prop.get('days_on_market'),
               now, len(changes), now, prop_id))
 
         # Log changes
@@ -244,7 +244,7 @@ class PropertyMonitor:
 
         # Update DOM based on list_date
         cursor.execute('''
-            UPDATE properties
+            UPDATE listings
             SET days_on_market = julianday('now') - julianday(list_date),
                 updated_at = ?
             WHERE list_date IS NOT NULL
@@ -259,7 +259,7 @@ class PropertyMonitor:
         """Find properties missing photos."""
         query = '''
             SELECT id, address, city, county, redfin_url
-            FROM properties
+            FROM listings
             WHERE (primary_photo IS NULL OR primary_photo = '')
               AND status IN ('active', 'Active')
         '''
@@ -325,7 +325,7 @@ class PropertyMonitor:
 
         try:
             query = '''
-                SELECT pc.*, p.address, p.city, p.county, p.price
+                SELECT pc.*, p.address, p.city, p.county, p.list_price
                 FROM property_changes pc
                 JOIN properties p ON pc.property_id = p.id
                 WHERE pc.detected_at >= datetime('now', ?)

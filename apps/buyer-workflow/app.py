@@ -426,17 +426,17 @@ def intake_search(form_id):
     lead = db.execute('SELECT * FROM leads WHERE id = ?', (form['lead_id'],)).fetchone()
 
     # Build property query from intake criteria
-    query = 'SELECT * FROM properties WHERE 1=1'
+    query = 'SELECT * FROM listings WHERE 1=1'
     params = []
 
     form = row_to_dict(form)
 
     # Price range
     if form.get('min_price'):
-        query += ' AND price >= ?'
+        query += ' AND list_price >= ?'
         params.append(int(form['min_price']))
     if form.get('max_price'):
-        query += ' AND price <= ?'
+        query += ' AND list_price <= ?'
         params.append(int(form['max_price']))
 
     # Beds/Baths
@@ -564,7 +564,7 @@ def package_detail(package_id):
     if pkg_props:
         prop_ids = [p['property_id'] for p in pkg_props]
         placeholders = ','.join(['?' for _ in prop_ids])
-        props_data = props_db.execute(f'SELECT * FROM properties WHERE id IN ({placeholders})', prop_ids).fetchall()
+        props_data = props_db.execute(f'SELECT * FROM listings WHERE id IN ({placeholders})', prop_ids).fetchall()
         props_dict = {p['id']: dict(p) for p in props_data}
 
         # Merge property data with package metadata
@@ -709,7 +709,7 @@ def package_add_properties(package_id):
     max_price = request.args.get('max_price', '')
     search = request.args.get('search', '')
 
-    query = 'SELECT * FROM properties WHERE (status = "active" OR status = "Active")'
+    query = 'SELECT * FROM listings WHERE (status = "active" OR status = "Active")'
     params = []
 
     if existing_ids:
@@ -721,10 +721,10 @@ def package_add_properties(package_id):
         query += ' AND county = ?'
         params.append(county)
     if min_price:
-        query += ' AND price >= ?'
+        query += ' AND list_price >= ?'
         params.append(int(min_price))
     if max_price:
-        query += ' AND price <= ?'
+        query += ' AND list_price <= ?'
         params.append(int(max_price))
     if search:
         query += ' AND (address LIKE ? OR city LIKE ? OR mls_number LIKE ?)'
@@ -806,7 +806,7 @@ def client_view(share_token):
     if pkg_props:
         prop_ids = [p['property_id'] for p in pkg_props]
         placeholders = ','.join(['?' for _ in prop_ids])
-        props_data = props_db.execute(f'SELECT * FROM properties WHERE id IN ({placeholders})', prop_ids).fetchall()
+        props_data = props_db.execute(f'SELECT * FROM listings WHERE id IN ({placeholders})', prop_ids).fetchall()
         props_dict = {p['id']: dict(p) for p in props_data}
 
         for pp in pkg_props:
@@ -936,7 +936,7 @@ def showing_new(lead_id):
     if req_props:
         prop_ids = [p['property_id'] for p in req_props]
         placeholders = ','.join(['?' for _ in prop_ids])
-        props_data = props_db.execute(f'SELECT * FROM properties WHERE id IN ({placeholders})', prop_ids).fetchall()
+        props_data = props_db.execute(f'SELECT * FROM listings WHERE id IN ({placeholders})', prop_ids).fetchall()
         props_dict = {p['id']: dict(p) for p in props_data}
 
         for rp in req_props:
@@ -984,7 +984,7 @@ def showing_detail(showing_id):
     if show_props:
         prop_ids = [p['property_id'] for p in show_props]
         placeholders = ','.join(['?' for _ in prop_ids])
-        props_data = props_db.execute(f'SELECT * FROM properties WHERE id IN ({placeholders})', prop_ids).fetchall()
+        props_data = props_db.execute(f'SELECT * FROM listings WHERE id IN ({placeholders})', prop_ids).fetchall()
         props_dict = {p['id']: dict(p) for p in props_data}
 
         for sp in show_props:
@@ -1127,12 +1127,12 @@ def showing_add_properties(showing_id):
             prop_ids = [r['property_id'] for r in package_prop_ids]
             placeholders = ','.join(['?' for _ in prop_ids])
             properties = props_db.execute(f'''
-                SELECT * FROM properties WHERE id IN ({placeholders})
+                SELECT * FROM listings WHERE id IN ({placeholders})
             ''', prop_ids).fetchall()
     else:
         # Get all active properties from redfin_imports
         properties = props_db.execute('''
-            SELECT * FROM properties
+            SELECT * FROM listings
             WHERE status IN ('active', 'Active')
             ORDER BY county, city
             LIMIT 100
@@ -1169,7 +1169,7 @@ def showing_optimize_route(showing_id):
     prop_ids = [p['property_id'] for p in show_props]
     placeholders = ','.join(['?' for _ in prop_ids])
     props_data = props_db.execute(f'''
-        SELECT id, address, latitude, longitude FROM properties WHERE id IN ({placeholders})
+        SELECT id, address, latitude, longitude FROM listings WHERE id IN ({placeholders})
     ''', prop_ids).fetchall()
     props_dict = {p['id']: dict(p) for p in props_data}
 
@@ -1290,7 +1290,7 @@ def showing_google_maps_url(showing_id):
     prop_ids = [p['property_id'] for p in show_props]
     placeholders = ','.join(['?' for _ in prop_ids])
     props_data = props_db.execute(f'''
-        SELECT id, address, city, state, zip FROM properties WHERE id IN ({placeholders})
+        SELECT id, address, city, state, zip FROM listings WHERE id IN ({placeholders})
     ''', prop_ids).fetchall()
     props_dict = {p['id']: dict(p) for p in props_data}
 
@@ -1359,8 +1359,8 @@ def api_photos_status():
     """Get photo scraping status - how many properties have photos vs need them."""
     props_db = get_properties_db()
 
-    total = props_db.execute('SELECT COUNT(*) FROM properties WHERE status = "Active"').fetchone()[0]
-    with_photos = props_db.execute('SELECT COUNT(*) FROM properties WHERE status = "Active" AND primary_photo IS NOT NULL').fetchone()[0]
+    total = props_db.execute('SELECT COUNT(*) FROM listings WHERE status = "Active"').fetchone()[0]
+    with_photos = props_db.execute('SELECT COUNT(*) FROM listings WHERE status = "Active" AND primary_photo IS NOT NULL').fetchone()[0]
     pending_queue = props_db.execute('SELECT COUNT(*) FROM redfin_scrape_queue WHERE status = "pending"').fetchone()[0]
 
     return jsonify({
@@ -1419,7 +1419,7 @@ def api_properties_search():
     beds = request.args.get('beds')
     status = request.args.get('status', 'Active')  # Default to 'Active' to match redfin_imports
 
-    query = 'SELECT * FROM properties WHERE 1=1'
+    query = 'SELECT * FROM listings WHERE 1=1'
     params = []
 
     if status:
@@ -1429,10 +1429,10 @@ def api_properties_search():
         query += ' AND county = ?'
         params.append(county)
     if min_price:
-        query += ' AND price >= ?'
+        query += ' AND list_price >= ?'
         params.append(int(min_price))
     if max_price:
-        query += ' AND price <= ?'
+        query += ' AND list_price <= ?'
         params.append(int(max_price))
     if beds:
         query += ' AND beds >= ?'

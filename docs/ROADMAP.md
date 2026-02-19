@@ -152,11 +152,12 @@
 - [x] New listing alerts for buyers (matches to contact_requirements)
 - [x] Historical price chart generation (Chart.js on property detail page)
 
-**Scraper Status:**
+**Data Source Status:**
 | Source | Status | Notes |
 |--------|--------|-------|
-| Redfin | Working | Primary scraper via Playwright |
-| Zillow | Broken | Code exists, blocked in practice |
+| Navica (RESO API) | Pending | Awaiting Carolina Smokies board auth, code ready in `apps/navica/` |
+| Redfin | Archived | Retired, code in `archive/pre-navica-2026-02-19/` |
+| Zillow | Archived | Was broken, code archived |
 | Realtor.com | Working | Dedicated scraper with __NEXT_DATA__ + DOM extraction |
 
 ### Automated Reports (January 2026)
@@ -256,11 +257,14 @@ Goal: Make the property database a reliable single source of truth with automate
 
 ### Implementation Progress
 - [x] Baseline data quality audit (`docs/DATA_QUALITY_TRACKING.md`)
-- [x] MLS Grid integration script (`scripts/import_mlsgrid.py`)
+- [x] MLS Grid integration script (`scripts/import_mlsgrid.py`) (archived)
 - [x] Data quality dashboard (`/data-quality` route)
-- [ ] Request MLS Grid API access from Canopy MLS
-- [ ] Set up automated MLS Grid sync (cron job)
-- [ ] Phase out PropStream as primary source
+- [x] **Navica MLS API integration** (`apps/navica/`) with RESO API access (awaiting board auth)
+- [x] **Database cleanup for Navica** (Feb 2026): dropped `properties` table + 17 legacy tables, all code migrated to `listings`, DB reduced 23MB to 6.5MB
+- [x] **Retired legacy importers**: Redfin, Apify, PropStream importers archived
+- [ ] Carolina Smokies board authorization for Navica API access
+- [ ] First Navica sync (incremental + nightly full sync via `apps/navica/cron_sync.py`)
+- [ ] Rebuild price/status change tracking from Navica ModificationTimestamp
 
 See: `docs/DATA_QUALITY_TRACKING.md` for full details.
 
@@ -273,9 +277,9 @@ See: `docs/DATA_QUALITY_TRACKING.md` for full details.
 | ~~Multiple extension versions in repo~~ | Low | Done - moved to archive/ |
 | ~~Backup files scattered~~ | Low | Done - archive/ created |
 | ~~Email tracking not implemented~~ | High | Done - Added email fetching from FUB API |
-| **Low MLS# coverage (32.8%)** | High | MLS Grid integration built, awaiting API access |
-| **Low photo coverage (11.2%)** | High | Need MLS photos via API + enhanced scraping |
-| Zillow scraper blocked | Medium | Code exists but site blocks scraping |
+| **Low MLS# coverage (32.8%)** | High | Navica API will resolve (awaiting board auth) |
+| **Low photo coverage (11.2%)** | High | Navica API provides photos directly |
+| ~~Zillow scraper blocked~~ | Low | Retired, Navica replaces all scrapers |
 | ~~Realtor.com scraper not implemented~~ | Low | Done - Dedicated scraper with __NEXT_DATA__ + DOM extraction |
 | Inconsistent error handling | Medium | Standardize patterns |
 | Missing unit tests | Medium | Add test coverage |
@@ -349,4 +353,4 @@ The tension between personal workflow optimization vs. building a configurable p
 ---
 
 *Roadmap maintained by Joseph & Claude*
-*Last updated: February 7, 2026 - Cleaned up stale items, synced with TODO.md*
+*Last updated: February 19, 2026 - Navica migration: database cleanup, legacy importers archived*

@@ -247,163 +247,66 @@ class DREAMSDatabase:
             FOREIGN KEY (lead_id) REFERENCES leads(id)
         );
 
-        -- Properties table
-        CREATE TABLE IF NOT EXISTS properties (
+        -- Listings table (canonical property source, populated by Navica MLS sync)
+        CREATE TABLE IF NOT EXISTS listings (
             id TEXT PRIMARY KEY,
-            mls_number TEXT,
-            mls_source TEXT,
             parcel_id TEXT,
-            zillow_id TEXT,
-            realtor_id TEXT,
-            redfin_id TEXT,
-            address TEXT,
-            city TEXT,
-            state TEXT,
-            zip TEXT,
-            county TEXT,
-            price INTEGER,
+            mls_source TEXT,
+            mls_number TEXT,
+            status TEXT,
+            list_price INTEGER,
+            list_date TEXT,
+            sold_price INTEGER,
+            sold_date TEXT,
+            days_on_market INTEGER,
             beds INTEGER,
             baths REAL,
             sqft INTEGER,
-            acreage REAL,
             year_built INTEGER,
             property_type TEXT,
             style TEXT,
             views TEXT,
-            water_features TEXT,
             amenities TEXT,
-            status TEXT DEFAULT 'active',
-            days_on_market INTEGER,
-            list_date TEXT,
-            initial_price INTEGER,
-            price_history TEXT,
-            status_history TEXT,
-            listing_agent_name TEXT,
-            listing_agent_phone TEXT,
-            listing_agent_email TEXT,
-            listing_brokerage TEXT,
-            -- New financial fields
-            hoa_fee INTEGER,
-            tax_assessed_value INTEGER,
-            tax_annual_amount INTEGER,
-            zestimate INTEGER,
-            rent_zestimate INTEGER,
-            -- New metrics fields
-            page_views INTEGER,
-            favorites_count INTEGER,
-            -- New detail fields
             heating TEXT,
             cooling TEXT,
             garage TEXT,
-            sewer TEXT,
-            roof TEXT,
-            stories INTEGER,
-            subdivision TEXT,
-            -- Location fields
-            latitude REAL,
-            longitude REAL,
-            school_elementary_rating INTEGER,
-            school_middle_rating INTEGER,
-            school_high_rating INTEGER,
-            school_district TEXT,
-            -- Spatial enrichment fields (NC OneMap)
-            flood_zone TEXT,                 -- FEMA zone: X, A, AE, VE, etc.
-            flood_zone_subtype TEXT,         -- Zone subtype (shaded, floodway)
-            flood_factor INTEGER,            -- Risk score 1-10
-            flood_sfha INTEGER DEFAULT 0,    -- Special Flood Hazard Area (1=yes)
-            elevation_feet INTEGER,          -- Elevation in feet
-            slope_percent REAL,              -- Terrain slope percentage
-            aspect TEXT,                     -- Facing direction: N, NE, E, etc.
-            view_potential INTEGER,          -- Mountain view score 1-10
-            wildfire_risk TEXT,              -- Risk category: Low, Moderate, High, Very High
-            wildfire_score INTEGER,          -- Risk score 1-10
-            spatial_enriched_at TEXT,        -- When spatial data was last updated
-            -- URLs
-            zillow_url TEXT,
-            realtor_url TEXT,
-            redfin_url TEXT,
+            hoa_fee INTEGER,
+            photos TEXT,
+            primary_photo TEXT,
+            virtual_tour_url TEXT,
             mls_url TEXT,
             idx_url TEXT,
-            photo_urls TEXT,
-            virtual_tour_url TEXT,
-            source TEXT,
-            notes TEXT,
-            captured_by TEXT,
+            redfin_url TEXT,
+            redfin_id TEXT,
+            zillow_url TEXT,
+            zillow_id TEXT,
+            listing_agent_id TEXT,
+            listing_agent_name TEXT,
+            listing_agent_phone TEXT,
+            listing_agent_email TEXT,
+            listing_office_id TEXT,
+            listing_office_name TEXT,
             added_for TEXT,
             added_by TEXT,
-            -- Notion sync tracking
-            notion_page_id TEXT,
-            notion_synced_at TEXT,
-            sync_status TEXT DEFAULT 'pending',
-            sync_error TEXT,
-            -- IDX validation fields
-            idx_mls_number TEXT,
-            original_mls_number TEXT,
-            idx_validation_status TEXT DEFAULT 'pending',
-            idx_validated_at TEXT,
-            idx_mls_source TEXT,
-            -- Timestamps
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            last_monitored_at TEXT
-        );
-
-        -- Matches table
-        CREATE TABLE IF NOT EXISTS matches (
-            id TEXT PRIMARY KEY,
-            lead_id TEXT NOT NULL,
-            property_id TEXT NOT NULL,
-            total_score REAL,
-            stated_score REAL,
-            behavioral_score REAL,
-            score_breakdown TEXT,
-            match_status TEXT DEFAULT 'suggested',
-            suggested_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            sent_at TEXT,
-            response_at TEXT,
-            shown_at TEXT,
-            lead_feedback TEXT,
-            agent_notes TEXT,
-            FOREIGN KEY (lead_id) REFERENCES leads(id),
-            FOREIGN KEY (property_id) REFERENCES properties(id),
-            UNIQUE(lead_id, property_id)
-        );
-
-        -- Contact-Property relationships (saved/viewed/shared)
-        CREATE TABLE IF NOT EXISTS contact_properties (
-            id TEXT PRIMARY KEY,
-            contact_id TEXT NOT NULL,
-            property_id TEXT NOT NULL,
-            relationship TEXT DEFAULT 'saved',  -- 'saved', 'viewed', 'shared', 'matched', 'favorited'
-            match_score REAL,
-            view_count INTEGER DEFAULT 0,
-            first_viewed_at TEXT,
-            last_viewed_at TEXT,
-            saved_at TEXT,
-            shared_at TEXT,
-            shared_with TEXT,                   -- JSON array of recipients
             notes TEXT,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            source TEXT,
+            captured_at TEXT DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (contact_id) REFERENCES leads(id),
-            FOREIGN KEY (property_id) REFERENCES properties(id),
-            UNIQUE(contact_id, property_id)
-        );
-
-        -- Packages table
-        CREATE TABLE IF NOT EXISTS packages (
-            id TEXT PRIMARY KEY,
-            lead_id TEXT NOT NULL,
-            title TEXT,
-            property_ids TEXT,
-            showing_date TEXT,
-            pdf_path TEXT,
-            html_content TEXT,
-            status TEXT DEFAULT 'draft',
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            sent_at TEXT,
-            opened_at TEXT,
-            FOREIGN KEY (lead_id) REFERENCES leads(id)
+            photo_source TEXT,
+            photo_confidence REAL,
+            photo_verified_at TEXT,
+            photo_verified_by TEXT,
+            photo_review_status TEXT,
+            photo_count INTEGER DEFAULT 0,
+            address TEXT,
+            city TEXT,
+            state TEXT DEFAULT 'NC',
+            zip TEXT,
+            county TEXT,
+            latitude REAL,
+            longitude REAL,
+            acreage REAL,
+            is_residential INTEGER DEFAULT 1
         );
 
         -- Sync log table
@@ -473,31 +376,6 @@ class DREAMSDatabase:
             fub_event_id TEXT,            -- For deduplication
             imported_at TEXT DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (contact_id) REFERENCES leads(id)
-        );
-
-        -- IDX Property Cache (MLS to address lookup from IDX site)
-        CREATE TABLE IF NOT EXISTS idx_property_cache (
-            mls_number TEXT PRIMARY KEY,
-            address TEXT,
-            city TEXT,
-            price INTEGER,
-            status TEXT,
-            last_updated TEXT DEFAULT CURRENT_TIMESTAMP
-        );
-
-        -- Property changes (price/status changes detected by monitor)
-        CREATE TABLE IF NOT EXISTS property_changes (
-            id TEXT PRIMARY KEY,
-            property_id TEXT,             -- Notion page ID or internal property ID
-            property_address TEXT NOT NULL,
-            change_type TEXT NOT NULL,    -- 'price', 'status', 'dom', 'views', 'saves'
-            old_value TEXT,
-            new_value TEXT,
-            change_amount INTEGER,        -- For price: delta (positive or negative)
-            detected_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            notified INTEGER DEFAULT 0,   -- 0 = not notified, 1 = included in report
-            source TEXT,                  -- 'redfin', 'zillow', 'realtor'
-            notion_url TEXT               -- Link to Notion page for quick access
         );
 
         -- Contact daily activity (aggregated stats per contact per day)
@@ -760,37 +638,6 @@ class DREAMSDatabase:
             FOREIGN KEY (contact_id) REFERENCES leads(id)
         );
 
-        -- Pursuits: Buyer + Property Portfolio (maps to FUB Deals)
-        CREATE TABLE IF NOT EXISTS pursuits (
-            id TEXT PRIMARY KEY,
-            buyer_id TEXT NOT NULL,               -- FK to leads
-            intake_form_id TEXT,                  -- FK to intake_forms (future)
-            fub_deal_id INTEGER,                  -- FUB deal ID if synced
-            name TEXT,                            -- "John Smith — Primary Residence"
-            status TEXT DEFAULT 'active',         -- active, paused, converted, abandoned
-            criteria_summary TEXT,                -- "3BR, $300-400K, Franklin"
-            notes TEXT,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (buyer_id) REFERENCES leads(id)
-        );
-
-        -- Properties within a Pursuit
-        CREATE TABLE IF NOT EXISTS pursuit_properties (
-            id TEXT PRIMARY KEY,
-            pursuit_id TEXT NOT NULL,             -- FK to pursuits
-            property_id TEXT NOT NULL,            -- FK to properties
-            status TEXT DEFAULT 'suggested',      -- suggested, sent, viewed, favorited, rejected
-            source TEXT DEFAULT 'agent_added',    -- idx_saved, agent_added, auto_match
-            added_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            sent_at TEXT,
-            viewed_at TEXT,
-            notes TEXT,
-            FOREIGN KEY (pursuit_id) REFERENCES pursuits(id),
-            FOREIGN KEY (property_id) REFERENCES properties(id),
-            UNIQUE(pursuit_id, property_id)
-        );
-
         -- Power Hour sessions (focused calling blocks)
         CREATE TABLE IF NOT EXISTS power_hour_sessions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -829,27 +676,15 @@ class DREAMSDatabase:
         CREATE INDEX IF NOT EXISTS idx_leads_heat ON leads(heat_score DESC);
         CREATE INDEX IF NOT EXISTS idx_activities_lead ON lead_activities(lead_id);
         CREATE INDEX IF NOT EXISTS idx_activities_type ON lead_activities(activity_type);
-        CREATE INDEX IF NOT EXISTS idx_properties_status ON properties(status);
-        CREATE INDEX IF NOT EXISTS idx_properties_city ON properties(city);
-        CREATE INDEX IF NOT EXISTS idx_properties_price ON properties(price);
-        CREATE INDEX IF NOT EXISTS idx_properties_zillow_id ON properties(zillow_id);
-        CREATE INDEX IF NOT EXISTS idx_properties_redfin_id ON properties(redfin_id);
-        CREATE INDEX IF NOT EXISTS idx_properties_mls ON properties(mls_number);
-        CREATE INDEX IF NOT EXISTS idx_properties_sync_status ON properties(sync_status);
-        CREATE INDEX IF NOT EXISTS idx_properties_idx_validation ON properties(idx_validation_status);
-        -- Spatial enrichment indexes
-        CREATE INDEX IF NOT EXISTS idx_properties_flood_zone ON properties(flood_zone);
-        CREATE INDEX IF NOT EXISTS idx_properties_flood_factor ON properties(flood_factor);
-        CREATE INDEX IF NOT EXISTS idx_properties_elevation ON properties(elevation_feet);
-        CREATE INDEX IF NOT EXISTS idx_properties_view_potential ON properties(view_potential);
-        CREATE INDEX IF NOT EXISTS idx_properties_wildfire ON properties(wildfire_risk);
-        CREATE INDEX IF NOT EXISTS idx_properties_spatial_enriched ON properties(spatial_enriched_at);
-        CREATE INDEX IF NOT EXISTS idx_properties_lat_lng ON properties(latitude, longitude);
-        CREATE INDEX IF NOT EXISTS idx_matches_lead ON matches(lead_id);
-        CREATE INDEX IF NOT EXISTS idx_matches_score ON matches(total_score DESC);
-        CREATE INDEX IF NOT EXISTS idx_contact_props_contact ON contact_properties(contact_id);
-        CREATE INDEX IF NOT EXISTS idx_contact_props_property ON contact_properties(property_id);
-        CREATE INDEX IF NOT EXISTS idx_contact_props_relationship ON contact_properties(relationship);
+        -- Listings indexes
+        CREATE INDEX IF NOT EXISTS idx_listings_status ON listings(status);
+        CREATE INDEX IF NOT EXISTS idx_listings_city ON listings(city);
+        CREATE INDEX IF NOT EXISTS idx_listings_county ON listings(county);
+        CREATE INDEX IF NOT EXISTS idx_listings_price ON listings(list_price);
+        CREATE INDEX IF NOT EXISTS idx_listings_mls ON listings(mls_number);
+        CREATE INDEX IF NOT EXISTS idx_listings_lat_lng ON listings(latitude, longitude);
+        CREATE INDEX IF NOT EXISTS idx_listings_captured ON listings(captured_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_listings_added_for ON listings(added_for);
         -- Contact scoring history indexes
         CREATE INDEX IF NOT EXISTS idx_scoring_history_contact ON contact_scoring_history(contact_id, recorded_at DESC);
         -- Contact communications indexes
@@ -858,10 +693,6 @@ class DREAMSDatabase:
         -- Contact events indexes
         CREATE INDEX IF NOT EXISTS idx_events_contact ON contact_events(contact_id, occurred_at DESC);
         CREATE INDEX IF NOT EXISTS idx_events_type ON contact_events(event_type);
-        -- Property changes indexes
-        CREATE INDEX IF NOT EXISTS idx_property_changes_detected ON property_changes(detected_at DESC);
-        CREATE INDEX IF NOT EXISTS idx_property_changes_type ON property_changes(change_type);
-        CREATE INDEX IF NOT EXISTS idx_property_changes_notified ON property_changes(notified);
         -- Contact daily activity indexes
         CREATE INDEX IF NOT EXISTS idx_daily_activity_contact ON contact_daily_activity(contact_id, activity_date DESC);
         CREATE INDEX IF NOT EXISTS idx_daily_activity_date ON contact_daily_activity(activity_date DESC);
@@ -902,13 +733,6 @@ class DREAMSDatabase:
         CREATE INDEX IF NOT EXISTS idx_assignment_history_contact ON assignment_history(contact_id, assigned_at DESC);
         CREATE INDEX IF NOT EXISTS idx_assignment_history_to_user ON assignment_history(assigned_to_user_id, assigned_at DESC);
         CREATE INDEX IF NOT EXISTS idx_assignment_history_from_user ON assignment_history(assigned_from_user_id);
-        -- Pursuit indexes
-        CREATE INDEX IF NOT EXISTS idx_pursuits_buyer ON pursuits(buyer_id);
-        CREATE INDEX IF NOT EXISTS idx_pursuits_status ON pursuits(status);
-        CREATE INDEX IF NOT EXISTS idx_pursuits_fub_deal ON pursuits(fub_deal_id);
-        CREATE INDEX IF NOT EXISTS idx_pursuit_properties_pursuit ON pursuit_properties(pursuit_id);
-        CREATE INDEX IF NOT EXISTS idx_pursuit_properties_property ON pursuit_properties(property_id);
-        CREATE INDEX IF NOT EXISTS idx_pursuit_properties_status ON pursuit_properties(status);
         -- Power Hour indexes
         CREATE INDEX IF NOT EXISTS idx_power_hour_sessions_user ON power_hour_sessions(user_id, started_at DESC);
         CREATE INDEX IF NOT EXISTS idx_power_hour_sessions_status ON power_hour_sessions(status);
@@ -1517,80 +1341,41 @@ class DREAMSDatabase:
         contact_id: str,
         relationship: Optional[str] = None
     ) -> List[Dict[str, Any]]:
-        """Get properties linked to a contact."""
-        with self._get_connection() as conn:
-            if relationship:
-                rows = conn.execute('''
-                    SELECT cp.*, p.address, p.city, p.price, p.beds, p.baths, p.status
-                    FROM contact_properties cp
-                    JOIN properties p ON cp.property_id = p.id
-                    WHERE cp.contact_id = ? AND cp.relationship = ?
-                    ORDER BY cp.updated_at DESC
-                ''', (contact_id, relationship)).fetchall()
-            else:
-                rows = conn.execute('''
-                    SELECT cp.*, p.address, p.city, p.price, p.beds, p.baths, p.status
-                    FROM contact_properties cp
-                    JOIN properties p ON cp.property_id = p.id
-                    WHERE cp.contact_id = ?
-                    ORDER BY cp.updated_at DESC
-                ''', (contact_id,)).fetchall()
-            return [dict(row) for row in rows]
+        """Get properties linked to a contact.
+        Note: contact_properties table was dropped during Navica migration.
+        Returns empty list until contact-listing links are rebuilt."""
+        return []
 
     def get_property_contacts(
         self,
         property_id: str,
         relationship: Optional[str] = None
     ) -> List[Dict[str, Any]]:
-        """Get contacts linked to a property."""
-        with self._get_connection() as conn:
-            if relationship:
-                rows = conn.execute('''
-                    SELECT cp.*, l.first_name, l.last_name, l.email, l.phone,
-                           l.heat_score, l.priority_score
-                    FROM contact_properties cp
-                    JOIN leads l ON cp.contact_id = l.id
-                    WHERE cp.property_id = ? AND cp.relationship = ?
-                    ORDER BY l.priority_score DESC
-                ''', (property_id, relationship)).fetchall()
-            else:
-                rows = conn.execute('''
-                    SELECT cp.*, l.first_name, l.last_name, l.email, l.phone,
-                           l.heat_score, l.priority_score
-                    FROM contact_properties cp
-                    JOIN leads l ON cp.contact_id = l.id
-                    WHERE cp.property_id = ?
-                    ORDER BY l.priority_score DESC
-                ''', (property_id,)).fetchall()
-            return [dict(row) for row in rows]
+        """Get contacts linked to a property.
+        Note: contact_properties table was dropped during Navica migration.
+        Returns empty list until contact-listing links are rebuilt."""
+        return []
 
     # ==========================================
     # PROPERTY OPERATIONS
     # ==========================================
     
     def upsert_property(self, property: Property) -> bool:
-        """Insert or update a property."""
-        with self._get_connection() as conn:
-            data = property.to_dict()
-            data['updated_at'] = datetime.now().isoformat()
-            
-            placeholders = ', '.join([f'{k} = ?' for k in data.keys()])
-            columns = ', '.join(data.keys())
-            values = list(data.values())
-            
-            conn.execute(f'''
-                INSERT INTO properties ({columns})
-                VALUES ({', '.join(['?' for _ in values])})
-                ON CONFLICT(id) DO UPDATE SET {placeholders}
-            ''', values + values)
-            conn.commit()
-            return True
-    
+        """Insert or update a property in the listings table."""
+        data = property.to_dict()
+        # Map legacy field names to listings schema
+        if 'price' in data and 'list_price' not in data:
+            data['list_price'] = data.pop('price')
+        if 'created_at' in data and 'captured_at' not in data:
+            data['captured_at'] = data.pop('created_at')
+        data['updated_at'] = datetime.now().isoformat()
+        return self.upsert_listing_dict(data)
+
     def get_property(self, property_id: str) -> Optional[Dict[str, Any]]:
-        """Get property by ID."""
+        """Get property by ID from listings table."""
         with self._get_connection() as conn:
             row = conn.execute(
-                'SELECT * FROM properties WHERE id = ?',
+                'SELECT * FROM listings WHERE id = ?',
                 (property_id,)
             ).fetchone()
             return dict(row) if row else None
@@ -1603,18 +1388,18 @@ class DREAMSDatabase:
         max_price: Optional[int] = None,
         limit: int = 100
     ) -> List[Dict[str, Any]]:
-        """Get properties with optional filters."""
-        query = 'SELECT * FROM properties WHERE status = ?'
+        """Get listings with optional filters."""
+        query = 'SELECT * FROM listings WHERE LOWER(status) = LOWER(?)'
         params = [status]
 
         if city:
             query += ' AND city = ?'
             params.append(city)
         if min_price:
-            query += ' AND price >= ?'
+            query += ' AND list_price >= ?'
             params.append(min_price)
         if max_price:
-            query += ' AND price <= ?'
+            query += ' AND list_price <= ?'
             params.append(max_price)
 
         query += ' ORDER BY updated_at DESC LIMIT ?'
@@ -1625,37 +1410,32 @@ class DREAMSDatabase:
             return [dict(row) for row in rows]
 
     def get_property_by_zillow_id(self, zillow_id: str) -> Optional[Dict[str, Any]]:
-        """Get property by Zillow ID."""
+        """Get listing by Zillow ID."""
         with self._get_connection() as conn:
             row = conn.execute(
-                'SELECT * FROM properties WHERE zillow_id = ?',
+                'SELECT * FROM listings WHERE zillow_id = ?',
                 (zillow_id,)
             ).fetchone()
             return dict(row) if row else None
 
     def get_property_by_realtor_id(self, realtor_id: str) -> Optional[Dict[str, Any]]:
-        """Get property by Realtor.com ID."""
-        with self._get_connection() as conn:
-            row = conn.execute(
-                'SELECT * FROM properties WHERE realtor_id = ?',
-                (realtor_id,)
-            ).fetchone()
-            return dict(row) if row else None
+        """Get listing by Realtor.com ID (not in listings schema, returns None)."""
+        return None
 
     def get_property_by_mls(self, mls_number: str) -> Optional[Dict[str, Any]]:
-        """Get property by MLS number."""
+        """Get listing by MLS number."""
         with self._get_connection() as conn:
             row = conn.execute(
-                'SELECT * FROM properties WHERE mls_number = ?',
+                'SELECT * FROM listings WHERE mls_number = ?',
                 (mls_number,)
             ).fetchone()
             return dict(row) if row else None
 
     def get_property_by_redfin_id(self, redfin_id: str) -> Optional[Dict[str, Any]]:
-        """Get property by Redfin ID."""
+        """Get listing by Redfin ID."""
         with self._get_connection() as conn:
             row = conn.execute(
-                'SELECT * FROM properties WHERE redfin_id = ?',
+                'SELECT * FROM listings WHERE redfin_id = ?',
                 (redfin_id,)
             ).fetchone()
             return dict(row) if row else None
@@ -1666,12 +1446,12 @@ class DREAMSDatabase:
             # Normalize address for comparison (case-insensitive)
             if city:
                 row = conn.execute(
-                    'SELECT * FROM properties WHERE LOWER(address) = LOWER(?) AND LOWER(city) = LOWER(?)',
+                    'SELECT * FROM listings WHERE LOWER(address) = LOWER(?) AND LOWER(city) = LOWER(?)',
                     (address, city)
                 ).fetchone()
             else:
                 row = conn.execute(
-                    'SELECT * FROM properties WHERE LOWER(address) = LOWER(?)',
+                    'SELECT * FROM listings WHERE LOWER(address) = LOWER(?)',
                     (address,)
                 ).fetchone()
             return dict(row) if row else None
@@ -1757,20 +1537,20 @@ class DREAMSDatabase:
         # Query properties
         with self._get_connection() as conn:
             query = '''
-                SELECT * FROM properties
-                WHERE status = 'active'
+                SELECT * FROM listings
+                WHERE LOWER(status) = 'active'
             '''
             params = []
 
             # Apply loose price filter if available
             if min_price:
-                query += ' AND (price IS NULL OR price >= ?)'
+                query += ' AND (list_price IS NULL OR list_price >= ?)'
                 params.append(min_price)
             if max_price:
-                query += ' AND (price IS NULL OR price <= ?)'
+                query += ' AND (list_price IS NULL OR list_price <= ?)'
                 params.append(max_price)
 
-            query += ' ORDER BY created_at DESC LIMIT 200'
+            query += ' ORDER BY captured_at DESC LIMIT 200'
 
             properties = conn.execute(query, params).fetchall()
 
@@ -1778,6 +1558,8 @@ class DREAMSDatabase:
         matches = []
         for prop_row in properties:
             prop = dict(prop_row)
+            # Normalize list_price to price for compatibility
+            prop['price'] = prop.get('list_price')
             score_breakdown = {}
 
             # Price scoring (30%)
@@ -1912,31 +1694,29 @@ class DREAMSDatabase:
         else:
             return 0.4
 
-    # Whitelist of valid column names for the properties table
-    PROPERTIES_COLUMNS = {
-        'id', 'mls_number', 'mls_source', 'parcel_id', 'zillow_id', 'realtor_id',
-        'redfin_id', 'address', 'city', 'state', 'zip', 'county', 'price', 'beds',
-        'baths', 'sqft', 'acreage', 'year_built', 'property_type', 'style', 'views',
-        'water_features', 'amenities', 'status', 'days_on_market', 'list_date',
-        'initial_price', 'price_history', 'status_history', 'listing_agent_name',
-        'listing_agent_phone', 'listing_agent_email', 'listing_brokerage',
-        'hoa_fee', 'tax_assessed_value', 'tax_annual_amount', 'zestimate',
-        'rent_zestimate', 'page_views', 'favorites_count', 'heating', 'cooling',
-        'garage', 'sewer', 'roof', 'stories', 'subdivision', 'latitude', 'longitude',
-        'school_elementary_rating', 'school_middle_rating', 'school_high_rating',
-        'school_district', 'flood_zone', 'flood_zone_subtype', 'flood_factor',
-        'flood_sfha', 'elevation_feet', 'slope_percent', 'aspect', 'view_potential',
-        'wildfire_risk', 'wildfire_score', 'spatial_enriched_at', 'zillow_url',
-        'realtor_url', 'redfin_url', 'mls_url', 'idx_url', 'photo_urls',
-        'virtual_tour_url', 'source', 'notes', 'captured_by', 'added_for',
-        'added_by', 'notion_page_id', 'notion_synced_at', 'sync_status',
-        'sync_error', 'idx_mls_number', 'original_mls_number',
-        'idx_validation_status', 'idx_validated_at', 'idx_mls_source',
-        'created_at', 'updated_at', 'last_monitored_at', 'primary_photo',
+    # Whitelist of valid column names for the listings table (canonical property source)
+    LISTINGS_COLUMNS = {
+        'id', 'parcel_id', 'mls_source', 'mls_number', 'status',
+        'list_price', 'list_date', 'sold_price', 'sold_date', 'days_on_market',
+        'beds', 'baths', 'sqft', 'year_built', 'property_type', 'style',
+        'views', 'amenities', 'heating', 'cooling', 'garage', 'hoa_fee',
+        'photos', 'primary_photo', 'virtual_tour_url', 'mls_url', 'idx_url',
+        'redfin_url', 'redfin_id', 'zillow_url', 'zillow_id',
+        'listing_agent_id', 'listing_agent_name', 'listing_agent_phone',
+        'listing_agent_email', 'listing_office_id', 'listing_office_name',
+        'added_for', 'added_by', 'notes', 'source',
+        'captured_at', 'updated_at',
+        'photo_source', 'photo_confidence', 'photo_verified_at',
+        'photo_verified_by', 'photo_review_status', 'photo_count',
+        'address', 'city', 'state', 'zip', 'county',
+        'latitude', 'longitude', 'acreage', 'is_residential',
     }
 
-    def upsert_property_dict(self, data: Dict[str, Any]) -> bool:
-        """Insert or update a property from a dictionary."""
+    # Keep legacy alias for backward compatibility
+    PROPERTIES_COLUMNS = LISTINGS_COLUMNS
+
+    def upsert_listing_dict(self, data: Dict[str, Any]) -> bool:
+        """Insert or update a listing from a dictionary."""
         with self._get_connection() as conn:
             # Filter out None values and ensure we have an id
             data = {k: v for k, v in data.items() if v is not None}
@@ -1945,10 +1725,10 @@ class DREAMSDatabase:
                 return False
 
             # Validate column names against whitelist to prevent SQL injection
-            invalid_cols = set(data.keys()) - self.PROPERTIES_COLUMNS
+            invalid_cols = set(data.keys()) - self.LISTINGS_COLUMNS
             if invalid_cols:
-                logging.getLogger(__name__).warning(f"Rejected invalid property columns: {invalid_cols}")
-                data = {k: v for k, v in data.items() if k in self.PROPERTIES_COLUMNS}
+                logging.getLogger(__name__).warning(f"Rejected invalid listing columns: {invalid_cols}")
+                data = {k: v for k, v in data.items() if k in self.LISTINGS_COLUMNS}
 
             # Build upsert query
             columns = list(data.keys())
@@ -1956,7 +1736,7 @@ class DREAMSDatabase:
             update_clause = ', '.join([f'{col} = ?' for col in columns if col != 'id'])
 
             query = f'''
-                INSERT INTO properties ({', '.join(columns)})
+                INSERT INTO listings ({', '.join(columns)})
                 VALUES ({placeholders})
                 ON CONFLICT(id) DO UPDATE SET {update_clause}
             '''
@@ -1969,96 +1749,31 @@ class DREAMSDatabase:
             conn.commit()
             return True
 
+    # Keep legacy alias for backward compatibility
+    def upsert_property_dict(self, data: Dict[str, Any]) -> bool:
+        """Legacy alias for upsert_listing_dict."""
+        return self.upsert_listing_dict(data)
+
     def get_properties_by_sync_status(self, status: str) -> List[Dict[str, Any]]:
-        """Get properties by sync status (pending, synced, failed)."""
-        with self._get_connection() as conn:
-            rows = conn.execute(
-                'SELECT * FROM properties WHERE sync_status = ? ORDER BY updated_at DESC',
-                (status,)
-            ).fetchall()
-            return [dict(row) for row in rows]
+        """Legacy: Notion sync no longer applies to listings table."""
+        return []
 
-    def update_property_sync_status(
-        self,
-        property_id: str,
-        status: str,
-        notion_page_id: Optional[str] = None,
-        error: Optional[str] = None
-    ) -> bool:
-        """Update the sync status of a property."""
-        with self._get_connection() as conn:
-            if status == 'synced':
-                conn.execute('''
-                    UPDATE properties SET
-                        sync_status = ?,
-                        notion_page_id = ?,
-                        notion_synced_at = ?,
-                        sync_error = NULL
-                    WHERE id = ?
-                ''', (status, notion_page_id, datetime.now().isoformat(), property_id))
-            else:
-                conn.execute('''
-                    UPDATE properties SET
-                        sync_status = ?,
-                        sync_error = ?
-                    WHERE id = ?
-                ''', (status, error, property_id))
-            conn.commit()
-            return True
+    def update_property_sync_status(self, property_id: str, status: str,
+                                     notion_page_id: Optional[str] = None,
+                                     error: Optional[str] = None) -> bool:
+        """Legacy: Notion sync no longer applies to listings table."""
+        return False
 
-    def get_properties_by_idx_validation_status(
-        self,
-        status: str,
-        limit: int = 10
-    ) -> List[Dict[str, Any]]:
-        """Get properties by IDX validation status (pending, validated, not_found, error)."""
-        with self._get_connection() as conn:
-            rows = conn.execute(
-                '''SELECT * FROM properties
-                   WHERE idx_validation_status = ?
-                   ORDER BY updated_at DESC
-                   LIMIT ?''',
-                (status, limit)
-            ).fetchall()
-            return [dict(row) for row in rows]
+    def get_properties_by_idx_validation_status(self, status: str, limit: int = 10) -> List[Dict[str, Any]]:
+        """Legacy: IDX validation no longer applies (Navica provides data directly)."""
+        return []
 
-    def update_idx_validation(
-        self,
-        property_id: str,
-        status: str,
-        idx_mls_number: Optional[str] = None,
-        idx_mls_source: Optional[str] = None,
-        original_mls_number: Optional[str] = None
-    ) -> bool:
-        """Update the IDX validation status and MLS information for a property."""
-        with self._get_connection() as conn:
-            now = datetime.now().isoformat()
-
-            if status == 'validated':
-                conn.execute('''
-                    UPDATE properties SET
-                        idx_validation_status = ?,
-                        idx_mls_number = ?,
-                        idx_mls_source = ?,
-                        original_mls_number = COALESCE(?, original_mls_number, mls_number),
-                        idx_validated_at = ?,
-                        sync_status = 'pending',
-                        updated_at = ?
-                    WHERE id = ?
-                ''', (status, idx_mls_number, idx_mls_source, original_mls_number, now, now, property_id))
-            else:
-                conn.execute('''
-                    UPDATE properties SET
-                        idx_validation_status = ?,
-                        original_mls_number = COALESCE(original_mls_number, mls_number),
-                        idx_validated_at = ?,
-                        sync_status = 'pending',
-                        updated_at = ?
-                    WHERE id = ?
-                ''', (status, now, now, property_id))
-
-            conn.commit()
-            return True
+    def update_idx_validation(self, property_id: str, status: str,
+                               idx_mls_number: Optional[str] = None,
+                               idx_mls_source: Optional[str] = None,
+                               original_mls_number: Optional[str] = None) -> bool:
+        """Legacy: IDX validation no longer applies (Navica provides data directly)."""
+        return False
 
     # ==========================================
     # MATCH OPERATIONS
@@ -2211,10 +1926,10 @@ class DREAMSDatabase:
             if mls_numbers:
                 placeholders = ','.join(['?' for _ in mls_numbers])
                 props = conn.execute(f'''
-                    SELECT mls_number, idx_mls_number, city, county, beds, baths, sqft, acreage
-                    FROM properties
-                    WHERE mls_number IN ({placeholders}) OR idx_mls_number IN ({placeholders})
-                ''', list(mls_numbers) + list(mls_numbers)).fetchall()
+                    SELECT mls_number, NULL as idx_mls_number, city, county, beds, baths, sqft, acreage
+                    FROM listings
+                    WHERE mls_number IN ({placeholders})
+                ''', list(mls_numbers)).fetchall()
                 for prop in props:
                     # Cache by both mls_number and idx_mls_number
                     if prop[0]:
@@ -3176,94 +2891,18 @@ class DREAMSDatabase:
     ) -> List[Dict[str, Any]]:
         """
         Get property changes within the specified time window.
-
-        Args:
-            hours: Number of hours to look back (default 24)
-            change_type: Optional filter by change type
-            notified_only: Only return changes that have been notified
-            unnotified_only: Only return changes that haven't been notified
-            limit: Maximum number of records to return
+        Note: property_changes table dropped during Navica migration.
+        Will be rebuilt by Navica sync change detection.
         """
-        cutoff = (datetime.now() - timedelta(hours=hours)).isoformat()
-
-        query = 'SELECT * FROM property_changes WHERE detected_at >= ?'
-        params = [cutoff]
-
-        if change_type:
-            query += ' AND change_type = ?'
-            params.append(change_type)
-
-        if notified_only:
-            query += ' AND notified = 1'
-        elif unnotified_only:
-            query += ' AND notified = 0'
-
-        query += ' ORDER BY detected_at DESC LIMIT ?'
-        params.append(limit)
-
-        with self._get_connection() as conn:
-            rows = conn.execute(query, params).fetchall()
-            return [dict(row) for row in rows]
+        return []
 
     def get_todays_changes(self) -> Dict[str, List[Dict[str, Any]]]:
-        """
-        Get today's property changes organized by type.
-
-        Returns:
-            Dict with keys 'price', 'status', 'other' containing lists of changes
-        """
-        # Get start of today (midnight)
-        today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        cutoff = today_start.isoformat()
-
-        with self._get_connection() as conn:
-            rows = conn.execute('''
-                SELECT * FROM property_changes
-                WHERE detected_at >= ?
-                ORDER BY detected_at DESC
-            ''', (cutoff,)).fetchall()
-
-            changes = {
-                'price': [],
-                'status': [],
-                'other': []
-            }
-
-            for row in rows:
-                change = dict(row)
-                change_type = change.get('change_type', '')
-
-                if change_type == 'price':
-                    changes['price'].append(change)
-                elif change_type == 'status':
-                    changes['status'].append(change)
-                else:
-                    changes['other'].append(change)
-
-            return changes
+        """Get today's property changes. Stub until Navica change tracking is active."""
+        return {'price': [], 'status': [], 'other': []}
 
     def mark_changes_notified(self, change_ids: List[str]) -> int:
-        """
-        Mark changes as notified (included in a report).
-
-        Args:
-            change_ids: List of change IDs to mark
-
-        Returns:
-            Number of records updated
-        """
-        if not change_ids:
-            return 0
-
-        with self._get_connection() as conn:
-            placeholders = ', '.join(['?' for _ in change_ids])
-            cursor = conn.execute(f'''
-                UPDATE property_changes
-                SET notified = 1
-                WHERE id IN ({placeholders})
-            ''', change_ids)
-            conn.commit()
-            return cursor.rowcount
+        """Stub until Navica change tracking is active."""
+        return 0
 
     def get_property_price_history(self, property_id: str) -> List[Dict[str, Any]]:
         """
@@ -3286,10 +2925,11 @@ class DREAMSDatabase:
         history = []
 
         with self._get_connection() as conn:
-            # Get the property details
+            # Get the property details from listings table
             prop = conn.execute('''
-                SELECT id, address, price, initial_price, list_date, created_at
-                FROM properties WHERE id = ?
+                SELECT id, address, list_price as price, list_price as initial_price,
+                       list_date, captured_at as created_at
+                FROM listings WHERE id = ?
             ''', [property_id]).fetchone()
 
             if not prop:
@@ -3297,54 +2937,16 @@ class DREAMSDatabase:
 
             prop_dict = dict(prop)
 
-            # Add initial list price if available
-            if prop_dict.get('initial_price'):
-                list_date = prop_dict.get('list_date') or prop_dict.get('created_at', '')[:10]
+            # Add list price as the only data point for now
+            # (property_changes table will be rebuilt by Navica sync)
+            list_price = prop_dict.get('price')
+            list_date = prop_dict.get('list_date') or prop_dict.get('created_at', '')[:10]
+            if list_price and list_date:
                 history.append({
                     'date': list_date,
-                    'price': prop_dict['initial_price'],
+                    'price': list_price,
                     'event': 'Listed'
                 })
-
-            # Get all price changes for this property
-            changes = conn.execute('''
-                SELECT old_value, new_value, change_amount, detected_at
-                FROM property_changes
-                WHERE property_id = ? AND change_type = 'price'
-                ORDER BY detected_at ASC
-            ''', [property_id]).fetchall()
-
-            for change in changes:
-                c = dict(change)
-                try:
-                    # Parse the price from old_value/new_value (might be formatted)
-                    new_price = int(c['new_value'].replace('$', '').replace(',', ''))
-                    change_amt = c.get('change_amount', 0)
-
-                    if change_amt and change_amt < 0:
-                        event = f'Price Reduced (${abs(change_amt):,})'
-                    elif change_amt and change_amt > 0:
-                        event = f'Price Increased (${change_amt:,})'
-                    else:
-                        event = 'Price Change'
-
-                    history.append({
-                        'date': c['detected_at'][:10],
-                        'price': new_price,
-                        'event': event
-                    })
-                except (ValueError, TypeError, AttributeError):
-                    continue
-
-            # Add current price if different from last history point
-            current_price = prop_dict.get('price')
-            if current_price:
-                if not history or history[-1]['price'] != current_price:
-                    history.append({
-                        'date': datetime.now().strftime('%Y-%m-%d'),
-                        'price': current_price,
-                        'event': 'Current'
-                    })
 
             # Sort by date
             history.sort(key=lambda x: x['date'])

@@ -48,16 +48,16 @@ def capture_market_snapshot(snapshot_date: Optional[str] = None) -> Dict[str, An
         # Calculate date range for "new listings" (last 7 days)
         week_ago = (datetime.strptime(snapshot_date, '%Y-%m-%d') - timedelta(days=7)).strftime('%Y-%m-%d')
 
-        # Overall statistics
+        # Overall statistics (from listings table)
         overall = conn.execute('''
             SELECT
-                COUNT(*) FILTER (WHERE status = 'active') as total_active,
-                COUNT(*) FILTER (WHERE status = 'active' AND created_at >= ?) as new_listings,
-                AVG(price) FILTER (WHERE status = 'active') as avg_price,
-                AVG(days_on_market) FILTER (WHERE status = 'active') as avg_dom,
-                COUNT(*) FILTER (WHERE status = 'pending') as pending_count,
-                COUNT(*) FILTER (WHERE status = 'sold' AND updated_at >= ?) as sold_count
-            FROM properties
+                COUNT(*) FILTER (WHERE LOWER(status) = 'active') as total_active,
+                COUNT(*) FILTER (WHERE LOWER(status) = 'active' AND captured_at >= ?) as new_listings,
+                AVG(list_price) FILTER (WHERE LOWER(status) = 'active') as avg_price,
+                AVG(days_on_market) FILTER (WHERE LOWER(status) = 'active') as avg_dom,
+                COUNT(*) FILTER (WHERE LOWER(status) = 'pending') as pending_count,
+                COUNT(*) FILTER (WHERE LOWER(status) = 'sold' AND updated_at >= ?) as sold_count
+            FROM listings
             WHERE county IN ({})
         '''.format(','.join(['?' for _ in config.TRACKED_COUNTIES])),
             [week_ago, week_ago] + config.TRACKED_COUNTIES
@@ -65,8 +65,8 @@ def capture_market_snapshot(snapshot_date: Optional[str] = None) -> Dict[str, An
 
         # Get all active prices for median calculation
         prices = conn.execute('''
-            SELECT price FROM properties
-            WHERE status = 'active' AND price IS NOT NULL
+            SELECT list_price as price FROM listings
+            WHERE LOWER(status) = 'active' AND list_price IS NOT NULL
             AND county IN ({})
         '''.format(','.join(['?' for _ in config.TRACKED_COUNTIES])),
             config.TRACKED_COUNTIES
@@ -74,13 +74,8 @@ def capture_market_snapshot(snapshot_date: Optional[str] = None) -> Dict[str, An
 
         median_price = median([p['price'] for p in prices]) if prices else None
 
-        # Count price reductions this week
-        price_reduced = conn.execute('''
-            SELECT COUNT(*) as count FROM property_changes
-            WHERE change_type = 'price'
-            AND change_amount < 0
-            AND detected_at >= ?
-        ''', [week_ago]).fetchone()['count']
+        # Price reductions not tracked until Navica change detection is active
+        price_reduced = 0
 
         # Store overall snapshot
         conn.execute('''
@@ -125,12 +120,12 @@ def capture_market_snapshot(snapshot_date: Optional[str] = None) -> Dict[str, An
         for county in config.TRACKED_COUNTIES:
             county_stats = conn.execute('''
                 SELECT
-                    COUNT(*) FILTER (WHERE status = 'active') as total_active,
-                    COUNT(*) FILTER (WHERE status = 'active' AND created_at >= ?) as new_listings,
-                    AVG(price) FILTER (WHERE status = 'active') as avg_price,
-                    AVG(days_on_market) FILTER (WHERE status = 'active') as avg_dom,
-                    COUNT(*) FILTER (WHERE status = 'pending') as pending_count
-                FROM properties
+                    COUNT(*) FILTER (WHERE LOWER(status) = 'active') as total_active,
+                    COUNT(*) FILTER (WHERE LOWER(status) = 'active' AND captured_at >= ?) as new_listings,
+                    AVG(list_price) FILTER (WHERE LOWER(status) = 'active') as avg_price,
+                    AVG(days_on_market) FILTER (WHERE LOWER(status) = 'active') as avg_dom,
+                    COUNT(*) FILTER (WHERE LOWER(status) = 'pending') as pending_count
+                FROM listings
                 WHERE county = ?
             ''', [week_ago, county]).fetchone()
 
@@ -290,12 +285,12 @@ def generate_weekly_summary() -> Dict[str, Any]:
     try:
         week_ago = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
         notable = conn.execute('''
-            SELECT address, city, price, beds, baths, acreage, views, water_features
-            FROM properties
-            WHERE status = 'active'
-            AND created_at >= ?
+            SELECT address, city, list_price as price, beds, baths, acreage, views
+            FROM listings
+            WHERE LOWER(status) = 'active'
+            AND captured_at >= ?
             AND county IN ({})
-            ORDER BY price DESC
+            ORDER BY list_price DESC
             LIMIT 5
         '''.format(','.join(['?' for _ in config.TRACKED_COUNTIES])),
             [week_ago] + config.TRACKED_COUNTIES
@@ -308,8 +303,6 @@ def generate_weekly_summary() -> Dict[str, Any]:
                 note_parts.append(f"{prop['acreage']} acres")
             if prop['views']:
                 note_parts.append(prop['views'])
-            if prop['water_features']:
-                note_parts.append(prop['water_features'])
 
             notable_listings.append({
                 'address': f"{prop['address']}, {prop['city']}",
