@@ -4808,9 +4808,14 @@ def _bucket_fub_contacts(people):
                 pass
         # Use fractional days to match FUB's datetime-level comparison
         lc_days_f = lc_hours / 24 if lc_hours < 999999 else 9999
+        emails = p.get('emails', [])
+        email = emails[0].get('value', '') if emails else ''
         return {
             'id': p.get('id'),
+            'first_name': p.get('firstName', ''),
+            'last_name': p.get('lastName', ''),
             'name': f"{p.get('firstName', '')} {p.get('lastName', '')}".strip(),
+            'email': email,
             'phone': phone,
             'stage': p.get('stage', ''),
             'contacted': p.get('contacted', 0),
@@ -5125,6 +5130,136 @@ def api_smart_list_compare(dreams_key):
         'fub_only': fub_only,
         'dreams_only': dreams_only,
     })
+
+
+# ── Smart List Export: CSV + Google Sheets ─────────────────────────────
+
+# dreams_key -> display name for filenames/tab names
+_SMART_LIST_NAMES = {v['dreams_key']: k for k, v in SMART_LIST_MAP.items()}
+
+
+@app.route('/api/smart-lists/<dreams_key>/csv')
+@requires_auth
+def api_smart_list_csv(dreams_key):
+    """Download DREAMS contacts for a smart list as CSV."""
+    valid_keys = {v['dreams_key'] for v in SMART_LIST_MAP.values()}
+    if dreams_key not in valid_keys:
+        return jsonify({'success': False, 'error': 'Invalid list key'}), 400
+
+    db = get_db()
+    dreams_lists = db.get_fub_style_lists(user_id=CURRENT_USER_ID, limit=500)
+    contacts = dreams_lists.get(dreams_key, [])
+
+    import io, csv
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(['First Name', 'Last Name', 'ID', 'Email', 'Phone'])
+    for c in contacts:
+        writer.writerow([
+            c.get('first_name', ''),
+            c.get('last_name', ''),
+            c.get('fub_id', c.get('id', '')),
+            c.get('email', ''),
+            c.get('phone', ''),
+        ])
+
+    list_name = _SMART_LIST_NAMES.get(dreams_key, dreams_key).replace(' ', '')
+    date_prefix = datetime.now().strftime('%y%m%d')
+    filename = f"{date_prefix}.DREAMS.{list_name}.csv"
+
+    return Response(
+        buf.getvalue(),
+        mimetype='text/csv',
+        headers={'Content-Disposition': f'attachment; filename="{filename}"'}
+    )
+
+
+@app.route('/api/smart-lists/<dreams_key>/sheets', methods=['POST'])
+@requires_auth
+def api_smart_list_sheets(dreams_key):
+    """Push a smart list to a Google Sheets tab. Handles both FUB and DREAMS sources."""
+    valid_keys = {v['dreams_key'] for v in SMART_LIST_MAP.values()}
+    if dreams_key not in valid_keys:
+        return jsonify({'success': False, 'error': 'Invalid list key'}), 400
+
+    data = request.get_json(silent=True) or {}
+    source = data.get('source', 'dreams')
+    if source not in ('fub', 'dreams'):
+        return jsonify({'success': False, 'error': 'source must be fub or dreams'}), 400
+
+    # Build rows
+    rows = []
+    if source == 'dreams':
+        db = get_db()
+        dreams_lists = db.get_fub_style_lists(user_id=CURRENT_USER_ID, limit=500)
+        contacts = dreams_lists.get(dreams_key, [])
+        for c in contacts:
+            rows.append([
+                c.get('first_name', ''),
+                c.get('last_name', ''),
+                str(c.get('fub_id', c.get('id', ''))),
+                c.get('email', ''),
+                c.get('phone', ''),
+            ])
+    else:
+        # FUB source: contacts sent from the client
+        contacts = data.get('contacts', [])
+        for c in contacts:
+            rows.append([
+                c.get('first_name', ''),
+                c.get('last_name', ''),
+                str(c.get('id', '')),
+                c.get('email', ''),
+                c.get('phone', ''),
+            ])
+
+    list_name = _SMART_LIST_NAMES.get(dreams_key, dreams_key)
+    tab_name = f"{source.upper()}: {list_name}"
+
+    # Google Sheets auth (reuse service account from fub-to-sheets)
+    sheet_id = os.getenv('GOOGLE_SHEET_ID')
+    sa_path = PROJECT_ROOT / 'service_account.json'
+    if not sheet_id or not sa_path.exists():
+        return jsonify({'success': False, 'error': 'Google Sheets not configured'}), 500
+
+    try:
+        import gspread
+        from google.oauth2.service_account import Credentials
+
+        creds = Credentials.from_service_account_file(
+            str(sa_path),
+            scopes=[
+                'https://www.googleapis.com/auth/spreadsheets',
+                'https://www.googleapis.com/auth/drive',
+            ]
+        )
+        gc = gspread.authorize(creds)
+        sh = gc.open_by_key(sheet_id)
+
+        # Get or create worksheet
+        try:
+            ws = sh.worksheet(tab_name)
+        except gspread.exceptions.WorksheetNotFound:
+            ws = sh.add_worksheet(title=tab_name, rows=max(len(rows) + 10, 100), cols=10)
+
+        # Clear and write
+        ws.clear()
+        header = ['First Name', 'Last Name', 'ID', 'Email', 'Phone']
+        all_data = [header] + rows
+        if all_data:
+            ws.update(all_data, value_input_option='USER_ENTERED')
+
+        sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}"
+        return jsonify({
+            'success': True,
+            'tab_name': tab_name,
+            'row_count': len(rows),
+            'sheet_url': sheet_url,
+        })
+
+    except Exception as e:
+        logger.error(f"Sheets export failed: {e}")
+        return jsonify({'success': False, 'error': 'Failed to write to Google Sheets'}), 500
 
 
 if __name__ == '__main__':

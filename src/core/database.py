@@ -3763,6 +3763,7 @@ class DREAMSDatabase:
                     l.id,
                     l.first_name,
                     l.last_name,
+                    l.email,
                     l.phone,
                     l.stage,
                     l.heat_score,
