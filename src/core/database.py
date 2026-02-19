@@ -1805,9 +1805,9 @@ class DREAMSDatabase:
         """Get matches for a lead, ordered by score."""
         with self._get_connection() as conn:
             rows = conn.execute('''
-                SELECT m.*, p.address, p.city, p.price, p.beds, p.baths
+                SELECT m.*, p.address, p.city, p.list_price as price, p.beds, p.baths
                 FROM matches m
-                JOIN properties p ON m.property_id = p.id
+                JOIN listings p ON m.property_id = p.id
                 WHERE m.lead_id = ? AND m.total_score >= ?
                 ORDER BY m.total_score DESC
                 LIMIT ?
@@ -2698,7 +2698,7 @@ class DREAMSDatabase:
             rows = conn.execute('''
                 SELECT
                     COALESCE(e.property_address, p.address, c.address) as property_address,
-                    COALESCE(MAX(e.property_price), p.price, c.price) as property_price,
+                    COALESCE(MAX(e.property_price), p.list_price, c.price) as property_price,
                     e.property_mls,
                     COUNT(CASE WHEN e.event_type IN ('property_view', 'property_favorite', 'property_share') THEN 1 END) as view_count,
                     MAX(CASE WHEN e.event_type = 'property_favorite' THEN 1 ELSE 0 END) as is_favorited,
@@ -2706,7 +2706,7 @@ class DREAMSDatabase:
                     MIN(e.occurred_at) as first_viewed,
                     MAX(e.occurred_at) as last_viewed
                 FROM contact_events e
-                LEFT JOIN properties p ON e.property_mls = p.mls_number
+                LEFT JOIN listings p ON e.property_mls = p.mls_number
                 LEFT JOIN idx_property_cache c ON e.property_mls = c.mls_number
                 WHERE e.contact_id = ?
                     AND (e.property_mls IS NOT NULL OR e.property_address IS NOT NULL)
@@ -3235,7 +3235,7 @@ class DREAMSDatabase:
                     p.beds,
                     p.baths
                 FROM property_changes pc
-                LEFT JOIN properties p ON pc.property_id = p.id
+                LEFT JOIN listings p ON pc.property_id = p.id
                 WHERE pc.change_type = 'price'
                 AND pc.change_amount < 0
                 AND pc.detected_at >= ?
@@ -3253,9 +3253,9 @@ class DREAMSDatabase:
                     pc.new_value,
                     pc.detected_at,
                     p.city,
-                    p.price
+                    p.list_price as price
                 FROM property_changes pc
-                LEFT JOIN properties p ON pc.property_id = p.id
+                LEFT JOIN listings p ON pc.property_id = p.id
                 WHERE pc.change_type = 'status'
                 AND pc.detected_at >= ?
                 AND LOWER(pc.old_value) != LOWER(pc.new_value)
@@ -3893,14 +3893,14 @@ class DREAMSDatabase:
                     pr.id as property_id,
                     pr.address,
                     pr.city,
-                    pr.price,
+                    pr.list_price as price,
                     pr.beds,
                     pr.baths,
                     pr.sqft,
                     pr.status as property_status,
-                    pr.photo_urls
+                    pr.primary_photo as photo_urls
                 FROM pursuit_properties pp
-                JOIN properties pr ON pp.property_id = pr.id
+                JOIN listings pr ON pp.property_id = pr.id
                 WHERE pp.pursuit_id = ?
                 ORDER BY pp.added_at DESC
             ''', [pursuit_id]).fetchall()
@@ -4016,10 +4016,9 @@ class DREAMSDatabase:
                     l.primary_photo,
                     l.mls_url,
                     l.idx_url,
-                    p.latitude,
-                    p.longitude
+                    l.latitude,
+                    l.longitude
                 FROM listings l
-                LEFT JOIN parcels p ON l.parcel_id = p.id
                 WHERE {where_clause}
                 ORDER BY l.list_date DESC
                 LIMIT ?
@@ -6290,7 +6289,7 @@ class DREAMSDatabase:
                     p.city,
                     p.beds,
                     p.baths,
-                    p.price,
+                    p.list_price as price,
                     -- Try to find a matching buyer
                     (SELECT l.first_name || ' ' || l.last_name
                      FROM leads l
@@ -6300,7 +6299,7 @@ class DREAMSDatabase:
                      AND CAST(pc.new_value AS INTEGER) BETWEEN l.min_price AND l.max_price
                      LIMIT 1) AS buyer_match_name
                 FROM property_changes pc
-                LEFT JOIN properties p ON pc.property_id = p.id
+                LEFT JOIN listings p ON pc.property_id = p.id
                 WHERE pc.change_type = 'price'
                 AND pc.change_amount < 0
                 AND pc.detected_at >= ?

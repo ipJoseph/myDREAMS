@@ -327,7 +327,7 @@ class PropertyMonitor:
             query = '''
                 SELECT pc.*, p.address, p.city, p.county, p.list_price
                 FROM property_changes pc
-                JOIN properties p ON pc.property_id = p.id
+                JOIN listings p ON pc.property_id = p.id
                 WHERE pc.detected_at >= datetime('now', ?)
             '''
             params = [f'-{days} days']

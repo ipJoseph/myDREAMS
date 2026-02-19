@@ -4427,11 +4427,8 @@ def photos_dashboard():
                 l.primary_photo, l.photo_source, l.photo_confidence, l.photo_review_status,
                 l.redfin_url, l.idx_url, l.mls_number, l.mls_source,
                 l.listing_agent_name, l.listing_agent_phone, l.listing_office_name,
-                p.elevation_feet, p.slope_percent, p.aspect, p.flood_zone,
-                p.flood_factor, p.view_potential, p.wildfire_risk, p.wildfire_score,
-                p.latitude, p.longitude, p.assessed_value
+                l.latitude, l.longitude
             FROM listings l
-            LEFT JOIN parcels p ON l.parcel_id = p.id
             {base_where} {extra_where}
             ORDER BY {order_by}
             LIMIT ? OFFSET ?
@@ -4493,13 +4490,8 @@ def api_listing_detail(listing_id):
 
     with db._get_connection() as conn:
         row = conn.execute('''
-            SELECT
-                l.*,
-                p.address, p.city, p.county, p.state, p.zip,
-                p.latitude, p.longitude, p.acreage, p.apn,
-                p.owner_name, p.owner_phone, p.assessed_value
+            SELECT l.*
             FROM listings l
-            JOIN parcels p ON l.parcel_id = p.id
             WHERE l.id = ?
         ''', [listing_id]).fetchone()
 
@@ -4560,17 +4552,8 @@ def data_quality():
         ORDER BY count DESC
     """).fetchall()
 
-    # Parcels stats
-    parcels_stats = db_conn.execute("""
-        SELECT
-            COUNT(*) as total,
-            COUNT(CASE WHEN latitude IS NOT NULL AND latitude != 0 THEN 1 END) as has_coords,
-            COUNT(CASE WHEN flood_zone IS NOT NULL AND flood_zone != '' THEN 1 END) as has_flood,
-            COUNT(CASE WHEN elevation_feet IS NOT NULL THEN 1 END) as has_elevation,
-            COUNT(CASE WHEN spatial_enriched_at IS NOT NULL THEN 1 END) as spatially_enriched,
-            MAX(spatial_enriched_at) as last_spatial_enrichment
-        FROM parcels
-    """).fetchone()
+    # Parcels stats (parcels table retired in Navica migration; spatial data now on listings)
+    parcels_stats = {'total': 0, 'has_coords': 0, 'has_flood': 0, 'has_elevation': 0, 'spatially_enriched': 0, 'last_spatial_enrichment': None}
 
     # Photo coverage by source
     photo_stats = db_conn.execute("""
@@ -4651,9 +4634,7 @@ def api_data_quality():
             (SELECT COUNT(*) FROM listings) as total_listings,
             (SELECT COUNT(*) FROM listings WHERE mls_number IS NOT NULL AND mls_number != '') as listings_with_mls,
             (SELECT COUNT(*) FROM listings WHERE primary_photo IS NOT NULL AND primary_photo != '') as listings_with_photos,
-            (SELECT COUNT(*) FROM listings WHERE latitude IS NOT NULL AND latitude != 0) as listings_with_coords,
-            (SELECT COUNT(*) FROM parcels) as total_parcels,
-            (SELECT COUNT(*) FROM parcels WHERE spatial_enriched_at IS NOT NULL) as parcels_enriched
+            (SELECT COUNT(*) FROM listings WHERE latitude IS NOT NULL AND latitude != 0) as listings_with_coords
     """).fetchone()
 
     return jsonify({
@@ -4664,11 +4645,6 @@ def api_data_quality():
             'with_coords': stats['listings_with_coords'],
             'mls_coverage_pct': round(stats['listings_with_mls'] / stats['total_listings'] * 100, 1) if stats['total_listings'] else 0,
             'photo_coverage_pct': round(stats['listings_with_photos'] / stats['total_listings'] * 100, 1) if stats['total_listings'] else 0,
-        },
-        'parcels': {
-            'total': stats['total_parcels'],
-            'spatially_enriched': stats['parcels_enriched'],
-            'enrichment_pct': round(stats['parcels_enriched'] / stats['total_parcels'] * 100, 1) if stats['total_parcels'] else 0,
         },
         'timestamp': datetime.now().isoformat(),
     })

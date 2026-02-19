@@ -99,7 +99,7 @@ def get_property_activity(fub_id):
             p.acreage,
             p.sqft
         FROM contact_events ce
-        LEFT JOIN properties p ON ce.property_mls = p.mls_number
+        LEFT JOIN listings p ON ce.property_mls = p.mls_number
         WHERE ce.contact_id = ?
           AND ce.event_type IN ('property_view', 'property_favorite')
         ORDER BY ce.occurred_at DESC

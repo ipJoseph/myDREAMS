@@ -83,7 +83,7 @@ def get_package_data(package_id: str) -> Optional[Dict[str, Any]]:
                 pr.photo_urls, pr.zillow_url, pr.redfin_url, pr.idx_url, pr.notes,
                 pp.display_order, pp.agent_notes as package_notes
             FROM package_properties pp
-            JOIN properties pr ON pr.id = pp.property_id
+            JOIN listings pr ON pr.id = pp.property_id
             WHERE pp.package_id = ?
             ORDER BY pp.display_order, pp.added_at
         ''', [package_id]).fetchall()
