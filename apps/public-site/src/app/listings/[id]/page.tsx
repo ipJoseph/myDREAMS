@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import Image from "next/image";
 import { notFound } from "next/navigation";
 import { getListing, formatPrice, formatNumber } from "@/lib/api";
+import PhotoBrowser from "@/components/PhotoBrowser";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -89,48 +89,7 @@ export default async function ListingDetailPage({ params }: PageProps) {
 
       {/* Photo gallery */}
       <section className="bg-[var(--color-dark)]">
-        <div className="max-w-7xl mx-auto">
-          {allPhotos.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-1 max-h-[500px] overflow-hidden">
-              <div className="aspect-[4/3] md:aspect-auto md:row-span-2 relative">
-                <Image
-                  src={allPhotos[0]}
-                  alt={`${listing.address}, ${listing.city}`}
-                  fill
-                  sizes="(max-width: 768px) 100vw, 50vw"
-                  className="object-cover"
-                  priority
-                />
-              </div>
-              <div className="hidden md:grid grid-cols-2 gap-1">
-                {allPhotos.slice(1, 5).map((photo: string, i: number) => (
-                  <div key={i} className="aspect-[4/3] relative">
-                    <Image
-                      src={photo}
-                      alt={`Photo ${i + 2}`}
-                      fill
-                      sizes="25vw"
-                      className="object-cover"
-                      loading="lazy"
-                    />
-                    {i === 3 && allPhotos.length > 5 && (
-                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white font-semibold text-lg">
-                        +{allPhotos.length - 5} more
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div className="h-64 flex items-center justify-center text-white/30">
-              <svg className="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                  d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0h4" />
-              </svg>
-            </div>
-          )}
-        </div>
+        <PhotoBrowser photos={allPhotos} address={listing.address} city={listing.city} />
       </section>
 
       {/* Listing details */}
