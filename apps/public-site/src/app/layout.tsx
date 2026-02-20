@@ -1,25 +1,14 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
 export const metadata: Metadata = {
   title: {
-    default: "WNC Mountain Homes | Western NC Real Estate",
-    template: "%s | WNC Mountain Homes",
+    default: "Jon Tharp Homes | Western NC Real Estate",
+    template: "%s | Jon Tharp Homes",
   },
   description:
-    "Search homes for sale in Western North Carolina. Franklin, Waynesville, Sylva, Bryson City, and the Great Smoky Mountains.",
+    "Search homes, land, and investment properties for sale in Western North Carolina. Franklin, Waynesville, Sylva, Bryson City, and the Great Smoky Mountains.",
   keywords: [
     "Western NC real estate",
     "homes for sale WNC",
@@ -27,54 +16,58 @@ export const metadata: Metadata = {
     "Waynesville NC real estate",
     "Smoky Mountain homes",
     "mountain homes for sale",
+    "Jon Tharp Homes",
+    "Keller Williams Franklin NC",
   ],
 };
 
 function Header() {
   return (
-    <header className="bg-[var(--color-primary)] text-white border-b border-white/10">
-      <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          <Link href="/" className="text-xl font-bold tracking-tight">
-            WNC Mountain Homes
+    <header className="absolute top-0 left-0 right-0 z-50">
+      <nav className="max-w-7xl mx-auto px-6 lg:px-8">
+        <div className="flex items-center justify-between h-20">
+          <Link href="/" className="text-white">
+            <span className="text-2xl font-bold tracking-tight" style={{ fontFamily: "Georgia, serif" }}>
+              Jon Tharp Homes
+            </span>
           </Link>
           {/* Desktop nav */}
-          <div className="hidden md:flex items-center gap-6 text-sm">
-            <Link href="/listings" className="hover:text-gray-200 transition">
-              Search Properties
+          <div className="hidden md:flex items-center gap-8 text-sm tracking-wide uppercase">
+            <Link href="/listings" className="text-white/80 hover:text-[var(--color-accent)] transition">
+              Properties
             </Link>
-            <Link href="/areas" className="hover:text-gray-200 transition">
-              Areas We Serve
+            <Link href="/areas" className="text-white/80 hover:text-[var(--color-accent)] transition">
+              Areas
             </Link>
-            <Link href="/about" className="hover:text-gray-200 transition">
+            <Link href="/about" className="text-white/80 hover:text-[var(--color-accent)] transition">
               About
             </Link>
             <Link
               href="/contact"
-              className="bg-white text-[var(--color-primary)] px-4 py-2 rounded-md font-medium hover:bg-gray-100 transition"
+              className="text-[var(--color-accent)] border border-[var(--color-accent)] px-5 py-2 hover:bg-[var(--color-accent)] hover:text-[var(--color-primary)] transition"
             >
-              Contact Us
+              Contact
             </Link>
           </div>
-          {/* Mobile nav toggle (CSS-only using details/summary) */}
+          {/* Mobile nav */}
           <details className="md:hidden relative">
-            <summary className="list-none cursor-pointer p-2">
+            <summary className="list-none cursor-pointer p-2 text-white">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </summary>
-            <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-lg shadow-lg py-2 z-50">
-              <Link href="/listings" className="block px-4 py-3 text-gray-700 hover:bg-gray-50">
-                Search Properties
+            <div className="absolute right-0 top-full mt-2 w-60 bg-[var(--color-primary)] border border-white/10 shadow-2xl py-2 z-50">
+              <Link href="/listings" className="block px-6 py-3 text-white/80 hover:text-[var(--color-accent)] text-sm uppercase tracking-wide">
+                Properties
               </Link>
-              <Link href="/areas" className="block px-4 py-3 text-gray-700 hover:bg-gray-50">
-                Areas We Serve
+              <Link href="/areas" className="block px-6 py-3 text-white/80 hover:text-[var(--color-accent)] text-sm uppercase tracking-wide">
+                Areas
               </Link>
-              <Link href="/about" className="block px-4 py-3 text-gray-700 hover:bg-gray-50">
+              <Link href="/about" className="block px-6 py-3 text-white/80 hover:text-[var(--color-accent)] text-sm uppercase tracking-wide">
                 About
               </Link>
-              <Link href="/contact" className="block px-4 py-3 text-[var(--color-primary)] font-medium hover:bg-gray-50">
-                Contact Us
+              <Link href="/contact" className="block px-6 py-3 text-[var(--color-accent)] text-sm uppercase tracking-wide">
+                Contact
               </Link>
             </div>
           </details>
@@ -86,21 +79,52 @@ function Header() {
 
 function Footer() {
   return (
-    <footer className="bg-gray-900 text-gray-400 mt-auto">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div>
-            <h3 className="text-white font-semibold mb-3">
-              WNC Mountain Homes
+    <footer className="bg-[var(--color-primary)] text-white/70">
+      <div className="max-w-7xl mx-auto px-6 lg:px-8 py-16">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
+          {/* Brand */}
+          <div className="md:col-span-1">
+            <h3 className="text-white text-xl mb-4" style={{ fontFamily: "Georgia, serif" }}>
+              Jon Tharp Homes
             </h3>
-            <p className="text-sm">
-              Jon Tharp Homes | Keller Williams
+            <p className="text-sm leading-relaxed">
+              A Keller Williams Team
               <br />
-              Serving Western North Carolina
+              1573 Highlands Rd
+              <br />
+              Franklin, NC 28734
             </p>
           </div>
+
+          {/* Contact */}
           <div>
-            <h3 className="text-white font-semibold mb-3">Quick Links</h3>
+            <h4 className="text-[var(--color-accent)] text-xs uppercase tracking-widest mb-4">
+              Contact
+            </h4>
+            <ul className="space-y-2 text-sm">
+              <li>
+                <a href="tel:8283479474" className="hover:text-white transition">
+                  (828) 347-9474
+                </a>
+              </li>
+              <li>
+                <a href="tel:8283479055" className="hover:text-white transition">
+                  Office: (828) 347-9055
+                </a>
+              </li>
+              <li>
+                <a href="https://jontharphomes.com" className="hover:text-white transition">
+                  JonTharpHomes.com
+                </a>
+              </li>
+            </ul>
+          </div>
+
+          {/* Quick Links */}
+          <div>
+            <h4 className="text-[var(--color-accent)] text-xs uppercase tracking-widest mb-4">
+              Explore
+            </h4>
             <ul className="space-y-2 text-sm">
               <li>
                 <Link href="/listings" className="hover:text-white transition">
@@ -124,18 +148,38 @@ function Footer() {
               </li>
             </ul>
           </div>
+
+          {/* Social + MLS */}
           <div>
-            <h3 className="text-white font-semibold mb-3">MLS Disclosure</h3>
+            <h4 className="text-[var(--color-accent)] text-xs uppercase tracking-widest mb-4">
+              Follow Us
+            </h4>
+            <div className="flex gap-4 mb-6">
+              <a href="https://facebook.com/jontharphomes" target="_blank" rel="noopener noreferrer"
+                className="w-9 h-9 border border-white/20 flex items-center justify-center hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] transition">
+                <span className="text-xs font-bold">f</span>
+              </a>
+              <a href="https://instagram.com/jontharphomes" target="_blank" rel="noopener noreferrer"
+                className="w-9 h-9 border border-white/20 flex items-center justify-center hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] transition">
+                <span className="text-xs font-bold">ig</span>
+              </a>
+              <a href="https://youtube.com/@jontharphomes" target="_blank" rel="noopener noreferrer"
+                className="w-9 h-9 border border-white/20 flex items-center justify-center hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] transition">
+                <span className="text-xs font-bold">yt</span>
+              </a>
+            </div>
             <p className="text-xs leading-relaxed">
               Listing data provided by Carolina Smokies Association of REALTORS.
               All information deemed reliable but not guaranteed.
-              Data refreshed regularly throughout the day.
             </p>
           </div>
         </div>
-        <div className="border-t border-gray-800 mt-8 pt-8 text-xs text-center">
-          &copy; {new Date().getFullYear()} Jon Tharp Homes | Keller Williams.
-          All rights reserved.
+
+        <div className="border-t border-white/10 mt-12 pt-8 flex flex-col md:flex-row items-center justify-between text-xs">
+          <span>&copy; {new Date().getFullYear()} Jon Tharp Homes | Keller Williams. All rights reserved.</span>
+          <span className="mt-2 md:mt-0 uppercase tracking-widest text-white/40">
+            Residential &middot; Land &middot; Investment &middot; Commercial
+          </span>
         </div>
       </div>
     </footer>
@@ -149,9 +193,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col`}
-      >
+      <body className="antialiased min-h-screen flex flex-col">
         <Header />
         <main className="flex-1">{children}</main>
         <Footer />

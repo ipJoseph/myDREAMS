@@ -1,23 +1,34 @@
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-  --color-primary: #1e3a5f;
-  --color-primary-light: #2c5282;
-  --color-accent: #48bb78;
-  --color-warm: #dd6b20;
+  /* Jon Tharp Homes brand colors */
+  --color-primary: #082d40;       /* Dark teal */
+  --color-primary-light: #0a3d56; /* Lighter teal for hover */
+  --color-accent: #ddab4a;        /* Gold */
+  --color-accent-hover: #c9982e;  /* Gold hover */
+  --color-text: #4e4e4e;          /* Warm gray body text */
+  --color-text-light: #6b6b6b;    /* Lighter gray */
+  --color-eggshell: #f5f2ed;      /* Warm off-white background */
+  --color-dark: #0a1a23;          /* Near-black for dark sections */
+
+  --background: var(--color-eggshell);
+  --foreground: var(--color-text);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: "Open Sans", system-ui, sans-serif;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-sans), system-ui, sans-serif;
+  font-family: "Open Sans", system-ui, sans-serif;
+}
+
+/* Georgia for headings */
+h1, h2, h3, h4, h5, h6 {
+  font-family: Georgia, "Times New Roman", serif;
 }

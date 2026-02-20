@@ -55,12 +55,12 @@ async function ListingsGrid({
   } catch {
     return (
       <div className="text-center py-20">
-        <h3 className="text-xl font-semibold text-gray-900 mb-2">
+        <h3 className="text-xl text-[var(--color-primary)] mb-2">
           Unable to load listings
         </h3>
-        <p className="text-gray-500">
+        <p className="text-[var(--color-text-light)]">
           Please try again in a moment, or{" "}
-          <Link href="/contact" className="text-blue-600 hover:underline">
+          <Link href="/contact" className="text-[var(--color-accent)] hover:underline">
             contact us
           </Link>{" "}
           for help.
@@ -72,12 +72,12 @@ async function ListingsGrid({
   if (listings.length === 0) {
     return (
       <div className="text-center py-20">
-        <h3 className="text-xl font-semibold text-gray-900 mb-2">
+        <h3 className="text-xl text-[var(--color-primary)] mb-2">
           No listings found
         </h3>
-        <p className="text-gray-500">
+        <p className="text-[var(--color-text-light)]">
           Try adjusting your search filters or{" "}
-          <Link href="/listings" className="text-blue-600 hover:underline">
+          <Link href="/listings" className="text-[var(--color-accent)] hover:underline">
             view all listings
           </Link>
           .
@@ -102,20 +102,20 @@ async function ListingsGrid({
     <div>
       {/* Results count */}
       <div className="flex items-center justify-between mb-6">
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-[var(--color-text-light)]">
           Showing{" "}
-          <span className="font-medium text-gray-900">
+          <span className="font-medium text-[var(--color-text)]">
             {(pagination.page - 1) * pagination.limit + 1}
           </span>
           {" - "}
-          <span className="font-medium text-gray-900">
+          <span className="font-medium text-[var(--color-text)]">
             {Math.min(
               pagination.page * pagination.limit,
               pagination.total
             )}
           </span>{" "}
           of{" "}
-          <span className="font-medium text-gray-900">
+          <span className="font-medium text-[var(--color-text)]">
             {pagination.total.toLocaleString()}
           </span>{" "}
           properties
@@ -135,7 +135,7 @@ async function ListingsGrid({
           {pagination.page > 1 && (
             <Link
               href={buildPageUrl(pagination.page - 1)}
-              className="px-4 py-2 border border-gray-300 rounded-md text-sm hover:bg-gray-50"
+              className="px-4 py-2 border border-[var(--color-primary)]/20 text-sm text-[var(--color-primary)] hover:bg-[var(--color-primary)] hover:text-white transition"
             >
               Previous
             </Link>
@@ -157,10 +157,10 @@ async function ListingsGrid({
               <Link
                 key={pageNum}
                 href={buildPageUrl(pageNum)}
-                className={`px-4 py-2 border rounded-md text-sm ${
+                className={`px-4 py-2 border text-sm transition ${
                   pageNum === pagination.page
                     ? "bg-[var(--color-primary)] text-white border-[var(--color-primary)]"
-                    : "border-gray-300 hover:bg-gray-50"
+                    : "border-[var(--color-primary)]/20 text-[var(--color-primary)] hover:bg-[var(--color-primary)] hover:text-white"
                 }`}
               >
                 {pageNum}
@@ -171,7 +171,7 @@ async function ListingsGrid({
           {pagination.page < pagination.pages && (
             <Link
               href={buildPageUrl(pagination.page + 1)}
-              className="px-4 py-2 border border-gray-300 rounded-md text-sm hover:bg-gray-50"
+              className="px-4 py-2 border border-[var(--color-primary)]/20 text-sm text-[var(--color-primary)] hover:bg-[var(--color-primary)] hover:text-white transition"
             >
               Next
             </Link>
@@ -186,7 +186,10 @@ export default async function ListingsPage({ searchParams }: PageProps) {
   const params = await searchParams;
 
   return (
-    <div>
+    <div className="bg-[var(--color-eggshell)] min-h-screen">
+      {/* Spacer for transparent header */}
+      <div className="h-20 bg-[var(--color-primary)]" />
+
       <Suspense fallback={null}>
         <SearchFilters />
       </Suspense>
@@ -195,8 +198,8 @@ export default async function ListingsPage({ searchParams }: PageProps) {
         <Suspense
           fallback={
             <div className="text-center py-20">
-              <div className="inline-block w-8 h-8 border-4 border-gray-300 border-t-blue-500 rounded-full animate-spin" />
-              <p className="text-gray-500 mt-4">Loading listings...</p>
+              <div className="inline-block w-8 h-8 border-4 border-[var(--color-primary)]/20 border-t-[var(--color-accent)] rounded-full animate-spin" />
+              <p className="text-[var(--color-text-light)] mt-4">Loading listings...</p>
             </div>
           }
         >

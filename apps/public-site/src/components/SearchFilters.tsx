@@ -55,7 +55,6 @@ export default function SearchFilters() {
       } else {
         params.delete(key);
       }
-      // Reset to page 1 when filters change
       params.delete("page");
       router.push(`/listings?${params.toString()}`);
     },
@@ -80,16 +79,15 @@ export default function SearchFilters() {
 
   const currentSort = `${searchParams.get("sort") || "list_date"}:${searchParams.get("order") || "desc"}`;
 
-  // Check if any filters are active
   const hasActiveFilters = Array.from(searchParams.entries()).some(
     ([key]) => !["sort", "order", "page"].includes(key)
   );
 
   return (
-    <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+    <div className="bg-[var(--color-primary)] text-white sticky top-0 z-10">
+      <div className="max-w-7xl mx-auto px-6 lg:px-8 py-5">
         {/* Search bar */}
-        <div className="flex gap-3 mb-4">
+        <div className="flex gap-0 mb-4">
           <input
             ref={searchInputRef}
             type="text"
@@ -100,13 +98,13 @@ export default function SearchFilters() {
                 updateFilters("q", (e.target as HTMLInputElement).value);
               }
             }}
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="flex-1 px-5 py-3 bg-white/10 border border-white/20 text-white placeholder-white/40 text-sm focus:outline-none focus:border-[var(--color-accent)] transition"
           />
           <button
             onClick={() => {
               updateFilters("q", searchInputRef.current?.value || "");
             }}
-            className="px-6 py-2 bg-[var(--color-primary)] text-white rounded-md hover:bg-[var(--color-primary-light)] transition"
+            className="px-6 py-3 bg-[var(--color-accent)] text-[var(--color-primary)] text-sm font-semibold uppercase tracking-wider hover:bg-[var(--color-accent-hover)] transition"
           >
             Search
           </button>
@@ -117,7 +115,7 @@ export default function SearchFilters() {
           <select
             value={searchParams.get("min_price") || ""}
             onChange={(e) => updateFilters("min_price", e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+            className="px-3 py-2 bg-white/10 border border-white/20 text-white text-sm focus:outline-none focus:border-[var(--color-accent)] [&>option]:text-gray-900"
           >
             <option value="">Min Price</option>
             {PRICE_OPTIONS.filter((o) => o.value).map((o) => (
@@ -130,7 +128,7 @@ export default function SearchFilters() {
           <select
             value={searchParams.get("max_price") || ""}
             onChange={(e) => updateFilters("max_price", e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+            className="px-3 py-2 bg-white/10 border border-white/20 text-white text-sm focus:outline-none focus:border-[var(--color-accent)] [&>option]:text-gray-900"
           >
             <option value="">Max Price</option>
             {PRICE_OPTIONS.filter((o) => o.value).map((o) => (
@@ -143,7 +141,7 @@ export default function SearchFilters() {
           <select
             value={searchParams.get("min_beds") || ""}
             onChange={(e) => updateFilters("min_beds", e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+            className="px-3 py-2 bg-white/10 border border-white/20 text-white text-sm focus:outline-none focus:border-[var(--color-accent)] [&>option]:text-gray-900"
           >
             <option value="">Beds</option>
             {BEDS_OPTIONS.filter((o) => o.value).map((o) => (
@@ -156,7 +154,7 @@ export default function SearchFilters() {
           <select
             value={searchParams.get("property_type") || ""}
             onChange={(e) => updateFilters("property_type", e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+            className="px-3 py-2 bg-white/10 border border-white/20 text-white text-sm focus:outline-none focus:border-[var(--color-accent)] [&>option]:text-gray-900"
           >
             {TYPE_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
@@ -168,16 +166,16 @@ export default function SearchFilters() {
           {hasActiveFilters && (
             <button
               onClick={clearAllFilters}
-              className="px-3 py-2 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition"
+              className="px-3 py-2 text-sm text-[var(--color-accent)] hover:text-white transition"
             >
-              Clear Filters
+              Clear All
             </button>
           )}
 
           <select
             value={currentSort}
             onChange={(e) => updateSort(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-md text-sm ml-auto"
+            className="px-3 py-2 bg-white/10 border border-white/20 text-white text-sm focus:outline-none focus:border-[var(--color-accent)] ml-auto [&>option]:text-gray-900"
           >
             {SORT_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
