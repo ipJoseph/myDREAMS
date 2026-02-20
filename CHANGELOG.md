@@ -8,6 +8,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+- **Navica MLS API: First Live Connection** (2026-02-19)
+  - Stored live API credentials in .env (server token, client ID/secret, browser token)
+  - Discovered real API structure (REST, not OData): `/api/v2/nav27/listing` with limit/offset pagination
+  - Rewrote `apps/navica/client.py` for actual API: dataset codes, field-name filtering, 200-record page limit
+  - Fixed `field_mapper.py` for real field shapes: `BathroomsTotalDecimal`, `ListAgentPreferredPhone`, list-type `ArchitecturalStyle`
+  - Updated `sync_engine.py` method calls to match new client signatures
+  - Dataset: Carolina Smokies Association of REALTORS (54,471 listings, 1,373 active, 3,279 agents, 512 offices)
+  - Verified end-to-end: 166 Active Residential Franklin listings map with 0 errors, photos on CloudFront CDN
+
 ### Changed
 - **Property Database Cleanup for Navica Migration** (pre-Navica prep)
   - `listings` table is now the single canonical property table; `properties` table (153 columns, legacy) fully retired
