@@ -42,7 +42,7 @@ interface ListingsResponse {
 }
 
 async function fetchApi<T>(url: string): Promise<T> {
-  const res = await fetch(url, { next: { revalidate: 300 } }); // Cache 5 min
+  const res = await fetch(url, { next: { revalidate: 900 } }); // Cache 15 min (matches MLS sync interval)
   if (!res.ok) {
     throw new Error(`API error: ${res.status}`);
   }
