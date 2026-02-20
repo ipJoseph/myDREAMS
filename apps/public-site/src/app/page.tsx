@@ -6,7 +6,7 @@ import AreaCard from "@/components/AreaCard";
 
 export default async function HomePage() {
   const [listingsResult, stats, areas] = await Promise.all([
-    searchListings({ limit: 6, sort: "list_date", order: "desc" }).catch(
+    searchListings({ limit: 6, sort: "list_price", order: "desc" }).catch(
       () => ({ listings: [], pagination: { total: 0, page: 1, limit: 6, pages: 0 } })
     ),
     getStats().catch(() => null),
