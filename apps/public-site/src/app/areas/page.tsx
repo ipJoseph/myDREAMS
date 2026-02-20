@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { getAreas, formatPrice } from "@/lib/api";
+import { getAreas } from "@/lib/api";
+import AreaCard from "@/components/AreaCard";
 
 export const metadata: Metadata = {
   title: "Areas We Serve",
@@ -39,31 +39,15 @@ export default async function AreasPage() {
             By City
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-            {cities.map((area) => (
-              <Link
+            {cities.map((area, i) => (
+              <AreaCard
                 key={area.name}
+                name={area.name}
                 href={`/listings?city=${encodeURIComponent(area.name)}`}
-                className="group bg-white border border-gray-200/60 p-6 hover:border-[var(--color-accent)] transition-all duration-300"
-              >
-                <h3 className="text-lg text-[var(--color-primary)] group-hover:text-[var(--color-accent)] transition-colors"
-                  style={{ fontFamily: "Georgia, serif" }}>
-                  {area.name}
-                </h3>
-                <div className="mt-3 text-sm text-[var(--color-text-light)]">
-                  <span className="font-medium text-[var(--color-text)]">
-                    {area.listing_count}
-                  </span>{" "}
-                  active listings
-                </div>
-                <div className="mt-1 text-sm text-[var(--color-text-light)]">
-                  {formatPrice(area.min_price)} &ndash; {formatPrice(area.max_price)}
-                </div>
-                {area.avg_price && (
-                  <div className="mt-1 text-sm text-[var(--color-text)]">
-                    Avg: {formatPrice(area.avg_price)}
-                  </div>
-                )}
-              </Link>
+                listingCount={area.listing_count}
+                avgPrice={area.avg_price}
+                index={i}
+              />
             ))}
           </div>
         </div>
@@ -76,28 +60,15 @@ export default async function AreasPage() {
             By County
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-            {counties.map((area) => (
-              <Link
+            {counties.map((area, i) => (
+              <AreaCard
                 key={area.name}
+                name={`${area.name} County`}
                 href={`/listings?county=${encodeURIComponent(area.name)}`}
-                className="group bg-white border border-gray-200/60 p-6 hover:border-[var(--color-accent)] transition-all duration-300"
-              >
-                <h3 className="text-lg text-[var(--color-primary)] group-hover:text-[var(--color-accent)] transition-colors"
-                  style={{ fontFamily: "Georgia, serif" }}>
-                  {area.name} County
-                </h3>
-                <div className="mt-3 text-sm text-[var(--color-text-light)]">
-                  <span className="font-medium text-[var(--color-text)]">
-                    {area.listing_count}
-                  </span>{" "}
-                  active listings
-                </div>
-                {area.avg_price && (
-                  <div className="mt-1 text-sm text-[var(--color-text)]">
-                    Avg: {formatPrice(area.avg_price)}
-                  </div>
-                )}
-              </Link>
+                listingCount={area.listing_count}
+                avgPrice={area.avg_price}
+                index={i + 3}
+              />
             ))}
           </div>
         </div>

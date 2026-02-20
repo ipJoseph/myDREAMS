@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { searchListings, getStats, getAreas, formatPrice, formatNumber } from "@/lib/api";
 import PropertyCard from "@/components/PropertyCard";
+import AreaCard from "@/components/AreaCard";
 
 export default async function HomePage() {
   const [listingsResult, stats, areas] = await Promise.all([
@@ -171,24 +172,15 @@ export default async function HomePage() {
               </h2>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
-              {topAreas.map((area) => (
-                <Link
+              {topAreas.map((area, i) => (
+                <AreaCard
                   key={area.name}
+                  name={area.name}
                   href={`/listings?city=${encodeURIComponent(area.name)}`}
-                  className="group bg-white border border-gray-200/60 p-6 hover:border-[var(--color-accent)] transition-all duration-300"
-                >
-                  <h3 className="text-lg text-[var(--color-primary)] group-hover:text-[var(--color-accent)] transition-colors" style={{ fontFamily: "Georgia, serif" }}>
-                    {area.name}
-                  </h3>
-                  <p className="text-sm text-[var(--color-text-light)] mt-2">
-                    {area.listing_count} listings
-                  </p>
-                  {area.avg_price && (
-                    <p className="text-sm text-[var(--color-text)] mt-1">
-                      Avg: {formatPrice(area.avg_price)}
-                    </p>
-                  )}
-                </Link>
+                  listingCount={area.listing_count}
+                  avgPrice={area.avg_price}
+                  index={i}
+                />
               ))}
             </div>
             <div className="text-center mt-10">
