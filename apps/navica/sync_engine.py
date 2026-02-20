@@ -155,6 +155,8 @@ class NavicaSyncEngine:
                 ('idx_address_display', 'INTEGER DEFAULT 1'),
                 ('roof', 'TEXT'),
                 ('sewer', 'TEXT'),
+                ('stories', 'INTEGER'),
+                ('vow_opt_in', 'INTEGER'),
             ]
 
             for col_name, col_type in new_columns:
@@ -165,7 +167,7 @@ class NavicaSyncEngine:
                     except sqlite3.OperationalError:
                         pass
 
-            # Create agents table for member data
+            # Create agents table for member data (or add missing columns)
             conn.execute('''
                 CREATE TABLE IF NOT EXISTS agents (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -186,6 +188,27 @@ class NavicaSyncEngine:
                     updated_at TEXT DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
+
+            # Ensure agents table has all needed columns (may pre-exist with different schema)
+            cursor = conn.execute("PRAGMA table_info(agents)")
+            agent_cols = {row[1] for row in cursor.fetchall()}
+            agent_new_columns = [
+                ('member_key', 'TEXT'),
+                ('member_mls_id', 'TEXT'),
+                ('full_name', 'TEXT'),
+                ('mobile_phone', 'TEXT'),
+                ('office_key', 'TEXT'),
+                ('member_type', 'TEXT'),
+                ('member_status', 'TEXT'),
+                ('modification_timestamp', 'TEXT'),
+            ]
+            for col_name, col_type in agent_new_columns:
+                if col_name not in agent_cols:
+                    try:
+                        conn.execute(f"ALTER TABLE agents ADD COLUMN {col_name} {col_type}")
+                        logger.info(f"Added column {col_name} to agents table")
+                    except sqlite3.OperationalError:
+                        pass
 
             # Create open_houses table
             conn.execute('''

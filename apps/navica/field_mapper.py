@@ -393,12 +393,19 @@ def map_reso_to_member(member: Dict) -> Dict[str, Any]:
     Returns:
         Dict for agent storage
     """
+    full_name = member.get('MemberFullName') or ''
+    if not full_name:
+        first = member.get('MemberFirstName', '')
+        last = member.get('MemberLastName', '')
+        full_name = f"{first} {last}".strip()
+
     return {
         'member_key': member.get('MemberKey'),
         'member_mls_id': member.get('MemberMlsId'),
+        'name': full_name or 'Unknown',
         'first_name': member.get('MemberFirstName'),
         'last_name': member.get('MemberLastName'),
-        'full_name': member.get('MemberFullName'),
+        'full_name': full_name or None,
         'email': member.get('MemberEmail'),
         'phone': member.get('MemberPreferredPhone') or member.get('MemberMobilePhone'),
         'mobile_phone': member.get('MemberMobilePhone'),
