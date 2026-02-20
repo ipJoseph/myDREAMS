@@ -291,10 +291,10 @@ export default async function ListingDetailPage({ params }: PageProps) {
               </Link>
 
               <a
-                href="tel:8283479474"
+                href="tel:8282839003"
                 className="block w-full text-center py-3 border border-[var(--color-primary)] text-[var(--color-primary)] text-sm uppercase tracking-wider hover:bg-[var(--color-primary)] hover:text-white transition"
               >
-                Call (828) 347-9474
+                Call (828) 283-9003
               </a>
 
               {/* Agent info */}

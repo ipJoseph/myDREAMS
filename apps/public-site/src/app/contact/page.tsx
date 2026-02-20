@@ -41,7 +41,7 @@ export default async function ContactPage({ searchParams }: PageProps) {
             {/* Contact form */}
             <div className="bg-white border border-gray-200/60 p-8">
               <form
-                action={`mailto:info@wncmountain.homes?subject=${encodeURIComponent(
+                action={`mailto:Joseph@IntegrityPursuits.com?subject=${encodeURIComponent(
                   listingRef
                     ? `Inquiry about MLS# ${listingRef}`
                     : "Website Inquiry"
@@ -150,14 +150,8 @@ export default async function ContactPage({ searchParams }: PageProps) {
                 <div className="space-y-4">
                   <div>
                     <p className="text-white/40 text-xs uppercase tracking-wider">Phone</p>
-                    <a href="tel:8283479474" className="text-white hover:text-[var(--color-accent)] transition text-lg">
-                      (828) 347-9474
-                    </a>
-                  </div>
-                  <div>
-                    <p className="text-white/40 text-xs uppercase tracking-wider">Office</p>
-                    <a href="tel:8283479055" className="text-white hover:text-[var(--color-accent)] transition text-lg">
-                      (828) 347-9055
+                    <a href="tel:8282839003" className="text-white hover:text-[var(--color-accent)] transition text-lg">
+                      (828) 283-9003
                     </a>
                   </div>
                   <div>

@@ -101,8 +101,8 @@ function Footer() {
             </h4>
             <ul className="space-y-2 text-sm">
               <li>
-                <a href="tel:8283479474" className="hover:text-white transition">
-                  (828) 347-9474
+                <a href="tel:8282839003" className="hover:text-white transition">
+                  (828) 283-9003
                 </a>
               </li>
               <li>
