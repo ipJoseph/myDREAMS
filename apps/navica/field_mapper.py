@@ -1,9 +1,10 @@
 """
-Navica RESO Field Mapper
+RESO Field Mapper (Multi-MLS)
 
 Maps RESO Data Dictionary fields to the myDREAMS listings table schema.
-Based on the proven mapping from scripts/import_mlsgrid.py, extended for
-Navica-specific fields and BBO data.
+Supports multiple MLS sources (Navica/Carolina Smokies, MLS Grid/Canopy)
+with a single unified mapper. Both APIs deliver RESO standard field names;
+only minor differences are handled via fallback chains.
 
 RESO Data Dictionary reference: https://ddwiki.reso.org/
 """
@@ -306,7 +307,7 @@ def map_reso_to_listing(prop: Dict, mls_source: str = 'NavicaMLS') -> Dict[str, 
         'acreage': prop.get('LotSizeAcres'),
         'lot_sqft': prop.get('LotSizeSquareFeet'),
         'year_built': prop.get('YearBuilt'),
-        'stories': None,  # Not available in Navica API
+        'stories': prop.get('StoriesTotal'),  # Available in MLS Grid; None from Navica
         'garage_spaces': prop.get('GarageSpaces'),
         'is_residential': 1 if prop.get('PropertyType') in ('Residential', 'Condominium') else 0,
 
@@ -335,10 +336,14 @@ def map_reso_to_listing(prop: Dict, mls_source: str = 'NavicaMLS') -> Dict[str, 
         'tax_assessed_value': prop.get('TaxAssessedValue'),
         'tax_year': prop.get('TaxYear'),
 
-        # Agent info
+        # Agent info (fallback chain handles Navica vs MLS Grid field differences)
         'listing_agent_id': prop.get('ListAgentMlsId') or prop.get('ListAgentKey'),
         'listing_agent_name': prop.get('ListAgentFullName'),
-        'listing_agent_phone': prop.get('ListAgentPreferredPhone') or prop.get('ListAgentHomePhone'),
+        'listing_agent_phone': (
+            prop.get('ListAgentPreferredPhone')
+            or prop.get('ListAgentDirectPhone')
+            or prop.get('ListAgentHomePhone')
+        ),
         'listing_agent_email': prop.get('ListAgentEmail'),
         'listing_office_id': prop.get('ListOfficeMlsId') or prop.get('ListOfficeKey'),
         'listing_office_name': prop.get('ListOfficeName'),
@@ -353,7 +358,7 @@ def map_reso_to_listing(prop: Dict, mls_source: str = 'NavicaMLS') -> Dict[str, 
         'primary_photo': primary_photo,
         'photos': json.dumps(all_photos) if all_photos else None,
         'photo_count': photo_count,
-        'photo_source': 'navica' if all_photos else None,
+        'photo_source': mls_source.lower().replace('mls', '') if all_photos else None,
         'photo_verified_at': now if all_photos else None,
         'photo_review_status': 'verified' if all_photos else None,
 
@@ -374,7 +379,7 @@ def map_reso_to_listing(prop: Dict, mls_source: str = 'NavicaMLS') -> Dict[str, 
         'vow_opt_in': prop.get('VirtualTourURLUnbranded'),
 
         # Sync metadata
-        'source': 'navica',
+        'source': mls_source.lower().replace('mls', ''),
         'modification_timestamp': prop.get('ModificationTimestamp'),
         'captured_at': now,
         'updated_at': now,

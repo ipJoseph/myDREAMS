@@ -21,6 +21,7 @@ from dotenv import load_dotenv
 from routes.properties import properties_bp
 from routes.health import health_bp
 from routes.contacts import contacts_bp
+from routes.public import public_bp
 from services.notion_sync_service import NotionSyncService
 from services.idx_validation_service import IDXValidationService
 
@@ -71,9 +72,13 @@ def require_api_key(f):
 
 @app.before_request
 def check_api_key():
-    """Check API key for all /api/* routes."""
+    """Check API key for all /api/* routes (except public endpoints)."""
     # Skip auth for non-API routes (health, index)
     if not request.path.startswith('/api/'):
+        return None
+
+    # Public endpoints require no authentication
+    if request.path.startswith('/api/public/'):
         return None
 
     # Skip auth if no API key is configured (local development)
@@ -97,6 +102,7 @@ def check_api_key():
 app.register_blueprint(health_bp)
 app.register_blueprint(properties_bp, url_prefix='/api/v1')
 app.register_blueprint(contacts_bp, url_prefix='/api/v1')
+app.register_blueprint(public_bp, url_prefix='/api/public')
 
 # Initialize services
 notion_sync_service = None

@@ -9,14 +9,58 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
-- **Navica MLS API: First Live Connection** (2026-02-19)
+- **Public Website: Next.js Frontend for wncmountain.homes** (2026-02-20)
+  - Scaffolded Next.js 16 project at `apps/public-site/` with TypeScript, Tailwind CSS, App Router
+  - Homepage with hero search bar, featured listings, area highlights, and live stats from API
+  - Property search page with filters (price, beds, baths, type, city), sorting, and pagination
+  - Listing detail pages with photo gallery, property details, schema.org JSON-LD for SEO
+  - Areas page showing all cities and counties with listing counts and price ranges
+  - About page and contact form with pre-filled listing inquiry support
+  - Shared components: PropertyCard, SearchFilters
+  - API client library (`src/lib/api.ts`) with server-side rendering support
+  - Full TypeScript types for all API responses
+
+- **Public API Endpoints** (2026-02-20)
+  - `GET /api/public/listings` with search, filter, sort, and pagination (no auth required)
+  - `GET /api/public/listings/:id` with full IDX-safe listing detail
+  - `GET /api/public/areas` returning cities/counties with listing counts and price stats
+  - `GET /api/public/stats` with aggregate market statistics
+  - IDX compliance: respects `idx_opt_in` and `idx_address_display` flags, suppresses private data
+  - SQL injection prevention via parameterized queries and column whitelists
+
+- **Canopy MLS Integration via MLS Grid** (2026-02-20)
+  - `apps/mlsgrid/client.py`: OData-based RESO Web API client for MLS Grid
+    - Cursor-based pagination via `@odata.nextLink`
+    - `$expand=Media` for photos, `$filter` with OData syntax
+    - `OriginatingSystemName eq 'carolina'` filter for Canopy MLS
+    - Rate limiting at 2 RPS, retry with exponential backoff
+    - Demo API support for testing without production credentials
+  - `apps/mlsgrid/sync_engine.py`: Full/incremental sync following Navica pattern
+    - Server-side `ModificationTimestamp gt` filtering (more efficient than Navica)
+    - Change detection for price/status changes
+    - Sync logging to `sync_log` table
+    - CLI with `--test`, `--full`, `--incremental`, `--sync-members`
+  - `apps/mlsgrid/cron_sync.py`: Cron entry point for automated syncing
+  - Gating item: Canopy MLS API credentials (contact data@canopyrealtors.com)
+
+### Changed
+- **RESO Field Mapper updated for multi-MLS support** (2026-02-20)
+  - `apps/navica/field_mapper.py` now handles both Navica and MLS Grid sources
+  - Agent phone fallback chain: `ListAgentPreferredPhone` -> `ListAgentDirectPhone` -> `ListAgentHomePhone`
+  - `StoriesTotal` field mapped (available from MLS Grid, None from Navica)
+  - `photo_source` and `source` fields derived from `mls_source` parameter dynamically
+
+- **Navica MLS API: First Live Connection and Sync** (2026-02-19)
   - Stored live API credentials in .env (server token, client ID/secret, browser token)
   - Discovered real API structure (REST, not OData): `/api/v2/nav27/listing` with limit/offset pagination
   - Rewrote `apps/navica/client.py` for actual API: dataset codes, field-name filtering, 200-record page limit
   - Fixed `field_mapper.py` for real field shapes: `BathroomsTotalDecimal`, `ListAgentPreferredPhone`, list-type `ArchitecturalStyle`
   - Updated `sync_engine.py` method calls to match new client signatures
   - Dataset: Carolina Smokies Association of REALTORS (54,471 listings, 1,373 active, 3,279 agents, 512 offices)
-  - Verified end-to-end: 166 Active Residential Franklin listings map with 0 errors, photos on CloudFront CDN
+  - **First full sync completed**: 1,373 Active + 202 Pending listings, 645 agents, 0 errors
+  - Downloaded 1,575 primary photos (331 MB) via concurrent downloader (`apps/navica/download_photos.py`)
+  - Extended listings/agents tables with Navica-specific columns (vow_opt_in, stories, member_key, etc.)
+  - Local photo paths stored in `photo_local_path` column for dashboard use
 
 ### Changed
 - **Property Database Cleanup for Navica Migration** (pre-Navica prep)

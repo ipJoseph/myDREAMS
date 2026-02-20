@@ -23,6 +23,11 @@
 
 | Feature | Commit | Description |
 |---------|--------|-------------|
+| **Public Website (Next.js)** | - | `apps/public-site/` - SSR property search, listing detail with schema.org markup, area guides, contact forms |
+| **Public API Endpoints** | - | `GET /api/public/listings`, `/listings/:id`, `/areas`, `/stats` - unauthenticated IDX-compliant endpoints |
+| **Canopy MLS Integration** | - | `apps/mlsgrid/` - MLS Grid OData client, sync engine, cron sync for Canopy MLS (pending credentials) |
+| **Multi-MLS Field Mapper** | - | `field_mapper.py` updated with agent phone fallback chain, StoriesTotal, dynamic source tagging |
+| **Navica MLS First Sync** | `482b9eb` | 1,575 listings + 645 agents + 1,575 photos synced from Carolina Smokies MLS |
 | **Mission Control v3** | - | Complete dashboard redesign with Intelligence Briefing Engine, Power Hour calling mode, and Command Center |
 | **Briefing Card-Grid Dashboard** | `551b952` | Modular card-based Briefing tab: metric cards with drill-down, 2-column intelligence grid, Pipeline/Stats/Live Activity cards, mission card with badge strip |
 | **Morning Brief Redesign** | `23ed535` | Briefing tab overhaul: Morning Pulse strip, alerts, enhanced overnight intel, value scores on cards, pipeline snapshot, Power Hour CTA |

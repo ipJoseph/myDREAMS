@@ -12,8 +12,8 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+/lib/
+/lib64/
 parts/
 sdist/
 var/
@@ -98,3 +98,8 @@ apps/property-extension-v3.zip
 
 # Client files (synced from Google Drive)
 clients/
+
+# Node.js
+node_modules/
+.next/
+.env.local
