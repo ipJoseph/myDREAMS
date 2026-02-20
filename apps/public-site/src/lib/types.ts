@@ -72,6 +72,7 @@ export interface ListingSearchParams {
   min_baths?: number;
   min_sqft?: number;
   min_acreage?: number;
+  max_dom?: number;
   property_type?: string;
   mls_source?: string;
   q?: string;

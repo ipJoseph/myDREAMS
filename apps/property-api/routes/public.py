@@ -165,6 +165,12 @@ def search_listings():
             conditions.append("acreage >= ?")
             params.append(min_acreage)
 
+        # Max days on market
+        max_dom = request.args.get('max_dom', type=int)
+        if max_dom is not None:
+            conditions.append("days_on_market <= ?")
+            params.append(max_dom)
+
         # Property type
         property_type = request.args.get('property_type')
         if property_type:
