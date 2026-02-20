@@ -106,7 +106,7 @@ export default function PhotoBrowser({ photos, address, city }: PhotoBrowserProp
                 {i === 3 && photos.length > 5 && (
                   <div className="absolute inset-0 bg-black/50 flex items-center justify-center group-hover:bg-black/60 transition">
                     <span
-                      className="bg-white/85 text-[var(--color-primary)] text-sm font-semibold px-5 py-2.5 uppercase tracking-wider backdrop-blur-sm"
+                      className="bg-white/80 text-[var(--color-primary)] text-sm font-semibold px-5 py-2.5 uppercase tracking-wider backdrop-blur-sm"
                       style={{ boxShadow: "0 4px 12px rgba(0,0,0,0.3), 0 1px 3px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.4)" }}
                     >
                       All {photos.length} Photos
