@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 
 const PRICE_OPTIONS = [
   { label: "Any", value: "" },
@@ -45,6 +45,7 @@ const SORT_OPTIONS = [
 export default function SearchFilters() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const updateFilters = useCallback(
     (key: string, value: string) => {
@@ -73,7 +74,16 @@ export default function SearchFilters() {
     [router, searchParams]
   );
 
+  const clearAllFilters = useCallback(() => {
+    router.push("/listings");
+  }, [router]);
+
   const currentSort = `${searchParams.get("sort") || "list_date"}:${searchParams.get("order") || "desc"}`;
+
+  // Check if any filters are active
+  const hasActiveFilters = Array.from(searchParams.entries()).some(
+    ([key]) => !["sort", "order", "page"].includes(key)
+  );
 
   return (
     <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
@@ -81,6 +91,7 @@ export default function SearchFilters() {
         {/* Search bar */}
         <div className="flex gap-3 mb-4">
           <input
+            ref={searchInputRef}
             type="text"
             placeholder="Search by address, city, or keyword..."
             defaultValue={searchParams.get("q") || ""}
@@ -93,10 +104,7 @@ export default function SearchFilters() {
           />
           <button
             onClick={() => {
-              const input = document.querySelector(
-                'input[type="text"]'
-              ) as HTMLInputElement;
-              updateFilters("q", input?.value || "");
+              updateFilters("q", searchInputRef.current?.value || "");
             }}
             className="px-6 py-2 bg-[var(--color-primary)] text-white rounded-md hover:bg-[var(--color-primary-light)] transition"
           >
@@ -105,7 +113,7 @@ export default function SearchFilters() {
         </div>
 
         {/* Filter row */}
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap gap-3 items-center">
           <select
             value={searchParams.get("min_price") || ""}
             onChange={(e) => updateFilters("min_price", e.target.value)}
@@ -156,6 +164,15 @@ export default function SearchFilters() {
               </option>
             ))}
           </select>
+
+          {hasActiveFilters && (
+            <button
+              onClick={clearAllFilters}
+              className="px-3 py-2 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition"
+            >
+              Clear Filters
+            </button>
+          )}
 
           <select
             value={currentSort}

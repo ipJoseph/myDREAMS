@@ -26,7 +26,16 @@ export default async function ContactPage({ searchParams }: PageProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
         {/* Contact form */}
         <div>
-          <form className="space-y-5">
+          <form
+            action={`mailto:info@wncmountain.homes?subject=${encodeURIComponent(
+              listingRef
+                ? `Inquiry about MLS# ${listingRef}`
+                : "Website Inquiry"
+            )}`}
+            method="post"
+            encType="text/plain"
+            className="space-y-5"
+          >
             <div>
               <label
                 htmlFor="name"

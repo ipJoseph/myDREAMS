@@ -20,7 +20,9 @@ async function ListingsGrid({
 }: {
   searchParams: Record<string, string | undefined>;
 }) {
-  const { listings, pagination } = await searchListings({
+  let listings, pagination;
+  try {
+    const result = await searchListings({
     q: searchParams.q,
     city: searchParams.city,
     county: searchParams.county,
@@ -47,7 +49,25 @@ async function ListingsGrid({
     order: (searchParams.order as "asc" | "desc") || "desc",
     page: searchParams.page ? parseInt(searchParams.page) : 1,
     limit: 24,
-  });
+    });
+    listings = result.listings;
+    pagination = result.pagination;
+  } catch {
+    return (
+      <div className="text-center py-20">
+        <h3 className="text-xl font-semibold text-gray-900 mb-2">
+          Unable to load listings
+        </h3>
+        <p className="text-gray-500">
+          Please try again in a moment, or{" "}
+          <Link href="/contact" className="text-blue-600 hover:underline">
+            contact us
+          </Link>{" "}
+          for help.
+        </p>
+      </div>
+    );
+  }
 
   if (listings.length === 0) {
     return (

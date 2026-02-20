@@ -200,9 +200,10 @@ def search_listings():
         limit = min(100, max(1, request.args.get('limit', 24, type=int)))
         offset = (page - 1) * limit
 
-        # Build query
+        # Build query (include idx_address_display for address suppression check)
         where_clause = " AND ".join(conditions)
-        fields_str = ", ".join(PUBLIC_LIST_FIELDS)
+        query_fields = PUBLIC_LIST_FIELDS + ['idx_address_display']
+        fields_str = ", ".join(query_fields)
 
         # Get total count
         count_sql = f"SELECT COUNT(*) FROM listings WHERE {where_clause}"
@@ -219,10 +220,13 @@ def search_listings():
 
         listings = [row_to_dict(row) for row in rows]
 
-        # Suppress address for listings that opted out of address display
+        # Suppress address for listings that opted out, then remove the flag from response
         for listing in listings:
             if not listing.get('idx_address_display'):
                 listing['address'] = 'Address Withheld'
+                listing['latitude'] = None
+                listing['longitude'] = None
+            listing.pop('idx_address_display', None)
 
         db.close()
 

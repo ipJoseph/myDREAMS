@@ -32,12 +32,13 @@ export const metadata: Metadata = {
 
 function Header() {
   return (
-    <header className="bg-[var(--color-primary)] text-white">
+    <header className="bg-[var(--color-primary)] text-white border-b border-white/10">
       <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <Link href="/" className="text-xl font-bold tracking-tight">
             WNC Mountain Homes
           </Link>
+          {/* Desktop nav */}
           <div className="hidden md:flex items-center gap-6 text-sm">
             <Link href="/listings" className="hover:text-gray-200 transition">
               Search Properties
@@ -55,6 +56,28 @@ function Header() {
               Contact Us
             </Link>
           </div>
+          {/* Mobile nav toggle (CSS-only using details/summary) */}
+          <details className="md:hidden relative">
+            <summary className="list-none cursor-pointer p-2">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </summary>
+            <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-lg shadow-lg py-2 z-50">
+              <Link href="/listings" className="block px-4 py-3 text-gray-700 hover:bg-gray-50">
+                Search Properties
+              </Link>
+              <Link href="/areas" className="block px-4 py-3 text-gray-700 hover:bg-gray-50">
+                Areas We Serve
+              </Link>
+              <Link href="/about" className="block px-4 py-3 text-gray-700 hover:bg-gray-50">
+                About
+              </Link>
+              <Link href="/contact" className="block px-4 py-3 text-[var(--color-primary)] font-medium hover:bg-gray-50">
+                Contact Us
+              </Link>
+            </div>
+          </details>
         </div>
       </nav>
     </header>
@@ -104,9 +127,9 @@ function Footer() {
           <div>
             <h3 className="text-white font-semibold mb-3">MLS Disclosure</h3>
             <p className="text-xs leading-relaxed">
-              Listing data provided by Carolina Smokies Association of REALTORS
-              and Canopy MLS. All information deemed reliable but not guaranteed.
-              Last updated data refresh occurs regularly throughout the day.
+              Listing data provided by Carolina Smokies Association of REALTORS.
+              All information deemed reliable but not guaranteed.
+              Data refreshed regularly throughout the day.
             </p>
           </div>
         </div>

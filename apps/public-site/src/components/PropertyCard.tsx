@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import type { Listing } from "@/lib/types";
 import { formatPrice, formatNumber } from "@/lib/api";
 
@@ -7,8 +8,6 @@ interface PropertyCardProps {
 }
 
 export default function PropertyCard({ listing }: PropertyCardProps) {
-  const photoUrl = listing.primary_photo || "/placeholder-home.svg";
-
   return (
     <Link
       href={`/listings/${listing.id}`}
@@ -17,10 +16,12 @@ export default function PropertyCard({ listing }: PropertyCardProps) {
       {/* Photo */}
       <div className="relative aspect-[4/3] bg-gray-100 overflow-hidden">
         {listing.primary_photo ? (
-          <img
+          <Image
             src={listing.primary_photo}
             alt={`${listing.address}, ${listing.city}`}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            fill
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            className="object-cover group-hover:scale-105 transition-transform duration-300"
             loading="lazy"
           />
         ) : (
@@ -55,7 +56,7 @@ export default function PropertyCard({ listing }: PropertyCardProps) {
           </span>
         </div>
         {/* Photo count */}
-        {listing.photo_count && listing.photo_count > 1 && (
+        {listing.photo_count != null && listing.photo_count > 1 && (
           <div className="absolute bottom-3 right-3 bg-black/60 text-white text-xs px-2 py-1 rounded">
             {listing.photo_count} photos
           </div>

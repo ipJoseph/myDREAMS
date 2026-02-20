@@ -1695,21 +1695,62 @@ class DREAMSDatabase:
             return 0.4
 
     # Whitelist of valid column names for the listings table (canonical property source)
+    # Must match the actual schema. When adding columns to the table, update this too.
     LISTINGS_COLUMNS = {
-        'id', 'parcel_id', 'mls_source', 'mls_number', 'status',
-        'list_price', 'list_date', 'sold_price', 'sold_date', 'days_on_market',
-        'beds', 'baths', 'sqft', 'year_built', 'property_type', 'style',
-        'views', 'amenities', 'heating', 'cooling', 'garage', 'hoa_fee',
-        'photos', 'primary_photo', 'virtual_tour_url', 'mls_url', 'idx_url',
-        'redfin_url', 'redfin_id', 'zillow_url', 'zillow_id',
+        # Identifiers
+        'id', 'listing_key', 'mls_source', 'mls_number', 'parcel_id', 'parcel_number',
+
+        # Status and dates
+        'status', 'list_date', 'sold_date', 'days_on_market', 'expiration_date',
+        'modification_timestamp',
+
+        # Pricing
+        'list_price', 'original_list_price', 'sold_price',
+
+        # Location
+        'address', 'city', 'state', 'zip', 'county',
+        'latitude', 'longitude', 'subdivision', 'directions',
+
+        # Property details
+        'property_type', 'property_subtype', 'beds', 'baths', 'sqft',
+        'acreage', 'lot_sqft', 'year_built', 'stories', 'garage', 'garage_spaces',
+        'is_residential',
+
+        # Features (JSON arrays)
+        'style', 'views', 'amenities', 'heating', 'cooling', 'appliances',
+        'interior_features', 'exterior_features', 'fireplace_features',
+        'flooring', 'roof', 'sewer', 'water_source', 'construction_materials',
+        'foundation', 'parking_features',
+
+        # Financial
+        'hoa_fee', 'hoa_frequency',
+        'tax_annual_amount', 'tax_assessed_value', 'tax_year',
+
+        # Listing agent
         'listing_agent_id', 'listing_agent_name', 'listing_agent_phone',
         'listing_agent_email', 'listing_office_id', 'listing_office_name',
+
+        # Buyer agent (BBO/closed listings)
+        'buyer_agent_id', 'buyer_agent_name', 'buyer_office_id', 'buyer_office_name',
+
+        # Photos
+        'photos', 'primary_photo', 'photo_count', 'photo_source',
+        'photo_confidence', 'photo_verified_at', 'photo_verified_by',
+        'photo_review_status', 'photo_local_path',
+
+        # Links
+        'virtual_tour_url', 'mls_url', 'idx_url',
+        'redfin_url', 'redfin_id', 'zillow_url', 'zillow_id',
+
+        # Descriptions
+        'public_remarks', 'private_remarks', 'showing_instructions',
+
+        # IDX display rules
+        'idx_opt_in', 'idx_address_display', 'vow_opt_in',
+
+        # Metadata
         'added_for', 'added_by', 'notes', 'source',
         'captured_at', 'updated_at',
-        'photo_source', 'photo_confidence', 'photo_verified_at',
-        'photo_verified_by', 'photo_review_status', 'photo_count',
-        'address', 'city', 'state', 'zip', 'county',
-        'latitude', 'longitude', 'acreage', 'is_residential',
     }
 
     # Keep legacy alias for backward compatibility

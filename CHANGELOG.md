@@ -8,6 +8,25 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+- **LISTINGS_COLUMNS whitelist updated to match actual schema** (2026-02-20)
+  - Expanded from 55 to 95 columns, matching all Navica-extended fields
+  - Previously silently dropped: public_remarks, subdivision, directions, tax data, features, IDX flags, buyer agent info, and 30+ more fields
+  - Re-synced 1,577 listings to populate all fields
+- **Address Withheld bug on public API** (2026-02-20)
+  - `idx_address_display` was missing from list endpoint SELECT, causing all addresses to show "Address Withheld"
+  - Now correctly only hides addresses for the 19 listings that opted out
+- **Public site critical review fixes** (2026-02-20)
+  - Added mobile hamburger navigation (CSS-only details/summary)
+  - Fixed hero/header color bleed (gradient separation)
+  - Fixed SearchFilters using fragile `document.querySelector` (switched to useRef)
+  - Added "Clear Filters" button when filters are active
+  - Switched PropertyCard to Next.js Image component for automatic optimization
+  - Added error handling to listings page (graceful message when API is down)
+  - Made contact form functional (mailto: action with subject prefill)
+  - Removed premature Canopy MLS mention from footer
+  - Added placeholder SVG for listings without photos
+
 ### Added
 - **Public Website: Next.js Frontend for wncmountain.homes** (2026-02-20)
   - Scaffolded Next.js 16 project at `apps/public-site/` with TypeScript, Tailwind CSS, App Router
