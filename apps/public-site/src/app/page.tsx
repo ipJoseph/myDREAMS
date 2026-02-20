@@ -17,59 +17,70 @@ export default async function HomePage() {
 
   return (
     <div>
-      {/* Hero Section */}
-      <section className="bg-gradient-to-b from-[var(--color-primary)] to-[var(--color-primary-light)] text-white py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">
-            Find Your Mountain Home
-          </h1>
-          <p className="text-xl text-blue-100 mb-8 max-w-2xl mx-auto">
-            Search {stats?.active_listings?.toLocaleString() || ""} active
-            listings across Western North Carolina.
-            From Franklin to Waynesville, Sylva to Bryson City.
-          </p>
+      {/* Hero Section with mountain background */}
+      <section className="relative text-white overflow-hidden">
+        {/* Background image */}
+        <div
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          style={{ backgroundImage: "url('/hero-mountains.jpg')" }}
+        />
+        {/* Dark overlay for text readability */}
+        <div className="absolute inset-0 bg-black/50" />
 
-          {/* Search bar */}
-          <form action="/listings" method="get" className="max-w-2xl mx-auto">
-            <div className="flex gap-2">
-              <input
-                type="text"
-                name="q"
-                placeholder="Search by city, address, or keyword..."
-                className="flex-1 px-6 py-4 rounded-lg text-gray-900 text-lg focus:ring-2 focus:ring-blue-300"
-              />
-              <button
-                type="submit"
-                className="px-8 py-4 bg-[var(--color-accent)] text-white font-semibold rounded-lg hover:bg-green-600 transition"
-              >
-                Search
-              </button>
-            </div>
-          </form>
+        {/* Content */}
+        <div className="relative z-10 py-24 md:py-32">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <h1 className="text-4xl md:text-6xl font-bold mb-4 drop-shadow-lg">
+              Find Your Mountain Home
+            </h1>
+            <p className="text-xl md:text-2xl text-gray-100 mb-10 max-w-2xl mx-auto drop-shadow">
+              Search {stats?.active_listings?.toLocaleString() || ""} active
+              listings across Western North Carolina.
+              From Franklin to Waynesville, Sylva to Bryson City.
+            </p>
 
-          {/* Quick stats */}
-          {stats && (
-            <div className="flex justify-center gap-8 mt-10 text-sm">
-              <div>
-                <div className="text-2xl font-bold">
-                  {stats.active_listings.toLocaleString()}
-                </div>
-                <div className="text-blue-200">Active Listings</div>
+            {/* Search bar */}
+            <form action="/listings" method="get" className="max-w-2xl mx-auto">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  name="q"
+                  placeholder="Search by city, address, or keyword..."
+                  className="flex-1 px-6 py-4 rounded-lg text-gray-900 text-lg focus:ring-2 focus:ring-blue-300 shadow-lg"
+                />
+                <button
+                  type="submit"
+                  className="px-8 py-4 bg-[var(--color-accent)] text-white font-semibold rounded-lg hover:bg-green-600 transition shadow-lg"
+                >
+                  Search
+                </button>
               </div>
-              <div>
-                <div className="text-2xl font-bold">
-                  {stats.cities_served}
+            </form>
+
+            {/* Quick stats */}
+            {stats && (
+              <div className="flex justify-center gap-8 mt-12 text-sm">
+                <div className="bg-black/30 backdrop-blur-sm rounded-lg px-5 py-3">
+                  <div className="text-2xl font-bold">
+                    {stats.active_listings.toLocaleString()}
+                  </div>
+                  <div className="text-gray-200">Active Listings</div>
                 </div>
-                <div className="text-blue-200">Cities</div>
-              </div>
-              <div>
-                <div className="text-2xl font-bold">
-                  {stats.counties_served}
+                <div className="bg-black/30 backdrop-blur-sm rounded-lg px-5 py-3">
+                  <div className="text-2xl font-bold">
+                    {stats.cities_served}
+                  </div>
+                  <div className="text-gray-200">Cities</div>
                 </div>
-                <div className="text-blue-200">Counties</div>
+                <div className="bg-black/30 backdrop-blur-sm rounded-lg px-5 py-3">
+                  <div className="text-2xl font-bold">
+                    {stats.counties_served}
+                  </div>
+                  <div className="text-gray-200">Counties</div>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </section>
 
