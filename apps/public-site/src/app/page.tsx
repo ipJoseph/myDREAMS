@@ -227,10 +227,10 @@ export default async function HomePage() {
                   Your Mountain<br />Real Estate Team
                 </h2>
                 <p className="text-white/60 leading-relaxed mb-6">
-                  Jon Tharp Homes is a Keller Williams team dedicated to
-                  Western North Carolina. We specialize in residential homes,
-                  mountain land, farms, and investment properties across the
-                  Great Smoky Mountains and Blue Ridge regions.
+                  WNC Mountain Homes is dedicated to Western North Carolina.
+                  We specialize in residential homes, mountain land, farms,
+                  and investment properties across the Great Smoky Mountains
+                  and Blue Ridge regions.
                 </p>
                 <p className="text-white/60 leading-relaxed mb-8">
                   With deep local knowledge and access to Carolina Smokies MLS,

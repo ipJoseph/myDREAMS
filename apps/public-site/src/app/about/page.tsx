@@ -4,7 +4,7 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "About",
   description:
-    "Meet your Western NC real estate agent. Jon Tharp Homes at Keller Williams, serving the mountain communities of Western North Carolina.",
+    "Meet your Western NC real estate team. WNC Mountain Homes, serving the mountain communities of Western North Carolina.",
 };
 
 export default function AboutPage() {
@@ -17,10 +17,10 @@ export default function AboutPage() {
             Who We Are
           </p>
           <h1 className="text-4xl md:text-5xl mb-4">
-            About Jon Tharp Homes
+            About WNC Mountain Homes
           </h1>
           <p className="text-white/60 max-w-2xl leading-relaxed">
-            A Keller Williams team dedicated to Western North Carolina. We specialize
+            Dedicated to Western North Carolina. We specialize
             in residential homes, mountain land, farms, and investment properties
             across the Great Smoky Mountains and Blue Ridge regions.
           </p>

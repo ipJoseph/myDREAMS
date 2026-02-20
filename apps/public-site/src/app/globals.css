@@ -2,7 +2,7 @@
 @import "tailwindcss";
 
 :root {
-  /* Jon Tharp Homes brand colors */
+  /* WNC Mountain Homes brand colors */
   --color-primary: #082d40;       /* Dark teal */
   --color-primary-light: #0a3d56; /* Lighter teal for hover */
   --color-accent: #ddab4a;        /* Gold */

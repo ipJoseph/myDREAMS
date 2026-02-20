@@ -4,7 +4,7 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "Contact Us",
   description:
-    "Get in touch with Jon Tharp Homes. We are here to help you with your Western NC real estate needs.",
+    "Get in touch with WNC Mountain Homes. We are here to help you with your Western NC real estate needs.",
 };
 
 interface PageProps {
@@ -163,8 +163,7 @@ export default async function ContactPage({ searchParams }: PageProps) {
                   <div>
                     <p className="text-white/40 text-xs uppercase tracking-wider">Address</p>
                     <p className="text-white/80 text-sm leading-relaxed mt-1">
-                      Jon Tharp Homes<br />
-                      Keller Williams<br />
+                      WNC Mountain Homes<br />
                       1573 Highlands Rd<br />
                       Franklin, NC 28734
                     </p>

@@ -4,8 +4,8 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "Jon Tharp Homes | Western NC Real Estate",
-    template: "%s | Jon Tharp Homes",
+    default: "WNC Mountain Homes | Western NC Real Estate",
+    template: "%s | WNC Mountain Homes",
   },
   description:
     "Search homes, land, and investment properties for sale in Western North Carolina. Franklin, Waynesville, Sylva, Bryson City, and the Great Smoky Mountains.",
@@ -16,8 +16,8 @@ export const metadata: Metadata = {
     "Waynesville NC real estate",
     "Smoky Mountain homes",
     "mountain homes for sale",
-    "Jon Tharp Homes",
-    "Keller Williams Franklin NC",
+    "WNC Mountain Homes",
+    "Western NC mountain real estate",
   ],
 };
 
@@ -28,7 +28,7 @@ function Header() {
         <div className="flex items-center justify-between h-20">
           <Link href="/" className="text-white">
             <span className="text-2xl font-bold tracking-tight" style={{ fontFamily: "Georgia, serif" }}>
-              Jon Tharp Homes
+              WNC Mountain Homes
             </span>
           </Link>
           {/* Desktop nav */}
@@ -85,14 +85,12 @@ function Footer() {
           {/* Brand */}
           <div className="md:col-span-1">
             <h3 className="text-white text-xl mb-4" style={{ fontFamily: "Georgia, serif" }}>
-              Jon Tharp Homes
+              WNC Mountain Homes
             </h3>
             <p className="text-sm leading-relaxed">
-              A Keller Williams Team
+              Western North Carolina Real Estate
               <br />
-              1573 Highlands Rd
-              <br />
-              Franklin, NC 28734
+              Franklin, NC
             </p>
           </div>
 
@@ -108,13 +106,8 @@ function Footer() {
                 </a>
               </li>
               <li>
-                <a href="tel:8283479055" className="hover:text-white transition">
-                  Office: (828) 347-9055
-                </a>
-              </li>
-              <li>
-                <a href="https://jontharphomes.com" className="hover:text-white transition">
-                  JonTharpHomes.com
+                <a href="https://wncmountain.homes" className="hover:text-white transition">
+                  wncmountain.homes
                 </a>
               </li>
             </ul>
@@ -155,15 +148,15 @@ function Footer() {
               Follow Us
             </h4>
             <div className="flex gap-4 mb-6">
-              <a href="https://facebook.com/jontharphomes" target="_blank" rel="noopener noreferrer"
+              <a href="https://facebook.com/wncmountainhomes" target="_blank" rel="noopener noreferrer"
                 className="w-9 h-9 border border-white/20 flex items-center justify-center hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] transition">
                 <span className="text-xs font-bold">f</span>
               </a>
-              <a href="https://instagram.com/jontharphomes" target="_blank" rel="noopener noreferrer"
+              <a href="https://instagram.com/wncmountainhomes" target="_blank" rel="noopener noreferrer"
                 className="w-9 h-9 border border-white/20 flex items-center justify-center hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] transition">
                 <span className="text-xs font-bold">ig</span>
               </a>
-              <a href="https://youtube.com/@jontharphomes" target="_blank" rel="noopener noreferrer"
+              <a href="https://youtube.com/@wncmountainhomes" target="_blank" rel="noopener noreferrer"
                 className="w-9 h-9 border border-white/20 flex items-center justify-center hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] transition">
                 <span className="text-xs font-bold">yt</span>
               </a>
@@ -176,7 +169,7 @@ function Footer() {
         </div>
 
         <div className="border-t border-white/10 mt-12 pt-8 flex flex-col md:flex-row items-center justify-between text-xs">
-          <span>&copy; {new Date().getFullYear()} Jon Tharp Homes | Keller Williams. All rights reserved.</span>
+          <span>&copy; {new Date().getFullYear()} WNC Mountain Homes. All rights reserved.</span>
           <span className="mt-2 md:mt-0 uppercase tracking-widest text-white/40">
             Residential &middot; Land &middot; Investment &middot; Commercial
           </span>
