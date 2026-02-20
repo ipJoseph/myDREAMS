@@ -62,6 +62,12 @@ export default function PropertyCard({ listing, variant = "light" }: PropertyCar
             {listing.status}
           </span>
         </div>
+        {/* Days on market */}
+        {listing.days_on_market != null && (
+          <div className="absolute top-3 right-3 bg-black/60 text-white text-xs font-semibold px-2.5 py-1">
+            {listing.days_on_market} DOM
+          </div>
+        )}
         {/* Photo count */}
         {listing.photo_count != null && listing.photo_count > 1 && (
           <div className="absolute bottom-3 right-3 bg-black/60 text-white text-xs px-2 py-1">
