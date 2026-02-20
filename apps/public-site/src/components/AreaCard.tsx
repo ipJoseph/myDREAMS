@@ -1,18 +1,58 @@
 import Link from "next/link";
 import { formatPrice } from "@/lib/api";
 
-// Placeholder background images (cycle through these)
-// Each uses our mountain hero with a different crop position + tinted overlay
-const AREA_THEMES = [
-  { position: "center 30%", overlay: "from-[#082d40]/90 via-[#082d40]/50 to-[#082d40]/20" },   // mountain peaks
-  { position: "center 70%", overlay: "from-[#0a3d56]/90 via-[#0a3d56]/50 to-[#0a3d56]/20" },   // lower valley
-  { position: "left 40%",   overlay: "from-[#1a3a2a]/90 via-[#1a3a2a]/50 to-[#1a3a2a]/20" },   // forest green
-  { position: "right 30%",  overlay: "from-[#2d1f0e]/90 via-[#2d1f0e]/50 to-[#2d1f0e]/15" },   // warm earth
-  { position: "center 20%", overlay: "from-[#0e2a3d]/90 via-[#0e2a3d]/50 to-[#0e2a3d]/20" },   // dusky blue
-  { position: "center 50%", overlay: "from-[#1e3328]/90 via-[#1e3328]/50 to-[#1e3328]/15" },   // deep green
-  { position: "left 60%",   overlay: "from-[#3d2e1a]/90 via-[#3d2e1a]/50 to-[#3d2e1a]/15" },   // amber dusk
-  { position: "right 45%",  overlay: "from-[#082d40]/90 via-[#082d40]/50 to-[#082d40]/15" },   // teal classic
+// City-specific photos (local files in public/areas/)
+const CITY_IMAGES: Record<string, string> = {
+  "Franklin":       "/areas/franklin.jpg",
+  "Waynesville":    "/areas/waynesville.jpg",
+  "Sylva":          "/areas/sylva.jpg",
+  "Bryson City":    "/areas/bryson-city.jpg",
+  "Asheville":      "/areas/asheville.jpg",
+  "Highlands":      "/areas/highlands.jpg",
+  "Murphy":         "/areas/murphy.jpg",
+  "Hendersonville": "/areas/hendersonville.jpg",
+  "Brevard":        "/areas/brevard.jpg",
+  "Cherokee":       "/areas/cherokee.jpg",
+  "Maggie Valley":  "/areas/maggie-valley.jpg",
+  "Canton":         "/areas/canton.jpg",
+};
+
+// County-specific photos (reuse city photos or generics)
+const COUNTY_IMAGES: Record<string, string> = {
+  "Macon County":        "/areas/franklin.jpg",
+  "Haywood County":      "/areas/waynesville.jpg",
+  "Jackson County":      "/areas/sylva.jpg",
+  "Swain County":        "/areas/bryson-city.jpg",
+  "Buncombe County":     "/areas/asheville.jpg",
+  "Henderson County":    "/areas/hendersonville.jpg",
+  "Transylvania County": "/areas/brevard.jpg",
+  "Cherokee County":     "/areas/cherokee.jpg",
+  "Clay County":         "/areas/murphy.jpg",
+  "Graham County":       "/areas/mountain-river.jpg",
+};
+
+// Fallback images for areas without a specific photo
+const FALLBACK_IMAGES = [
+  "/areas/mountain-vista.jpg",
+  "/areas/mountain-river.jpg",
+  "/areas/small-town.jpg",
+  "/areas/mountain-forest.jpg",
+  "/areas/mountain-lake.jpg",
+  "/areas/waterfall.jpg",
 ];
+
+function getAreaImage(name: string, index: number): string {
+  // Check city map first, then county map
+  if (CITY_IMAGES[name]) return CITY_IMAGES[name];
+  if (COUNTY_IMAGES[name]) return COUNTY_IMAGES[name];
+
+  // For county names coming in as just the county name (without "County")
+  const countyKey = `${name} County`;
+  if (COUNTY_IMAGES[countyKey]) return COUNTY_IMAGES[countyKey];
+
+  // Fallback: cycle through generic images
+  return FALLBACK_IMAGES[index % FALLBACK_IMAGES.length];
+}
 
 interface AreaCardProps {
   name: string;
@@ -29,7 +69,7 @@ export default function AreaCard({
   avgPrice,
   index = 0,
 }: AreaCardProps) {
-  const theme = AREA_THEMES[index % AREA_THEMES.length];
+  const image = getAreaImage(name, index);
 
   return (
     <Link
@@ -38,15 +78,12 @@ export default function AreaCard({
     >
       {/* Background image */}
       <div
-        className="absolute inset-0 bg-cover bg-no-repeat group-hover:scale-110 transition-transform duration-700"
-        style={{
-          backgroundImage: "url('/hero-mountains.jpg')",
-          backgroundPosition: theme.position,
-        }}
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat group-hover:scale-110 transition-transform duration-700"
+        style={{ backgroundImage: `url('${image}')` }}
       />
 
       {/* Gradient overlay */}
-      <div className={`absolute inset-0 bg-gradient-to-t ${theme.overlay}`} />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/5" />
 
       {/* Content at bottom */}
       <div className="absolute inset-0 flex flex-col justify-end p-5">
