@@ -31,6 +31,15 @@ interface POICategory {
   type: string;
 }
 
+/** Cached POI result (normalized from the new Place object) */
+interface POIPlace {
+  name: string;
+  lat: number;
+  lng: number;
+  address: string;
+  rating?: number;
+}
+
 const POI_CATEGORIES: POICategory[] = [
   { id: "bakery", label: "Bakery", icon: "\u{1F950}", type: "bakery" },
   { id: "bank", label: "Bank", icon: "\u{1F3E6}", type: "bank" },
@@ -47,7 +56,7 @@ const POI_CATEGORIES: POICategory[] = [
   { id: "salon", label: "Salon", icon: "\u{1F487}", type: "beauty_salon" },
 ];
 
-const SEARCH_RADIUS = 4828; // ~3 miles in meters
+const SEARCH_RADIUS = 48280; // ~30 miles in meters
 
 /* ---------------------------------------------------------------- */
 /*  Main export (guards on API key)                                  */
@@ -208,7 +217,7 @@ function MapPanel({
 
   const propertyMarkerRef = useRef<google.maps.Marker | null>(null);
   const poiMarkersRef = useRef<Record<string, google.maps.Marker[]>>({});
-  const poiCacheRef = useRef<Record<string, google.maps.places.PlaceResult[]>>({});
+  const poiCacheRef = useRef<Record<string, POIPlace[]>>({});
   const infoWindowRef = useRef<google.maps.InfoWindow | null>(null);
 
   const position = { lat: latitude, lng: longitude };
@@ -247,11 +256,9 @@ function MapPanel({
     };
   }, [map, latitude, longitude]);
 
-  // POI markers: add for active categories, remove for deactivated
+  // POI markers using Places API (New): Place.searchNearby()
   useEffect(() => {
     if (!map || !placesLib) return;
-
-    const svc = new placesLib.PlacesService(map);
 
     // Add markers for each active category that doesn't already have them
     for (const id of Array.from(activePOIs)) {
@@ -274,26 +281,25 @@ function MapPanel({
       // Placeholder prevents duplicate requests while fetch is in flight
       poiMarkersRef.current[id] = [];
 
-      svc.nearbySearch(
-        { location: position, radius: SEARCH_RADIUS, type: cat.type },
-        (results, status) => {
-          if (
-            status === google.maps.places.PlacesServiceStatus.OK &&
-            results
-          ) {
-            poiCacheRef.current[id] = results;
-            // Only create markers if category is still tracked (not toggled off mid-flight)
-            if (id in poiMarkersRef.current) {
-              poiMarkersRef.current[id] = buildPOIMarkers(
-                map,
-                results,
-                cat,
-                infoWindowRef,
-              );
-            }
-          }
-        },
-      );
+      // Use the new Places API: Place.searchNearby()
+      searchNearbyNew(placesLib, position, cat).then((result) => {
+        // Only cache successful results (null = failed, don't cache so retry works)
+        if (result !== null) {
+          poiCacheRef.current[id] = result;
+        } else {
+          // Failed: remove placeholder so next toggle retries
+          delete poiMarkersRef.current[id];
+          return;
+        }
+        if (id in poiMarkersRef.current) {
+          poiMarkersRef.current[id] = buildPOIMarkers(
+            map,
+            result,
+            cat,
+            infoWindowRef,
+          );
+        }
+      });
     }
 
     // Remove markers for categories that were toggled off
@@ -332,57 +338,94 @@ function MapPanel({
 }
 
 /* ---------------------------------------------------------------- */
-/*  buildPOIMarkers: create Marker instances for nearby places       */
+/*  searchNearbyNew: Places API (New) via Place.searchNearby()       */
+/* ---------------------------------------------------------------- */
+
+async function searchNearbyNew(
+  placesLib: google.maps.PlacesLibrary,
+  center: google.maps.LatLngLiteral,
+  cat: POICategory,
+): Promise<POIPlace[] | null> {
+  try {
+    const PlaceClass = placesLib.Place;
+    const { places } = await PlaceClass.searchNearby({
+      fields: ["displayName", "location", "formattedAddress", "rating"],
+      locationRestriction: {
+        center,
+        radius: SEARCH_RADIUS,
+      },
+      includedTypes: [cat.type],
+      maxResultCount: 20,
+      rankPreference: placesLib.SearchNearbyRankPreference.DISTANCE,
+    });
+
+    console.log(`[POI] ${cat.label}: ${places.length} results`);
+
+    return places
+      .filter((p) => p.location)
+      .map((p) => ({
+        name: p.displayName || cat.label,
+        lat: p.location!.lat(),
+        lng: p.location!.lng(),
+        address: p.formattedAddress || "",
+        rating: p.rating ?? undefined,
+      }));
+  } catch (err) {
+    console.error(`[POI] ${cat.label} search failed:`, err);
+    return null;
+  }
+}
+
+/* ---------------------------------------------------------------- */
+/*  buildPOIMarkers: create Marker instances from normalized places   */
 /* ---------------------------------------------------------------- */
 
 function buildPOIMarkers(
   map: google.maps.Map,
-  places: google.maps.places.PlaceResult[],
+  places: POIPlace[],
   cat: POICategory,
   infoWindowRef: { current: google.maps.InfoWindow | null },
 ): google.maps.Marker[] {
-  return places
-    .filter((p) => p.geometry?.location)
-    .map((place) => {
-      const marker = new google.maps.Marker({
-        map,
-        position: place.geometry!.location!,
-        title: place.name || cat.label,
-        icon: {
-          path: google.maps.SymbolPath.CIRCLE,
-          scale: 14,
-          fillColor: "#ffffff",
-          fillOpacity: 0.95,
-          strokeColor: "#C5A572",
-          strokeWeight: 2,
-        },
-        label: { text: cat.icon, fontSize: "14px" },
-      });
-
-      const name = escapeHtml(place.name || cat.label);
-      const vicinity = place.vicinity ? escapeHtml(place.vicinity) : "";
-
-      const content =
-        `<div style="font-family:system-ui,sans-serif;max-width:200px">` +
-        `<strong style="color:#1B3A4B">${name}</strong>` +
-        (vicinity
-          ? `<br><span style="color:#666;font-size:12px">${vicinity}</span>`
-          : "") +
-        (place.rating
-          ? `<br><span style="font-size:12px;color:#666">Rating: ${place.rating}/5</span>`
-          : "") +
-        `</div>`;
-
-      const iw = new google.maps.InfoWindow({ content });
-
-      marker.addListener("click", () => {
-        infoWindowRef.current?.close();
-        iw.open(map, marker);
-        infoWindowRef.current = iw;
-      });
-
-      return marker;
+  return places.map((place) => {
+    const marker = new google.maps.Marker({
+      map,
+      position: { lat: place.lat, lng: place.lng },
+      title: place.name,
+      icon: {
+        path: google.maps.SymbolPath.CIRCLE,
+        scale: 14,
+        fillColor: "#ffffff",
+        fillOpacity: 0.95,
+        strokeColor: "#C5A572",
+        strokeWeight: 2,
+      },
+      label: { text: cat.icon, fontSize: "14px" },
     });
+
+    const name = escapeHtml(place.name);
+    const addr = place.address ? escapeHtml(place.address) : "";
+
+    const content =
+      `<div style="font-family:system-ui,sans-serif;max-width:220px">` +
+      `<strong style="color:#1B3A4B">${name}</strong>` +
+      (addr
+        ? `<br><span style="color:#666;font-size:12px">${addr}</span>`
+        : "") +
+      (place.rating
+        ? `<br><span style="font-size:12px;color:#666">Rating: ${place.rating}/5</span>`
+        : "") +
+      `</div>`;
+
+    const iw = new google.maps.InfoWindow({ content });
+
+    marker.addListener("click", () => {
+      infoWindowRef.current?.close();
+      iw.open(map, marker);
+      infoWindowRef.current = iw;
+    });
+
+    return marker;
+  });
 }
 
 /* ---------------------------------------------------------------- */
