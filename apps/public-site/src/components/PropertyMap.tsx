@@ -141,13 +141,13 @@ function PropertyMapInner({
               <button
                 key={cat.id}
                 onClick={() => togglePOI(cat.id)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition border ${
+                className={`flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-medium whitespace-nowrap transition border ${
                   activePOIs.has(cat.id)
                     ? "bg-[var(--color-accent)] border-[var(--color-accent)] text-[var(--color-primary)]"
                     : "bg-white border-gray-200 text-[var(--color-text-light)] hover:border-gray-300"
                 }`}
               >
-                <span className="text-sm">{cat.icon}</span>
+                <span className="text-xs">{cat.icon}</span>
                 {cat.label}
               </button>
             ))}
