@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getListing, formatPrice, formatNumber } from "@/lib/api";
 import PhotoBrowser from "@/components/PhotoBrowser";
+import PropertyMap from "@/components/PropertyMap";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -305,6 +306,18 @@ export default async function ListingDetailPage({ params }: PageProps) {
             </div>
           </div>
         </div>
+
+        {/* Property Map */}
+        {listing.latitude && listing.longitude && (
+          <PropertyMap
+            latitude={listing.latitude}
+            longitude={listing.longitude}
+            address={listing.address}
+            city={listing.city}
+            state={listing.state || "NC"}
+            zip={listing.zip}
+          />
+        )}
 
         {/* Back link */}
         <div className="mt-10 pt-8 border-t border-gray-200/40">
