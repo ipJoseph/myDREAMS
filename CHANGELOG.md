@@ -8,6 +8,19 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+- **Interactive Property Map with POI search** (2026-02-21)
+  - Google Maps integration on listing detail pages (Map, Satellite, Street View tabs)
+  - 13 POI category chips (Restaurant, Grocery, Park, Hospital, etc.) with nearby search
+  - Uses Places API (New) via `Place.searchNearby()` for accurate results within 30 miles
+  - Directions button linking to Google Maps
+  - Graceful degradation: hidden when no API key or no coordinates, Street View fallback message
+- **Public website deployed to production** (2026-02-21)
+  - `wncmountain.homes` now serves the Next.js public site (previously redirected to dashboard)
+  - Node.js 22 installed on PRD, systemd service `mydreams-public` on port 3000
+  - Caddy reverse proxy configured with security headers and logging
+  - Cleaned up stale GoDaddy DNS records from Cloudflare
+
 ### Fixed
 - **LISTINGS_COLUMNS whitelist updated to match actual schema** (2026-02-20)
   - Expanded from 55 to 95 columns, matching all Navica-extended fields
