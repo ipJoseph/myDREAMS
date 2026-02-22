@@ -1810,7 +1810,7 @@
             zoom: 14,
             gestureHandling: 'cooperative',
             zoomControl: true,
-            fullscreenControl: true,
+            fullscreenControl: false,
             streetViewControl: false,
             mapTypeControl: false,
             mapTypeId: 'roadmap'
@@ -1880,7 +1880,7 @@
                         pov: { heading: 0, pitch: 0 },
                         zoom: 1,
                         addressControl: false,
-                        fullscreenControl: true
+                        fullscreenControl: false
                     });
                 } else {
                     container.innerHTML = '<div class="streetview-fallback">Street View is not available for this location</div>';
