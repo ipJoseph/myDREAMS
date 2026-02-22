@@ -11,6 +11,7 @@ import sys
 import subprocess
 import statistics
 import re
+import urllib.parse
 from functools import wraps
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -72,6 +73,19 @@ def load_env_file():
 load_env_file()
 
 app = Flask(__name__)
+
+# County GIS parcel lookup URLs for WNC counties
+COUNTY_GIS_URLS = {
+    'Macon': 'https://gis.maconnc.org/buncomap/?find={parcel}',
+    'Buncombe': 'https://gis.buncombecounty.org/buncomap/?find={parcel}',
+    'Jackson': 'https://gis.jacksonnc.org/jacksongis/?find={parcel}',
+    'Henderson': 'https://henderson.patriotproperties.com/default.asp?find={parcel}',
+    'Haywood': 'https://gis.haywoodcountync.gov/haywoodnewgis/?find={parcel}',
+    'Swain': 'https://tax.swaincountync.gov/Search?PIN={parcel}',
+    'Cherokee': 'https://gis.cherokeecounty-nc.gov/maps/?pin={parcel}',
+    'Clay': 'https://ustaxdata.com/nc/clay/?parcel={parcel}',
+    'Graham': 'https://ustaxdata.com/nc/graham/?parcel={parcel}',
+}
 
 
 # Custom Jinja2 filter for phone number formatting
@@ -1760,7 +1774,7 @@ def api_properties():
 @app.route('/properties/<property_id>')
 @requires_auth
 def property_detail(property_id):
-    """Property detail page."""
+    """Property detail page with full MLS field coverage."""
     with db._get_connection() as conn:
         prop = conn.execute('''
             SELECT * FROM listings WHERE id = ?
@@ -1774,14 +1788,88 @@ def property_detail(property_id):
         # Normalize list_price to price for template
         prop_dict['price'] = prop_dict.get('list_price')
 
-        # Parse photos JSON
-        if prop_dict.get('photos'):
-            try:
-                prop_dict['photos'] = json.loads(prop_dict['photos'])
-            except json.JSONDecodeError:
-                prop_dict['photos'] = []
-        else:
-            prop_dict['photos'] = []
+        # Parse all JSON array fields
+        json_fields = [
+            'photos', 'interior_features', 'exterior_features', 'appliances',
+            'fireplace_features', 'flooring', 'parking_features',
+            'construction_materials', 'water_source', 'sewer',
+            'heating', 'cooling', 'documents_available', 'views',
+            'style', 'amenities', 'roof', 'foundation'
+        ]
+        for field in json_fields:
+            raw = prop_dict.get(field)
+            if raw and isinstance(raw, str):
+                try:
+                    parsed = json.loads(raw)
+                    prop_dict[field] = parsed if isinstance(parsed, list) else [parsed]
+                except json.JSONDecodeError:
+                    prop_dict[field] = [s.strip() for s in raw.split(',') if s.strip()]
+            elif not raw:
+                prop_dict[field] = []
+
+        # Query agents table for enriched listing agent info
+        agent_info = {
+            'name': prop_dict.get('listing_agent_name', ''),
+            'phone': prop_dict.get('listing_agent_phone', ''),
+            'email': prop_dict.get('listing_agent_email', ''),
+            'office': prop_dict.get('listing_office_name', ''),
+            'photo_url': None,
+            'website': None,
+        }
+        if prop_dict.get('listing_agent_id'):
+            agent_row = conn.execute(
+                'SELECT * FROM agents WHERE mls_agent_id = ?',
+                [prop_dict['listing_agent_id']]
+            ).fetchone()
+            if agent_row:
+                agent_dict = dict(agent_row)
+                if not agent_info['name']:
+                    agent_info['name'] = agent_dict.get('full_name') or agent_dict.get('name', '')
+                if not agent_info['phone']:
+                    agent_info['phone'] = agent_dict.get('phone') or agent_dict.get('mobile_phone', '')
+                if not agent_info['email']:
+                    agent_info['email'] = agent_dict.get('email', '')
+                if not agent_info['office']:
+                    agent_info['office'] = agent_dict.get('office_name', '')
+                agent_info['photo_url'] = agent_dict.get('photo_url')
+                agent_info['website'] = agent_dict.get('website')
+
+        # Build buyer agent info if sold
+        buyer_agent_info = None
+        if prop_dict.get('buyer_agent_name'):
+            buyer_agent_info = {
+                'name': prop_dict.get('buyer_agent_name', ''),
+                'office': prop_dict.get('buyer_office_name', ''),
+            }
+
+        # Build GIS URL from county + parcel number
+        gis_url = None
+        county = prop_dict.get('county', '')
+        parcel = prop_dict.get('parcel_number', '')
+        if county and parcel:
+            template = COUNTY_GIS_URLS.get(county)
+            if template:
+                gis_url = template.replace('{parcel}', urllib.parse.quote(parcel))
+
+        # Build Google Maps directions URL
+        directions_url = None
+        addr_parts = [
+            prop_dict.get('address', ''),
+            prop_dict.get('city', ''),
+            prop_dict.get('state', ''),
+            prop_dict.get('zip', '')
+        ]
+        full_address = ', '.join(p for p in addr_parts if p)
+        if full_address:
+            directions_url = f"https://www.google.com/maps/dir/?api=1&destination={urllib.parse.quote(full_address)}"
+
+        # Compute price per sqft
+        price_per_sqft = None
+        if prop_dict.get('price') and prop_dict.get('sqft') and prop_dict['sqft'] > 0:
+            price_per_sqft = round(prop_dict['price'] / prop_dict['sqft'])
+
+        # Google Maps API key
+        google_maps_key = os.environ.get('GOOGLE_MAPS_KEY', '')
 
         # Price history and changes are not yet tracked for listings
         # (will be rebuilt by Navica sync change detection)
@@ -1791,6 +1879,12 @@ def property_detail(property_id):
 
         return render_template('property_detail.html',
                              property=prop_dict,
+                             agent_info=agent_info,
+                             buyer_agent_info=buyer_agent_info,
+                             gis_url=gis_url,
+                             directions_url=directions_url,
+                             price_per_sqft=price_per_sqft,
+                             google_maps_key=google_maps_key,
                              price_history=price_history,
                              changes=changes,
                              interested_contacts=interested)
