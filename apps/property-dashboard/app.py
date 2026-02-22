@@ -574,6 +574,21 @@ def _build_multi_where(query: str, params: list, column: str, value: str, use_li
     return query
 
 
+def parse_mls_list(q: str) -> list | None:
+    """Detect and parse multiple MLS numbers from search input.
+    Returns list of MLS numbers if input looks like a multi-MLS query,
+    or None to fall through to normal LIKE search.
+    """
+    tokens = re.split(r'[,;\s]+', q.strip())
+    tokens = [t.strip() for t in tokens if t.strip()]
+    if len(tokens) < 2:
+        return None
+    for t in tokens:
+        if not re.match(r'^[A-Za-z0-9\-]{4,12}$', t):
+            return None
+    return tokens
+
+
 def count_properties(added_for: Optional[str] = None, status: Optional[str] = None,
                      city: Optional[str] = None, county: Optional[str] = None,
                      q: Optional[str] = None, min_price: Optional[int] = None,
@@ -593,7 +608,12 @@ def count_properties(added_for: Optional[str] = None, status: Optional[str] = No
             params.append(status)
         query = _build_multi_where(query, params, 'city', city)
         query = _build_multi_where(query, params, 'county', county, use_like=True)
-        if q:
+        mls_list = parse_mls_list(q) if q else None
+        if mls_list:
+            placeholders = ','.join(['?'] * len(mls_list))
+            query += f' AND mls_number IN ({placeholders})'
+            params.extend(mls_list)
+        elif q:
             query += ' AND (address LIKE ? OR mls_number LIKE ? OR city LIKE ? OR listing_agent_name LIKE ?)'
             q_param = f'%{q}%'
             params.extend([q_param, q_param, q_param, q_param])
@@ -644,7 +664,12 @@ def fetch_properties(added_for: Optional[str] = None, status: Optional[str] = No
         query = _build_multi_where(query, params, 'city', city)
         query = _build_multi_where(query, params, 'county', county, use_like=True)
 
-        if q:
+        mls_list = parse_mls_list(q) if q else None
+        if mls_list:
+            placeholders = ','.join(['?'] * len(mls_list))
+            query += f' AND mls_number IN ({placeholders})'
+            params.extend(mls_list)
+        elif q:
             query += ' AND (address LIKE ? OR mls_number LIKE ? OR city LIKE ? OR listing_agent_name LIKE ?)'
             q_param = f'%{q}%'
             params.extend([q_param, q_param, q_param, q_param])

@@ -13,6 +13,7 @@ Endpoints:
 """
 
 import json
+import re
 import os
 import sqlite3
 import sys
@@ -81,6 +82,21 @@ def row_to_dict(row, fields=None):
     if fields:
         d = {k: v for k, v in d.items() if k in fields}
     return d
+
+
+def parse_mls_list(q: str) -> list | None:
+    """Detect and parse multiple MLS numbers from search input.
+    Returns list of MLS numbers if input looks like a multi-MLS query,
+    or None to fall through to normal LIKE search.
+    """
+    tokens = re.split(r'[,;\s]+', q.strip())
+    tokens = [t.strip() for t in tokens if t.strip()]
+    if len(tokens) < 2:
+        return None
+    for t in tokens:
+        if not re.match(r'^[A-Za-z0-9\-]{4,12}$', t):
+            return None
+    return tokens
 
 
 @public_bp.route('/listings', methods=['GET'])
@@ -183,15 +199,20 @@ def search_listings():
             conditions.append("mls_source = ?")
             params.append(mls_source)
 
-        # Full-text search
+        # Full-text search (supports multiple MLS numbers)
         q = request.args.get('q')
-        if q:
+        mls_list = parse_mls_list(q) if q else None
+        if mls_list:
+            placeholders = ','.join(['?'] * len(mls_list))
+            conditions.append(f'mls_number IN ({placeholders})')
+            params.extend(mls_list)
+        elif q:
             search_term = f"%{q}%"
             conditions.append(
                 "(address LIKE ? OR city LIKE ? OR county LIKE ? "
-                "OR subdivision LIKE ? OR public_remarks LIKE ?)"
+                "OR subdivision LIKE ? OR public_remarks LIKE ? OR mls_number LIKE ?)"
             )
-            params.extend([search_term] * 5)
+            params.extend([search_term] * 6)
 
         # Sort
         sort_col = request.args.get('sort', 'list_date')

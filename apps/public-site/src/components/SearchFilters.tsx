@@ -91,7 +91,7 @@ export default function SearchFilters() {
           <input
             ref={searchInputRef}
             type="text"
-            placeholder="Search by address, city, or keyword..."
+            placeholder="Search by address, MLS# (or multiple), city, or keyword..."
             defaultValue={searchParams.get("q") || ""}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
