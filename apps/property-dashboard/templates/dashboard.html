@@ -6,62 +6,512 @@
     <title>DREAMS Property Dashboard</title>
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="{{ favicon }}">
-    <!-- Shared Design System -->
+    <!-- Shared Design System (sidebar uses these vars) -->
     <link rel="stylesheet" href="{{ url_for('static', filename='shared/css/dreams.css') }}">
-    <!-- Page-specific overrides (minimal) -->
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        /* Address column - moderate width, allow 2 lines */
-        td.address-col {
+        /* ── Dashboard color tokens (scoped so sidebar is unaffected) ── */
+        :root {
+            --dash-primary: #082d40;
+            --dash-primary-light: #0a3d56;
+            --dash-accent: #ddab4a;
+            --dash-accent-hover: #c9982e;
+            --dash-eggshell: #f5f2ed;
+            --dash-text: #4e4e4e;
+            --dash-text-light: #6b6b6b;
+            --dash-border: #e5e1db;
+        }
+
+        .main-content {
+            background: var(--dash-eggshell);
+            font-family: 'Open Sans', system-ui, sans-serif;
+            color: var(--dash-text);
+            min-height: 100vh;
+        }
+
+        /* ── Filter Bar ── */
+        .dash-filter-bar {
+            background: var(--dash-primary);
+            color: #fff;
+            padding: 20px 28px;
+            position: sticky;
+            top: 0;
+            z-index: 50;
+        }
+        .dash-search-row {
+            display: flex;
+            gap: 0;
+            margin-bottom: 14px;
+        }
+        .dash-search-input {
+            flex: 1;
+            padding: 10px 18px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: #fff;
+            font-size: 14px;
+            outline: none;
+            font-family: inherit;
+        }
+        .dash-search-input::placeholder { color: rgba(255,255,255,0.4); }
+        .dash-search-input:focus { border-color: var(--dash-accent); }
+        .dash-search-btn {
+            padding: 10px 24px;
+            background: var(--dash-accent);
+            color: var(--dash-primary);
+            border: none;
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        .dash-search-btn:hover { background: var(--dash-accent-hover); }
+
+        .dash-filter-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+        }
+        .dash-filter-select {
+            padding: 8px 12px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: #fff;
+            font-size: 13px;
+            outline: none;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        .dash-filter-select:focus { border-color: var(--dash-accent); }
+        .dash-filter-select option { color: #333; background: #fff; }
+        .dash-filter-clear {
+            padding: 8px 12px;
+            background: none;
+            border: none;
+            color: var(--dash-accent);
+            font-size: 13px;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        .dash-filter-clear:hover { color: #fff; }
+        .dash-filter-push-right { margin-left: auto; }
+
+        /* ── Metrics Bar ── */
+        .dash-metrics {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 24px;
+            padding: 14px 28px;
+            border-bottom: 1px solid var(--dash-border);
+            background: var(--dash-eggshell);
+        }
+        .dash-metric {
+            font-size: 13px;
+            color: var(--dash-text-light);
+        }
+        .dash-metric-value {
+            font-family: Georgia, serif;
+            font-weight: normal;
+            color: var(--dash-primary);
+            margin-left: 4px;
+        }
+
+        /* ── Results Bar ── */
+        .dash-results-bar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 28px;
+            border-bottom: 1px solid var(--dash-border);
+            background: #fff;
+        }
+        .dash-results-left {
+            font-size: 13px;
+            color: var(--dash-text-light);
+        }
+        .dash-results-left strong { color: var(--dash-primary); }
+        .dash-results-center {
+            display: flex;
+            gap: 4px;
+        }
+        .dash-view-btn {
+            width: 34px;
+            height: 34px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid var(--dash-border);
+            background: #fff;
+            cursor: pointer;
+            color: var(--dash-text-light);
+        }
+        .dash-view-btn.active {
+            background: var(--dash-primary);
+            color: #fff;
+            border-color: var(--dash-primary);
+        }
+        .dash-view-btn svg { width: 16px; height: 16px; }
+        .dash-results-right {
+            margin-left: auto;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+        }
+        .dash-action-btn {
+            padding: 6px 14px;
+            font-size: 12px;
+            font-weight: 600;
+            border: 1px solid var(--dash-border);
+            background: #fff;
+            color: var(--dash-text);
+            cursor: pointer;
+            font-family: inherit;
+            white-space: nowrap;
+        }
+        .dash-action-btn:hover { background: #f5f5f5; }
+        .dash-action-btn.primary {
+            background: var(--dash-primary);
+            color: #fff;
+            border-color: var(--dash-primary);
+        }
+        .dash-action-btn.primary:hover { background: var(--dash-primary-light); }
+        .dash-action-btn.success {
+            background: #137333;
+            color: #fff;
+            border-color: #137333;
+        }
+        .dash-action-btn.success:hover { background: #0e5a28; }
+
+        /* ── Card Grid ── */
+        .dash-card-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            padding: 24px 28px;
+        }
+        @media (max-width: 1200px) { .dash-card-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 768px) { .dash-card-grid { grid-template-columns: 1fr; } }
+
+        /* ── Property Card ── */
+        .dash-card {
+            background: #fff;
+            border: 1px solid rgba(0,0,0,0.08);
+            overflow: hidden;
+            transition: all 0.3s;
+            position: relative;
+        }
+        .dash-card:hover {
+            border-color: var(--dash-accent);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+        }
+
+        .dash-card-photo {
+            position: relative;
+            aspect-ratio: 4/3;
+            background: #1a1a1a;
+            overflow: hidden;
+        }
+        .dash-card-photo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.5s;
+        }
+        .dash-card:hover .dash-card-photo img { transform: scale(1.05); }
+        .dash-card-photo-placeholder {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+        }
+        .dash-card-photo-placeholder svg { width: 48px; height: 48px; }
+
+        /* Checkbox on card photo */
+        .dash-card-checkbox {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 5;
+            background: rgba(255,255,255,0.9);
+            border-radius: 20px;
+            padding: 4px 8px;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+        .dash-card-checkbox input {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+            accent-color: var(--dash-primary);
+        }
+
+        /* Badges on photo */
+        .dash-badge-status {
+            position: absolute;
+            top: 10px;
+            left: 48px;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 4px 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .dash-badge-status.active { background: var(--dash-accent); color: var(--dash-primary); }
+        .dash-badge-status.pending { background: rgba(255,255,255,0.9); color: #555; }
+        .dash-badge-status.sold { background: #dc2626; color: #fff; }
+        .dash-badge-status.other { background: #666; color: #fff; }
+
+        .dash-badge-dom {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.6);
+            color: #fff;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 4px 10px;
+        }
+        .dash-badge-photos {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.6);
+            color: #fff;
+            font-size: 11px;
+            padding: 3px 8px;
+        }
+
+        /* Card body */
+        .dash-card-body {
+            padding: 16px 18px;
+        }
+        .dash-card-price {
+            font-family: Georgia, serif;
+            font-size: 22px;
+            font-weight: normal;
+            color: var(--dash-primary);
+        }
+        .dash-card-specs {
+            display: flex;
+            gap: 10px;
+            font-size: 13px;
+            color: var(--dash-text-light);
+            margin-top: 6px;
+        }
+        .dash-card-specs span { white-space: nowrap; }
+        .dash-card-address {
+            font-size: 14px;
+            margin-top: 10px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .dash-card-address a {
+            color: var(--dash-text);
+            text-decoration: none;
+        }
+        .dash-card-address a:hover { color: var(--dash-primary); }
+        .dash-card-location {
+            font-size: 13px;
+            color: var(--dash-text-light);
+        }
+
+        /* Agent row (dashboard-only) */
+        .dash-card-agent {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 8px;
+            font-size: 12px;
+            color: var(--dash-text-light);
+        }
+        .dash-card-agent svg { width: 14px; height: 14px; flex-shrink: 0; opacity: 0.5; }
+        .dash-card-agent a { color: var(--dash-accent-hover); text-decoration: none; }
+        .dash-card-agent a:hover { text-decoration: underline; }
+
+        /* Card footer */
+        .dash-card-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 18px;
+            border-top: 1px solid #f0ede8;
+            font-size: 12px;
+            color: var(--dash-text-light);
+        }
+
+        /* Badge row */
+        .dash-card-badges {
+            display: flex;
+            gap: 6px;
+            padding: 0 18px 12px;
+            flex-wrap: wrap;
+        }
+        .dash-mini-badge {
+            font-size: 10px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 3px;
+            text-transform: uppercase;
+        }
+        .dash-mini-badge.docs { background: #e0f2fe; color: #0369a1; }
+        .dash-mini-badge.showing { background: #fef3c7; color: #92400e; }
+        .dash-mini-badge.idx-validated { background: #dcfce7; color: #166534; }
+        .dash-mini-badge.idx-pending { background: #fef9c3; color: #854d0e; }
+        .dash-mini-badge.idx-not-found { background: #fee2e2; color: #991b1b; }
+
+        /* ── Table View ── */
+        .dash-table-wrap {
+            padding: 16px 28px;
+            overflow-x: auto;
+        }
+        .dash-table {
+            width: 100%;
+            min-width: 1400px;
+            border-collapse: collapse;
+            font-size: 13px;
+            background: #fff;
+        }
+        .dash-table th {
+            background: var(--dash-primary);
+            color: #fff;
+            padding: 10px 12px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            white-space: nowrap;
+        }
+        .dash-table th.sortable { cursor: pointer; user-select: none; }
+        .dash-table th.sortable:hover { background: var(--dash-primary-light); }
+        .dash-table th.sorted-desc::after { content: ' \25BC'; font-size: 10px; }
+        .dash-table th.sorted-asc::after { content: ' \25B2'; font-size: 10px; }
+        .dash-table td {
+            padding: 8px 12px;
+            border-bottom: 1px solid #f0ede8;
+            vertical-align: middle;
+        }
+        .dash-table tbody tr:hover { background: rgba(8,45,64,0.03); }
+        .dash-table .num-col { text-align: right; }
+        .dash-table .checkbox-col { width: 36px; text-align: center; }
+        .dash-table .address-col {
             min-width: 180px;
             max-width: 220px;
             white-space: normal;
             line-height: 1.3;
         }
-
-        /* Address city subtitle */
-        .address-city {
-            font-size: 12px;
-            color: var(--text-secondary);
+        .dash-table .address-city { font-size: 12px; color: var(--dash-text-light); }
+        .dash-table .prop-image {
+            width: 60px;
+            height: 45px;
+            object-fit: cover;
+            border-radius: 3px;
         }
+        .dash-table .prop-image-placeholder {
+            width: 60px;
+            height: 45px;
+            background: #f5f5f5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            border-radius: 3px;
+        }
+        .dash-table a.prop-link { color: var(--dash-primary); text-decoration: none; }
+        .dash-table a.prop-link:hover { text-decoration: underline; }
+        .dash-table .mls-num { font-family: monospace; font-size: 12px; }
+        .dash-table .price-cell {
+            font-family: Georgia, serif;
+            color: var(--dash-primary);
+            font-weight: normal;
+        }
+        .dash-table .status-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            border-radius: 3px;
+        }
+        .dash-table .status-badge.active { background: var(--dash-accent); color: var(--dash-primary); }
+        .dash-table .status-badge.pending { background: #f5f5f5; color: #555; }
+        .dash-table .status-badge.sold { background: #fee2e2; color: #991b1b; }
 
-        /* IDX Status badge (smaller inline badge) */
-        .idx-status-badge {
+        .dash-table .idx-link {
+            font-size: 12px;
+            color: var(--dash-primary);
+            text-decoration: none;
+        }
+        .dash-table .idx-link:hover { text-decoration: underline; }
+        .dash-table .idx-badge {
             display: inline-block;
             padding: 2px 6px;
             border-radius: 3px;
             font-size: 9px;
             font-weight: 600;
             text-transform: uppercase;
-            margin-left: 4px;
-            vertical-align: middle;
+        }
+        .dash-table .idx-badge.validated { background: #dcfce7; color: #166534; }
+        .dash-table .idx-badge.not-found { background: #fee2e2; color: #991b1b; }
+        .dash-table .idx-badge.pending { background: #fef9c3; color: #854d0e; }
+        .dash-table .idx-badge.error { background: #fee2e2; color: #991b1b; }
+
+        /* ── Pagination ── */
+        .dash-pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 6px;
+            padding: 24px 28px 40px;
+        }
+        .dash-page-btn {
+            min-width: 38px;
+            height: 38px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid var(--dash-border);
+            background: #fff;
+            color: var(--dash-text);
+            font-size: 14px;
+            cursor: pointer;
+            text-decoration: none;
+            padding: 0 10px;
+            font-family: inherit;
+        }
+        .dash-page-btn:hover { background: #f5f5f5; }
+        .dash-page-btn.active {
+            background: var(--dash-primary);
+            color: #fff;
+            border-color: var(--dash-primary);
+        }
+        .dash-page-btn.disabled {
+            opacity: 0.4;
+            pointer-events: none;
+        }
+        .dash-page-ellipsis {
+            min-width: 38px;
+            height: 38px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            color: var(--dash-text-light);
         }
 
-        .idx-status-badge.validated {
-            background: var(--idx-validated-bg);
-            color: var(--idx-validated-text);
-        }
-
-        .idx-status-badge.not-found {
-            background: var(--idx-not-found-bg);
-            color: var(--idx-not-found-text);
-        }
-
-        .idx-status-badge.pending {
-            background: var(--idx-pending-bg);
-            color: var(--idx-pending-text);
-        }
-
-        .idx-status-badge.error {
-            background: var(--idx-error-bg);
-            color: var(--idx-error-text);
-        }
-
-        /* Table minimum width */
-        .dreams-table {
-            min-width: 1400px;
-        }
-
-        /* IDX Progress Modal */
+        /* ── IDX Progress Modal ── */
         .progress-modal {
             position: fixed;
             top: 0;
@@ -74,7 +524,6 @@
             align-items: center;
             justify-content: center;
         }
-
         .progress-modal-content {
             background: white;
             border-radius: 12px;
@@ -84,13 +533,12 @@
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
             text-align: center;
         }
-
         .progress-modal h3 {
             margin: 0 0 20px 0;
-            color: var(--primary-dark);
+            color: var(--dash-primary);
             font-size: 18px;
+            font-family: Georgia, serif;
         }
-
         .progress-bar-container {
             background: #e5e7eb;
             border-radius: 8px;
@@ -98,49 +546,34 @@
             overflow: hidden;
             margin-bottom: 16px;
         }
-
         .progress-bar {
             height: 100%;
-            background: linear-gradient(90deg, var(--accent-blue), var(--success-green));
+            background: linear-gradient(90deg, var(--dash-primary), var(--dash-accent));
             border-radius: 8px;
             width: 0%;
             transition: width 0.3s ease;
         }
-
         .progress-message {
             font-size: 14px;
-            color: var(--text-primary);
+            color: var(--dash-text);
             margin-bottom: 8px;
         }
-
         .progress-details {
             font-size: 12px;
-            color: var(--text-secondary);
+            color: var(--dash-text-light);
         }
+        .progress-modal.complete .progress-bar { background: #137333; }
+        .progress-modal.error .progress-bar { background: #dc2626; }
 
-        .progress-modal.complete .progress-bar {
-            background: var(--success-green);
-        }
-
-        .progress-modal.error .progress-bar {
-            background: var(--alert-red);
-        }
-
-        /* Sortable headers */
-        th.sortable {
-            cursor: pointer;
-            user-select: none;
-        }
-        th.sortable:hover {
-            background: var(--color-primary-light);
-        }
-        th.sorted-desc::after {
-            content: ' \25BC';
-            font-size: 10px;
-        }
-        th.sorted-asc::after {
-            content: ' \25B2';
-            font-size: 10px;
+        /* ── Responsive ── */
+        @media (max-width: 900px) {
+            .dash-filter-bar { padding: 16px 16px; }
+            .dash-card-grid { padding: 16px; gap: 16px; }
+            .dash-metrics { padding: 12px 16px; gap: 16px; }
+            .dash-results-bar { padding: 12px 16px; }
+            .dash-table-wrap { padding: 12px 16px; }
+            .dash-pagination { padding: 20px 16px 32px; }
+            .dash-results-right { margin-left: 0; width: 100%; }
         }
     </style>
 {% set active_nav = 'properties' %}
@@ -148,162 +581,268 @@
 <body>
     {% include 'partials/sidebar.html' %}
     <div class="main-content">
-    <!-- Header -->
-    <header class="dreams-header">
-        <div>
-            <h1>Properties</h1>
-            <div class="dreams-header-subtitle">
-                {% if selected_client %}
-                    Properties for: {{ selected_client }}
-                {% else %}
-                    All Properties
-                {% endif %}
-                &bull; {{ refresh_time }}
-            </div>
-        </div>
-    </header>
 
-    <!-- Filters -->
-    <div class="dreams-filters">
-        <div class="dreams-filter-group">
-            <label>Client:</label>
-            <select id="clientFilter" onchange="applyFilters()">
+    <!-- Filter Bar -->
+    <div class="dash-filter-bar">
+        <div class="dash-search-row">
+            <input type="text"
+                   id="searchInput"
+                   class="dash-search-input"
+                   placeholder="Search by address, MLS#, city, or agent name..."
+                   value="{{ search_query or '' }}"
+                   onkeydown="if(event.key==='Enter')applyFilters()">
+            <button class="dash-search-btn" onclick="applyFilters()">Search</button>
+        </div>
+        <div class="dash-filter-row">
+            <select id="minPriceFilter" class="dash-filter-select" onchange="applyFilters()">
+                <option value="">Min Price</option>
+                <option value="100000" {% if selected_min_price == 100000 %}selected{% endif %}>$100k+</option>
+                <option value="200000" {% if selected_min_price == 200000 %}selected{% endif %}>$200k+</option>
+                <option value="300000" {% if selected_min_price == 300000 %}selected{% endif %}>$300k+</option>
+                <option value="400000" {% if selected_min_price == 400000 %}selected{% endif %}>$400k+</option>
+                <option value="500000" {% if selected_min_price == 500000 %}selected{% endif %}>$500k+</option>
+                <option value="750000" {% if selected_min_price == 750000 %}selected{% endif %}>$750k+</option>
+                <option value="1000000" {% if selected_min_price == 1000000 %}selected{% endif %}>$1M+</option>
+                <option value="2000000" {% if selected_min_price == 2000000 %}selected{% endif %}>$2M+</option>
+            </select>
+
+            <select id="maxPriceFilter" class="dash-filter-select" onchange="applyFilters()">
+                <option value="">Max Price</option>
+                <option value="100000" {% if selected_max_price == 100000 %}selected{% endif %}>Up to $100k</option>
+                <option value="200000" {% if selected_max_price == 200000 %}selected{% endif %}>Up to $200k</option>
+                <option value="300000" {% if selected_max_price == 300000 %}selected{% endif %}>Up to $300k</option>
+                <option value="400000" {% if selected_max_price == 400000 %}selected{% endif %}>Up to $400k</option>
+                <option value="500000" {% if selected_max_price == 500000 %}selected{% endif %}>Up to $500k</option>
+                <option value="750000" {% if selected_max_price == 750000 %}selected{% endif %}>Up to $750k</option>
+                <option value="1000000" {% if selected_max_price == 1000000 %}selected{% endif %}>Up to $1M</option>
+                <option value="2000000" {% if selected_max_price == 2000000 %}selected{% endif %}>Up to $2M</option>
+            </select>
+
+            <select id="bedsFilter" class="dash-filter-select" onchange="applyFilters()">
+                <option value="">Beds</option>
+                <option value="1" {% if selected_min_beds == 1 %}selected{% endif %}>1+ beds</option>
+                <option value="2" {% if selected_min_beds == 2 %}selected{% endif %}>2+ beds</option>
+                <option value="3" {% if selected_min_beds == 3 %}selected{% endif %}>3+ beds</option>
+                <option value="4" {% if selected_min_beds == 4 %}selected{% endif %}>4+ beds</option>
+                <option value="5" {% if selected_min_beds == 5 %}selected{% endif %}>5+ beds</option>
+            </select>
+
+            <select id="statusFilter" class="dash-filter-select" onchange="applyFilters()">
+                <option value="">All Statuses</option>
+                {% for s in statuses %}
+                <option value="{{ s }}" {% if selected_status == s %}selected{% endif %}>{{ s }}</option>
+                {% endfor %}
+            </select>
+
+            <select id="cityFilter" class="dash-filter-select" onchange="applyFilters()">
+                <option value="">All Cities</option>
+                {% for c in cities %}
+                <option value="{{ c }}" {% if selected_city == c %}selected{% endif %}>{{ c }}</option>
+                {% endfor %}
+            </select>
+
+            <select id="countyFilter" class="dash-filter-select" onchange="applyFilters()">
+                <option value="">All Counties</option>
+                {% for co in counties %}
+                <option value="{{ co }}" {% if selected_county == co %}selected{% endif %}>{{ co }}</option>
+                {% endfor %}
+            </select>
+
+            <select id="clientFilter" class="dash-filter-select" onchange="applyFilters()">
                 <option value="">All Clients</option>
                 {% for client in clients %}
                 <option value="{{ client }}" {% if selected_client == client %}selected{% endif %}>{{ client }}</option>
                 {% endfor %}
             </select>
-        </div>
 
-        <div class="dreams-filter-group">
-            <label>Status:</label>
-            <select id="statusFilter" onchange="applyFilters()">
-                <option value="">All Statuses</option>
-                {% for status in statuses %}
-                <option value="{{ status }}" {% if selected_status == status %}selected{% endif %}>{{ status }}</option>
-                {% endfor %}
-            </select>
-        </div>
+            {% set has_filters = search_query or selected_min_price or selected_max_price or selected_min_beds or selected_status or selected_city or selected_county or selected_client %}
+            {% if has_filters %}
+            <button class="dash-filter-clear" onclick="clearAllFilters()">Clear All</button>
+            {% endif %}
 
-        <div class="dreams-filter-group">
-            <label>City:</label>
-            <select id="cityFilter" onchange="applyFilters()">
-                <option value="">All Cities</option>
-                {% for city in cities %}
-                <option value="{{ city }}" {% if selected_city == city %}selected{% endif %}>{{ city }}</option>
-                {% endfor %}
-            </select>
-        </div>
-
-        <div class="dreams-filter-group">
-            <label>County:</label>
-            <select id="countyFilter" onchange="applyFilters()">
-                <option value="">All Counties</option>
-                {% for county in counties %}
-                <option value="{{ county }}" {% if selected_county == county %}selected{% endif %}>{{ county }}</option>
-                {% endfor %}
+            <select id="sortFilter" class="dash-filter-select dash-filter-push-right" onchange="applySort(this.value)">
+                <option value="price:desc" {% if sort_by == 'price' and sort_order == 'desc' %}selected{% endif %}>Sort: Price High</option>
+                <option value="price:asc" {% if sort_by == 'price' and sort_order == 'asc' %}selected{% endif %}>Sort: Price Low</option>
+                <option value="created_at:desc" {% if sort_by == 'created_at' and sort_order == 'desc' %}selected{% endif %}>Sort: Newest</option>
+                <option value="beds:desc" {% if sort_by == 'beds' and sort_order == 'desc' %}selected{% endif %}>Sort: Beds</option>
+                <option value="sqft:desc" {% if sort_by == 'sqft' and sort_order == 'desc' %}selected{% endif %}>Sort: SqFt</option>
+                <option value="acreage:desc" {% if sort_by == 'acreage' and sort_order == 'desc' %}selected{% endif %}>Sort: Acreage</option>
+                <option value="dom:asc" {% if sort_by == 'dom' and sort_order == 'asc' %}selected{% endif %}>Sort: DOM</option>
             </select>
         </div>
     </div>
 
-    <!-- Metrics Cards -->
-    <div class="dreams-metrics">
-        <div class="dreams-metric-card highlight">
-            <div class="dreams-metric-label">Avg Price</div>
-            <div class="dreams-metric-value">{{ "${:,.0f}".format(metrics.avg_price) if metrics.avg_price else 'N/A' }}</div>
+    <!-- Metrics Bar -->
+    <div class="dash-metrics">
+        <div class="dash-metric">
+            Avg Price<span class="dash-metric-value">{{ "${:,.0f}".format(metrics.avg_price) if metrics.avg_price else 'N/A' }}</span>
         </div>
-        <div class="dreams-metric-card highlight">
-            <div class="dreams-metric-label">Median Price</div>
-            <div class="dreams-metric-value">{{ "${:,.0f}".format(metrics.median_price) if metrics.median_price else 'N/A' }}</div>
+        <div class="dash-metric">
+            Median<span class="dash-metric-value">{{ "${:,.0f}".format(metrics.median_price) if metrics.median_price else 'N/A' }}</span>
         </div>
-        <div class="dreams-metric-card">
-            <div class="dreams-metric-label">Avg Size</div>
-            <div class="dreams-metric-value">{{ "{:,.0f}".format(metrics.avg_sqft) if metrics.avg_sqft else 'N/A' }} ft</div>
+        <div class="dash-metric">
+            Avg Size<span class="dash-metric-value">{{ "{:,.0f}".format(metrics.avg_sqft) if metrics.avg_sqft else 'N/A' }} ft</span>
         </div>
-        <div class="dreams-metric-card">
-            <div class="dreams-metric-label">Avg $/SqFt</div>
-            <div class="dreams-metric-value">{{ "${:,.0f}".format(metrics.avg_price_per_sqft) if metrics.avg_price_per_sqft else 'N/A' }}</div>
+        <div class="dash-metric">
+            Avg $/SqFt<span class="dash-metric-value">{{ "${:,.0f}".format(metrics.avg_price_per_sqft) if metrics.avg_price_per_sqft else 'N/A' }}</span>
         </div>
-        <div class="dreams-metric-card">
-            <div class="dreams-metric-label">Avg DOM</div>
-            <div class="dreams-metric-value">{{ metrics.avg_dom if metrics.avg_dom else 'N/A' }} days</div>
+        <div class="dash-metric">
+            Avg DOM<span class="dash-metric-value">{{ metrics.avg_dom if metrics.avg_dom else 'N/A' }} days</span>
         </div>
-        <div class="dreams-metric-card">
-            <div class="dreams-metric-label">Avg Lot Size</div>
-            <div class="dreams-metric-value">{{ "{:.2f}".format(metrics.avg_lot_acres) if metrics.avg_lot_acres else 'N/A' }} ac</div>
+        <div class="dash-metric">
+            Avg Lot<span class="dash-metric-value">{{ "{:.2f}".format(metrics.avg_lot_acres) if metrics.avg_lot_acres else 'N/A' }} ac</span>
         </div>
     </div>
 
     <!-- Results Bar -->
-    <div class="dreams-results-bar">
-        <div class="dreams-results-count">
-            <strong>{{ total_count }}</strong> properties total
-            {% if total_pages > 1 %}
-            &nbsp;|&nbsp; Page {{ page }} of {{ total_pages }}
-            {% endif %}
-            {% if not show_all and selected_status == 'Active' and not selected_client %}
-            <br><a href="?show_all=1" style="font-size: 13px; color: var(--accent-blue);">Show All Statuses</a>
-            {% endif %}
-            <br><span id="selectedCount" style="font-size: 13px; color: var(--text-secondary);"><strong>{{ properties|length }}</strong> selected on this page</span>
+    <div class="dash-results-bar">
+        <div class="dash-results-left">
+            <strong>{{ total_count }}</strong> properties
+            {% if total_pages > 1 %} | Page {{ page }} of {{ total_pages }}{% endif %}
+            | <span id="selectedCount"><strong>0</strong> selected</span>
         </div>
-        <!-- Pagination -->
-        {% if total_pages > 1 %}
-        <div style="display: flex; gap: 8px; align-items: center;">
-            {% if page > 1 %}
-            <a href="?{{ 'client=' ~ selected_client ~ '&' if selected_client }}{{ 'status=' ~ selected_status ~ '&' if selected_status }}{{ 'city=' ~ selected_city ~ '&' if selected_city }}{{ 'county=' ~ selected_county ~ '&' if selected_county }}{{ 'show_all=1&' if show_all }}sort={{ sort_by }}&order={{ sort_order }}&page={{ page - 1 }}" class="dreams-btn dreams-btn-secondary">Prev</a>
-            {% endif %}
-            <span style="font-size: 13px;">{{ page }} / {{ total_pages }}</span>
-            {% if page < total_pages %}
-            <a href="?{{ 'client=' ~ selected_client ~ '&' if selected_client }}{{ 'status=' ~ selected_status ~ '&' if selected_status }}{{ 'city=' ~ selected_city ~ '&' if selected_city }}{{ 'county=' ~ selected_county ~ '&' if selected_county }}{{ 'show_all=1&' if show_all }}sort={{ sort_by }}&order={{ sort_order }}&page={{ page + 1 }}" class="dreams-btn dreams-btn-secondary">Next</a>
-            {% endif %}
+        <div class="dash-results-center">
+            <button class="dash-view-btn {{ 'active' if view_mode == 'cards' }}" onclick="switchView('cards')" title="Card view">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+            </button>
+            <button class="dash-view-btn {{ 'active' if view_mode == 'table' }}" onclick="switchView('table')" title="Table view">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            </button>
         </div>
-        {% endif %}
-        <div class="dreams-results-actions">
-            {% if selected_client %}
-            <button class="dreams-btn dreams-btn-success" onclick="copyClientLink()" title="Copy shareable client link">
-                <span id="clientLinkBtnText">Copy Client Link</span>
-            </button>
-            <button class="dreams-btn dreams-btn-secondary" onclick="viewClientLink()" title="Open client view in new tab">
-                View Client Link
-            </button>
-            {% endif %}
-            <button class="dreams-btn dreams-btn-primary" onclick="copyMLSNumbers()" title="Copy MLS numbers to clipboard">
+        <div class="dash-results-right">
+            <label style="font-size: 12px; display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                <input type="checkbox" id="selectAll" onchange="toggleSelectAll(this)"> Select All
+            </label>
+            <button class="dash-action-btn primary" onclick="copyMLSNumbers()" title="Copy MLS numbers to clipboard">
                 <span id="copyBtnText">Copy MLS #s</span>
             </button>
-            <button class="dreams-btn dreams-btn-secondary" onclick="openIDXSearch()" title="Open IDX search page (paste MLS numbers)">
-                Open IDX
-            </button>
-            <button class="dreams-btn dreams-btn-success" onclick="createIDXPortfolio()" title="Auto-fill IDX search with selected properties">
+            <button class="dash-action-btn" onclick="openIDXSearch()" title="Open IDX search page">Open IDX</button>
+            <button class="dash-action-btn success" onclick="createIDXPortfolio()" title="Auto-fill IDX search with selected properties">
                 <span id="portfolioBtnText">Create IDX Portfolio</span>
             </button>
+            {% if selected_client %}
+            <button class="dash-action-btn success" onclick="copyClientLink()" title="Copy shareable client link">
+                <span id="clientLinkBtnText">Copy Client Link</span>
+            </button>
+            <button class="dash-action-btn" onclick="viewClientLink()" title="Open client view in new tab">View Client Link</button>
+            {% endif %}
         </div>
     </div>
 
-    <!-- Properties Table -->
-    <div class="dreams-table-container">
-        <table class="dreams-table" id="propertiesTable">
+    <!-- Card View -->
+    {% if view_mode == 'cards' %}
+    <div class="dash-card-grid">
+        {% for prop in properties %}
+        {% set idx_mls = prop.idx_mls_number or prop.mls_number %}
+        {% set idx_status = prop.idx_validation_status or 'pending' %}
+        <div class="dash-card" data-mls="{{ idx_mls or '' }}">
+            <div class="dash-card-photo">
+                <!-- Checkbox -->
+                <label class="dash-card-checkbox">
+                    <input type="checkbox" class="row-select" onchange="updateSelectAll()">
+                </label>
+                <!-- Status badge -->
+                {% set status_lower = (prop.status or 'unknown')|lower %}
+                <span class="dash-badge-status {{ 'active' if status_lower == 'active' else 'pending' if status_lower == 'pending' else 'sold' if status_lower == 'sold' else 'other' }}">
+                    {{ prop.status or 'Unknown' }}
+                </span>
+                <!-- DOM badge -->
+                {% if prop.dom is not none %}
+                <span class="dash-badge-dom">{{ prop.dom }} DOM</span>
+                {% endif %}
+                <!-- Photo -->
+                {% if prop.photo_url %}
+                <img src="{{ prop.photo_url }}" alt="{{ prop.address }}" loading="lazy"
+                     onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                <div class="dash-card-photo-placeholder" style="display:none">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                </div>
+                {% else %}
+                <div class="dash-card-photo-placeholder">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                </div>
+                {% endif %}
+                <!-- Photo count -->
+                {% if prop.photo_count and prop.photo_count > 1 %}
+                <span class="dash-badge-photos">{{ prop.photo_count }} photos</span>
+                {% endif %}
+            </div>
+
+            <div class="dash-card-body">
+                <div class="dash-card-price">{{ "${:,.0f}".format(prop.price) if prop.price else 'Price N/A' }}</div>
+                <div class="dash-card-specs">
+                    {% if prop.beds is not none %}<span>{{ prop.beds }} bd</span>{% endif %}
+                    {% if prop.baths is not none %}<span>{{ prop.baths }} ba</span>{% endif %}
+                    {% if prop.sqft %}<span>{{ "{:,.0f}".format(prop.sqft) }} sqft</span>{% endif %}
+                    {% if prop.lot_acres %}<span>{{ "{:.2f}".format(prop.lot_acres) }} ac</span>{% endif %}
+                </div>
+                <div class="dash-card-address">
+                    <a href="/properties/{{ prop.id }}" title="View property details">{{ prop.address or 'Unknown Address' }}</a>
+                </div>
+                <div class="dash-card-location">{{ prop.city or '' }}{% if prop.state %}, {{ prop.state }}{% endif %} {{ prop.zip or '' }}</div>
+
+                {% if prop.listing_agent_name %}
+                <div class="dash-card-agent">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    <span>{{ prop.listing_agent_name }}</span>
+                    {% if prop.listing_agent_phone %}
+                    <a href="tel:{{ prop.listing_agent_phone }}">{{ prop.listing_agent_phone }}</a>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="dash-card-footer">
+                <span>{{ prop.property_type or '' }}</span>
+                <span>MLS# {{ idx_mls or 'N/A' }}</span>
+            </div>
+
+            {% set has_badges = prop.document_count or prop.showing_instructions or idx_status %}
+            {% if has_badges %}
+            <div class="dash-card-badges">
+                {% if prop.document_count %}
+                <span class="dash-mini-badge docs">{{ prop.document_count }} docs</span>
+                {% endif %}
+                {% if prop.showing_instructions %}
+                <span class="dash-mini-badge showing">Showing Info</span>
+                {% endif %}
+                {% if idx_status == 'Validated' or idx_status == 'validated' %}
+                <span class="dash-mini-badge idx-validated">IDX</span>
+                {% elif idx_status == 'Not Found' or idx_status == 'not_found' %}
+                <span class="dash-mini-badge idx-not-found">No IDX</span>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Table View -->
+    {% elif view_mode == 'table' %}
+    <div class="dash-table-wrap">
+        <table class="dash-table" id="propertiesTable">
             <thead>
                 <tr>
-                    <th class="checkbox-col"><input type="checkbox" id="selectAll" checked onchange="toggleSelectAll(this)"></th>
+                    <th class="checkbox-col"><input type="checkbox" id="selectAllTable" onchange="toggleSelectAll(this)"></th>
                     <th>#</th>
                     <th>Image</th>
-                    <th onclick="sortBy('address')" class="sortable {% if sort_by == 'address' %}sorted-{{ sort_order }}{% endif %}">Address</th>
-                    <th onclick="sortBy('mls_number')" class="sortable {% if sort_by == 'mls_number' %}sorted-{{ sort_order }}{% endif %}">MLS #</th>
+                    <th onclick="sortByCol('address')" class="sortable {% if sort_by == 'address' %}sorted-{{ sort_order }}{% endif %}">Address</th>
+                    <th onclick="sortByCol('mls_number')" class="sortable {% if sort_by == 'mls_number' %}sorted-{{ sort_order }}{% endif %}">MLS #</th>
                     <th>IDX</th>
-                    <th onclick="sortBy('price')" class="num-col sortable {% if sort_by == 'price' %}sorted-{{ sort_order }}{% endif %}">Price</th>
-                    <th onclick="sortBy('dom')" class="num-col sortable {% if sort_by == 'dom' %}sorted-{{ sort_order }}{% endif %}">DOM</th>
-                    <th onclick="sortBy('beds')" class="num-col sortable {% if sort_by == 'beds' %}sorted-{{ sort_order }}{% endif %}">Beds</th>
-                    <th onclick="sortBy('baths')" class="num-col sortable {% if sort_by == 'baths' %}sorted-{{ sort_order }}{% endif %}">Baths</th>
-                    <th onclick="sortBy('sqft')" class="num-col sortable {% if sort_by == 'sqft' %}sorted-{{ sort_order }}{% endif %}">SqFt</th>
-                    <th onclick="sortBy('acreage')" class="num-col sortable {% if sort_by == 'acreage' %}sorted-{{ sort_order }}{% endif %}">Lot</th>
+                    <th onclick="sortByCol('price')" class="num-col sortable {% if sort_by == 'price' %}sorted-{{ sort_order }}{% endif %}">Price</th>
+                    <th onclick="sortByCol('dom')" class="num-col sortable {% if sort_by == 'dom' %}sorted-{{ sort_order }}{% endif %}">DOM</th>
+                    <th onclick="sortByCol('beds')" class="num-col sortable {% if sort_by == 'beds' %}sorted-{{ sort_order }}{% endif %}">Beds</th>
+                    <th onclick="sortByCol('baths')" class="num-col sortable {% if sort_by == 'baths' %}sorted-{{ sort_order }}{% endif %}">Baths</th>
+                    <th onclick="sortByCol('sqft')" class="num-col sortable {% if sort_by == 'sqft' %}sorted-{{ sort_order }}{% endif %}">SqFt</th>
+                    <th onclick="sortByCol('acreage')" class="num-col sortable {% if sort_by == 'acreage' %}sorted-{{ sort_order }}{% endif %}">Lot</th>
                     <th class="num-col">$/SqFt</th>
                     <th>Type</th>
-                    <th onclick="sortBy('year_built')" class="num-col sortable {% if sort_by == 'year_built' %}sorted-{{ sort_order }}{% endif %}">Year</th>
-                    <th onclick="sortBy('county')" class="sortable {% if sort_by == 'county' %}sorted-{{ sort_order }}{% endif %}">County</th>
+                    <th onclick="sortByCol('year_built')" class="num-col sortable {% if sort_by == 'year_built' %}sorted-{{ sort_order }}{% endif %}">Year</th>
+                    <th onclick="sortByCol('county')" class="sortable {% if sort_by == 'county' %}sorted-{{ sort_order }}{% endif %}">County</th>
                     <th>Client</th>
-                    <th onclick="sortBy('status')" class="sortable {% if sort_by == 'status' %}sorted-{{ sort_order }}{% endif %}">Status</th>
-                    <th>Source</th>
-                    <th onclick="sortBy('city')" class="sortable {% if sort_by == 'city' %}sorted-{{ sort_order }}{% endif %}">City</th>
+                    <th onclick="sortByCol('status')" class="sortable {% if sort_by == 'status' %}sorted-{{ sort_order }}{% endif %}">Status</th>
+                    <th>Agent</th>
+                    <th onclick="sortByCol('city')" class="sortable {% if sort_by == 'city' %}sorted-{{ sort_order }}{% endif %}">City</th>
                 </tr>
             </thead>
             <tbody>
@@ -312,33 +851,33 @@
                 {% set idx_status = prop.idx_validation_status or 'pending' %}
                 {% set idx_status_class = idx_status|lower|replace(' ', '-')|replace('_', '-') %}
                 <tr data-mls="{{ idx_mls or '' }}">
-                    <td class="checkbox-col"><input type="checkbox" class="row-select" checked onchange="updateSelectAll()"></td>
-                    <td class="row-num">{{ loop.index }}</td>
+                    <td class="checkbox-col"><input type="checkbox" class="row-select" onchange="updateSelectAll()"></td>
+                    <td>{{ loop.index + (page - 1) * per_page }}</td>
                     <td>
                         {% if prop.photo_url %}
-                        <img src="{{ prop.photo_url }}" class="dreams-prop-image" alt="Property" onerror="this.outerHTML='<div class=\'dreams-prop-image-placeholder\'>🏠</div>'">
+                        <img src="{{ prop.photo_url }}" class="prop-image" alt="Property" loading="lazy" onerror="this.outerHTML='<div class=\'prop-image-placeholder\'>&#127968;</div>'">
                         {% else %}
-                        <div class="dreams-prop-image-placeholder">🏠</div>
+                        <div class="prop-image-placeholder">&#127968;</div>
                         {% endif %}
                     </td>
                     <td class="address-col">
-                        <a href="/properties/{{ prop.id }}" class="dreams-link" title="View property details">{{ prop.address or 'Unknown' }}</a>
+                        <a href="/properties/{{ prop.id }}" class="prop-link" title="View property details">{{ prop.address or 'Unknown' }}</a>
                         <div class="address-city">{{ prop.city }}{% if prop.county %}, {{ prop.county }}{% endif %}</div>
                     </td>
                     <td>
-                        <span class="dreams-mls">{{ idx_mls or '-' }}</span>
+                        <span class="mls-num">{{ idx_mls or '-' }}</span>
                         {% if prop.original_mls_number and prop.original_mls_number != idx_mls %}
-                        <br><span class="dreams-mls" style="font-size: 10px; color: #9ca3af;" title="Original MLS#">{{ prop.original_mls_number }}</span>
+                        <br><span class="mls-num" style="font-size: 10px; color: #9ca3af;" title="Original MLS#">{{ prop.original_mls_number }}</span>
                         {% endif %}
                     </td>
                     <td>
                         {% if idx_mls %}
-                        <a href="https://www.smokymountainhomes4sale.com/property/{{ idx_mls }}" target="_blank" class="dreams-idx-link {{ idx_status_class }}" title="View on team site{% if idx_status == 'Validated' %} (Verified){% elif idx_status == 'Not Found' %} (May not be available){% endif %}">View IDX</a>
+                        <a href="https://www.smokymountainhomes4sale.com/property/{{ idx_mls }}" target="_blank" class="idx-link {{ idx_status_class }}" title="View on team site">IDX</a>
                         {% else %}
-                        <span class="idx-status-badge {{ idx_status_class }}">{{ idx_status }}</span>
+                        <span class="idx-badge {{ idx_status_class }}">{{ idx_status }}</span>
                         {% endif %}
                     </td>
-                    <td class="num-col dreams-price">{{ "${:,.0f}".format(prop.price) if prop.price else '-' }}</td>
+                    <td class="num-col price-cell">{{ "${:,.0f}".format(prop.price) if prop.price else '-' }}</td>
                     <td class="num-col">{{ prop.dom if prop.dom is not none else '-' }}</td>
                     <td class="num-col">{{ prop.beds or '-' }}</td>
                     <td class="num-col">{{ prop.baths or '-' }}</td>
@@ -350,17 +889,67 @@
                     <td>{{ prop.county or '-' }}</td>
                     <td>{{ prop.added_for or '-' }}</td>
                     <td>
-                        <span class="dreams-badge dreams-badge-{{ (prop.status or 'unknown')|lower|replace(' ', '-') }}">
+                        {% set sl = (prop.status or 'unknown')|lower %}
+                        <span class="status-badge {{ 'active' if sl == 'active' else 'pending' if sl == 'pending' else 'sold' if sl == 'sold' else '' }}">
                             {{ prop.status or 'Unknown' }}
                         </span>
                     </td>
-                    <td>{{ prop.source or '-' }}</td>
+                    <td>{{ prop.listing_agent_name or '-' }}</td>
                     <td>{{ prop.city or '-' }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
+    {% endif %}
+
+    <!-- Pagination -->
+    {% if total_pages > 1 %}
+    <div class="dash-pagination">
+        {# Build base URL params #}
+        {% set bp = [] %}
+        {% if search_query %}{% set _ = bp.append('q=' ~ search_query) %}{% endif %}
+        {% if selected_client %}{% set _ = bp.append('client=' ~ selected_client) %}{% endif %}
+        {% if selected_status %}{% set _ = bp.append('status=' ~ selected_status) %}{% endif %}
+        {% if selected_city %}{% set _ = bp.append('city=' ~ selected_city) %}{% endif %}
+        {% if selected_county %}{% set _ = bp.append('county=' ~ selected_county) %}{% endif %}
+        {% if selected_min_price %}{% set _ = bp.append('min_price=' ~ selected_min_price) %}{% endif %}
+        {% if selected_max_price %}{% set _ = bp.append('max_price=' ~ selected_max_price) %}{% endif %}
+        {% if selected_min_beds %}{% set _ = bp.append('min_beds=' ~ selected_min_beds) %}{% endif %}
+        {% if show_all %}{% set _ = bp.append('show_all=1') %}{% endif %}
+        {% set _ = bp.append('sort=' ~ sort_by) %}
+        {% set _ = bp.append('order=' ~ sort_order) %}
+        {% set _ = bp.append('view=' ~ view_mode) %}
+        {% set base_params = bp|join('&') %}
+
+        <!-- Previous -->
+        <a href="?{{ base_params }}&page={{ page - 1 }}" class="dash-page-btn {{ 'disabled' if page <= 1 }}">Prev</a>
+
+        {# Sliding window: show up to 7 page buttons #}
+        {% set window_size = 7 %}
+        {% set half = (window_size // 2) %}
+        {% set start_page = [1, page - half]|max %}
+        {% set end_page = [total_pages, start_page + window_size - 1]|min %}
+        {% set start_page = [1, end_page - window_size + 1]|max %}
+
+        {% if start_page > 1 %}
+        <a href="?{{ base_params }}&page=1" class="dash-page-btn">1</a>
+        {% if start_page > 2 %}<span class="dash-page-ellipsis">...</span>{% endif %}
+        {% endif %}
+
+        {% for p in range(start_page, end_page + 1) %}
+        <a href="?{{ base_params }}&page={{ p }}" class="dash-page-btn {{ 'active' if p == page }}">{{ p }}</a>
+        {% endfor %}
+
+        {% if end_page < total_pages %}
+        {% if end_page < total_pages - 1 %}<span class="dash-page-ellipsis">...</span>{% endif %}
+        <a href="?{{ base_params }}&page={{ total_pages }}" class="dash-page-btn">{{ total_pages }}</a>
+        {% endif %}
+
+        <!-- Next -->
+        <a href="?{{ base_params }}&page={{ page + 1 }}" class="dash-page-btn {{ 'disabled' if page >= total_pages }}">Next</a>
+    </div>
+    {% endif %}
 
     <!-- IDX Progress Modal -->
     <div id="idxProgressModal" class="progress-modal" style="display: none;">
@@ -375,187 +964,174 @@
     </div>
 
     <script>
-        // Server-side sorting - preserves current filters
-        function sortBy(column) {
+        // ── Filter & Navigation ──
+        function applyFilters() {
+            const params = new URLSearchParams();
+            const q = document.getElementById('searchInput').value.trim();
+            const minPrice = document.getElementById('minPriceFilter').value;
+            const maxPrice = document.getElementById('maxPriceFilter').value;
+            const beds = document.getElementById('bedsFilter').value;
+            const status = document.getElementById('statusFilter').value;
+            const city = document.getElementById('cityFilter').value;
+            const county = document.getElementById('countyFilter').value;
+            const client = document.getElementById('clientFilter').value;
+
+            if (q) params.set('q', q);
+            if (minPrice) params.set('min_price', minPrice);
+            if (maxPrice) params.set('max_price', maxPrice);
+            if (beds) params.set('min_beds', beds);
+            if (status) params.set('status', status);
+            if (city) params.set('city', city);
+            if (county) params.set('county', county);
+            if (client) params.set('client', client);
+
+            // Preserve sort and view
+            const sortVal = document.getElementById('sortFilter').value;
+            if (sortVal) {
+                const [s, o] = sortVal.split(':');
+                params.set('sort', s);
+                params.set('order', o);
+            }
+
+            const curParams = new URLSearchParams(window.location.search);
+            const view = curParams.get('view') || 'cards';
+            params.set('view', view);
+
+            window.location.search = params.toString();
+        }
+
+        function applySort(sortValue) {
+            const params = new URLSearchParams(window.location.search);
+            const [sort, order] = sortValue.split(':');
+            params.set('sort', sort);
+            params.set('order', order);
+            params.delete('page');
+            window.location.search = params.toString();
+        }
+
+        function sortByCol(column) {
             const params = new URLSearchParams(window.location.search);
             const currentSort = params.get('sort');
             const currentOrder = params.get('order') || 'desc';
-
-            // Toggle order if same column, otherwise default desc
             if (currentSort === column) {
                 params.set('order', currentOrder === 'desc' ? 'asc' : 'desc');
             } else {
                 params.set('sort', column);
                 params.set('order', 'desc');
             }
-
+            params.delete('page');
             window.location.search = params.toString();
         }
 
-        function applyFilters() {
-            const client = document.getElementById('clientFilter').value;
-            const status = document.getElementById('statusFilter').value;
-            const city = document.getElementById('cityFilter').value;
-            const county = document.getElementById('countyFilter').value;
+        function switchView(mode) {
             const params = new URLSearchParams(window.location.search);
-
-            // Preserve sort params
-            const sort = params.get('sort');
-            const order = params.get('order');
-
-            // Build new params
-            const newParams = new URLSearchParams();
-            if (client) newParams.set('client', client);
-            if (status) newParams.set('status', status);
-            if (city) newParams.set('city', city);
-            if (county) newParams.set('county', county);
-            if (sort) newParams.set('sort', sort);
-            if (order) newParams.set('order', order);
-
-            window.location.search = newParams.toString();
+            params.set('view', mode);
+            params.delete('page');
+            window.location.search = params.toString();
         }
 
-        // Get MLS numbers from checked rows only
-        function getMLSNumbers() {
-            const table = document.getElementById('propertiesTable');
-            const rows = table.querySelectorAll('tbody tr');
-            const mlsNumbers = [];
+        function clearAllFilters() {
+            window.location.href = '/properties';
+        }
 
-            rows.forEach(row => {
-                const checkbox = row.querySelector('.row-select');
+        // ── Selection (works for both cards and table) ──
+        function getMLSNumbers() {
+            const items = document.querySelectorAll('[data-mls]');
+            const mlsNumbers = [];
+            items.forEach(item => {
+                const checkbox = item.querySelector('.row-select');
                 if (checkbox && checkbox.checked) {
-                    const mls = row.dataset.mls;
-                    if (mls && mls !== '') {
-                        mlsNumbers.push(mls);
-                    }
+                    const mls = item.dataset.mls;
+                    if (mls && mls !== '') mlsNumbers.push(mls);
                 }
             });
-
             return mlsNumbers;
         }
 
-        // Get full property info from checked rows (for validation)
         function getSelectedProperties() {
-            const table = document.getElementById('propertiesTable');
-            const rows = table.querySelectorAll('tbody tr');
+            const items = document.querySelectorAll('[data-mls]');
             const properties = [];
-
-            rows.forEach(row => {
-                const checkbox = row.querySelector('.row-select');
+            items.forEach(item => {
+                const checkbox = item.querySelector('.row-select');
                 if (checkbox && checkbox.checked) {
-                    const mls = row.dataset.mls;
-                    const addressLink = row.querySelector('.dreams-link');
-                    const address = addressLink ? addressLink.textContent.trim() : '';
-                    const idxLink = row.querySelector('.dreams-idx-link');
-                    const idxStatus = idxLink ?
-                        (idxLink.classList.contains('validated') ? 'validated' :
-                         idxLink.classList.contains('pending') ? 'pending' :
-                         idxLink.classList.contains('not-found') ? 'not_found' : 'pending')
-                        : 'pending';
-
-                    properties.push({
-                        mls_number: mls || '',
-                        address: address,
-                        idx_status: idxStatus
-                    });
+                    const mls = item.dataset.mls;
+                    // Get address from link text
+                    const link = item.querySelector('a[href^="/properties/"]');
+                    const address = link ? link.textContent.trim() : '';
+                    // IDX status from badge
+                    const idxBadge = item.querySelector('.dash-mini-badge.idx-validated, .dash-mini-badge.idx-not-found, .idx-link, .idx-badge');
+                    let idxStatus = 'pending';
+                    if (idxBadge) {
+                        if (idxBadge.classList.contains('idx-validated') || idxBadge.classList.contains('validated')) idxStatus = 'validated';
+                        else if (idxBadge.classList.contains('idx-not-found') || idxBadge.classList.contains('not-found')) idxStatus = 'not_found';
+                    }
+                    properties.push({ mls_number: mls || '', address: address, idx_status: idxStatus });
                 }
             });
-
             return properties;
         }
 
-        // Update selected count display
         function updateSelectedCount() {
             const checkboxes = document.querySelectorAll('.row-select');
             const selectedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
-            const countEl = document.getElementById('selectedCount');
-            if (countEl) {
-                countEl.innerHTML = `<strong>${selectedCount}</strong> properties selected`;
-            }
+            const el = document.getElementById('selectedCount');
+            if (el) el.innerHTML = `<strong>${selectedCount}</strong> selected`;
         }
 
-        // Toggle all checkboxes
         function toggleSelectAll(headerCheckbox) {
             const checkboxes = document.querySelectorAll('.row-select');
             checkboxes.forEach(cb => cb.checked = headerCheckbox.checked);
             updateSelectedCount();
         }
 
-        // Update header checkbox based on row selections
         function updateSelectAll() {
             const checkboxes = document.querySelectorAll('.row-select');
             const selectAll = document.getElementById('selectAll');
+            const selectAllTable = document.getElementById('selectAllTable');
             const allChecked = Array.from(checkboxes).every(cb => cb.checked);
             const someChecked = Array.from(checkboxes).some(cb => cb.checked);
 
-            selectAll.checked = allChecked;
-            selectAll.indeterminate = someChecked && !allChecked;
+            [selectAll, selectAllTable].forEach(el => {
+                if (el) {
+                    el.checked = allChecked;
+                    el.indeterminate = someChecked && !allChecked;
+                }
+            });
             updateSelectedCount();
         }
 
-        // Initialize selected count on page load
         document.addEventListener('DOMContentLoaded', updateSelectedCount);
 
-        // Copy client link to clipboard
+        // ── Clipboard & IDX Actions ──
         async function copyClientLink() {
             const clientName = '{{ selected_client | default("", true) }}';
-            if (!clientName) {
-                alert('No client selected');
-                return;
-            }
-            const baseUrl = window.location.origin;
-            const clientUrl = `${baseUrl}/client/${encodeURIComponent(clientName)}?key=dreams2026`;
-
+            if (!clientName) { alert('No client selected'); return; }
+            const clientUrl = `${window.location.origin}/client/${encodeURIComponent(clientName)}?key=dreams2026`;
             try {
                 await navigator.clipboard.writeText(clientUrl);
                 const btn = document.getElementById('clientLinkBtnText');
                 btn.textContent = 'Copied!';
                 setTimeout(() => btn.textContent = 'Copy Client Link', 2000);
-            } catch (err) {
-                // Fallback
-                prompt('Copy this link:', clientUrl);
-            }
+            } catch (err) { prompt('Copy this link:', clientUrl); }
         }
 
-        // Open client view in new tab
         function viewClientLink() {
             const clientName = '{{ selected_client | default("", true) }}';
-            if (!clientName) {
-                alert('No client selected');
-                return;
-            }
-            const baseUrl = window.location.origin;
-            const clientUrl = `${baseUrl}/client/${encodeURIComponent(clientName)}?key=dreams2026`;
+            if (!clientName) { alert('No client selected'); return; }
+            const clientUrl = `${window.location.origin}/client/${encodeURIComponent(clientName)}?key=dreams2026`;
             window.open(clientUrl, '_blank');
         }
 
-        // Copy MLS numbers to clipboard
         async function copyMLSNumbers() {
             const mlsNumbers = getMLSNumbers();
-
-            if (mlsNumbers.length === 0) {
-                alert('No MLS numbers found in the current view.');
-                return;
-            }
-
+            if (mlsNumbers.length === 0) { alert('No MLS numbers found. Select some properties first.'); return; }
             const mlsString = mlsNumbers.join(', ');
-
             try {
                 await navigator.clipboard.writeText(mlsString);
-
-                // Visual feedback
                 const btn = document.getElementById('copyBtnText');
-                const originalText = btn.textContent;
-                btn.textContent = 'Copied!';
-                btn.parentElement.classList.add('dreams-btn-success');
-
-                setTimeout(() => {
-                    btn.textContent = originalText;
-                    btn.parentElement.classList.remove('dreams-btn-success');
-                }, 2000);
-
+                btn.textContent = `Copied ${mlsNumbers.length}!`;
+                setTimeout(() => btn.textContent = 'Copy MLS #s', 2000);
             } catch (err) {
-                // Fallback for older browsers
                 const textarea = document.createElement('textarea');
                 textarea.value = mlsString;
                 document.body.appendChild(textarea);
@@ -566,36 +1142,18 @@
             }
         }
 
-        // Open IDX search with MLS numbers
         function openIDXSearch() {
             const mlsNumbers = getMLSNumbers();
-
-            if (mlsNumbers.length === 0) {
-                alert('No MLS numbers found in the current view.');
-                return;
-            }
-
-            // IDX site URL - we'll test if URL params work
-            const baseUrl = 'https://www.smokymountainhomes4sale.com/search/mls_search/';
-
-            // First, copy to clipboard as backup
-            const mlsString = mlsNumbers.join(', ');
-            navigator.clipboard.writeText(mlsString).catch(() => {});
-
-            // Open the IDX page (user can paste if URL params don't work)
-            window.open(baseUrl, '_blank');
+            if (mlsNumbers.length === 0) { alert('No MLS numbers found. Select some properties first.'); return; }
+            navigator.clipboard.writeText(mlsNumbers.join(', ')).catch(() => {});
+            window.open('https://www.smokymountainhomes4sale.com/search/mls_search/', '_blank');
         }
 
-        // Create IDX Portfolio - validates pending properties first, then launches automation
+        // ── IDX Portfolio ──
         async function createIDXPortfolio() {
             const properties = getSelectedProperties();
+            if (properties.length === 0) { alert('No properties selected. Check the boxes for properties you want to include.'); return; }
 
-            if (properties.length === 0) {
-                alert('No properties selected. Check the boxes for properties you want to include.');
-                return;
-            }
-
-            // Prompt for search name - default: YYMMDD.HHMM.ClientName
             const now = new Date();
             const yy = String(now.getFullYear()).slice(-2);
             const mm = String(now.getMonth() + 1).padStart(2, '0');
@@ -605,98 +1163,51 @@
             const clientName = document.getElementById('clientFilter').value || 'Portfolio';
             const defaultName = `${yy}${mm}${dd}.${hh}${min}.${clientName}`;
             const searchName = prompt('Enter a name for this saved search:', defaultName);
-
-            if (searchName === null) {
-                // User cancelled
-                return;
-            }
+            if (searchName === null) return;
 
             const btn = document.getElementById('portfolioBtnText');
             const originalText = btn.textContent;
-
-            // Check for pending properties that need validation
             const pendingProps = properties.filter(p => p.idx_status === 'pending' && p.address);
             let finalMlsNumbers = [];
 
             if (pendingProps.length > 0) {
-                // Validate pending properties first
                 btn.textContent = `Validating ${pendingProps.length}...`;
-
                 try {
                     const validateResponse = await fetch('/api/validate-idx', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ properties: pendingProps })
                     });
-
                     const validateData = await validateResponse.json();
-
                     if (validateData.success) {
-                        // Build map of address -> validated MLS and track stats
                         const validatedMap = {};
-                        let foundByMls = 0;
-                        let foundByAddress = 0;
-                        let notFound = 0;
-
+                        let foundByMls = 0, foundByAddress = 0, notFound = 0;
                         validateData.results.forEach(r => {
                             if (r.idx_mls) {
                                 validatedMap[r.address.toLowerCase()] = r.idx_mls;
-                                // Check if found by original MLS or by address search
-                                if (r.idx_mls === r.original_mls) {
-                                    foundByMls++;
-                                } else {
-                                    foundByAddress++;
-                                }
-                            } else {
-                                notFound++;
-                            }
+                                if (r.idx_mls === r.original_mls) foundByMls++;
+                                else foundByAddress++;
+                            } else { notFound++; }
                         });
-
-                        // Build final MLS list using validated numbers where available
                         properties.forEach(p => {
                             const validatedMls = validatedMap[p.address.toLowerCase()];
-                            if (validatedMls) {
-                                finalMlsNumbers.push(validatedMls);
-                            } else if (p.mls_number) {
-                                finalMlsNumbers.push(p.mls_number);
-                            }
+                            if (validatedMls) finalMlsNumbers.push(validatedMls);
+                            else if (p.mls_number) finalMlsNumbers.push(p.mls_number);
                         });
-
-                        // Log validation summary
-                        console.log(`IDX Validation Summary:`);
-                        console.log(`  Total validated: ${validateData.total_count}`);
-                        console.log(`  Found by MLS#: ${foundByMls}`);
-                        console.log(`  Found by Address: ${foundByAddress}`);
-                        console.log(`  Not on IDX: ${notFound}`);
-
-                        // Show notification to user
                         const alreadyValidated = properties.length - pendingProps.length;
-                        let summaryMsg = `Validation Complete:\n`;
-                        summaryMsg += `━━━━━━━━━━━━━━━━━━━━━\n`;
-                        summaryMsg += `${properties.length} Properties Selected\n`;
-                        if (alreadyValidated > 0) {
-                            summaryMsg += `${alreadyValidated} Already Validated\n`;
-                        }
-                        summaryMsg += `${foundByMls} Found by MLS#\n`;
-                        summaryMsg += `${foundByAddress} Found by Address\n`;
-                        if (notFound > 0) {
-                            summaryMsg += `${notFound} Not on IDX\n`;
-                        }
-                        summaryMsg += `━━━━━━━━━━━━━━━━━━━━━\n`;
-                        summaryMsg += `${finalMlsNumbers.length} will be added to portfolio`;
-
-                        alert(summaryMsg);
+                        let msg = `Validation Complete:\n${properties.length} Properties Selected\n`;
+                        if (alreadyValidated > 0) msg += `${alreadyValidated} Already Validated\n`;
+                        msg += `${foundByMls} Found by MLS#\n${foundByAddress} Found by Address\n`;
+                        if (notFound > 0) msg += `${notFound} Not on IDX\n`;
+                        msg += `${finalMlsNumbers.length} will be added to portfolio`;
+                        alert(msg);
                     } else {
-                        // Validation failed, fall back to original MLS numbers
-                        console.warn('Validation failed, using original MLS numbers');
                         finalMlsNumbers = properties.map(p => p.mls_number).filter(m => m);
                     }
                 } catch (err) {
-                    console.warn('Validation error, using original MLS numbers:', err);
                     finalMlsNumbers = properties.map(p => p.mls_number).filter(m => m);
                 }
             } else {
-                // No pending properties, use existing MLS numbers
                 finalMlsNumbers = properties.map(p => p.mls_number).filter(m => m);
             }
 
@@ -706,27 +1217,16 @@
                 return;
             }
 
-            // Now launch the portfolio
             btn.textContent = 'Launching...';
-
             try {
                 const response = await fetch('/api/idx-portfolio', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        mls_numbers: finalMlsNumbers,
-                        search_name: searchName.trim() || defaultName
-                    })
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mls_numbers: finalMlsNumbers, search_name: searchName.trim() || defaultName })
                 });
-
                 const data = await response.json();
-
                 if (data.success) {
-                    // Show progress modal and start polling
-                    const clientUrl = data.client_url;
-                    showProgressModal(finalMlsNumbers.length, clientUrl);
+                    showProgressModal(finalMlsNumbers.length, data.client_url);
                     btn.textContent = originalText;
                 } else {
                     alert('Error: ' + data.error);
@@ -738,7 +1238,7 @@
             }
         }
 
-        // Progress modal functions
+        // ── Progress Modal ──
         let progressPollInterval = null;
 
         function showProgressModal(totalCount, clientUrl) {
@@ -748,18 +1248,13 @@
             const progressDetails = document.getElementById('progressDetails');
             const progressTitle = document.getElementById('progressTitle');
 
-            // Reset modal state
             modal.classList.remove('complete', 'error');
             progressBar.style.width = '5%';
             progressMessage.textContent = 'Initializing...';
             progressDetails.textContent = `0 of ${totalCount} properties`;
             progressTitle.textContent = 'Creating IDX Portfolio';
             modal.style.display = 'flex';
-
-            // Store clientUrl for later
             modal.dataset.clientUrl = clientUrl || '';
-
-            // Start polling for progress
             progressPollInterval = setInterval(() => pollProgress(totalCount), 1000);
         }
 
@@ -767,112 +1262,76 @@
             try {
                 const response = await fetch('/api/idx-progress');
                 const data = await response.json();
-
                 const modal = document.getElementById('idxProgressModal');
                 const progressBar = document.getElementById('progressBar');
                 const progressMessage = document.getElementById('progressMessage');
                 const progressDetails = document.getElementById('progressDetails');
                 const progressTitle = document.getElementById('progressTitle');
 
-                // Update progress based on status
                 switch (data.status) {
                     case 'starting':
                         progressBar.style.width = '10%';
                         progressMessage.textContent = data.message || 'Initializing...';
                         break;
-
                     case 'logging_in':
                         progressBar.style.width = '20%';
                         progressMessage.textContent = data.message || 'Logging into IDX site...';
                         break;
-
                     case 'searching':
                         progressBar.style.width = '40%';
                         progressMessage.textContent = data.message || 'Searching properties...';
                         break;
-
                     case 'saving':
                         progressBar.style.width = '80%';
                         progressMessage.textContent = data.message || 'Saving search...';
                         break;
-
                     case 'complete':
                         progressBar.style.width = '100%';
                         progressMessage.textContent = data.message || 'Portfolio created successfully!';
                         progressTitle.textContent = 'Complete!';
                         modal.classList.add('complete');
-
-                        // Stop polling
                         clearInterval(progressPollInterval);
                         progressPollInterval = null;
-
-                        // Show client URL and saved searches link
                         const clientUrl = modal.dataset.clientUrl;
                         const savedSearchesUrl = 'https://www.smokymountainhomes4sale.com/member/saved_searches/';
-                        let detailsHtml = `<br><strong>Verify on IDX:</strong><br><a href="${savedSearchesUrl}" target="_blank" style="color: var(--accent-blue);">View Saved Searches</a><br>`;
-
+                        let detailsHtml = `<br><strong>Verify on IDX:</strong><br><a href="${savedSearchesUrl}" target="_blank" style="color: var(--dash-accent-hover);">View Saved Searches</a><br>`;
                         if (clientUrl) {
                             const prdUrl = clientUrl.replace(window.location.origin, 'https://app.wncmountain.homes');
-                            detailsHtml += `<br><strong>Client URL:</strong><br><a href="${prdUrl}" target="_blank" style="color: var(--accent-blue);">${prdUrl}</a><br><br><small>Password: dreams2026</small>`;
-
-                            // Copy to clipboard
+                            detailsHtml += `<br><strong>Client URL:</strong><br><a href="${prdUrl}" target="_blank" style="color: var(--dash-accent-hover);">${prdUrl}</a><br><br><small>Password: dreams2026</small>`;
                             navigator.clipboard.writeText(prdUrl).catch(() => {});
                         }
                         progressDetails.innerHTML = detailsHtml;
-
-                        // Open saved searches page in new tab for verification
                         window.open(savedSearchesUrl, '_blank');
-
-                        // Auto-hide after 8 seconds (more time to click links)
-                        setTimeout(() => {
-                            modal.style.display = 'none';
-                        }, 8000);
+                        setTimeout(() => { modal.style.display = 'none'; }, 8000);
                         break;
-
                     case 'error':
                         progressBar.style.width = '100%';
                         progressMessage.textContent = 'Error: ' + (data.error || 'Unknown error');
                         progressTitle.textContent = 'Error';
                         modal.classList.add('error');
-
-                        // Stop polling
                         clearInterval(progressPollInterval);
                         progressPollInterval = null;
-
-                        // Auto-hide after 5 seconds
-                        setTimeout(() => {
-                            modal.style.display = 'none';
-                        }, 5000);
+                        setTimeout(() => { modal.style.display = 'none'; }, 5000);
                         break;
-
                     case 'idle':
-                        // Check if we've been idle for too long (automation may have started)
-                        // Keep showing initializing state
                         break;
                 }
 
-                // Update details with counts if available (but not on complete/error - those have their own content)
                 if (data.status !== 'complete' && data.status !== 'error' &&
                     data.current !== undefined && data.total !== undefined && data.total > 0) {
                     progressDetails.textContent = `${data.current} of ${data.total} properties`;
                 }
-
             } catch (error) {
                 console.error('Error polling progress:', error);
             }
         }
 
-        // Allow clicking outside modal to close it (after completion)
         document.getElementById('idxProgressModal').addEventListener('click', function(e) {
             if (e.target === this && (this.classList.contains('complete') || this.classList.contains('error'))) {
                 this.style.display = 'none';
-                if (progressPollInterval) {
-                    clearInterval(progressPollInterval);
-                    progressPollInterval = null;
-                }
+                if (progressPollInterval) { clearInterval(progressPollInterval); progressPollInterval = null; }
             }
         });
-
     </script>
     </div>
 </body>

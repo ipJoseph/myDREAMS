@@ -519,7 +519,9 @@ def get_filter_options() -> Dict[str, List[str]]:
 
 
 def count_properties(added_for: Optional[str] = None, status: Optional[str] = None,
-                     city: Optional[str] = None, county: Optional[str] = None) -> int:
+                     city: Optional[str] = None, county: Optional[str] = None,
+                     q: Optional[str] = None, min_price: Optional[int] = None,
+                     max_price: Optional[int] = None, min_beds: Optional[int] = None) -> int:
     """Count properties matching filters (for pagination)"""
     with db._get_connection() as conn:
         table = 'listings'
@@ -539,6 +541,19 @@ def count_properties(added_for: Optional[str] = None, status: Optional[str] = No
         if county:
             query += ' AND county LIKE ?'
             params.append(f'%{county}%')
+        if q:
+            query += ' AND (address LIKE ? OR mls_number LIKE ? OR city LIKE ? OR listing_agent_name LIKE ?)'
+            q_param = f'%{q}%'
+            params.extend([q_param, q_param, q_param, q_param])
+        if min_price is not None:
+            query += ' AND list_price >= ?'
+            params.append(min_price)
+        if max_price is not None:
+            query += ' AND list_price <= ?'
+            params.append(max_price)
+        if min_beds is not None:
+            query += ' AND beds >= ?'
+            params.append(min_beds)
 
         return conn.execute(query, params).fetchone()[0]
 
@@ -546,7 +561,9 @@ def count_properties(added_for: Optional[str] = None, status: Optional[str] = No
 def fetch_properties(added_for: Optional[str] = None, status: Optional[str] = None,
                       city: Optional[str] = None, county: Optional[str] = None,
                       sort_by: str = 'price', sort_order: str = 'desc',
-                      limit: Optional[int] = None, offset: int = 0) -> List[Dict[str, Any]]:
+                      limit: Optional[int] = None, offset: int = 0,
+                      q: Optional[str] = None, min_price: Optional[int] = None,
+                      max_price: Optional[int] = None, min_beds: Optional[int] = None) -> List[Dict[str, Any]]:
     """Fetch properties from listings table with optional filters, sorting, and pagination"""
     # Whitelist of allowed sort columns (prevents SQL injection)
     ALLOWED_SORTS = {
@@ -579,6 +596,23 @@ def fetch_properties(added_for: Optional[str] = None, status: Optional[str] = No
         if county:
             query += ' AND county LIKE ?'
             params.append(f'%{county}%')
+
+        if q:
+            query += ' AND (address LIKE ? OR mls_number LIKE ? OR city LIKE ? OR listing_agent_name LIKE ?)'
+            q_param = f'%{q}%'
+            params.extend([q_param, q_param, q_param, q_param])
+
+        if min_price is not None:
+            query += ' AND list_price >= ?'
+            params.append(min_price)
+
+        if max_price is not None:
+            query += ' AND list_price <= ?'
+            params.append(max_price)
+
+        if min_beds is not None:
+            query += ' AND beds >= ?'
+            params.append(min_beds)
 
         # Server-side sorting with NULLS LAST behavior
         query += f' ORDER BY {sort_column} IS NULL, {sort_column} {sort_dir}'
@@ -1432,17 +1466,33 @@ def properties_list():
     city = request.args.get('city', '')
     county = request.args.get('county', '')
     show_all = request.args.get('show_all', '')
+    q = request.args.get('q', '').strip()
+    view_mode = request.args.get('view', 'cards')
 
-    # Pagination (100 per page for fast rendering)
+    # Parse numeric filter params safely
+    try:
+        min_price = int(request.args.get('min_price', '')) if request.args.get('min_price') else None
+    except ValueError:
+        min_price = None
+    try:
+        max_price = int(request.args.get('max_price', '')) if request.args.get('max_price') else None
+    except ValueError:
+        max_price = None
+    try:
+        min_beds = int(request.args.get('min_beds', '')) if request.args.get('min_beds') else None
+    except ValueError:
+        min_beds = None
+
+    # Pagination: 48 for cards, 100 for table
     page = max(1, int(request.args.get('page', 1)))
-    per_page = 100
+    per_page = 48 if view_mode == 'cards' else 100
 
     # Sort parameters (server-side sorting for performance)
     sort_by = request.args.get('sort', 'price')
     sort_order = request.args.get('order', 'desc')
 
     # Default to Active status for nimble loading (unless show_all or other filter set)
-    if not status and not show_all and not added_for:
+    if not status and not show_all and not added_for and not q:
         status = 'Active'
 
     # Get dropdown options efficiently (uses indexed DISTINCT queries)
@@ -1452,23 +1502,27 @@ def properties_list():
     counties = filter_options['counties']
     statuses = filter_options['statuses']
 
-    # Get total count for pagination
-    total_count = count_properties(
+    # Common filter kwargs
+    filter_kwargs = dict(
         added_for=added_for if added_for else None,
         status=status if status else None,
         city=city if city else None,
-        county=county if county else None
+        county=county if county else None,
+        q=q if q else None,
+        min_price=min_price,
+        max_price=max_price,
+        min_beds=min_beds,
     )
+
+    # Get total count for pagination
+    total_count = count_properties(**filter_kwargs)
     total_pages = max(1, (total_count + per_page - 1) // per_page)
     page = min(page, total_pages)
     offset = (page - 1) * per_page
 
     # Fetch filtered, sorted, paginated properties
     properties = fetch_properties(
-        added_for=added_for if added_for else None,
-        status=status if status else None,
-        city=city if city else None,
-        county=county if county else None,
+        **filter_kwargs,
         sort_by=sort_by,
         sort_order=sort_order,
         limit=per_page,
@@ -1500,6 +1554,11 @@ def properties_list():
                          total_pages=total_pages,
                          total_count=total_count,
                          per_page=per_page,
+                         search_query=q,
+                         selected_min_price=min_price,
+                         selected_max_price=max_price,
+                         selected_min_beds=min_beds,
+                         view_mode=view_mode,
                          refresh_time=datetime.now(tz=ET).strftime('%B %d, %Y %I:%M %p'))
 
 
