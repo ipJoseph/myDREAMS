@@ -552,7 +552,103 @@
         }
 
         /* Map Card */
+        .map-card-wrapper { position: relative; }
         .map-container { height: 350px; background: #e5e1db; }
+        .map-expand-btn {
+            position: absolute;
+            top: 46px;
+            right: 8px;
+            z-index: 5;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #fff;
+            border: 1px solid var(--dash-border);
+            box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+            cursor: pointer;
+            color: var(--dash-text);
+        }
+        .map-expand-btn:hover { background: #f5f5f5; }
+        .map-expand-btn svg { width: 16px; height: 16px; }
+
+        /* Map Lightbox */
+        .map-lightbox {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 1000;
+            background: rgba(0,0,0,0.92);
+            flex-direction: column;
+        }
+        .map-lightbox.open { display: flex; }
+        .map-lightbox-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 20px;
+            background: var(--dash-primary);
+            color: #fff;
+            flex-shrink: 0;
+        }
+        .map-lightbox-title {
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .map-lightbox-close {
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: none;
+            border: none;
+            color: rgba(255,255,255,0.7);
+            cursor: pointer;
+            font-size: 22px;
+        }
+        .map-lightbox-close:hover { color: #fff; }
+        .map-lightbox-tabs {
+            display: flex;
+            flex-shrink: 0;
+        }
+        .map-lightbox-tabs .map-view-tab {
+            padding: 12px 20px;
+            font-size: 12px;
+        }
+        .map-lightbox-body {
+            flex: 1;
+            min-height: 0;
+            position: relative;
+        }
+        .map-lightbox-body .map-container {
+            height: 100% !important;
+        }
+        .map-lightbox-footer {
+            flex-shrink: 0;
+        }
+        .map-lightbox-footer .poi-chips {
+            padding: 10px 20px;
+            background: rgba(255,255,255,0.05);
+        }
+        .map-lightbox-footer .poi-chip {
+            background: rgba(255,255,255,0.1);
+            border-color: rgba(255,255,255,0.2);
+            color: rgba(255,255,255,0.7);
+        }
+        .map-lightbox-footer .poi-chip:hover {
+            border-color: rgba(255,255,255,0.4);
+            color: #fff;
+        }
+        .map-lightbox-footer .poi-chip.active {
+            background: var(--dash-accent);
+            border-color: var(--dash-accent);
+            color: var(--dash-primary);
+        }
+        .map-lightbox-footer .map-directions {
+            margin: 0 20px 12px 20px;
+        }
         .map-view-tabs {
             display: flex;
             border-bottom: 1px solid var(--dash-border);
@@ -1446,33 +1542,40 @@
 
                 {# ── Google Map ── #}
                 {% if property.latitude and property.longitude %}
-                <div class="sidebar-card">
-                    <div class="map-view-tabs">
+                <div class="sidebar-card map-card-wrapper" id="mapCard">
+                    <button class="map-expand-btn" onclick="expandMap()" title="Expand map">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5"/></svg>
+                    </button>
+                    <div id="mapTabsInline" class="map-view-tabs">
                         <button class="map-view-tab active" data-view="map" onclick="setMapView('map', this)">Map</button>
                         <button class="map-view-tab" data-view="satellite" onclick="setMapView('satellite', this)">Satellite</button>
                         <button class="map-view-tab" data-view="streetview" onclick="setMapView('streetview', this)">Street View</button>
                     </div>
-                    <div id="propertyMap" class="map-container"></div>
-                    <div id="streetViewContainer" class="map-container" style="display: none;"></div>
-                    <div class="poi-chips" id="poiChips">
-                        <button class="poi-chip" data-type="bakery" onclick="togglePOI(this)"><span class="poi-icon">&#x1F950;</span> Bakery</button>
-                        <button class="poi-chip" data-type="bank" onclick="togglePOI(this)"><span class="poi-icon">&#x1F3E6;</span> Bank</button>
-                        <button class="poi-chip" data-type="cafe" onclick="togglePOI(this)"><span class="poi-icon">&#9749;</span> Cafe</button>
-                        <button class="poi-chip" data-type="church" onclick="togglePOI(this)"><span class="poi-icon">&#9962;</span> Church</button>
-                        <button class="poi-chip" data-type="golf_course" onclick="togglePOI(this)"><span class="poi-icon">&#9971;</span> Golf</button>
-                        <button class="poi-chip" data-type="supermarket" onclick="togglePOI(this)"><span class="poi-icon">&#x1F6D2;</span> Grocery</button>
-                        <button class="poi-chip" data-type="hospital" onclick="togglePOI(this)"><span class="poi-icon">&#x1F3E5;</span> Hospital</button>
-                        <button class="poi-chip" data-type="library" onclick="togglePOI(this)"><span class="poi-icon">&#x1F4DA;</span> Library</button>
-                        <button class="poi-chip" data-type="park" onclick="togglePOI(this)"><span class="poi-icon">&#x1F333;</span> Park</button>
-                        <button class="poi-chip" data-type="restaurant" onclick="togglePOI(this)"><span class="poi-icon">&#x1F37D;&#xFE0F;</span> Restaurant</button>
-                        <button class="poi-chip" data-type="beauty_salon" onclick="togglePOI(this)"><span class="poi-icon">&#x1F487;</span> Salon</button>
+                    <div id="mapBody">
+                        <div id="propertyMap" class="map-container"></div>
+                        <div id="streetViewContainer" class="map-container" style="display: none;"></div>
                     </div>
-                    {% if directions_url %}
-                    <a href="{{ directions_url }}" target="_blank" class="map-directions">
-                        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                        Get Directions
-                    </a>
-                    {% endif %}
+                    <div id="mapFooter">
+                        <div class="poi-chips" id="poiChips">
+                            <button class="poi-chip" data-type="bakery" onclick="togglePOI(this)"><span class="poi-icon">&#x1F950;</span> Bakery</button>
+                            <button class="poi-chip" data-type="bank" onclick="togglePOI(this)"><span class="poi-icon">&#x1F3E6;</span> Bank</button>
+                            <button class="poi-chip" data-type="cafe" onclick="togglePOI(this)"><span class="poi-icon">&#9749;</span> Cafe</button>
+                            <button class="poi-chip" data-type="church" onclick="togglePOI(this)"><span class="poi-icon">&#9962;</span> Church</button>
+                            <button class="poi-chip" data-type="golf_course" onclick="togglePOI(this)"><span class="poi-icon">&#9971;</span> Golf</button>
+                            <button class="poi-chip" data-type="supermarket" onclick="togglePOI(this)"><span class="poi-icon">&#x1F6D2;</span> Grocery</button>
+                            <button class="poi-chip" data-type="hospital" onclick="togglePOI(this)"><span class="poi-icon">&#x1F3E5;</span> Hospital</button>
+                            <button class="poi-chip" data-type="library" onclick="togglePOI(this)"><span class="poi-icon">&#x1F4DA;</span> Library</button>
+                            <button class="poi-chip" data-type="park" onclick="togglePOI(this)"><span class="poi-icon">&#x1F333;</span> Park</button>
+                            <button class="poi-chip" data-type="restaurant" onclick="togglePOI(this)"><span class="poi-icon">&#x1F37D;&#xFE0F;</span> Restaurant</button>
+                            <button class="poi-chip" data-type="beauty_salon" onclick="togglePOI(this)"><span class="poi-icon">&#x1F487;</span> Salon</button>
+                        </div>
+                        {% if directions_url %}
+                        <a href="{{ directions_url }}" target="_blank" class="map-directions">
+                            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                            Get Directions
+                        </a>
+                        {% endif %}
+                    </div>
                 </div>
                 {% endif %}
 
@@ -1646,6 +1749,19 @@
         </div>
     </div>
 
+    {# ── Map Lightbox Overlay ── #}
+    {% if property.latitude and property.longitude %}
+    <div class="map-lightbox" id="mapLightbox">
+        <div class="map-lightbox-top">
+            <span class="map-lightbox-title">{{ property.address }}, {{ property.city }}</span>
+            <button class="map-lightbox-close" onclick="collapseMap()">&times;</button>
+        </div>
+        <div id="mapLightboxTabs" class="map-lightbox-tabs"></div>
+        <div id="mapLightboxBody" class="map-lightbox-body"></div>
+        <div id="mapLightboxFooter" class="map-lightbox-footer"></div>
+    </div>
+    {% endif %}
+
     <script>
     /* ================================================================
        Photo Lightbox
@@ -1709,6 +1825,13 @@
 
     // Keyboard navigation
     document.addEventListener('keydown', function(e) {
+        // Map lightbox: Escape to close
+        if (typeof mapExpanded !== 'undefined' && mapExpanded && e.key === 'Escape') {
+            e.preventDefault();
+            collapseMap();
+            return;
+        }
+        // Photo lightbox
         if (!document.getElementById('lightbox').classList.contains('open')) return;
         if (e.key === 'ArrowLeft') { e.preventDefault(); prevPhoto(); }
         else if (e.key === 'ArrowRight') { e.preventDefault(); nextPhoto(); }
@@ -2016,6 +2139,55 @@
         window.addEventListener('load', function() {
             setTimeout(tryInitMap, 800);
         });
+    }
+
+    /* ── Map Expand / Collapse (lightbox-style) ── */
+    var mapExpanded = false;
+
+    function expandMap() {
+        var overlay = document.getElementById('mapLightbox');
+        var tabs = document.getElementById('mapTabsInline');
+        var body = document.getElementById('mapBody');
+        var footer = document.getElementById('mapFooter');
+
+        // Move elements into the lightbox
+        document.getElementById('mapLightboxTabs').appendChild(tabs);
+        document.getElementById('mapLightboxBody').appendChild(body);
+        document.getElementById('mapLightboxFooter').appendChild(footer);
+
+        overlay.classList.add('open');
+        document.body.style.overflow = 'hidden';
+        mapExpanded = true;
+
+        // Tell Google Maps to recalculate size
+        setTimeout(function() {
+            if (mapInstance) google.maps.event.trigger(mapInstance, 'resize');
+            if (mapInstance) mapInstance.setCenter({ lat: PROP_LAT, lng: PROP_LNG });
+        }, 100);
+    }
+
+    function collapseMap() {
+        var overlay = document.getElementById('mapLightbox');
+        var card = document.getElementById('mapCard');
+        var tabs = document.getElementById('mapTabsInline');
+        var body = document.getElementById('mapBody');
+        var footer = document.getElementById('mapFooter');
+        var expandBtn = card.querySelector('.map-expand-btn');
+
+        // Move elements back to the sidebar card (tabs before expand button)
+        card.insertBefore(tabs, expandBtn.nextSibling);
+        card.appendChild(body);
+        card.appendChild(footer);
+
+        overlay.classList.remove('open');
+        document.body.style.overflow = '';
+        mapExpanded = false;
+
+        // Resize map back to sidebar dimensions
+        setTimeout(function() {
+            if (mapInstance) google.maps.event.trigger(mapInstance, 'resize');
+            if (mapInstance) mapInstance.setCenter({ lat: PROP_LAT, lng: PROP_LNG });
+        }, 100);
     }
 
     // Catch Google Maps auth failures (wrong API key, missing referrer, etc.)
