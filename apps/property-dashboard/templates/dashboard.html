@@ -102,6 +102,63 @@
         .dash-filter-clear:hover { color: #fff; }
         .dash-filter-push-right { margin-left: auto; }
 
+        /* Multi-select dropdown */
+        .dash-multi-select {
+            position: relative;
+            display: inline-block;
+        }
+        .dash-multi-btn {
+            padding: 8px 12px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: #fff;
+            font-size: 13px;
+            cursor: pointer;
+            font-family: inherit;
+            white-space: nowrap;
+            min-width: 110px;
+            text-align: left;
+        }
+        .dash-multi-btn:hover,
+        .dash-multi-btn.open { border-color: var(--dash-accent); }
+        .dash-multi-btn .count-badge {
+            background: var(--dash-accent);
+            color: var(--dash-primary);
+            font-size: 11px;
+            font-weight: 700;
+            padding: 1px 6px;
+            border-radius: 8px;
+            margin-left: 4px;
+        }
+        .dash-multi-dropdown {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            z-index: 60;
+            background: #fff;
+            border: 1px solid #e5e1db;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+            max-height: 280px;
+            overflow-y: auto;
+            min-width: 180px;
+        }
+        .dash-multi-dropdown.open { display: block; }
+        .dash-multi-dropdown label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 14px;
+            font-size: 13px;
+            color: #333;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .dash-multi-dropdown label:hover { background: #f5f2ed; }
+        .dash-multi-dropdown input[type="checkbox"] {
+            accent-color: var(--dash-primary);
+        }
+
         /* ── Metrics Bar ── */
         .dash-metrics {
             display: flex;
@@ -350,6 +407,33 @@
             font-size: 12px;
             color: var(--dash-text-light);
         }
+
+        /* Detail rows (agent, parcel below footer) */
+        .dash-card-detail-rows {
+            padding: 0 18px;
+        }
+        .dash-card-detail-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px 0;
+            font-size: 12px;
+            color: var(--dash-text-light);
+            border-top: 1px solid #f5f2ed;
+        }
+        .dash-detail-label {
+            font-weight: 600;
+            color: var(--dash-text);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        .dash-detail-phone {
+            color: var(--dash-accent-hover);
+            text-decoration: none;
+            margin-left: 6px;
+        }
+        .dash-detail-phone:hover { text-decoration: underline; }
 
         /* Badge row */
         .dash-card-badges {
@@ -634,19 +718,29 @@
                 {% endfor %}
             </select>
 
-            <select id="cityFilter" class="dash-filter-select" onchange="applyFilters()">
-                <option value="">All Cities</option>
-                {% for c in cities %}
-                <option value="{{ c }}" {% if selected_city == c %}selected{% endif %}>{{ c }}</option>
-                {% endfor %}
-            </select>
+            {% set selected_counties = selected_county.split(',') if selected_county else [] %}
+            <div class="dash-multi-select" id="countyMulti">
+                <button type="button" class="dash-multi-btn" onclick="toggleMulti('countyMulti')">
+                    Counties{% if selected_counties %}<span class="count-badge">{{ selected_counties|length }}</span>{% endif %}
+                </button>
+                <div class="dash-multi-dropdown" id="countyDropdown">
+                    {% for co in counties %}
+                    <label><input type="checkbox" value="{{ co }}" {% if co in selected_counties %}checked{% endif %} onchange="applyFilters()"> {{ co }}</label>
+                    {% endfor %}
+                </div>
+            </div>
 
-            <select id="countyFilter" class="dash-filter-select" onchange="applyFilters()">
-                <option value="">All Counties</option>
-                {% for co in counties %}
-                <option value="{{ co }}" {% if selected_county == co %}selected{% endif %}>{{ co }}</option>
-                {% endfor %}
-            </select>
+            {% set selected_cities = selected_city.split(',') if selected_city else [] %}
+            <div class="dash-multi-select" id="cityMulti">
+                <button type="button" class="dash-multi-btn" onclick="toggleMulti('cityMulti')">
+                    Cities{% if selected_cities %}<span class="count-badge">{{ selected_cities|length }}</span>{% endif %}
+                </button>
+                <div class="dash-multi-dropdown" id="cityDropdown">
+                    {% for c in cities %}
+                    <label><input type="checkbox" value="{{ c }}" {% if c in selected_cities %}checked{% endif %} onchange="applyFilters()"> {{ c }}</label>
+                    {% endfor %}
+                </div>
+            </div>
 
             <select id="clientFilter" class="dash-filter-select" onchange="applyFilters()">
                 <option value="">All Clients</option>
@@ -780,21 +874,26 @@
                     <a href="/properties/{{ prop.id }}" title="View property details">{{ prop.address or 'Unknown Address' }}</a>
                 </div>
                 <div class="dash-card-location">{{ prop.city or '' }}{% if prop.state %}, {{ prop.state }}{% endif %} {{ prop.zip or '' }}</div>
-
-                {% if prop.listing_agent_name %}
-                <div class="dash-card-agent">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                    <span>{{ prop.listing_agent_name }}</span>
-                    {% if prop.listing_agent_phone %}
-                    <a href="tel:{{ prop.listing_agent_phone }}">{{ prop.listing_agent_phone }}</a>
-                    {% endif %}
-                </div>
-                {% endif %}
             </div>
 
             <div class="dash-card-footer">
                 <span>{{ prop.property_type or '' }}</span>
                 <span>MLS# {{ idx_mls or 'N/A' }}</span>
+            </div>
+
+            <div class="dash-card-detail-rows">
+                {% if prop.listing_agent_name %}
+                <div class="dash-card-detail-row">
+                    <span class="dash-detail-label">Agent</span>
+                    <span>{{ prop.listing_agent_name }}{% if prop.listing_agent_phone %} <a href="tel:{{ prop.listing_agent_phone }}" class="dash-detail-phone">{{ prop.listing_agent_phone }}</a>{% endif %}</span>
+                </div>
+                {% endif %}
+                {% if prop.parcel_number %}
+                <div class="dash-card-detail-row">
+                    <span class="dash-detail-label">Parcel</span>
+                    <span>{{ prop.parcel_number }}</span>
+                </div>
+                {% endif %}
             </div>
 
             {% set has_badges = prop.document_count or prop.showing_instructions or idx_status %}
@@ -964,6 +1063,78 @@
     </div>
 
     <script>
+        // ── County -> Cities mapping for cascade filtering ──
+        const countyCities = {{ county_cities | tojson }};
+
+        // ── Multi-select dropdown toggle ──
+        function toggleMulti(id) {
+            const wrapper = document.getElementById(id);
+            const dropdown = wrapper.querySelector('.dash-multi-dropdown');
+            const btn = wrapper.querySelector('.dash-multi-btn');
+            const isOpen = dropdown.classList.contains('open');
+
+            // Close all dropdowns first
+            document.querySelectorAll('.dash-multi-dropdown.open').forEach(d => d.classList.remove('open'));
+            document.querySelectorAll('.dash-multi-btn.open').forEach(b => b.classList.remove('open'));
+
+            if (!isOpen) {
+                dropdown.classList.add('open');
+                btn.classList.add('open');
+            }
+        }
+
+        // Close multi-selects when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.dash-multi-select')) {
+                document.querySelectorAll('.dash-multi-dropdown.open').forEach(d => d.classList.remove('open'));
+                document.querySelectorAll('.dash-multi-btn.open').forEach(b => b.classList.remove('open'));
+            }
+        });
+
+        // Get checked values from a multi-select dropdown
+        function getMultiValues(containerId) {
+            const container = document.getElementById(containerId);
+            const checked = container.querySelectorAll('.dash-multi-dropdown input[type="checkbox"]:checked');
+            return Array.from(checked).map(cb => cb.value);
+        }
+
+        // Filter city checkboxes based on selected counties
+        function filterCitiesByCounty() {
+            const selectedCounties = getMultiValues('countyMulti');
+            const cityLabels = document.querySelectorAll('#cityDropdown label');
+
+            if (selectedCounties.length === 0) {
+                // No county filter: show all cities
+                cityLabels.forEach(label => label.style.display = '');
+                return;
+            }
+
+            // Build set of allowed cities from selected counties
+            const allowedCities = new Set();
+            selectedCounties.forEach(county => {
+                (countyCities[county] || []).forEach(city => allowedCities.add(city));
+            });
+
+            cityLabels.forEach(label => {
+                const cityName = label.querySelector('input').value;
+                if (allowedCities.has(cityName)) {
+                    label.style.display = '';
+                } else {
+                    label.style.display = 'none';
+                    // Uncheck hidden cities
+                    label.querySelector('input').checked = false;
+                }
+            });
+        }
+
+        // Watch county changes to cascade filter cities
+        document.querySelectorAll('#countyDropdown input[type="checkbox"]').forEach(cb => {
+            cb.addEventListener('change', filterCitiesByCounty);
+        });
+
+        // Run on page load to apply cascade if counties are pre-selected
+        document.addEventListener('DOMContentLoaded', filterCitiesByCounty);
+
         // ── Filter & Navigation ──
         function applyFilters() {
             const params = new URLSearchParams();
@@ -972,17 +1143,19 @@
             const maxPrice = document.getElementById('maxPriceFilter').value;
             const beds = document.getElementById('bedsFilter').value;
             const status = document.getElementById('statusFilter').value;
-            const city = document.getElementById('cityFilter').value;
-            const county = document.getElementById('countyFilter').value;
             const client = document.getElementById('clientFilter').value;
+
+            // Multi-select: counties and cities (comma-separated)
+            const counties = getMultiValues('countyMulti');
+            const cities = getMultiValues('cityMulti');
 
             if (q) params.set('q', q);
             if (minPrice) params.set('min_price', minPrice);
             if (maxPrice) params.set('max_price', maxPrice);
             if (beds) params.set('min_beds', beds);
             if (status) params.set('status', status);
-            if (city) params.set('city', city);
-            if (county) params.set('county', county);
+            if (counties.length) params.set('county', counties.join(','));
+            if (cities.length) params.set('city', cities.join(','));
             if (client) params.set('client', client);
 
             // Preserve sort and view

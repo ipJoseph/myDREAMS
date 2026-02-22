@@ -496,10 +496,10 @@ def _calculate_dom(prop: Dict) -> Optional[int]:
     return None
 
 
-def get_filter_options() -> Dict[str, List[str]]:
+def get_filter_options() -> Dict[str, Any]:
     """Get distinct values for filter dropdowns - efficient single query approach"""
     with db._get_connection() as conn:
-        options = {}
+        options: Dict[str, Any] = {}
         table = 'listings'
 
         # Use indexed columns with DISTINCT for fast retrieval
@@ -515,7 +515,47 @@ def get_filter_options() -> Dict[str, List[str]]:
         options['statuses'] = sorted([r[0] for r in conn.execute(
             f"SELECT DISTINCT status FROM {table} WHERE status IS NOT NULL AND status != ''"
         ).fetchall()])
+
+        # County -> cities mapping for cascade filtering
+        county_cities: Dict[str, List[str]] = {}
+        rows = conn.execute(
+            f"SELECT DISTINCT county, city FROM {table} "
+            f"WHERE county IS NOT NULL AND county != '' AND city IS NOT NULL AND city != '' "
+            f"ORDER BY county, city"
+        ).fetchall()
+        for county, city in rows:
+            county_cities.setdefault(county, []).append(city)
+        options['county_cities'] = county_cities
+
         return options
+
+
+def _build_multi_where(query: str, params: list, column: str, value: str, use_like: bool = False) -> str:
+    """Build WHERE clause for a potentially comma-separated multi-value filter.
+    Returns updated query string; modifies params list in place."""
+    if not value:
+        return query
+    values = [v.strip() for v in value.split(',') if v.strip()]
+    if not values:
+        return query
+    if len(values) == 1:
+        if use_like:
+            query += f' AND {column} LIKE ?'
+            params.append(f'%{values[0]}%')
+        else:
+            query += f' AND LOWER({column}) = LOWER(?)'
+            params.append(values[0])
+    else:
+        if use_like:
+            # Multiple LIKE conditions joined with OR
+            likes = ' OR '.join([f'{column} LIKE ?' for _ in values])
+            query += f' AND ({likes})'
+            params.extend([f'%{v}%' for v in values])
+        else:
+            placeholders = ','.join(['LOWER(?)'] * len(values))
+            query += f' AND LOWER({column}) IN ({placeholders})'
+            params.extend(values)
+    return query
 
 
 def count_properties(added_for: Optional[str] = None, status: Optional[str] = None,
@@ -535,12 +575,8 @@ def count_properties(added_for: Optional[str] = None, status: Optional[str] = No
         if status:
             query += ' AND LOWER(status) = LOWER(?)'
             params.append(status)
-        if city:
-            query += ' AND LOWER(city) = LOWER(?)'
-            params.append(city)
-        if county:
-            query += ' AND county LIKE ?'
-            params.append(f'%{county}%')
+        query = _build_multi_where(query, params, 'city', city)
+        query = _build_multi_where(query, params, 'county', county, use_like=True)
         if q:
             query += ' AND (address LIKE ? OR mls_number LIKE ? OR city LIKE ? OR listing_agent_name LIKE ?)'
             q_param = f'%{q}%'
@@ -589,13 +625,8 @@ def fetch_properties(added_for: Optional[str] = None, status: Optional[str] = No
             query += ' AND LOWER(status) = LOWER(?)'
             params.append(status)
 
-        if city:
-            query += ' AND LOWER(city) = LOWER(?)'
-            params.append(city)
-
-        if county:
-            query += ' AND county LIKE ?'
-            params.append(f'%{county}%')
+        query = _build_multi_where(query, params, 'city', city)
+        query = _build_multi_where(query, params, 'county', county, use_like=True)
 
         if q:
             query += ' AND (address LIKE ? OR mls_number LIKE ? OR city LIKE ? OR listing_agent_name LIKE ?)'
@@ -1463,8 +1494,8 @@ def properties_list():
     # Get filter parameters
     added_for = request.args.get('client', '')
     status = request.args.get('status', '')
-    city = request.args.get('city', '')
-    county = request.args.get('county', '')
+    city = request.args.get('city', '')  # comma-separated for multi-select
+    county = request.args.get('county', '')  # comma-separated for multi-select
     show_all = request.args.get('show_all', '')
     q = request.args.get('q', '').strip()
     view_mode = request.args.get('view', 'cards')
@@ -1501,6 +1532,7 @@ def properties_list():
     cities = filter_options['cities']
     counties = filter_options['counties']
     statuses = filter_options['statuses']
+    county_cities = filter_options['county_cities']
 
     # Common filter kwargs
     filter_kwargs = dict(
@@ -1559,6 +1591,7 @@ def properties_list():
                          selected_max_price=max_price,
                          selected_min_beds=min_beds,
                          view_mode=view_mode,
+                         county_cities=county_cities,
                          refresh_time=datetime.now(tz=ET).strftime('%B %d, %Y %I:%M %p'))
 
 
