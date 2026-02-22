@@ -1982,15 +1982,47 @@
         return div.innerHTML;
     }
 
+    function showMapFallback() {
+        var mapEl = document.getElementById('propertyMap');
+        if (mapEl) {
+            mapEl.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;background:#faf9f7;color:var(--dash-text-light);font-size:13px;text-align:center;padding:20px;">' +
+                '<svg width="32" height="32" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="margin-bottom:8px;opacity:0.4;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>' +
+                '<div>Map unavailable</div>' +
+                '<a href="https://www.google.com/maps?q=' + PROP_LAT + ',' + PROP_LNG + '" target="_blank" style="color:var(--dash-primary);margin-top:6px;font-size:12px;">Open in Google Maps</a>' +
+                '</div>';
+        }
+        // Hide POI chips since map didn't load
+        var poiEl = document.getElementById('poiChips');
+        if (poiEl) poiEl.style.display = 'none';
+    }
+
     // Initialize map when Google Maps API loads
+    function tryInitMap() {
+        if (typeof google !== 'undefined' && google.maps) {
+            try {
+                initMap();
+            } catch (e) {
+                console.error('[Map] Init failed:', e);
+                showMapFallback();
+            }
+        } else {
+            showMapFallback();
+        }
+    }
+
     if (typeof google !== 'undefined' && google.maps) {
-        initMap();
+        tryInitMap();
     } else {
         window.addEventListener('load', function() {
-            // Wait a beat for the async script
-            setTimeout(function() { if (typeof google !== 'undefined') initMap(); }, 500);
+            setTimeout(tryInitMap, 800);
         });
     }
+
+    // Catch Google Maps auth failures (wrong API key, missing referrer, etc.)
+    window.gm_authFailure = function() {
+        console.warn('[Map] Google Maps auth failure. Check API key referrer restrictions.');
+        showMapFallback();
+    };
     {% endif %}
 
     /* ================================================================

@@ -75,16 +75,18 @@ load_env_file()
 app = Flask(__name__)
 
 # County GIS parcel lookup URLs for WNC counties
+# Counties with direct parcel linking use {parcel} placeholder.
+# Counties without direct linking go to their search page.
 COUNTY_GIS_URLS = {
-    'Macon': 'https://gis.maconnc.org/buncomap/?find={parcel}',
-    'Buncombe': 'https://gis.buncombecounty.org/buncomap/?find={parcel}',
-    'Jackson': 'https://gis.jacksonnc.org/jacksongis/?find={parcel}',
-    'Henderson': 'https://henderson.patriotproperties.com/default.asp?find={parcel}',
-    'Haywood': 'https://gis.haywoodcountync.gov/haywoodnewgis/?find={parcel}',
-    'Swain': 'https://tax.swaincountync.gov/Search?PIN={parcel}',
-    'Cherokee': 'https://gis.cherokeecounty-nc.gov/maps/?pin={parcel}',
-    'Clay': 'https://ustaxdata.com/nc/clay/?parcel={parcel}',
-    'Graham': 'https://ustaxdata.com/nc/graham/?parcel={parcel}',
+    'Macon': 'https://gis2.maconnc.org/lightmap/Maps/default.htm?pid={parcel}',
+    'Buncombe': 'https://gis.buncombecounty.org/buncomap/Default.aspx?PINN={parcel}',
+    'Jackson': 'https://gis.jacksonnc.org/rpv/',
+    'Henderson': 'https://henderson.roktech.net/gomaps4/',
+    'Haywood': 'https://taxes.haywoodcountync.gov/itspublic/appraisalcard.aspx?id={parcel}',
+    'Swain': 'https://www.bttaxpayerportal.com/ITSPublicSW/BasicSearch/Parcel?id={parcel}',
+    'Cherokee': 'https://maps.cherokeecounty-nc.gov/GISweb/GISviewer/',
+    'Clay': 'https://bttaxpayerportal.com/ITSPublicCL/BasicSearch/Parcel?id={parcel}',
+    'Graham': 'https://bttaxpayerportal.com/itspublicgr/BasicSearch.aspx',
 }
 
 
