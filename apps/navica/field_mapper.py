@@ -378,6 +378,11 @@ def map_reso_to_listing(prop: Dict, mls_source: str = 'NavicaMLS') -> Dict[str, 
         'idx_address_display': prop.get('InternetAddressDisplayYN', True),
         'vow_opt_in': prop.get('VirtualTourURLUnbranded'),
 
+        # Documents
+        'documents_count': prop.get('DocumentsCount'),
+        'documents_available': json_encode_list(prop.get('DocumentsAvailable')),
+        'documents_change_timestamp': prop.get('DocumentsChangeTimestamp'),
+
         # Sync metadata
         'source': mls_source.lower().replace('mls', ''),
         'modification_timestamp': prop.get('ModificationTimestamp'),

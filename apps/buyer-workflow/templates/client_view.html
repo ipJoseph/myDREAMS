@@ -258,7 +258,7 @@
                     </div>
                 </div>
                 <div class="property-info">
-                    <div class="property-price">${{ "{:,}".format(prop.price) if prop.price else 'Contact for Price' }}</div>
+                    <div class="property-price">${{ "{:,}".format(prop.list_price) if prop.list_price else 'Contact for Price' }}</div>
                     <div class="property-address">{{ prop.address }}</div>
                     <div class="property-location">{{ prop.city }}, {{ prop.state }} {{ prop.zip }} | {{ prop.county }} County</div>
 
@@ -299,11 +299,11 @@
                         </button>
                     </div>
 
-                    {% if prop.redfin_url or prop.idx_url %}
+                    {% if prop.mls_url or prop.idx_url %}
                     <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem;">
-                        {% if prop.redfin_url %}
-                        <a href="{{ prop.redfin_url }}" target="_blank" class="btn btn-outline" style="flex: 1;">
-                            View on Redfin
+                        {% if prop.mls_url %}
+                        <a href="{{ prop.mls_url }}" target="_blank" class="btn btn-outline" style="flex: 1;">
+                            View Listing
                         </a>
                         {% endif %}
                         {% if prop.idx_url %}

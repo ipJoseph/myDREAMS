@@ -90,7 +90,7 @@
                     {% for prop in requested_properties %}
                     <tr>
                         <td>{{ prop.address }}</td>
-                        <td>${{ "{:,}".format(prop.price) if prop.price else 'N/A' }}</td>
+                        <td>${{ "{:,}".format(prop.list_price) if prop.list_price else 'N/A' }}</td>
                         <td>{{ prop.county }}</td>
                     </tr>
                     {% endfor %}

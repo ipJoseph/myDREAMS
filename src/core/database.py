@@ -1748,6 +1748,9 @@ class DREAMSDatabase:
         # IDX display rules
         'idx_opt_in', 'idx_address_display', 'vow_opt_in',
 
+        # Documents
+        'documents_count', 'documents_available', 'documents_change_timestamp',
+
         # Metadata
         'added_for', 'added_by', 'notes', 'source',
         'captured_at', 'updated_at',

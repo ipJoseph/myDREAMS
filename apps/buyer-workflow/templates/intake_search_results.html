@@ -39,9 +39,6 @@
         {% if form.min_baths %}| {{ form.min_baths }}+ baths{% endif %}
         {% if form.counties %}| Counties: {{ form.counties }}{% endif %}
     </div>
-    <button type="button" class="btn btn-sm btn-secondary" onclick="fetchPhotos()" id="fetch-photos-btn" style="display: none;">
-        Fetch Photos (<span id="missing-photos-count">0</span>)
-    </button>
 </div>
 
 {% if properties %}
@@ -51,17 +48,17 @@
         <label class="property-checkbox" style="position: absolute; top: 0.5rem; left: 0.5rem; z-index: 10;">
             <input type="checkbox" name="property_ids" value="{{ prop.id }}" class="property-select" style="width: 20px; height: 20px; cursor: pointer;">
         </label>
-        <div class="property-image" style="background-image: url('{{ prop.primary_photo or prop.photo_urls or '' }}');">
-            {% if not prop.primary_photo and not prop.photo_urls %}
+        <div class="property-image" style="background-image: url('{{ prop.primary_photo or '' }}');">
+            {% if not prop.primary_photo %}
             <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: var(--gray-500); background: var(--gray-100);">
                 No Photo
             </div>
             {% endif %}
         </div>
         <div class="property-info">
-            <div class="property-price">${{ "{:,}".format(prop.price) if prop.price else 'N/A' }}</div>
-            {% if prop.redfin_url %}
-            <a href="{{ prop.redfin_url }}" target="_blank" class="property-address" style="color: var(--primary); text-decoration: none;">{{ prop.address }}</a>
+            <div class="property-price">${{ "{:,}".format(prop.list_price) if prop.list_price else 'N/A' }}</div>
+            {% if prop.mls_url %}
+            <a href="{{ prop.mls_url }}" target="_blank" class="property-address" style="color: var(--primary); text-decoration: none;">{{ prop.address }}</a>
             {% else %}
             <div class="property-address">{{ prop.address }}</div>
             {% endif %}
@@ -80,6 +77,9 @@
                 {% endif %}
                 {% if prop.days_on_market %}
                 <span class="badge badge-primary">{{ prop.days_on_market }} DOM</span>
+                {% endif %}
+                {% if prop.documents_count %}
+                <span class="badge badge-success">{{ prop.documents_count }} docs</span>
                 {% endif %}
             </div>
         </div>
@@ -145,52 +145,5 @@ function openMLS(mlsNumber) {
         });
 }
 
-function checkPhotoStatus() {
-    fetch('/api/photos/status')
-        .then(response => response.json())
-        .then(data => {
-            const btn = document.getElementById('fetch-photos-btn');
-            const count = document.getElementById('missing-photos-count');
-            if (data.without_photos > 0 && data.pending_in_queue > 0) {
-                btn.style.display = 'inline-block';
-                count.textContent = Math.min(data.pending_in_queue, 50);
-            }
-        })
-        .catch(err => console.error('Photo status error:', err));
-}
-
-function fetchPhotos() {
-    const btn = document.getElementById('fetch-photos-btn');
-    btn.disabled = true;
-    btn.textContent = 'Fetching...';
-
-    fetch('/api/photos/scrape', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({limit: 50})
-    })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                btn.textContent = 'Started! Refresh in 2-3 min';
-                setTimeout(() => {
-                    btn.style.display = 'none';
-                    btn.disabled = false;
-                }, 5000);
-            } else {
-                alert('Error: ' + (data.error || 'Unknown error'));
-                btn.disabled = false;
-                btn.textContent = 'Fetch Photos';
-            }
-        })
-        .catch(err => {
-            console.error('Photo fetch error:', err);
-            btn.disabled = false;
-            btn.textContent = 'Fetch Photos';
-        });
-}
-
-// Check photo status on page load
-checkPhotoStatus();
 </script>
 {% endblock %}

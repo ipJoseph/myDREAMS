@@ -157,6 +157,9 @@ class NavicaSyncEngine:
                 ('sewer', 'TEXT'),
                 ('stories', 'INTEGER'),
                 ('vow_opt_in', 'INTEGER'),
+                ('documents_count', 'INTEGER'),
+                ('documents_available', 'TEXT'),
+                ('documents_change_timestamp', 'TEXT'),
             ]
 
             for col_name, col_type in new_columns:

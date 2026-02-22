@@ -70,9 +70,10 @@
                         </div>
                     </div>
                     <div style="text-align: right;">
-                        <div style="font-weight: 500; color: var(--primary);">${{ "{:,}".format(prop.price) if prop.price else 'N/A' }}</div>
+                        <div style="font-weight: 500; color: var(--primary);">${{ "{:,}".format(prop.list_price) if prop.list_price else 'N/A' }}</div>
                         <div style="font-size: 0.8125rem; color: var(--gray-500);">
                             {{ prop.beds or '-' }} bd | {{ prop.baths or '-' }} ba | {{ "{:,}".format(prop.sqft) if prop.sqft else '-' }} sqft
+                            {% if prop.documents_count %} | {{ prop.documents_count }} docs{% endif %}
                         </div>
                     </div>
                 </div>
@@ -91,8 +92,8 @@
                 {% endif %}
 
                 <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem;">
-                    {% if prop.redfin_url %}
-                    <a href="{{ prop.redfin_url }}" target="_blank" class="btn btn-sm btn-secondary">Redfin</a>
+                    {% if prop.mls_url %}
+                    <a href="{{ prop.mls_url }}" target="_blank" class="btn btn-sm btn-secondary">MLS</a>
                     {% endif %}
                     <a href="https://www.google.com/maps/search/?api=1&query={{ prop.address | urlencode }}"
                        target="_blank" class="btn btn-sm btn-secondary">Map</a>

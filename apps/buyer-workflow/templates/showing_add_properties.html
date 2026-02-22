@@ -41,7 +41,7 @@
                                 {{ prop.city }}, {{ prop.state }}
                             </div>
                         </td>
-                        <td>${{ "{:,}".format(prop.price) if prop.price else 'N/A' }}</td>
+                        <td>${{ "{:,}".format(prop.list_price) if prop.list_price else 'N/A' }}</td>
                         <td>{{ prop.beds or '-' }} / {{ prop.baths or '-' }}</td>
                         <td>{{ prop.county }}</td>
                         <td>

@@ -55,9 +55,8 @@ def utility_processor():
         'now': datetime.utcnow
     }
 
-# Database paths
+# Database path (single database for all data)
 DB_PATH = os.getenv('DREAMS_DB_PATH', str(PROJECT_ROOT / 'data' / 'dreams.db'))
-PROPERTIES_DB_PATH = os.getenv('PROPERTIES_DB_PATH', str(PROJECT_ROOT / 'data' / 'redfin_imports.db'))
 
 # Need types for intake forms
 NEED_TYPES = [
@@ -116,11 +115,8 @@ def get_db():
 
 
 def get_properties_db():
-    """Get database connection for property searches (redfin_imports)."""
-    if 'properties_db' not in g:
-        g.properties_db = sqlite3.connect(PROPERTIES_DB_PATH)
-        g.properties_db.row_factory = sqlite3.Row
-    return g.properties_db
+    """Get database connection for property searches (same as dreams.db)."""
+    return get_db()
 
 
 @app.teardown_appcontext
@@ -129,9 +125,39 @@ def close_db(error):
     db = g.pop('db', None)
     if db is not None:
         db.close()
-    props_db = g.pop('properties_db', None)
-    if props_db is not None:
-        props_db.close()
+
+
+def init_db():
+    """Initialize database tables from schema.sql."""
+    schema_path = Path(__file__).parent / 'schema.sql'
+    if not schema_path.exists():
+        return
+
+    db = sqlite3.connect(DB_PATH)
+    try:
+        # Strip SQL comments, then execute each statement individually
+        schema = schema_path.read_text()
+        # Remove full-line comments
+        lines = [line for line in schema.splitlines() if not line.strip().startswith('--')]
+        clean_sql = '\n'.join(lines)
+        for statement in clean_sql.split(';'):
+            statement = statement.strip()
+            if not statement:
+                continue
+            try:
+                db.execute(statement)
+            except sqlite3.OperationalError:
+                pass  # Table/index already exists or column mismatch
+        db.commit()
+        logger.info("Database schema initialized from schema.sql")
+    except Exception as e:
+        logger.error(f"Error initializing schema: {e}")
+    finally:
+        db.close()
+
+
+# Initialize tables at startup
+init_db()
 
 
 def row_to_dict(row):
@@ -471,14 +497,12 @@ def intake_search(form_id):
             query += f' AND property_type IN ({placeholders})'
             params.extend(types)
 
-    # Use 'Active' to match redfin_imports format
-    query += ' AND (status = "active" OR status = "Active") ORDER BY days_on_market ASC, price ASC LIMIT 100'
+    query += ' AND status = "ACTIVE" ORDER BY days_on_market ASC, list_price ASC LIMIT 100'
 
     # Debug logging
     logger.info(f"Search query: {query}")
     logger.info(f"Search params: {params}")
 
-    # Query properties from redfin_imports database
     properties = props_db.execute(query, params).fetchall()
     logger.info(f"Found {len(properties)} properties")
 
@@ -559,7 +583,7 @@ def package_detail(package_id):
         ORDER BY display_order
     ''', (package_id,)).fetchall()
 
-    # Fetch property details from redfin_imports
+    # Fetch property details from listings
     properties = []
     if pkg_props:
         prop_ids = [p['property_id'] for p in pkg_props]
@@ -709,7 +733,7 @@ def package_add_properties(package_id):
     max_price = request.args.get('max_price', '')
     search = request.args.get('search', '')
 
-    query = 'SELECT * FROM listings WHERE (status = "active" OR status = "Active")'
+    query = 'SELECT * FROM listings WHERE status = "ACTIVE"'
     params = []
 
     if existing_ids:
@@ -732,7 +756,6 @@ def package_add_properties(package_id):
 
     query += ' ORDER BY days_on_market ASC LIMIT 100'
 
-    # Query from redfin_imports database
     properties = props_db.execute(query, params).fetchall()
 
     return render_template('package_add_properties.html',
@@ -801,7 +824,7 @@ def client_view(share_token):
         ORDER BY display_order
     ''', (package['id'],)).fetchall()
 
-    # Fetch property details from redfin_imports
+    # Fetch property details from listings
     properties = []
     if pkg_props:
         prop_ids = [p['property_id'] for p in pkg_props]
@@ -931,7 +954,7 @@ def showing_new(lead_id):
         WHERE pkg.lead_id = ? AND pp.showing_requested = 1
     ''', (lead_id,)).fetchall()
 
-    # Then fetch property details from redfin_imports
+    # Then fetch property details from listings
     requested = []
     if req_props:
         prop_ids = [p['property_id'] for p in req_props]
@@ -979,7 +1002,7 @@ def showing_detail(showing_id):
         ORDER BY stop_order
     ''', (showing_id,)).fetchall()
 
-    # Fetch property details from redfin_imports
+    # Fetch property details from listings
     properties = []
     if show_props:
         prop_ids = [p['property_id'] for p in show_props]
@@ -1130,10 +1153,9 @@ def showing_add_properties(showing_id):
                 SELECT * FROM listings WHERE id IN ({placeholders})
             ''', prop_ids).fetchall()
     else:
-        # Get all active properties from redfin_imports
         properties = props_db.execute('''
             SELECT * FROM listings
-            WHERE status IN ('active', 'Active')
+            WHERE status = 'ACTIVE'
             ORDER BY county, city
             LIMIT 100
         ''').fetchall()
@@ -1165,7 +1187,7 @@ def showing_optimize_route(showing_id):
     if not show_props:
         return jsonify({'error': 'No properties in showing'}), 400
 
-    # Fetch property coordinates from redfin_imports
+    # Fetch property coordinates from listings
     prop_ids = [p['property_id'] for p in show_props]
     placeholders = ','.join(['?' for _ in prop_ids])
     props_data = props_db.execute(f'''
@@ -1286,7 +1308,7 @@ def showing_google_maps_url(showing_id):
     if not show_props:
         return jsonify({'error': 'No properties in showing'}), 400
 
-    # Fetch property addresses from redfin_imports
+    # Fetch property addresses from listings
     prop_ids = [p['property_id'] for p in show_props]
     placeholders = ','.join(['?' for _ in prop_ids])
     props_data = props_db.execute(f'''
@@ -1323,51 +1345,6 @@ def showing_google_maps_url(showing_id):
     return jsonify({
         'url': maps_url,
         'addresses': addresses
-    })
-
-
-@app.route('/api/photos/scrape', methods=['POST'])
-def api_photos_scrape():
-    """Trigger photo scraping for properties missing photos.
-
-    Accepts optional property_ids list, or scrapes all pending in queue.
-    """
-    import subprocess
-
-    scraper_script = PROJECT_ROOT / 'apps' / 'redfin-importer' / 'redfin_page_scraper.py'
-    limit = request.json.get('limit', 50) if request.is_json else 50
-
-    try:
-        # Run scraper in background using same Python as Flask app
-        subprocess.Popen(
-            [sys.executable, str(scraper_script), '--limit', str(limit)],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            start_new_session=True
-        )
-        return jsonify({
-            'success': True,
-            'message': f'Photo scraping started for up to {limit} properties'
-        })
-    except Exception as e:
-        logger.error(f"Error launching photo scraper: {e}")
-        return jsonify({'error': str(e)}), 500
-
-
-@app.route('/api/photos/status')
-def api_photos_status():
-    """Get photo scraping status - how many properties have photos vs need them."""
-    props_db = get_properties_db()
-
-    total = props_db.execute('SELECT COUNT(*) FROM listings WHERE status = "Active"').fetchone()[0]
-    with_photos = props_db.execute('SELECT COUNT(*) FROM listings WHERE status = "Active" AND primary_photo IS NOT NULL').fetchone()[0]
-    pending_queue = props_db.execute('SELECT COUNT(*) FROM redfin_scrape_queue WHERE status = "pending"').fetchone()[0]
-
-    return jsonify({
-        'total_active': total,
-        'with_photos': with_photos,
-        'without_photos': total - with_photos,
-        'pending_in_queue': pending_queue
     })
 
 
@@ -1417,7 +1394,7 @@ def api_properties_search():
     min_price = request.args.get('min_price')
     max_price = request.args.get('max_price')
     beds = request.args.get('beds')
-    status = request.args.get('status', 'Active')  # Default to 'Active' to match redfin_imports
+    status = request.args.get('status', 'ACTIVE')
 
     query = 'SELECT * FROM listings WHERE 1=1'
     params = []

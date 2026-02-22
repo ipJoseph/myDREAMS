@@ -70,7 +70,7 @@
             {% endif %}
         </div>
         <div class="property-info">
-            <div class="property-price">${{ "{:,}".format(prop.price) if prop.price else 'N/A' }}</div>
+            <div class="property-price">${{ "{:,}".format(prop.list_price) if prop.list_price else 'N/A' }}</div>
             <div class="property-address">{{ prop.address }}</div>
             <div style="color: var(--gray-500); font-size: 0.875rem; margin-bottom: 0.5rem;">
                 {{ prop.city }}, {{ prop.state }} | {{ prop.county }} County
@@ -88,10 +88,20 @@
                 {% if prop.days_on_market %}
                 <span class="badge badge-primary">{{ prop.days_on_market }} DOM</span>
                 {% endif %}
+                {% if prop.documents_count %}
+                <span class="badge badge-success">{{ prop.documents_count }} docs</span>
+                {% endif %}
             </div>
+            {% if prop.documents_available %}
+            <div style="margin-top: 0.5rem; display: flex; gap: 0.25rem; flex-wrap: wrap;">
+                {% for doc_type in prop.documents_available|from_json %}
+                <span style="font-size: 0.6875rem; padding: 0.125rem 0.375rem; background: var(--gray-100); border-radius: 0.25rem;">{{ doc_type }}</span>
+                {% endfor %}
+            </div>
+            {% endif %}
             <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--gray-200); display: flex; gap: 0.5rem;">
-                {% if prop.redfin_url %}
-                <a href="{{ prop.redfin_url }}" target="_blank" class="btn btn-sm btn-secondary">Redfin</a>
+                {% if prop.mls_url %}
+                <a href="{{ prop.mls_url }}" target="_blank" class="btn btn-sm btn-secondary">MLS</a>
                 {% endif %}
                 <button onclick="removeProperty('{{ package.id }}', '{{ prop.id }}')"
                         class="btn btn-sm btn-danger">Remove</button>
