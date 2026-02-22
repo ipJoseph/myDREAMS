@@ -264,6 +264,7 @@
             overflow: hidden;
             transition: all 0.3s;
             position: relative;
+            cursor: pointer;
         }
         .dash-card:hover {
             border-color: var(--dash-accent);
@@ -829,7 +830,7 @@
         {% for prop in properties %}
         {% set idx_mls = prop.idx_mls_number or prop.mls_number %}
         {% set idx_status = prop.idx_validation_status or 'pending' %}
-        <div class="dash-card" data-mls="{{ idx_mls or '' }}">
+        <div class="dash-card" data-mls="{{ idx_mls or '' }}" data-href="/properties/{{ prop.id }}">
             <div class="dash-card-photo">
                 <!-- Checkbox -->
                 <label class="dash-card-checkbox">
@@ -1134,6 +1135,16 @@
 
         // Run on page load to apply cascade if counties are pre-selected
         document.addEventListener('DOMContentLoaded', filterCitiesByCounty);
+
+        // ── Card click to navigate (skip checkbox and phone links) ──
+        document.addEventListener('click', function(e) {
+            // Skip if clicking checkbox, label wrapping checkbox, or tel: links
+            if (e.target.closest('.dash-card-checkbox') || e.target.closest('a[href^="tel:"]')) return;
+            const card = e.target.closest('.dash-card[data-href]');
+            if (card) {
+                window.location.href = card.dataset.href;
+            }
+        });
 
         // ── Filter & Navigation ──
         function applyFilters() {
