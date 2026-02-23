@@ -904,51 +904,7 @@ def home():
         call_list_data[list_type] = db.get_call_list_contacts(list_type, user_id=CURRENT_USER_ID, limit=25)
 
     # ===== V2 DASHBOARD =====
-    if True:
-        return render_template('home_v2.html',
-                             todays_actions=todays_actions,
-                             todoist_tasks=todoist_tasks,
-                             active_deals=active_deals,
-                             pipeline=pipeline,
-                             hottest_leads=hottest_leads,
-                             overnight=overnight,
-                             active_pursuits=active_pursuits,
-                             buyers_needing_work=buyers_needing_work,
-                             call_list_data=call_list_data,
-                             call_list_counts=call_list_counts,
-                             refresh_time=datetime.now(tz=ET).strftime('%B %d, %Y %I:%M %p'))
-
-    # ===== LEGACY DATA (for v1 backward compatibility) =====
-    # Get property stats
-    all_properties = fetch_properties()
-    property_metrics = calculate_metrics(all_properties)
-
-    property_stats = {
-        'total': len(all_properties),
-        'status_counts': calculate_status_counts(all_properties),
-        'avg_price': "${:,.0f}".format(property_metrics.get('avg_price', 0)) if property_metrics.get('avg_price') else '--'
-    }
-
-    # Get contact stats (filtered by view)
-    contact_stats = db.get_contact_stats(user_id=CURRENT_USER_ID, view=current_view)
-
-    # Get top priority contacts (filtered by view)
-    top_contacts = db.get_contacts_by_priority(
-        min_priority=0,
-        limit=10,
-        user_id=CURRENT_USER_ID,
-        view=current_view
-    )
-
-    # Count actions due
-    actions_due = len(todays_actions.get('calls', [])) + len(todays_actions.get('follow_ups', []))
-
-    # Get today's property changes
-    todays_changes = db.get_todays_changes()
-    change_summary = db.get_change_summary(hours=24)
-
-    return render_template('home.html',
-                         # New dashboard data
+    return render_template('home_v2.html',
                          todays_actions=todays_actions,
                          todoist_tasks=todoist_tasks,
                          active_deals=active_deals,
@@ -957,14 +913,8 @@ def home():
                          overnight=overnight,
                          active_pursuits=active_pursuits,
                          buyers_needing_work=buyers_needing_work,
-                         # Legacy data
-                         property_stats=property_stats,
-                         contact_stats=contact_stats,
-                         top_contacts=top_contacts,
-                         actions_due=actions_due,
-                         todays_changes=todays_changes,
-                         change_summary=change_summary,
-                         current_view=current_view,
+                         call_list_data=call_list_data,
+                         call_list_counts=call_list_counts,
                          refresh_time=datetime.now(tz=ET).strftime('%B %d, %Y %I:%M %p'))
 
 
