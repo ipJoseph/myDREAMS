@@ -1202,11 +1202,15 @@ body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans
 .stage-badge {{ padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; color: white; }}
 .heat-badge {{ font-size: 12px; font-weight: 600; color: #64748b; }}
 .activity-counts {{ font-size: 12px; color: #64748b; }}
-table {{ width: 100%; border-collapse: collapse; }}
+table {{ width: 100%; border-collapse: collapse; table-layout: fixed; }}
+col.col-prop {{ width: 40%; }}
+col.col-price {{ width: 12%; }}
+col.col-views {{ width: 10%; }}
+col.col-fav {{ width: 10%; }}
+col.col-shared {{ width: 10%; }}
+col.col-time {{ width: 18%; }}
 th {{ text-align: left; padding: 10px 16px; font-size: 11px; text-transform: uppercase; font-weight: 700; color: #64748b; letter-spacing: 0.5px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; }}
 td {{ padding: 10px 16px; font-size: 13px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }}
-tr:last-child td {{ border-bottom: none; }}
-.addr-col {{ max-width: 320px; }}
 .addr-main {{ font-weight: 600; }}
 .addr-detail {{ font-size: 11px; color: #64748b; margin-top: 2px; }}
 .num {{ text-align: center; font-weight: 600; }}
@@ -1262,8 +1266,12 @@ tr:last-child td {{ border-bottom: none; }}
         </div>
     </div>
     <table>
+        <colgroup>
+            <col class="col-prop"><col class="col-price"><col class="col-views">
+            <col class="col-fav"><col class="col-shared"><col class="col-time">
+        </colgroup>
         <thead><tr>
-            <th class="addr-col">Property</th>
+            <th>Property</th>
             <th>Price</th>
             <th class="num">Views</th>
             <th class="num">Fav</th>
