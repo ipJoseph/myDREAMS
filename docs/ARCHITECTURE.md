@@ -8,6 +8,21 @@
 
 This document defines the technical architecture for the DREAMS (Desktop Real Estate Agent Management System) platform. It is intended for developers extending the system and for architectural decision-making.
 
+### System Summary (February 2026)
+
+| Component | Technology | Status |
+|-----------|-----------|--------|
+| Database | SQLite (WAL mode) at `data/dreams.db` | Production |
+| Property API | Flask on port 5000 | Production |
+| Dashboard (Mission Control) | Flask on port 5001 | Production |
+| Public Website | Next.js 16 at `apps/public-site/` | Production |
+| MLS Data | Navica API (Carolina Smokies MLS) | Production, cron sync |
+| CRM | Follow Up Boss (FUB) | Production, daily sync |
+| Property Table | `listings` (95+ columns, RESO standard) | 1,589 listings |
+| Contacts Table | `leads` (862 contacts from FUB) | Production |
+| Pursuits | Buyer-property portfolio system | MVP active |
+| Domain | wncmountain.homes | Production |
+
 ---
 
 ## Core Principles
@@ -113,7 +128,7 @@ CREATE TABLE lead_activities (
     imported_at TEXT DEFAULT CURRENT_TIMESTAMP,
     
     FOREIGN KEY (lead_id) REFERENCES leads(id),
-    FOREIGN KEY (property_id) REFERENCES properties(id)
+    FOREIGN KEY (property_id) REFERENCES listings(id)
 );
 
 CREATE INDEX idx_activities_lead ON lead_activities(lead_id);
@@ -122,78 +137,133 @@ CREATE INDEX idx_activities_date ON lead_activities(occurred_at DESC);
 
 
 -- ============================================
--- PROPERTIES TABLE
--- All tracked properties
+-- LISTINGS TABLE (canonical property table)
+-- 95+ columns, RESO standard field names
+-- Source: Navica MLS (Carolina Smokies AOR)
 -- ============================================
-CREATE TABLE properties (
+CREATE TABLE listings (
     id TEXT PRIMARY KEY,                    -- Internal DREAMS ID (UUID)
-    
+
     -- Identifiers
-    mls_number TEXT,
-    parcel_id TEXT,
-    zillow_id TEXT,
+    listing_id TEXT,                        -- MLS ListingId
+    mls_number TEXT,                        -- ListingId alias
+    parcel_number TEXT,                     -- APN / Parcel ID
     address TEXT,
     city TEXT,
-    state TEXT,
+    state TEXT DEFAULT 'NC',
     zip TEXT,
     county TEXT,
-    
+    subdivision TEXT,
+
     -- Core Attributes
-    price INTEGER,
-    beds INTEGER,
-    baths REAL,
-    sqft INTEGER,
-    acreage REAL,
+    price INTEGER,                          -- ListPrice
+    original_price INTEGER,                 -- OriginalListPrice
+    beds INTEGER,                           -- BedroomsTotal
+    baths REAL,                             -- BathroomsTotalDecimal
+    baths_full INTEGER,
+    baths_half INTEGER,
+    sqft INTEGER,                           -- LivingArea
+    acreage REAL,                           -- LotSizeAcres
+    lot_sqft INTEGER,                       -- LotSizeSquareFeet
     year_built INTEGER,
-    
-    -- Property Details
-    property_type TEXT,                     -- single_family, condo, land, etc.
-    style TEXT,                             -- cabin, a-frame, ranch, modern, etc.
-    
-    -- Features (JSON arrays for flexibility)
-    views TEXT,                             -- ["mountain", "valley", "forest"]
-    water_features TEXT,                    -- ["creek", "pond", "well"]
-    amenities TEXT,                         -- ["garage", "basement", "deck"]
-    
-    -- Status
-    status TEXT DEFAULT 'active',           -- active, pending, sold, withdrawn
-    days_on_market INTEGER,
-    list_date TEXT,
-    
+    stories INTEGER,
+
+    -- Property Classification
+    property_type TEXT,                     -- PropertyType (Residential, Land, etc.)
+    property_sub_type TEXT,                 -- PropertySubType
+    standard_status TEXT,                   -- StandardStatus (Active, Pending, Sold, etc.)
+
+    -- Features & Description
+    public_remarks TEXT,
+    directions TEXT,
+    features_interior TEXT,                 -- JSON array
+    features_exterior TEXT,                 -- JSON array
+    heating TEXT,
+    cooling TEXT,
+    construction TEXT,
+    roof TEXT,
+    foundation TEXT,
+    parking TEXT,
+    water_source TEXT,
+    sewer TEXT,
+
+    -- Financial
+    tax_annual_amount REAL,
+    tax_year INTEGER,
+    hoa_fee REAL,
+    hoa_frequency TEXT,
+
     -- Agent Info
     listing_agent_name TEXT,
     listing_agent_phone TEXT,
     listing_agent_email TEXT,
-    listing_brokerage TEXT,
-    
-    -- Links
-    zillow_url TEXT,
-    realtor_url TEXT,
-    mls_url TEXT,
-    idx_url TEXT,
-    
-    -- Monitoring
-    initial_price INTEGER,
-    price_history TEXT,                     -- JSON array of {date, price}
-    status_history TEXT,                    -- JSON array of {date, status}
-    
-    -- Media
-    photo_urls TEXT,                        -- JSON array
+    listing_agent_id TEXT,
+    listing_office_name TEXT,
+    buyer_agent_name TEXT,
+    buyer_agent_phone TEXT,
+
+    -- Geo & Media
+    latitude REAL,
+    longitude REAL,
+    photo_url TEXT,                          -- Primary photo (CloudFront CDN)
+    photo_local_path TEXT,                  -- Local photo cache
+    photo_count INTEGER,
     virtual_tour_url TEXT,
-    
-    -- Metadata
-    source TEXT,                            -- Where we got this property
-    notes TEXT,
-    captured_by TEXT,
+
+    -- IDX Compliance
+    idx_opt_in INTEGER DEFAULT 1,
+    idx_address_display INTEGER DEFAULT 1,
+
+    -- MLS Metadata
+    mls_source TEXT DEFAULT 'Navica',       -- Navica or CanopyMLS
+    list_date TEXT,
+    modification_timestamp TEXT,
+    days_on_market INTEGER,
+
+    -- Tracking
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-    last_monitored_at TEXT
+    last_synced_at TEXT
 );
 
-CREATE INDEX idx_properties_status ON properties(status);
-CREATE INDEX idx_properties_city ON properties(city);
-CREATE INDEX idx_properties_price ON properties(price);
-CREATE INDEX idx_properties_mls ON properties(mls_number);
+-- Key indexes for dashboard performance
+CREATE INDEX idx_listings_status ON listings(standard_status);
+CREATE INDEX idx_listings_city ON listings(city);
+CREATE INDEX idx_listings_county ON listings(county);
+CREATE INDEX idx_listings_price ON listings(price);
+CREATE INDEX idx_listings_mls ON listings(mls_number);
+CREATE INDEX idx_listings_source ON listings(mls_source);
+
+
+-- ============================================
+-- PURSUITS TABLE
+-- Buyer-property portfolio tracking
+-- ============================================
+CREATE TABLE pursuits (
+    id TEXT PRIMARY KEY,
+    buyer_id TEXT NOT NULL,                 -- leads.id
+    name TEXT,
+    status TEXT DEFAULT 'active',           -- active, paused, converted, abandoned
+    criteria_summary TEXT,
+    notes TEXT,
+    intake_form_id TEXT,
+    fub_deal_id TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE pursuit_properties (
+    id TEXT PRIMARY KEY,
+    pursuit_id TEXT NOT NULL,
+    property_id TEXT NOT NULL,              -- listings.id
+    status TEXT DEFAULT 'suggested',        -- suggested, sent, viewed, interested, rejected, shown
+    source TEXT DEFAULT 'agent_added',
+    notes TEXT,
+    sent_at TEXT,
+    viewed_at TEXT,
+    added_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(pursuit_id, property_id)
+);
 
 
 -- ============================================
@@ -430,32 +500,9 @@ class PropertyAdapter(ABC):
         pass
 ```
 
-### Base Presentation Adapter
+### Note on Presentation Adapters
 
-```python
-class PresentationAdapter(ABC):
-    """Abstract interface for presentation layer (Notion, Airtable, etc.)"""
-    
-    @abstractmethod
-    def sync_leads(self, leads: List[Lead]) -> int:
-        """Push leads to presentation layer"""
-        pass
-    
-    @abstractmethod
-    def sync_properties(self, properties: List[Property]) -> int:
-        """Push properties to presentation layer"""
-        pass
-    
-    @abstractmethod
-    def sync_matches(self, matches: List[Match]) -> int:
-        """Push matches to presentation layer"""
-        pass
-    
-    @abstractmethod
-    def get_user_updates(self) -> List[dict]:
-        """Pull any manual edits from presentation layer"""
-        pass
-```
+The original architecture included a `PresentationAdapter` for syncing to Notion, Airtable, etc. Notion sync was retired in February 2026 when the property dashboard and public website became the primary presentation layers. The adapter pattern remains viable if a new external presentation layer is needed in the future.
 
 ---
 
@@ -595,41 +642,51 @@ def calculate_match_score(lead: Lead, property: Property) -> MatchScore:
 
 ```
 ┌─────────────┐     ┌──────────────┐     ┌─────────────┐
-│     CRM     │────▶│  CRM Adapter │────▶│   SQLite    │
-│ (FUB, etc.) │     │              │     │  leads      │
+│ Follow Up   │────▶│  FUB Sync    │────▶│   SQLite    │
+│ Boss (CRM)  │     │ (fub-to-     │     │   leads     │
+│             │     │  sheets)     │     │             │
 └─────────────┘     └──────────────┘     └──────┬──────┘
                                                 │
-                                                ▼
-                    ┌──────────────┐     ┌─────────────┐
-                    │ Presentation │◀────│   Notion    │
-                    │   Adapter    │     │  Adapter    │
-                    └──────────────┘     └─────────────┘
+                                    ┌───────────┼───────────┐
+                                    ▼           ▼           ▼
+                             ┌──────────┐ ┌──────────┐ ┌──────────┐
+                             │Dashboard │ │  Daily   │ │  Scoring │
+                             │(Mission  │ │  Email   │ │  Engine  │
+                             │ Control) │ │  Report  │ │          │
+                             └──────────┘ └──────────┘ └──────────┘
 ```
 
-### Property Capture Flow
+### Property Sync Flow (MLS)
 
 ```
 ┌─────────────┐     ┌──────────────┐     ┌─────────────┐
-│   Chrome    │────▶│   Zillow     │────▶│   SQLite    │
-│  Extension  │     │   Adapter    │     │ properties  │
-└─────────────┘     └──────────────┘     └─────────────┘
-       │
-       │           ┌──────────────┐
-       └──────────▶│   ScraperAPI │ (for monitoring)
-                   └──────────────┘
+│ Navica MLS  │────▶│  Sync Engine │────▶│   SQLite    │
+│ (RESO API)  │     │ + Field      │     │  listings   │
+│             │     │   Mapper     │     │             │
+└─────────────┘     └──────────────┘     └──────┬──────┘
+                                                │
+                                    ┌───────────┼───────────┐
+                                    ▼           ▼           ▼
+                             ┌──────────┐ ┌──────────┐ ┌──────────┐
+                             │Dashboard │ │  Public  │ │ Pursuits │
+                             │(Mission  │ │  Site    │ │  System  │
+                             │ Control) │ │ (Next.js)│ │          │
+                             └──────────┘ └──────────┘ └──────────┘
 ```
 
-### Matching Flow
+### Matching / Pursuits Flow
 
 ```
 ┌─────────────┐     ┌─────────────┐     ┌──────────────┐
-│   SQLite    │────▶│  Matching   │────▶│   SQLite     │
-│   leads     │     │   Engine    │     │   matches    │
+│   SQLite    │────▶│  Auto-Match  │────▶│   SQLite     │
+│   leads     │     │   Engine     │     │  pursuits +  │
+│ (buyers w/  │     │ (intake      │     │  pursuit_    │
+│ requirements│     │  criteria)   │     │  properties  │
 └─────────────┘     └──────┬──────┘     └──────────────┘
                           │
 ┌─────────────┐           │
 │   SQLite    │───────────┘
-│ properties  │
+│  listings   │
 └─────────────┘
 ```
 
@@ -642,68 +699,59 @@ def calculate_match_score(lead: Lead, property: Property) -> MatchScore:
 ```bash
 # Core
 DREAMS_DB_PATH=/path/to/dreams.db
-DREAMS_LOG_LEVEL=INFO
+DREAMS_ENV=dev                          # dev or prd
+FLASK_DEBUG=false
 
-# Follow Up Boss
+# Authentication
+DREAMS_API_KEY=your_api_key             # X-API-Key header for API
+DASHBOARD_USERNAME=admin                # Basic auth for dashboard
+DASHBOARD_PASSWORD=your_password
+
+# Follow Up Boss (CRM)
 FUB_API_KEY=your_api_key
 FUB_BASE_URL=https://api.followupboss.com/v1
 
-# Notion
-NOTION_API_KEY=your_integration_token
-NOTION_LEADS_DB=database_id
-NOTION_PROPERTIES_DB=database_id
+# Navica MLS (Carolina Smokies AOR)
+NAVICA_API_TOKEN=your_bearer_token
+NAVICA_BASE_URL=https://navapi.navicamls.net/api/v2/nav27
 
-# ScraperAPI
-SCRAPER_API_KEY=your_api_key
+# MLS Grid / Canopy MLS (pending credentials)
+MLSGRID_TOKEN=your_token
+MLSGRID_USE_DEMO=false
 
-# Google Sheets (service account)
+# Google
 GOOGLE_SERVICE_ACCOUNT_FILE=/path/to/service_account.json
 GOOGLE_SPREADSHEET_ID=spreadsheet_id
+GOOGLE_MAPS_API_KEY=your_maps_key       # POI search, property maps
+
+# Email Reports
+SMTP_SERVER=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USERNAME=your_email
+SMTP_PASSWORD=your_app_password
+EMAIL_RECIPIENT=agent@example.com
 ```
 
-### Configuration File
+### Cron Schedule (DEV)
 
-```yaml
-# config/config.yaml
-database:
-  path: ${DREAMS_DB_PATH}
-  wal_mode: true
-  busy_timeout: 5000
+```cron
+# FUB sync + daily email (6:00 AM)
+0 6 * * * cd /home/bigeug/myDREAMS && python3 apps/fub-to-sheets/fub_to_sheets_v2.py
 
-sync:
-  leads:
-    schedule: "0 6,18 * * *"  # 6 AM and 6 PM
-    batch_size: 100
-  properties:
-    schedule: "0 7 * * *"  # 7 AM daily
-    monitoring_enabled: true
+# Navica incremental sync (every 15 min, business hours)
+*/15 8-20 * * * cd /home/bigeug/myDREAMS && python3 -m apps.navica.cron_sync incremental
 
-matching:
-  weights:
-    price: 0.25
-    location: 0.20
-    size: 0.20
-    features: 0.15
-    style: 0.10
-    recency: 0.10
-  behavioral_weight: 0.6
-  stated_weight: 0.4
-  min_score_threshold: 50
+# Navica nightly full sync (2:00 AM)
+0 2 * * * cd /home/bigeug/myDREAMS && python3 -m apps.navica.cron_sync nightly
 
-adapters:
-  crm:
-    active: followupboss
-    available:
-      - followupboss
-      - salesforce
-      - sierra
-  
-  presentation:
-    active: notion
-    available:
-      - notion
-      - airtable
-      - sheets
+# Navica weekly sold data (Sunday 3:00 AM)
+0 3 * * 0 cd /home/bigeug/myDREAMS && python3 -m apps.navica.cron_sync weekly-sold
+
+# Navica daily agents + open houses (6:30 AM)
+30 6 * * * cd /home/bigeug/myDREAMS && python3 -m apps.navica.cron_sync daily-extras
+
+# Daily backup (11:00 PM)
+0 23 * * * cd /home/bigeug/myDREAMS && cp data/dreams.db data/backups/dreams_$(date +\%Y\%m\%d).db
 ```
 
 ---
@@ -823,13 +871,13 @@ All DREAMS apps should include the shared stylesheet:
 For performant filtering and sorting, tables must have indexes on commonly filtered/sorted columns:
 
 ```sql
--- Properties table indexes (required for dashboard performance)
-CREATE INDEX idx_properties_status ON properties(status);
-CREATE INDEX idx_properties_city ON properties(city);
-CREATE INDEX idx_properties_county ON properties(county);
-CREATE INDEX idx_properties_price ON properties(price);
-CREATE INDEX idx_properties_added_for ON properties(added_for);  -- Client filter
-CREATE INDEX idx_properties_created_at ON properties(created_at);  -- Default sort
+-- Listings table indexes (required for dashboard performance)
+CREATE INDEX idx_listings_status ON listings(standard_status);
+CREATE INDEX idx_listings_city ON listings(city);
+CREATE INDEX idx_listings_county ON listings(county);
+CREATE INDEX idx_listings_price ON listings(price);
+CREATE INDEX idx_listings_mls ON listings(mls_number);
+CREATE INDEX idx_listings_source ON listings(mls_source);
 
 -- Leads table indexes
 CREATE INDEX idx_leads_stage ON leads(stage);
@@ -852,7 +900,7 @@ def properties_list():
     city = request.args.get('city', '')
 
     # Build parameterized query
-    query = 'SELECT * FROM properties WHERE 1=1'
+    query = 'SELECT * FROM listings WHERE 1=1'
     params = []
 
     if status:
@@ -892,10 +940,10 @@ def get_filter_options() -> Dict[str, List[str]]:
     """Get distinct values for filter dropdowns efficiently."""
     options = {}
     options['cities'] = sorted([r[0] for r in conn.execute(
-        "SELECT DISTINCT city FROM properties WHERE city IS NOT NULL AND city != ''"
+        "SELECT DISTINCT city FROM listings WHERE city IS NOT NULL AND city != ''"
     ).fetchall()])
     options['statuses'] = sorted([r[0] for r in conn.execute(
-        "SELECT DISTINCT status FROM properties WHERE status IS NOT NULL AND status != ''"
+        "SELECT DISTINCT standard_status FROM listings WHERE standard_status IS NOT NULL AND standard_status != ''"
     ).fetchall()])
     return options
 ```
@@ -1072,4 +1120,4 @@ def api_call_with_retry(func, *args, **kwargs):
 ---
 
 *Architecture document maintained by Joseph & Claude*
-*Last updated: January 26, 2026*
+*Last updated: February 23, 2026 (listings table, Navica MLS, pursuits, public site)*

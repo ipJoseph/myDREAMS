@@ -10,30 +10,30 @@
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| Property Scraping | Done | Zillow, Redfin, Realtor.com via Chrome Extension v3.9.16 |
 | SQLite Database | Done | Canonical data store with WAL mode |
 | Property API | Done | Flask REST API on port 5000 |
-| Property Dashboard | Done | Flask web UI on port 5001 |
-| Notion Sync | Done | Bi-directional property sync every 60s |
-| IDX Validation | Done | MLS# validation with address fallback |
-| IDX Portfolio | Done | Bulk portfolio creation on IDX site |
-| Lead Management | Done | FUB to Google Sheets sync |
+| Property Dashboard | Done | Flask web UI on port 5001 (Mission Control v3) |
+| Navica MLS Sync | Done | 1,589 listings from Carolina Smokies MLS via RESO API |
+| Public Website | Done | Next.js at wncmountain.homes |
+| Lead Management | Done | FUB sync, multi-dimensional scoring, daily emails |
+| Pursuits System | Done | Buyer-property portfolios with auto-matching |
 
 ### Recent Additions (February 2026)
 
 | Feature | Commit | Description |
 |---------|--------|-------------|
-| **Public Website (Next.js)** | - | `apps/public-site/` - SSR property search, listing detail with schema.org markup, area guides, contact forms |
-| **Public API Endpoints** | - | `GET /api/public/listings`, `/listings/:id`, `/areas`, `/stats` - unauthenticated IDX-compliant endpoints |
-| **Canopy MLS Integration** | - | `apps/mlsgrid/` - MLS Grid OData client, sync engine, cron sync for Canopy MLS (pending credentials) |
-| **Multi-MLS Field Mapper** | - | `field_mapper.py` updated with agent phone fallback chain, StoriesTotal, dynamic source tagging |
-| **Navica MLS First Sync** | `482b9eb` | 1,575 listings + 645 agents + 1,575 photos synced from Carolina Smokies MLS |
-| **Mission Control v3** | - | Complete dashboard redesign with Intelligence Briefing Engine, Power Hour calling mode, and Command Center |
-| **Briefing Card-Grid Dashboard** | `551b952` | Modular card-based Briefing tab: metric cards with drill-down, 2-column intelligence grid, Pipeline/Stats/Live Activity cards, mission card with badge strip |
-| **Morning Brief Redesign** | `23ed535` | Briefing tab overhaul: Morning Pulse strip, alerts, enhanced overnight intel, value scores on cards, pipeline snapshot, Power Hour CTA |
-| **Pipeline Framework** | - | `docs/PIPELINE_FRAMEWORK.md` - QUALIFY → CURATE → CLOSE → NURTURE canonical pipeline documentation |
-| **Buyer Requirements Sync** | - | `templates/buyer_requirements.md` + sync scripts for markdown ↔ database sync |
-| **Buyers Needing Work** | - | Dashboard section showing buyers with requirements but no recent property packages |
+| **Pursuits MVP** | `5cc6b46` | Buyer-property portfolio system: detail page, add-to-pursuit on properties/search, Mission Control widget, auto-match |
+| **Daily Email Fix** | `c729adc` | Yesterday's activity window (not today's zeros), two-pass reassignment detection |
+| **Navica Cron Sync** | - | Automated MLS sync: incremental/15min, nightly full, weekly sold, daily agents |
+| **Interactive Property Maps** | - | Google Maps with POI search (13 categories), Satellite/Street View tabs |
+| **Public Website (Next.js)** | - | `apps/public-site/` at wncmountain.homes: SSR property search, listing detail, area guides |
+| **Public API Endpoints** | - | `GET /api/public/listings`, `/listings/:id`, `/areas`, `/stats` (IDX-compliant, no auth) |
+| **Canopy MLS Integration** | - | `apps/mlsgrid/` MLS Grid OData client (pending credentials from Canopy) |
+| **Multi-MLS Field Mapper** | - | `field_mapper.py` with agent phone fallback, StoriesTotal, dynamic source tagging |
+| **Navica MLS First Sync** | `482b9eb` | 1,589 listings + 645 agents + 1,575 photos synced from Carolina Smokies MLS |
+| **Mission Control v3** | - | Complete dashboard redesign: Intelligence Briefing, Power Hour calling, Command Center |
+| **Pipeline Framework** | - | `docs/PIPELINE_FRAMEWORK.md` with QUALIFY, CURATE, CLOSE, NURTURE stages |
+| **Buyer Requirements Sync** | - | `templates/buyer_requirements.md` + sync scripts for markdown/database sync |
 
 ### Recent Additions (January 2026)
 
@@ -160,10 +160,10 @@
 **Data Source Status:**
 | Source | Status | Notes |
 |--------|--------|-------|
-| Navica (RESO API) | Pending | Awaiting Carolina Smokies board auth, code ready in `apps/navica/` |
+| Navica (RESO API) | **Production** | 1,589 listings synced, cron schedule active |
+| Canopy MLS (MLS Grid) | Pending | Code ready at `apps/mlsgrid/`, awaiting credentials |
 | Redfin | Archived | Retired, code in `archive/pre-navica-2026-02-19/` |
 | Zillow | Archived | Was broken, code archived |
-| Realtor.com | Working | Dedicated scraper with __NEXT_DATA__ + DOM extraction |
 
 ### Automated Reports (January 2026)
 - [x] Daily priority call list email
@@ -264,12 +264,14 @@ Goal: Make the property database a reliable single source of truth with automate
 - [x] Baseline data quality audit (`docs/DATA_QUALITY_TRACKING.md`)
 - [x] MLS Grid integration script (`scripts/import_mlsgrid.py`) (archived)
 - [x] Data quality dashboard (`/data-quality` route)
-- [x] **Navica MLS API integration** (`apps/navica/`) with RESO API access (awaiting board auth)
+- [x] **Navica MLS API integration** (`apps/navica/`) with RESO API access
 - [x] **Database cleanup for Navica** (Feb 2026): dropped `properties` table + 17 legacy tables, all code migrated to `listings`, DB reduced 23MB to 6.5MB
 - [x] **Retired legacy importers**: Redfin, Apify, PropStream importers archived
-- [ ] Carolina Smokies board authorization for Navica API access
-- [ ] First Navica sync (incremental + nightly full sync via `apps/navica/cron_sync.py`)
-- [ ] Rebuild price/status change tracking from Navica ModificationTimestamp
+- [x] Carolina Smokies board authorization for Navica API access
+- [x] First Navica sync: 1,589 listings + 645 agents + 1,575 photos
+- [x] Automated cron sync (incremental/15min, nightly full, weekly sold, daily extras)
+- [x] Price/status change detection from Navica ModificationTimestamp
+- [ ] Canopy MLS credentials (contact data@canopyrealtors.com)
 
 See: `docs/DATA_QUALITY_TRACKING.md` for full details.
 
@@ -282,8 +284,8 @@ See: `docs/DATA_QUALITY_TRACKING.md` for full details.
 | ~~Multiple extension versions in repo~~ | Low | Done - moved to archive/ |
 | ~~Backup files scattered~~ | Low | Done - archive/ created |
 | ~~Email tracking not implemented~~ | High | Done - Added email fetching from FUB API |
-| **Low MLS# coverage (32.8%)** | High | Navica API will resolve (awaiting board auth) |
-| **Low photo coverage (11.2%)** | High | Navica API provides photos directly |
+| ~~Low MLS# coverage (32.8%)~~ | High | Done: All 1,589 listings have MLS numbers from Navica |
+| ~~Low photo coverage (11.2%)~~ | High | Done: 1,575 photos downloaded from Navica CDN |
 | ~~Zillow scraper blocked~~ | Low | Retired, Navica replaces all scrapers |
 | ~~Realtor.com scraper not implemented~~ | Low | Done - Dedicated scraper with __NEXT_DATA__ + DOM extraction |
 | Inconsistent error handling | Medium | Standardize patterns |
@@ -358,4 +360,4 @@ The tension between personal workflow optimization vs. building a configurable p
 ---
 
 *Roadmap maintained by Joseph & Claude*
-*Last updated: February 19, 2026 - Navica migration: database cleanup, legacy importers archived*
+*Last updated: February 23, 2026 - Pursuits MVP, email fix, Navica cron, docs refresh*

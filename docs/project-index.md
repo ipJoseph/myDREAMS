@@ -13,12 +13,12 @@ This file tracks all active applications and components in myDREAMS.
 
 **Desktop Real Estate Agent Management System**
 
-Status: **Production (v1.1)**
+Status: **Production (v2.0)**
 Owner: Joseph Williams
-Last Updated: January 17, 2026
+Last Updated: February 23, 2026
 
 ### Purpose
-Local-first platform for real estate agents to capture properties, manage leads, and automate client workflows.
+Local-first platform for real estate agents to capture properties, manage leads, track buyer pursuits, and automate client workflows.
 
 ### Documentation
 - [Architecture](ARCHITECTURE.md) - System design, data flow
@@ -32,57 +32,102 @@ Local-first platform for real estate agents to capture properties, manage leads,
 ### property-api
 **Status:** Production | **Port:** 5000
 
-Flask REST API - receives scraped property data, syncs to Notion.
+Flask REST API serving property data, public IDX endpoints, and internal management endpoints.
 
 | Endpoint | Purpose |
 |----------|---------|
-| `POST /property` | Receive scraped property |
-| `GET /properties` | List all properties |
-| `POST /api/idx-portfolio` | Launch IDX automation |
-| `POST /api/validate-idx` | Validate MLS numbers |
+| `GET /api/public/listings` | Public listing search (IDX-compliant, no auth) |
+| `GET /api/public/listings/:id` | Public listing detail |
+| `GET /api/public/areas` | Cities/counties with listing stats |
+| `GET /api/public/stats` | Aggregate market statistics |
+| `GET /properties` | Internal: list all properties |
+| `POST /property` | Internal: receive property data |
 
 ---
 
-### property-dashboard
+### property-dashboard (Mission Control)
 **Status:** Production | **Port:** 5001
 
-Flask web UI for viewing and managing properties.
+Flask web UI for agent operations. Mission Control v3 with Intelligence Briefing, Power Hour calling, and Command Center modes.
 
 | Route | Purpose |
 |-------|---------|
-| `/` | Main dashboard with filters, metrics |
-| `/lead/<name>` | Client-facing property view |
+| `/` | Mission Control v3 (briefing, power hour, command center) |
+| `/properties` | Listing search and management |
+| `/properties/<id>` | Listing detail with map, photos, full MLS fields |
+| `/contacts` | Contact list with scoring and filtering |
+| `/contacts/<id>` | Contact detail with scores, activity, requirements |
+| `/pursuits` | Buyer-property pursuit management |
+| `/pursuits/<id>` | Pursuit detail with property list and buyer info |
+| `/pipeline` | Workflow pipeline (Kanban view) |
+| `/actions` | Pending actions dashboard |
 
 ---
 
-### property-extension-v3
-**Status:** Production | **Version:** 3.9.16
+### public-site
+**Status:** Production | **Domain:** wncmountain.homes
 
-Chrome extension for scraping property sites.
+Next.js 16 public website with TypeScript, Tailwind CSS, and App Router.
 
-Supported sites:
-- Zillow
-- Redfin
-- Realtor.com
+| Page | Purpose |
+|------|---------|
+| `/` | Homepage with hero search, featured listings, area highlights |
+| `/listings` | Property search with filters, sorting, pagination |
+| `/listings/[id]` | Listing detail with photo gallery, schema.org JSON-LD |
+| `/areas` | Cities and counties with listing counts and price ranges |
+| `/about` | About page |
+| `/contact` | Contact form |
 
 ---
 
-### property-monitor
-**Status:** Active
+### navica
+**Status:** Production
 
-Playwright-based monitoring for price/status changes on tracked properties.
+Navica MLS integration (Carolina Smokies AOR) via RESO API.
+
+| Component | Purpose |
+|-----------|---------|
+| `client.py` | REST API client for Navica endpoints |
+| `sync_engine.py` | Full/incremental listing sync with change detection |
+| `cron_sync.py` | Cron entry point (4 modes: incremental, nightly, weekly-sold, daily-extras) |
+| `field_mapper.py` | RESO field mapping to unified `listings` schema |
+| `download_photos.py` | Photo download from CloudFront CDN |
+
+---
+
+### mlsgrid
+**Status:** Development (pending credentials)
+
+Canopy MLS integration via MLS Grid OData API.
+
+| Component | Purpose |
+|-----------|---------|
+| `client.py` | OData-based RESO Web API client |
+| `sync_engine.py` | Full/incremental sync (reuses Navica field mapper) |
+| `cron_sync.py` | Cron entry point |
+
+**Gating item:** Need `MLSGRID_TOKEN` from data@canopyrealtors.com
 
 ---
 
 ### fub-to-sheets
 **Status:** Production
 
-Follow Up Boss CRM to Google Sheets sync with lead scoring.
+Follow Up Boss CRM sync to SQLite with lead scoring and daily email reports.
 
 Features:
 - Multi-dimensional scoring (Heat, Value, Relationship, Priority)
-- Automated daily sync via cron
-- Stage-based filtering
+- Automated daily sync via cron (6 AM)
+- Daily email brief with activity stats, priority call list, property changes
+- Two-pass reassignment detection
+- Behavioral signal processing (intent signals from IDX activity)
+
+---
+
+### property-extension-v3
+**Status:** Production | **Version:** 3.9.16
+
+Chrome extension for property capture.
 
 ---
 
@@ -93,60 +138,15 @@ Shared FUB API SDK used by fub-to-sheets and other FUB integrations.
 
 ---
 
-### modules/task_sync
+### automation
 **Status:** Production
 
-Bidirectional Todoist ↔ Follow Up Boss task synchronization.
+Shared automation infrastructure.
 
-Features:
-- FUB → Todoist: Tasks sync with person name, deal stage, project routing
-- Todoist → FUB: Tasks sync with person context extraction
-- Change detection, anti-loop protection
-- Async polling service
-
-Commands:
-- `python -m modules.task_sync run` - Start continuous sync
-- `python -m modules.task_sync sync-once` - Single sync cycle
-- `python -m modules.task_sync status` - Show sync status
-
----
-
-### modules/linear_sync
-**Status:** Development
-
-Bidirectional Linear ↔ Follow Up Boss task synchronization.
-
-Features:
-- Process Group Teams: DEVELOP (Qualify+Curate), TRANSACT (Acquire+Close), GENERAL
-- FUB → Linear: Tasks sync to issues with team routing based on deal stage
-- Linear → FUB: Issues sync with person label lookup
-- Person labels for cross-team journey tracking
-- Projects in TRANSACT for concrete deals
-
-Commands:
-- `python -m modules.linear_sync run` - Start continuous sync
-- `python -m modules.linear_sync setup` - Configure teams and labels
-- `python -m modules.linear_sync sync-once` - Single sync cycle
-- `python -m modules.linear_sync teams` - List Linear teams
-
----
-
-### fub-dashboard-appsscript
-**Status:** Production
-
-Google Apps Script for lead dashboard visualization in Sheets.
-
----
-
-### vendor-directory
-**Status:** MVP
-
-SQLite-based vendor/contractor management.
-
-Commands:
-- `add-vendor` - Add new vendor
-- `list-vendors` - List all vendors
-- `export` - Export to CSV
+| Component | Purpose |
+|-----------|---------|
+| `email_service.py` | Jinja2 templated HTML emails |
+| `pdf_generator.py` | WeasyPrint HTML-to-PDF generation |
 
 ---
 
@@ -158,7 +158,7 @@ Cross-application resources.
 | Path | Purpose |
 |------|---------|
 | `shared/css/dreams.css` | Design system (colors, components) |
-| `shared/js/` | Future shared JavaScript |
+| `shared/js/` | Shared JavaScript |
 
 ---
 
@@ -169,28 +169,39 @@ Core library code.
 
 | Path | Purpose |
 |------|---------|
-| `src/core/` | Database, matching engine |
+| `src/core/database.py` | DREAMSDatabase class (SQLite, all table operations) |
+| `src/core/` | Matching engine |
 | `src/adapters/` | External system adapters |
 | `src/utils/` | Config, logging utilities |
 
 ### data/
 SQLite database storage (canonical data store).
 
-### config/
-Configuration files.
+| File | Purpose |
+|------|---------|
+| `dreams.db` | Main database (listings, leads, pursuits, events, etc.) |
+| `photos/navica/` | Downloaded MLS listing photos (~331 MB) |
+| `navica_sync_state.json` | Navica sync cursor |
+| `backups/` | Daily database backups |
 
-### scripts/
-Operational scripts for maintenance and deployment.
+### deploy/
+Production deployment configuration.
+
+| File | Purpose |
+|------|---------|
+| `systemd/` | Service files for API, dashboard, public site |
+| `Caddyfile` | Reverse proxy with SSL |
+| `scripts/` | Setup, deploy, backup scripts |
 
 ---
 
 ## Archived
 
 See `archive/` for deprecated code:
-- property-extension-v1
-- property-extension-v2
-- testscaper
+- `pre-navica-2026-02-19/` - Redfin, PropStream, old importers
+- property-extension-v1, v2
+- property-monitor (retired; Navica handles change detection)
 
 ---
 
-*Updated: January 17, 2026*
+*Updated: February 23, 2026*

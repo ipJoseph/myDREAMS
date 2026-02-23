@@ -9,6 +9,29 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Pursuits MVP: Buyer-Property Portfolio System** (2026-02-23)
+  - Pursuit detail page with property list, buyer sidebar, requirements display, status management
+  - "Start Pursuit" button on contact detail page (creates pursuit with auto-populated matching listings)
+  - "Add to Pursuit" dropdown on property detail and search results pages
+  - Active Pursuits card on Mission Control v3 (shows top 3 with buyer name and property count)
+  - Auto-match feature: populates pursuit with listings matching buyer's intake requirements
+  - Status workflow: active, paused, converted, abandoned
+  - Database schema: pursuits and pursuit_properties tables with proper indexes
+  - Bulk "Add to Pursuit" from property search results (multi-select)
+
+### Fixed
+- **Daily email report showing zero activity** (2026-02-23)
+  - `compute_daily_activity_stats()` now reports yesterday's complete 24-hour window instead of today's (which has no data at 6 AM cron time)
+  - Email headings updated from "Today's Activity" to "Yesterday's Activity" with date
+- **False positive reassignment detection** (2026-02-23)
+  - Implemented two-pass confirmation: first sync marks contacts as "suspect," second sync confirms reassignment
+  - Contacts that reappear in subsequent syncs have suspect flag cleared automatically
+  - Added `reassignment_suspect_at` column to leads table
+- **Dead code in property search** (2026-02-23)
+  - Removed orphaned `get_properties_db()` function (connected to retired redfin_imports.db)
+  - Updated search route docstring to reflect `listings` table usage
+
+### Added
 - **Interactive Property Map with POI search** (2026-02-21)
   - Google Maps integration on listing detail pages (Map, Satellite, Street View tabs)
   - 13 POI category chips (Restaurant, Grocery, Park, Hospital, etc.) with nearby search

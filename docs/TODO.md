@@ -2,7 +2,7 @@
 
 *Exhaustive prioritized task list - check off as completed*
 
-Last updated: January 23, 2026 (Admin Settings page added)
+Last updated: February 23, 2026 (Pursuits MVP, email fix, Navica cron)
 
 ---
 
@@ -72,7 +72,7 @@ Last updated: January 23, 2026 (Admin Settings page added)
 |---|------|--------|----------|-------|
 | 21 | **Add test suite** | Pending | Tech Debt | `/tests/` directory is empty - no tests |
 | 31 | **Settings page test plan** | Pending | Tech Debt | Develop comprehensive test plan for the new Settings page (env vars, DB settings, secret masking, collapsible sections, save flow, category mapping) |
-| 22 | **Zillow scraper fix** | Pending | Tech Debt | Code exists but blocked by site |
+| 22 | ~~Zillow scraper fix~~ | Retired | Tech Debt | Navica MLS replaces all scrapers |
 | 23 | **Realtor.com scraper** | DONE | Tech Debt | Dedicated scraper with __NEXT_DATA__ + DOM extraction |
 | 24 | **Standardize error handling** | Pending | Tech Debt | Inconsistent patterns across apps |
 | 25 | **Review unused database methods** | Pending | Tech Debt | Some aggregation methods may be orphaned |
@@ -122,6 +122,10 @@ Last updated: January 23, 2026 (Admin Settings page added)
 | 15 | Feature toggles UI | Jan 23, 2026 | Boolean toggles for all automation features |
 | 16 | Automatic note push on property matches | Jan 23, 2026 | FUB API integration to push notes |
 | 23 | Realtor.com scraper | Jan 23, 2026 | Dedicated scraper with __NEXT_DATA__ + DOM extraction |
+| - | Pursuits MVP | Feb 23, 2026 | Buyer-property portfolios with detail page, auto-match, Mission Control widget |
+| - | Daily email report fix | Feb 23, 2026 | Yesterday's activity window, two-pass reassignment detection |
+| - | Navica cron schedule | Feb 23, 2026 | Incremental/15min, nightly full, weekly sold, daily extras |
+| - | Contact-property search cleanup | Feb 23, 2026 | Removed dead redfin_imports code, added pursuit integration |
 
 ---
 

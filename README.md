@@ -1,68 +1,77 @@
 # myDREAMS
 **my Desktop Real Estate Agent Management System**
 
-A local-first platform for real estate agents to capture properties, manage leads, and automate client workflows.
+A local-first platform for real estate agents to manage MLS listings, score leads, track buyer pursuits, and automate client workflows.
 
 ## What is myDREAMS?
 
 **myDREAMS** is a production-grade real estate platform with:
-- 🏠 **Property Capture** - Chrome extension scrapes Zillow, Redfin, Realtor.com
-- 🎯 **Lead Scoring** - Multi-dimensional scoring (Heat, Value, Relationship, Priority)
-- 📊 **Dashboards** - Property dashboard + Google Sheets lead reports
-- 🔄 **IDX Integration** - Automatic MLS validation and portfolio creation
-- 📧 **Daily Reports** - Automated priority contact lists
-- 🔗 **CRM Sync** - Follow Up Boss + Notion integration
-- 🖥️ **Desktop-First** - Optimized for Ubuntu/Linux workflows
+- **MLS Integration** - Direct Navica API feed from Carolina Smokies MLS (1,589+ listings)
+- **Lead Scoring** - Multi-dimensional scoring (Heat, Value, Relationship, Priority)
+- **Mission Control** - Intelligence Briefing, Power Hour calling, Command Center dashboard
+- **Public Website** - IDX-compliant property search at wncmountain.homes
+- **Buyer Pursuits** - Track buyer-property portfolios with auto-matching
+- **Daily Reports** - Automated priority contact lists and activity digests
+- **CRM Sync** - Follow Up Boss integration with behavioral signal processing
 
 ## Quick Start
 
 ### 1. Start the Property API
 ```bash
 cd apps/property-api
-source venv/bin/activate
-python app.py
+python3 app.py
 # Runs on http://localhost:5000
 ```
 
-### 2. Install Chrome Extension
-1. Open `chrome://extensions`
-2. Enable "Developer mode"
-3. Click "Load unpacked"
-4. Select `apps/property-extension-v3`
-
-### 3. Start the Dashboard
+### 2. Start the Dashboard
 ```bash
 cd apps/property-dashboard
-source ../property-api/venv/bin/activate
-python app.py
+python3 app.py
 # Runs on http://localhost:5001
+```
+
+### 3. Start the Public Site
+```bash
+cd apps/public-site
+npx next dev
+# Runs on http://localhost:3000
 ```
 
 ## System Overview
 
 ```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│  Chrome Ext     │────▶│  Property API   │────▶│    SQLite       │
-│  (v3.9.16)      │     │  (Flask:5000)   │     │  (Canonical)    │
-└─────────────────┘     └─────────────────┘     └────────┬────────┘
-                                │                        │
-                        ┌───────┴───────┐                │
-                        ▼               ▼                ▼
-                ┌───────────┐   ┌───────────┐   ┌───────────────┐
-                │  Notion   │   │ IDX Site  │   │  Dashboard    │
-                │  Sync     │   │ Validate  │   │  (Flask:5001) │
-                └───────────┘   └───────────┘   └───────────────┘
+┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+│  Navica MLS  │────>│  Sync Engine │────>│   SQLite     │
+│  (RESO API)  │     │  + Field Map │     │  (listings)  │
+└──────────────┘     └──────────────┘     └──────┬───────┘
+                                                 │
+                          ┌──────────────────────┼──────────────────────┐
+                          v                      v                      v
+                   ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+                   │  Dashboard   │     │  Public Site │     │  Property    │
+                   │  (Mission    │     │  (Next.js)   │     │  API         │
+                   │   Control)   │     │  :3000       │     │  :5000       │
+                   │  :5001       │     └──────────────┘     └──────────────┘
+                   └──────────────┘
+                          ^
+                          │
+┌──────────────┐     ┌──────────────┐
+│ Follow Up    │────>│  FUB Sync    │
+│ Boss (CRM)   │     │  + Scoring   │
+└──────────────┘     └──────────────┘
 ```
 
 ## Applications
 
 | App | Port | Purpose |
 |-----|------|---------|
-| `property-api` | 5000 | REST API - receives scraped data, syncs to Notion |
-| `property-dashboard` | 5001 | Web UI - view properties, create IDX portfolios |
-| `property-extension-v3` | - | Chrome extension - scrape property sites |
-| `fub-to-sheets` | - | Follow Up Boss CRM to Google Sheets sync |
-| `property-monitor` | - | Monitor price/status changes via Playwright |
+| `property-api` | 5000 | REST API for property data and public IDX endpoints |
+| `property-dashboard` | 5001 | Mission Control: briefing, calling, property management |
+| `public-site` | 3000 | Public website at wncmountain.homes (Next.js) |
+| `navica` | - | MLS listing sync from Carolina Smokies (RESO API) |
+| `mlsgrid` | - | Canopy MLS integration (pending credentials) |
+| `fub-to-sheets` | - | Follow Up Boss CRM sync with lead scoring |
+| `property-extension-v3` | - | Chrome extension for property capture |
 
 ## Architecture
 
@@ -70,18 +79,22 @@ python app.py
 myDREAMS/
 ├── apps/
 │   ├── property-api/           # Flask REST API (port 5000)
-│   ├── property-dashboard/     # Flask web dashboard (port 5001)
-│   ├── property-extension-v3/  # Chrome extension (current)
-│   ├── property-monitor/       # Playwright-based monitoring
-│   ├── fub-to-sheets/          # FUB CRM automation
+│   ├── property-dashboard/     # Mission Control dashboard (port 5001)
+│   ├── public-site/            # Next.js public website
+│   ├── navica/                 # Navica MLS sync engine
+│   ├── mlsgrid/                # Canopy MLS integration
+│   ├── fub-to-sheets/          # FUB CRM sync + scoring
+│   ├── automation/             # Email service, PDF generation
+│   ├── property-extension-v3/  # Chrome extension
 │   └── fub-core/               # FUB API SDK library
 ├── src/
 │   ├── core/                   # Database, matching engine
 │   ├── adapters/               # External system adapters
 │   └── utils/                  # Config, logging utilities
-├── scripts/                    # Operational scripts
+├── data/                       # SQLite database + photos
+├── shared/css/                 # Design system (dreams.css)
+├── deploy/                     # Systemd, Caddy, scripts
 ├── docs/                       # Documentation
-├── data/                       # SQLite database
 └── .env                        # Secrets (git-ignored)
 ```
 
@@ -89,27 +102,39 @@ myDREAMS/
 
 - **[Architecture](docs/ARCHITECTURE.md)** - System design, data flow, integrations
 - **[Roadmap](docs/ROADMAP.md)** - Current status, phases, what's next
+- **[Project Index](docs/project-index.md)** - All apps and components
 - **[Changelog](CHANGELOG.md)** - Version history and release notes
+- **[TODO](docs/TODO.md)** - Master task list
 - **[CLAUDE.md](CLAUDE.md)** - AI assistant context
 
 ## Environment Variables
 
 ```bash
-# Required for Property System
-NOTION_API_KEY=secret_xxx
-NOTION_PROPERTIES_DB_ID=xxx
+# Core
+DREAMS_ENV=dev                          # dev or prd
+FLASK_DEBUG=false
 
-# Required for Lead System
+# Authentication
+DREAMS_API_KEY=xxx                      # X-API-Key header
+DASHBOARD_USERNAME=admin
+DASHBOARD_PASSWORD=xxx
+
+# Follow Up Boss (CRM)
 FUB_API_KEY=xxx
-GOOGLE_SHEET_ID=xxx
+
+# Navica MLS
+NAVICA_API_TOKEN=xxx
+
+# Google
 GOOGLE_SERVICE_ACCOUNT_FILE=service_account.json
+GOOGLE_SPREADSHEET_ID=xxx
+GOOGLE_MAPS_API_KEY=xxx
 
-# Optional - IDX Integration
-IDX_EMAIL=xxx
-IDX_PHONE=xxx
-
-# Optional - Monitoring
-USE_PROXY=false
+# Email Reports
+SMTP_SERVER=smtp.gmail.com
+SMTP_USERNAME=xxx
+SMTP_PASSWORD=xxx
+EMAIL_RECIPIENT=xxx
 ```
 
 ## Lead Scoring System
@@ -121,6 +146,14 @@ USE_PROXY=false
 | **Relationship** | Engagement strength and connection quality |
 | **Priority** | Weighted composite for daily call lists |
 
+## Production
+
+| Environment | URL | Host |
+|------------|-----|------|
+| Dashboard | https://app.wncmountain.homes | Hetzner VPS |
+| Public Site | https://wncmountain.homes | Hetzner VPS |
+| API | https://api.wncmountain.homes | Hetzner VPS |
+
 ## Author
 
 **Joseph "Eugy" Williams**
@@ -130,4 +163,4 @@ Integrity Pursuits LLC
 
 ---
 
-*Built for world-class real estate operations on Ubuntu/Linux desktop environments*
+*Built for world-class real estate operations*
