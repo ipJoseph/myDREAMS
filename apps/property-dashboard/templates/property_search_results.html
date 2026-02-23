@@ -436,6 +436,9 @@
                 {% endfor %}
             </select>
             {% endif %}
+            {% if contact_pursuits %}
+            <button type="button" onclick="addSelectedToPursuit()" style="background:#16a34a;">Add to Pursuit</button>
+            {% endif %}
         </div>
 
         {% else %}
@@ -537,6 +540,29 @@
                 form.submit();
             }
         });
+        {% endif %}
+
+        {% if contact_pursuits %}
+        function addSelectedToPursuit() {
+            if (selectedCount === 0) {
+                alert('Please select at least one property');
+                return;
+            }
+            var pursuitId = '{{ contact_pursuits[0].id if contact_pursuits else "" }}';
+            var checkboxes = document.querySelectorAll('input[name="property_ids"]:checked');
+            var promises = [];
+            checkboxes.forEach(function(cb) {
+                promises.push(fetch('/pursuits/' + pursuitId + '/add-property', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({property_id: cb.value})
+                }));
+            });
+            Promise.all(promises).then(function() {
+                alert(selectedCount + ' properties added to pursuit');
+                window.location.href = '/pursuits/' + pursuitId;
+            });
+        }
         {% endif %}
     </script>
     </div>

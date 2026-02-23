@@ -3055,16 +3055,7 @@ WATER_OPTIONS = [
     'Creek', 'River', 'Pond', 'Lake Access', 'Lake Front', 'River Front', 'Springs',
 ]
 
-# Redfin imports database path
-PROPERTIES_DB_PATH = os.getenv('PROPERTIES_DB_PATH', str(PROJECT_ROOT / 'data' / 'redfin_imports.db'))
-
-
-def get_properties_db():
-    """Get database connection for property searches (redfin_imports)."""
-    import sqlite3
-    conn = sqlite3.connect(PROPERTIES_DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+## Deprecated: redfin_imports.db connection removed (all searches use listings table via DREAMSDatabase)
 
 
 @app.template_filter('from_json')
@@ -3331,7 +3322,7 @@ def api_intake_delete(contact_id, form_id):
 def contact_property_search(contact_id):
     """
     Search properties based on contact's intake requirements.
-    Queries the redfin_imports database.
+    Queries the listings table (canonical MLS data from Navica).
     """
     db = get_db()
 
@@ -3477,6 +3468,10 @@ def contact_property_search(contact_id):
     except Exception as e:
         logger.warning(f"Error fetching packages: {e}")
 
+    # Get active pursuits for this contact (for "Add to Pursuit" button)
+    contact_pursuits = [p for p in db.get_all_pursuits(status='active')
+                        if p.get('buyer_id') == contact_id]
+
     return render_template('property_search_results.html',
         contact=contact,
         properties=properties,
@@ -3485,6 +3480,7 @@ def contact_property_search(contact_id):
         behavioral=behavioral,
         intake_form=intake_form,
         packages=packages,
+        contact_pursuits=contact_pursuits,
         counties=WNC_COUNTIES,
         property_types=PROPERTY_TYPES)
 
