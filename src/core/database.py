@@ -107,6 +107,7 @@ class DREAMSDatabase:
             ("assigned_user_name", "TEXT"),             # Cached user name for display
             ("assigned_at", "TEXT"),                    # When assigned to current user
             # Reassignment tracking
+            ("reassignment_suspect_at", "TEXT"),        # First seen missing; confirmed on next sync
             ("reassigned_at", "TEXT"),                  # When lead was reassigned away from user
             ("reassigned_from_user_id", "INTEGER"),     # Previous user ID before reassignment
             ("reassigned_reason", "TEXT"),              # 'round_robin', 'transfer', 'deleted', 'unknown'
@@ -1003,6 +1004,8 @@ class DREAMSDatabase:
         'score_trend', 'heat_score_7d_avg', 'total_communications', 'total_events',
         # FUB timeframe
         'fub_timeframe',
+        # Reassignment suspect tracking
+        'reassignment_suspect_at',
     }
 
     def upsert_contact_dict(self, data: Dict[str, Any]) -> bool:
@@ -5875,43 +5878,84 @@ class DREAMSDatabase:
         current_fub_ids: set
     ) -> List[Dict[str, Any]]:
         """
-        Detect leads that were previously assigned to a user but are no longer in FUB.
+        Two-pass reassignment detection to prevent false positives from API pagination.
 
-        This identifies leads that have been:
-        - Reassigned via round-robin (speed to lead timeout)
-        - Manually transferred to another agent
-        - Deleted from FUB
+        Pass 1 (first time missing): Mark leads as "suspect" with reassignment_suspect_at.
+        Pass 2 (still missing next sync): Confirm and mark as actually reassigned.
+
+        Leads that reappear in the FUB response have their suspect flag cleared.
 
         Args:
             user_id: The FUB user ID to check
             current_fub_ids: Set of FUB IDs currently assigned to this user (from FUB API)
 
         Returns:
-            List of leads that are no longer assigned to this user
+            List of leads CONFIRMED reassigned (missing in two consecutive syncs)
         """
+        logger = logging.getLogger(__name__)
+
         with self._get_connection() as conn:
-            # Get all leads currently marked as assigned to this user in local DB
-            # that don't have a reassigned_at timestamp yet
+            now = datetime.now().isoformat()
+
+            # Get all leads assigned to this user that haven't been confirmed reassigned
             rows = conn.execute('''
                 SELECT id, fub_id, first_name, last_name, email, phone,
                        assigned_user_id, assigned_user_name, assigned_at,
-                       stage, source, heat_score, priority_score
+                       stage, source, heat_score, priority_score,
+                       reassignment_suspect_at
                 FROM leads
                 WHERE assigned_user_id = ?
                   AND reassigned_at IS NULL
             ''', (user_id,)).fetchall()
 
-            reassigned = []
+            confirmed_reassigned = []
+            newly_suspect = []
+            cleared = []
+
             for row in rows:
                 lead = dict(row)
                 fub_id = lead.get('fub_id') or lead.get('id')
+                is_missing = str(fub_id) not in current_fub_ids
 
-                # If this lead's FUB ID is not in the current FUB response for this user,
-                # it has been reassigned
-                if str(fub_id) not in current_fub_ids:
-                    reassigned.append(lead)
+                if is_missing:
+                    if lead.get('reassignment_suspect_at'):
+                        # Pass 2: Was suspect last time and still missing. Confirmed.
+                        confirmed_reassigned.append(lead)
+                    else:
+                        # Pass 1: First time missing. Mark as suspect.
+                        newly_suspect.append(lead)
+                else:
+                    # Lead is present in FUB. Clear any suspect flag.
+                    if lead.get('reassignment_suspect_at'):
+                        cleared.append(lead)
 
-            return reassigned
+            # Mark newly suspect leads
+            for lead in newly_suspect:
+                conn.execute('''
+                    UPDATE leads SET reassignment_suspect_at = ?, updated_at = ?
+                    WHERE id = ?
+                ''', (now, now, lead['id']))
+
+            # Clear false-positive suspects (they reappeared)
+            for lead in cleared:
+                conn.execute('''
+                    UPDATE leads SET reassignment_suspect_at = NULL, updated_at = ?
+                    WHERE id = ?
+                ''', (now, lead['id']))
+
+            conn.commit()
+
+            if newly_suspect:
+                logger.info(
+                    f"Reassignment suspect: {len(newly_suspect)} leads missing from FUB "
+                    f"(will confirm on next sync)"
+                )
+            if cleared:
+                logger.info(
+                    f"Reassignment cleared: {len(cleared)} leads reappeared in FUB"
+                )
+
+            return confirmed_reassigned
 
     def mark_leads_as_reassigned(
         self,
@@ -5920,7 +5964,8 @@ class DREAMSDatabase:
         reason: str = 'unknown'
     ) -> int:
         """
-        Mark leads as reassigned away from a user.
+        Mark leads as confirmed reassigned away from a user.
+        Clears the suspect flag at the same time.
 
         Args:
             lead_ids: List of lead IDs (primary keys) to mark
@@ -5943,6 +5988,7 @@ class DREAMSDatabase:
                         reassigned_at = ?,
                         reassigned_from_user_id = ?,
                         reassigned_reason = ?,
+                        reassignment_suspect_at = NULL,
                         updated_at = ?
                     WHERE id = ?
                 ''', (now, from_user_id, reason, now, lead_id))

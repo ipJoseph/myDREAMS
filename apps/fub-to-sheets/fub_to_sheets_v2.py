@@ -928,15 +928,19 @@ def compute_daily_activity_stats(
 ) -> Dict:
     """Compute daily activity statistics for email reporting.
 
+    Reports YESTERDAY's complete 24-hour activity window (midnight to midnight UTC).
+    The cron runs at 6 AM EST, so "today" has near-zero events; yesterday is the
+    complete picture we want to present.
+
     Includes scoring guards to prevent false attribution from stale cookies.
     Events from excluded person IDs (stage/tag filter) are skipped entirely.
     After counting, anomaly detection flags high-activity people with zero
     inbound communication as suspicious (likely stale cookie attribution).
     """
-    logger.info("Computing daily activity statistics...")
+    logger.info("Computing daily activity statistics (yesterday's complete window)...")
     excluded_pids = excluded_pids or set()
 
-    today = datetime.now(timezone.utc).date()
+    yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).date()
 
     stats = {
         "total_events_today": 0,
@@ -947,13 +951,14 @@ def compute_daily_activity_stats(
         "excluded_event_count": 0,
         "suspicious_pids": set(),
         "excluded_pids": excluded_pids,
+        "report_date": yesterday.isoformat(),
     }
 
     activity_by_person = defaultdict(int)
 
     for event in events:
         event_time = parse_datetime_safe(event.get("created"))
-        if not event_time or event_time.date() != today:
+        if not event_time or event_time.date() != yesterday:
             continue
 
         pid = event.get("personId")
@@ -1681,7 +1686,7 @@ def send_top_priority_email(
         "<html><body style='font-family: Arial, sans-serif;'>",
         f"<h2>Daily FUB Brief - {datetime.now().strftime('%B %d, %Y')}</h2>",
         "",
-        "<h3>📊 Today's Activity</h3>",
+        f"<h3>📊 Yesterday's Activity ({daily_stats.get('report_date', 'N/A')})</h3>",
         "<ul>",
         f"<li>Total Events: <strong>{daily_stats.get('total_events_today', 0)}</strong></li>",
         f"<li>Website Visits: <strong>{daily_stats.get('website_visits_today', 0)}</strong></li>",
@@ -1746,7 +1751,7 @@ def send_top_priority_email(
     # Top active leads today
     if daily_stats.get('top_active_leads'):
         body_lines.extend([
-            "<h3>🔥 Most Active Today</h3>",
+            "<h3>🔥 Most Active Yesterday</h3>",
             "<ol>",
         ])
         for lead in daily_stats['top_active_leads']:
@@ -2367,24 +2372,32 @@ def sync_to_sqlite(contact_rows: List[List], person_stats: Dict[str, Dict], user
             logger.debug(f"Error syncing contact: {e}")
 
     # Detect reassigned leads (leads that were assigned to user but no longer are)
+    # Safeguard: if bulk detection exceeds threshold, it's likely an API pagination issue
+    REASSIGNED_THRESHOLD = 20
     reassigned_count = 0
     try:
         reassigned_leads = db.detect_reassigned_leads(my_user_id, current_user_fub_ids)
         if reassigned_leads:
-            lead_ids = [lead['id'] for lead in reassigned_leads]
-            reassigned_count = db.mark_leads_as_reassigned(
-                lead_ids=lead_ids,
-                from_user_id=my_user_id,
-                reason='round_robin'  # Most likely reason for automatic reassignment
-            )
-            logger.info(f"⚠️  Detected {reassigned_count} leads reassigned away from user {my_user_id}")
+            if len(reassigned_leads) > REASSIGNED_THRESHOLD:
+                logger.warning(
+                    f"⚠️  Reassignment detection found {len(reassigned_leads)} leads — "
+                    f"exceeds threshold of {REASSIGNED_THRESHOLD}. Likely an API pagination issue. "
+                    f"Skipping bulk mark to prevent false positives."
+                )
+            else:
+                lead_ids = [lead['id'] for lead in reassigned_leads]
+                reassigned_count = db.mark_leads_as_reassigned(
+                    lead_ids=lead_ids,
+                    from_user_id=my_user_id,
+                    reason='round_robin'
+                )
+                logger.info(f"⚠️  Detected {reassigned_count} leads reassigned away from user {my_user_id}")
 
-            # Log the names for visibility
-            for lead in reassigned_leads[:5]:  # Show up to 5
-                name = f"{lead.get('first_name', '')} {lead.get('last_name', '')}".strip()
-                logger.info(f"   - {name} (ID: {lead.get('fub_id') or lead.get('id')})")
-            if len(reassigned_leads) > 5:
-                logger.info(f"   ... and {len(reassigned_leads) - 5} more")
+                for lead in reassigned_leads[:5]:
+                    name = f"{lead.get('first_name', '')} {lead.get('last_name', '')}".strip()
+                    logger.info(f"   - {name} (ID: {lead.get('fub_id') or lead.get('id')})")
+                if len(reassigned_leads) > 5:
+                    logger.info(f"   ... and {len(reassigned_leads) - 5} more")
     except Exception as e:
         logger.error(f"Error detecting reassigned leads: {e}")
 
