@@ -7,6 +7,7 @@ A web-based summary view of properties and contacts from SQLite (source of truth
 import json
 import logging
 import os
+import sqlite3
 import sys
 import subprocess
 import statistics
@@ -1021,6 +1022,306 @@ def api_generate_calls_report():
         })
     except (ValueError, FileNotFoundError) as e:
         return jsonify({'success': False, 'error': str(e)}), 400
+
+
+@app.route('/api/reports/generate-property-views', methods=['POST'])
+@requires_auth
+def api_generate_property_views_report():
+    """Generate a property views report grouped by contact for a date range."""
+    data = request.get_json() or {}
+    start_str = data.get('start_date', '').strip()
+    end_str = data.get('end_date', '').strip()
+
+    if not start_str:
+        return jsonify({'success': False, 'error': 'start_date is required'}), 400
+
+    try:
+        from datetime import date as date_type
+        start_date = date_type.fromisoformat(start_str)
+        end_date = date_type.fromisoformat(end_str) if end_str else start_date
+    except ValueError:
+        return jsonify({'success': False, 'error': 'Invalid date format (expected YYYY-MM-DD)'}), 400
+
+    # Query all property events (views, favorites, shares) in the date range
+    conn = sqlite3.connect(str(DB_PATH))
+    conn.row_factory = sqlite3.Row
+    try:
+        rows = conn.execute("""
+            SELECT
+                ce.contact_id,
+                l.first_name,
+                l.last_name,
+                l.stage,
+                l.heat_score,
+                l.priority_score,
+                ce.property_mls,
+                ce.property_price,
+                ce.event_type,
+                ce.occurred_at,
+                lst.address as listing_address,
+                lst.city as listing_city,
+                lst.state as listing_state,
+                lst.zip as listing_zip,
+                lst.beds,
+                lst.baths,
+                lst.sqft,
+                lst.acreage,
+                lst.property_type,
+                lst.primary_photo
+            FROM contact_events ce
+            JOIN leads l ON CAST(ce.contact_id AS TEXT) = l.external_id
+            LEFT JOIN listings lst ON ce.property_mls = lst.mls_number
+            WHERE ce.event_type IN ('property_view', 'property_favorite', 'property_share')
+              AND date(ce.occurred_at) BETWEEN ? AND ?
+            ORDER BY l.last_name, l.first_name, ce.property_mls, ce.occurred_at
+        """, (start_str, end_str)).fetchall()
+    finally:
+        conn.close()
+
+    if not rows:
+        return jsonify({'success': False, 'error': f'No property activity found for {start_str} to {end_str}'}), 404
+
+    # Group by contact, then by property
+    from collections import OrderedDict
+    contacts = OrderedDict()
+    for row in rows:
+        cid = row['contact_id']
+        if cid not in contacts:
+            contacts[cid] = {
+                'name': f"{row['first_name'] or ''} {row['last_name'] or ''}".strip(),
+                'stage': row['stage'] or 'Unknown',
+                'heat': row['heat_score'] or 0,
+                'priority': row['priority_score'] or 0,
+                'properties': OrderedDict(),
+                'total_views': 0,
+                'total_favorites': 0,
+                'total_shares': 0,
+            }
+        mls = row['property_mls'] or 'unknown'
+        if mls not in contacts[cid]['properties']:
+            addr_parts = [p for p in [row['listing_address'], row['listing_city'], row['listing_state']] if p]
+            if row['listing_zip']:
+                addr_parts.append(row['listing_zip'])
+            full_address = ', '.join(addr_parts) if addr_parts else f"MLS# {mls} (not in local DB)"
+
+            contacts[cid]['properties'][mls] = {
+                'address': full_address,
+                'price': row['property_price'],
+                'mls': mls,
+                'beds': row['beds'],
+                'baths': row['baths'],
+                'sqft': row['sqft'],
+                'acreage': row['acreage'],
+                'property_type': row['property_type'],
+                'photo_url': row['primary_photo'],
+                'views': 0,
+                'favorites': 0,
+                'shares': 0,
+                'times': [],
+            }
+        prop = contacts[cid]['properties'][mls]
+        time_str = row['occurred_at'][11:16] if row['occurred_at'] and len(row['occurred_at']) > 15 else ''
+        if time_str and time_str not in prop['times']:
+            prop['times'].append(time_str)
+
+        if row['event_type'] == 'property_view':
+            prop['views'] += 1
+            contacts[cid]['total_views'] += 1
+        elif row['event_type'] == 'property_favorite':
+            prop['favorites'] += 1
+            contacts[cid]['total_favorites'] += 1
+        elif row['event_type'] == 'property_share':
+            prop['shares'] += 1
+            contacts[cid]['total_shares'] += 1
+
+    # Summary stats
+    total_contacts = len(contacts)
+    total_properties = len({mls for c in contacts.values() for mls in c['properties']})
+    total_views = sum(c['total_views'] for c in contacts.values())
+    total_favorites = sum(c['total_favorites'] for c in contacts.values())
+    total_shares = sum(c['total_shares'] for c in contacts.values())
+
+    # Find most-viewed properties
+    property_popularity = {}
+    for c in contacts.values():
+        for mls, prop in c['properties'].items():
+            if mls not in property_popularity:
+                property_popularity[mls] = {'address': prop['address'], 'price': prop['price'], 'viewers': 0, 'total_views': 0}
+            property_popularity[mls]['viewers'] += 1
+            property_popularity[mls]['total_views'] += prop['views']
+    hot_properties = sorted(property_popularity.values(), key=lambda x: x['viewers'], reverse=True)[:5]
+
+    # Date label
+    if start_str == end_str:
+        from datetime import date as date_type
+        d = date_type.fromisoformat(start_str)
+        date_label = d.strftime('%B %d, %Y')
+    else:
+        ds = date_type.fromisoformat(start_str)
+        de = date_type.fromisoformat(end_str)
+        date_label = f"{ds.strftime('%B %d')} to {de.strftime('%B %d, %Y')}"
+
+    # Build HTML report
+    def fmt_price(p):
+        if not p:
+            return ''
+        return f"${p:,.0f}"
+
+    def stage_color(s):
+        colors = {
+            'Active Client': '#137333', 'Prospect': '#2563eb',
+            'Lead': '#7c3aed', 'Nurture': '#64748b', 'Past Client': '#94a3b8'
+        }
+        return colors.get(s, '#64748b')
+
+    html_parts = [f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Property Views: {date_label}</title>
+<style>
+* {{ box-sizing: border-box; margin: 0; padding: 0; }}
+body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f8fafc; color: #1a1a1a; padding: 24px; }}
+.header {{ background: white; padding: 24px 28px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); margin-bottom: 20px; }}
+.header h1 {{ font-size: 22px; font-weight: 800; margin-bottom: 4px; }}
+.header .subtitle {{ font-size: 14px; color: #64748b; }}
+.summary {{ display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }}
+.stat-card {{ background: white; padding: 16px 20px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); min-width: 120px; }}
+.stat-card .label {{ font-size: 11px; text-transform: uppercase; font-weight: 700; color: #64748b; letter-spacing: 0.5px; }}
+.stat-card .value {{ font-size: 24px; font-weight: 800; margin-top: 2px; }}
+.hot-section {{ background: white; padding: 20px 24px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); margin-bottom: 20px; }}
+.hot-section h2 {{ font-size: 15px; font-weight: 700; margin-bottom: 12px; }}
+.hot-list {{ list-style: none; }}
+.hot-list li {{ padding: 6px 0; font-size: 13px; display: flex; justify-content: space-between; border-bottom: 1px solid #f1f5f9; }}
+.hot-list li:last-child {{ border-bottom: none; }}
+.contact-card {{ background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); margin-bottom: 16px; overflow: hidden; }}
+.contact-header {{ padding: 16px 20px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; }}
+.contact-name {{ font-size: 16px; font-weight: 700; }}
+.contact-meta {{ display: flex; gap: 10px; align-items: center; }}
+.stage-badge {{ padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; color: white; }}
+.heat-badge {{ font-size: 12px; font-weight: 600; color: #64748b; }}
+.activity-counts {{ font-size: 12px; color: #64748b; }}
+table {{ width: 100%; border-collapse: collapse; }}
+th {{ text-align: left; padding: 10px 16px; font-size: 11px; text-transform: uppercase; font-weight: 700; color: #64748b; letter-spacing: 0.5px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; }}
+td {{ padding: 10px 16px; font-size: 13px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }}
+tr:last-child td {{ border-bottom: none; }}
+.addr-col {{ max-width: 320px; }}
+.addr-main {{ font-weight: 600; }}
+.addr-detail {{ font-size: 11px; color: #64748b; margin-top: 2px; }}
+.num {{ text-align: center; font-weight: 600; }}
+.fav {{ color: #dc2626; }}
+.share {{ color: #2563eb; }}
+.price {{ font-weight: 600; white-space: nowrap; }}
+.muted {{ color: #94a3b8; }}
+.footer {{ text-align: center; padding: 20px; font-size: 12px; color: #94a3b8; }}
+</style>
+</head>
+<body>
+
+<div class="header">
+    <h1>Property Views Report</h1>
+    <div class="subtitle">{date_label}</div>
+</div>
+
+<div class="summary">
+    <div class="stat-card"><div class="label">Contacts</div><div class="value">{total_contacts}</div></div>
+    <div class="stat-card"><div class="label">Properties</div><div class="value">{total_properties}</div></div>
+    <div class="stat-card"><div class="label">Views</div><div class="value">{total_views}</div></div>
+    <div class="stat-card"><div class="label">Favorites</div><div class="value" style="color:#dc2626">{total_favorites}</div></div>
+    <div class="stat-card"><div class="label">Shares</div><div class="value" style="color:#2563eb">{total_shares}</div></div>
+</div>
+"""]
+
+    # Hot properties section
+    if hot_properties and hot_properties[0]['viewers'] > 1:
+        html_parts.append('<div class="hot-section"><h2>Most-Viewed Properties</h2><ul class="hot-list">')
+        for hp in hot_properties:
+            if hp['viewers'] > 1:
+                html_parts.append(f'<li><span>{hp["address"]}</span><span><b>{hp["viewers"]}</b> contacts, {hp["total_views"]} views</span></li>')
+        html_parts.append('</ul></div>')
+
+    # Contact cards
+    for cid, contact in contacts.items():
+        counts_parts = [f"{contact['total_views']} views"]
+        if contact['total_favorites']:
+            counts_parts.append(f"{contact['total_favorites']} favorites")
+        if contact['total_shares']:
+            counts_parts.append(f"{contact['total_shares']} shares")
+
+        html_parts.append(f"""
+<div class="contact-card">
+    <div class="contact-header">
+        <div>
+            <span class="contact-name">{contact['name']}</span>
+            <span class="activity-counts"> ({', '.join(counts_parts)})</span>
+        </div>
+        <div class="contact-meta">
+            <span class="stage-badge" style="background:{stage_color(contact['stage'])}">{contact['stage']}</span>
+            <span class="heat-badge">Heat: {contact['heat']:.0f}</span>
+        </div>
+    </div>
+    <table>
+        <thead><tr>
+            <th class="addr-col">Property</th>
+            <th>Price</th>
+            <th class="num">Views</th>
+            <th class="num">Fav</th>
+            <th class="num">Shared</th>
+            <th>Time(s)</th>
+        </tr></thead>
+        <tbody>""")
+
+        for mls, prop in contact['properties'].items():
+            # Build detail line
+            details = []
+            if prop['beds']:
+                details.append(f"{prop['beds']}bd")
+            if prop['baths']:
+                details.append(f"{prop['baths']:.0f}ba")
+            if prop['sqft']:
+                details.append(f"{prop['sqft']:,} sqft")
+            if prop['acreage'] and prop['acreage'] > 0.1:
+                details.append(f"{prop['acreage']:.2f} ac")
+            if prop['property_type']:
+                details.append(prop['property_type'])
+            detail_str = ' | '.join(details) if details else f"MLS# {mls}"
+
+            fav_cls = ' fav' if prop['favorites'] else ' muted'
+            share_cls = ' share' if prop['shares'] else ' muted'
+            times_str = ', '.join(sorted(prop['times'])) if prop['times'] else ''
+
+            html_parts.append(f"""        <tr>
+            <td class="addr-col"><div class="addr-main">{prop['address']}</div><div class="addr-detail">{detail_str}</div></td>
+            <td class="price">{fmt_price(prop['price'])}</td>
+            <td class="num">{prop['views']}</td>
+            <td class="num{fav_cls}">{prop['favorites'] or '-'}</td>
+            <td class="num{share_cls}">{prop['shares'] or '-'}</td>
+            <td>{times_str}</td>
+        </tr>""")
+
+        html_parts.append('</tbody></table></div>')
+
+    html_parts.append(f"""
+<div class="footer">
+    Generated {datetime.now(tz=ET).strftime('%B %d, %Y at %I:%M %p')} | myDREAMS Property Activity Report
+</div>
+</body></html>""")
+
+    # Write report file
+    if start_str == end_str:
+        filename = f"property-views-{start_str}.html"
+    else:
+        filename = f"property-views-{start_str}-to-{end_str}.html"
+
+    report_path = REPORTS_DIR / filename
+    report_path.write_text('\n'.join(html_parts))
+
+    return jsonify({
+        'success': True,
+        'filename': filename,
+        'url': f'/reports/{filename}'
+    })
 
 
 @app.route('/reports/<path:filename>')

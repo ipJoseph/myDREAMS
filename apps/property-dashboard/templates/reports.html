@@ -261,6 +261,35 @@
             </div>
         </div>
 
+        <!-- ===== GENERATE PROPERTY VIEWS REPORT ===== -->
+        <div class="generator-card">
+            <div class="generator-header">
+                <h2>Generate Property Views Report</h2>
+                <p>Property views, favorites, and shares grouped by contact</p>
+            </div>
+            <div class="generator-body">
+                <div class="preset-row">
+                    <button class="preset-btn" onclick="setPropPreset('today')">Today</button>
+                    <button class="preset-btn" onclick="setPropPreset('yesterday')">Yesterday</button>
+                    <button class="preset-btn" onclick="setPropPreset('this_week')">This Week</button>
+                    <button class="preset-btn" onclick="setPropPreset('last_week')">Last Week</button>
+                    <button class="preset-btn" onclick="setPropPreset('last_7')">Last 7 Days</button>
+                </div>
+
+                <div class="date-range-row">
+                    <label for="prop-start-date">From</label>
+                    <input type="date" id="prop-start-date">
+                    <label for="prop-end-date">To</label>
+                    <input type="date" id="prop-end-date">
+                </div>
+
+                <div class="generate-row">
+                    <button class="generate-btn" id="prop-generate-btn" onclick="generatePropReport()">Generate Report</button>
+                    <span class="generate-status" id="prop-generate-status"></span>
+                </div>
+            </div>
+        </div>
+
         <!-- ===== SAVED REPORTS ===== -->
         <div class="saved-card">
             <div class="saved-header">
@@ -401,6 +430,94 @@ document.getElementById('start-date').addEventListener('input', function() {
 });
 document.getElementById('end-date').addEventListener('input', function() {
     document.querySelectorAll('.preset-btn').forEach(function(b) { b.classList.remove('active'); });
+});
+
+// ========== PROPERTY VIEWS REPORT ==========
+function setPropPreset(preset) {
+    document.querySelectorAll('.generator-card:nth-child(2) .preset-btn').forEach(function(b) { b.classList.remove('active'); });
+    event.target.classList.add('active');
+
+    var startInput = document.getElementById('prop-start-date');
+    var endInput = document.getElementById('prop-end-date');
+
+    if (preset === 'today') {
+        startInput.value = getToday();
+        endInput.value = getToday();
+    } else if (preset === 'yesterday') {
+        startInput.value = getYesterday();
+        endInput.value = getYesterday();
+    } else if (preset === 'this_week') {
+        var mon = getMonday(0);
+        startInput.value = mon;
+        endInput.value = getSunday(mon);
+    } else if (preset === 'last_week') {
+        var mon = getMonday(-1);
+        startInput.value = mon;
+        endInput.value = getSunday(mon);
+    } else if (preset === 'last_7') {
+        var d = new Date();
+        d.setDate(d.getDate() - 7);
+        startInput.value = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+        endInput.value = getToday();
+    }
+}
+
+function generatePropReport() {
+    var startDate = document.getElementById('prop-start-date').value;
+    var endDate = document.getElementById('prop-end-date').value;
+    var btn = document.getElementById('prop-generate-btn');
+    var status = document.getElementById('prop-generate-status');
+
+    if (!startDate) {
+        status.textContent = 'Please select a start date';
+        status.className = 'generate-status error';
+        return;
+    }
+    if (!endDate) {
+        endDate = startDate;
+        document.getElementById('prop-end-date').value = startDate;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Generating...';
+    btn.classList.add('loading');
+    status.textContent = '';
+    status.className = 'generate-status';
+
+    fetch('/api/reports/generate-property-views', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({start_date: startDate, end_date: endDate})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        btn.disabled = false;
+        btn.textContent = 'Generate Report';
+        btn.classList.remove('loading');
+
+        if (data.success) {
+            status.innerHTML = 'Report ready: <a href="' + data.url + '" target="_blank">' + data.filename + '</a>';
+            status.className = 'generate-status';
+            setTimeout(function() { location.reload(); }, 1500);
+        } else {
+            status.textContent = data.error || 'Failed to generate report';
+            status.className = 'generate-status error';
+        }
+    })
+    .catch(function(err) {
+        btn.disabled = false;
+        btn.textContent = 'Generate Report';
+        btn.classList.remove('loading');
+        status.textContent = 'Network error. Please try again.';
+        status.className = 'generate-status error';
+    });
+}
+
+document.getElementById('prop-start-date').addEventListener('input', function() {
+    document.querySelectorAll('.generator-card:nth-child(2) .preset-btn').forEach(function(b) { b.classList.remove('active'); });
+});
+document.getElementById('prop-end-date').addEventListener('input', function() {
+    document.querySelectorAll('.generator-card:nth-child(2) .preset-btn').forEach(function(b) { b.classList.remove('active'); });
 });
 </script>
 </body>
