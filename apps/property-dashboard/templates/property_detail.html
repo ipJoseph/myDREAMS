@@ -933,6 +933,25 @@
                     <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
                     Print
                 </button>
+                {% if active_pursuits %}
+                <div style="position:relative;display:inline-block;" id="pursuitDropdown">
+                    <button class="action-btn accent" onclick="document.getElementById('pursuitMenu').style.display=document.getElementById('pursuitMenu').style.display==='block'?'none':'block'">
+                        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                        Add to Pursuit
+                    </button>
+                    <div id="pursuitMenu" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;background:white;border:1px solid #ddd;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.15);z-index:100;min-width:220px;padding:4px;">
+                        {% for p in active_pursuits %}
+                        <form action="/pursuits/{{ p.id }}/add-property" method="POST" style="margin:0;">
+                            <input type="hidden" name="property_id" value="{{ property.id }}">
+                            <button type="submit" style="display:block;width:100%;padding:10px 12px;border:none;background:none;text-align:left;font-size:13px;cursor:pointer;border-radius:4px;color:#1a1a2e;">
+                                <strong>{{ p.buyer_name }}</strong>
+                                <br><span style="font-size:11px;color:#666;">{{ p.property_count or 0 }} properties</span>
+                            </button>
+                        </form>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
             </div>
         </div>
 
@@ -1844,6 +1863,15 @@
     /* ================================================================
        Copy MLS Number
        ================================================================ */
+    // Close pursuit dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+        var dd = document.getElementById('pursuitDropdown');
+        var menu = document.getElementById('pursuitMenu');
+        if (dd && menu && !dd.contains(e.target)) {
+            menu.style.display = 'none';
+        }
+    });
+
     function copyMLS() {
         var mls = '{{ property.mls_number or "" }}';
         if (mls && navigator.clipboard) {

@@ -828,6 +828,9 @@ def home():
             # New leads with source grouping (for Overnight Intelligence)
             new_leads_detail = db.get_recent_contacts(days=1, user_id=CURRENT_USER_ID)
 
+            # Active pursuits for briefing sidebar
+            active_pursuits = db.get_active_pursuits(limit=5)
+
             # Pre-serialize contacts for Power Hour JS
             contacts_json = json.dumps(contacts, default=str)
 
@@ -844,6 +847,7 @@ def home():
                                  morning_summary=morning_summary,
                                  reassigned_leads=reassigned_leads,
                                  new_leads_detail=new_leads_detail,
+                                 active_pursuits=active_pursuits,
                                  current_user_id=CURRENT_USER_ID,
                                  refresh_time=datetime.now(tz=ET).strftime('%B %d, %Y %I:%M %p'))
         except Exception as e:
@@ -1525,7 +1529,134 @@ def create_pursuit():
         criteria_summary=criteria_summary
     )
 
-    return redirect(url_for('pursuits_list'))
+    # Auto-populate with matching listings
+    db.auto_populate_pursuit_matches(pursuit_id, limit=20)
+
+    return redirect(url_for('pursuit_detail', pursuit_id=pursuit_id))
+
+
+@app.route('/pursuits/<pursuit_id>')
+@requires_auth
+def pursuit_detail(pursuit_id):
+    """Pursuit detail view: buyer info + curated property list"""
+    db = get_db()
+
+    pursuit = db.get_pursuit_with_properties(pursuit_id)
+    if not pursuit:
+        return "Pursuit not found", 404
+
+    # Get buyer's full contact record for requirements display
+    buyer = db.get_lead(pursuit['buyer_id'])
+
+    return render_template('pursuit_detail.html',
+                         pursuit=pursuit,
+                         buyer=buyer,
+                         refresh_time=datetime.now(tz=ET).strftime('%B %d, %Y %I:%M %p'))
+
+
+@app.route('/pursuits/<pursuit_id>/add-property', methods=['POST'])
+@requires_auth
+def add_property_to_pursuit(pursuit_id):
+    """Add a property to an existing pursuit"""
+    db = get_db()
+
+    property_id = request.form.get('property_id')
+    if not property_id:
+        data = request.get_json()
+        if data:
+            property_id = data.get('property_id')
+
+    if not property_id:
+        return jsonify({'error': 'property_id required'}), 400
+
+    # Verify pursuit exists
+    pursuit = db.get_pursuit_with_properties(pursuit_id)
+    if not pursuit:
+        return jsonify({'error': 'Pursuit not found'}), 404
+
+    notes = request.form.get('notes', '') or (request.get_json() or {}).get('notes', '')
+
+    db.add_property_to_pursuit(
+        pursuit_id=pursuit_id,
+        property_id=property_id,
+        source='agent_added',
+        notes=notes
+    )
+
+    # If AJAX request, return JSON
+    if request.is_json:
+        return jsonify({'success': True, 'pursuit_id': pursuit_id})
+
+    return redirect(url_for('pursuit_detail', pursuit_id=pursuit_id))
+
+
+@app.route('/pursuits/<pursuit_id>/remove-property', methods=['POST'])
+@requires_auth
+def remove_property_from_pursuit(pursuit_id):
+    """Remove a property from a pursuit"""
+    db = get_db()
+
+    pursuit_property_id = (request.form.get('pursuit_property_id')
+                           or (request.get_json() or {}).get('pursuit_property_id'))
+
+    if not pursuit_property_id:
+        return jsonify({'error': 'pursuit_property_id required'}), 400
+
+    with db._get_connection() as conn:
+        conn.execute('DELETE FROM pursuit_properties WHERE id = ? AND pursuit_id = ?',
+                     [pursuit_property_id, pursuit_id])
+        conn.commit()
+
+    if request.is_json:
+        return jsonify({'success': True})
+
+    return redirect(url_for('pursuit_detail', pursuit_id=pursuit_id))
+
+
+@app.route('/pursuits/<pursuit_id>/status', methods=['POST'])
+@requires_auth
+def update_pursuit_status(pursuit_id):
+    """Update pursuit status (active, paused, converted, abandoned)"""
+    db = get_db()
+
+    new_status = (request.form.get('status')
+                  or (request.get_json() or {}).get('status'))
+
+    if new_status not in ('active', 'paused', 'converted', 'abandoned'):
+        return jsonify({'error': 'Invalid status'}), 400
+
+    with db._get_connection() as conn:
+        conn.execute('UPDATE pursuits SET status = ?, updated_at = ? WHERE id = ?',
+                     [new_status, datetime.now().isoformat(), pursuit_id])
+        conn.commit()
+
+    if request.is_json:
+        return jsonify({'success': True, 'status': new_status})
+
+    return redirect(url_for('pursuit_detail', pursuit_id=pursuit_id))
+
+
+@app.route('/pursuits/<pursuit_id>/auto-populate', methods=['POST'])
+@requires_auth
+def auto_populate_pursuit(pursuit_id):
+    """Auto-populate a pursuit with matching listings based on buyer requirements"""
+    db = get_db()
+
+    added = db.auto_populate_pursuit_matches(pursuit_id, limit=20)
+
+    if request.is_json:
+        return jsonify({'success': True, 'added': added})
+
+    return redirect(url_for('pursuit_detail', pursuit_id=pursuit_id))
+
+
+@app.route('/api/pursuits/active')
+@requires_auth
+def api_active_pursuits():
+    """API endpoint for active pursuits (used by Mission Control and other pages)"""
+    db = get_db()
+    pursuits = db.get_active_pursuits(limit=10)
+    return jsonify({'success': True, 'pursuits': pursuits})
 
 
 @app.route('/properties')
@@ -1904,6 +2035,9 @@ def property_detail(property_id):
         changes = []
         interested = []
 
+        # Get active pursuits for "Add to Pursuit" dropdown
+        active_pursuits = db.get_active_pursuits(limit=20)
+
         return render_template('property_detail.html',
                              property=prop_dict,
                              agent_info=agent_info,
@@ -1914,7 +2048,8 @@ def property_detail(property_id):
                              google_maps_key=google_maps_key,
                              price_history=price_history,
                              changes=changes,
-                             interested_contacts=interested)
+                             interested_contacts=interested,
+                             active_pursuits=active_pursuits)
 
 
 @app.route('/api/properties/<property_id>/price-history')
@@ -2340,6 +2475,10 @@ def contact_detail(contact_id):
     # Get contact actions (pending and recent completed)
     actions = db.get_contact_actions(contact_id, include_completed=True, limit=20)
 
+    # Get active pursuits for this contact
+    contact_pursuits = [p for p in db.get_all_pursuits(status='active')
+                        if p.get('buyer_id') == contact_id]
+
     # Today's date for due date comparisons
     today = datetime.now().strftime('%Y-%m-%d')
 
@@ -2350,6 +2489,7 @@ def contact_detail(contact_id):
                          timeline=timeline,
                          trend_summary=trend_summary,
                          actions=actions,
+                         contact_pursuits=contact_pursuits,
                          today=today,
                          refresh_time=datetime.now(tz=ET).strftime('%B %d, %Y %I:%M %p'))
 

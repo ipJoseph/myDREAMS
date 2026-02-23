@@ -1520,6 +1520,24 @@
                         </div>
                     </div>
 
+                    <!-- Active Pursuits -->
+                    {% if active_pursuits %}
+                    <div class="briefing-card">
+                        <div class="briefing-card-header">
+                            <div class="briefing-card-title">Active Pursuits</div>
+                            <a href="/pursuits" class="briefing-card-action">All &rarr;</a>
+                        </div>
+                        <div class="briefing-card-body" style="padding:0;">
+                            {% for p in active_pursuits[:3] %}
+                            <a href="/pursuits/{{ p.id }}" style="display:block;padding:8px 14px;border-bottom:1px solid #f1f5f9;text-decoration:none;color:inherit;">
+                                <div style="font-size:13px;font-weight:600;color:var(--text-primary);">{{ p.buyer_name }}</div>
+                                <div style="font-size:11px;color:var(--text-secondary);">{{ p.property_count or 0 }} properties{% if p.new_count %} ({{ p.new_count }} new){% endif %}</div>
+                            </a>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
                     <!-- Today's Stats -->
                     <div class="briefing-card">
                         <div class="briefing-card-header">

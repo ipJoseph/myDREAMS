@@ -666,6 +666,36 @@ class DREAMSDatabase:
             FOREIGN KEY (session_id) REFERENCES power_hour_sessions(id),
             FOREIGN KEY (contact_id) REFERENCES leads(id)
         );
+
+        -- Pursuits: buyer + property portfolio tracking
+        CREATE TABLE IF NOT EXISTS pursuits (
+            id TEXT PRIMARY KEY,
+            buyer_id TEXT NOT NULL,
+            name TEXT,
+            status TEXT DEFAULT 'active',            -- 'active', 'paused', 'converted', 'abandoned'
+            criteria_summary TEXT,
+            notes TEXT,
+            intake_form_id TEXT,
+            fub_deal_id TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (buyer_id) REFERENCES leads(id)
+        );
+
+        CREATE TABLE IF NOT EXISTS pursuit_properties (
+            id TEXT PRIMARY KEY,
+            pursuit_id TEXT NOT NULL,
+            property_id TEXT NOT NULL,
+            status TEXT DEFAULT 'suggested',          -- 'suggested', 'sent', 'favorited', 'rejected', 'showing'
+            source TEXT DEFAULT 'agent_added',        -- 'agent_added', 'auto_match'
+            notes TEXT,
+            sent_at TEXT,
+            viewed_at TEXT,
+            added_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (pursuit_id) REFERENCES pursuits(id),
+            FOREIGN KEY (property_id) REFERENCES listings(id),
+            UNIQUE(pursuit_id, property_id)
+        );
         '''
 
     def _get_indexes_schema(self) -> str:
@@ -739,6 +769,11 @@ class DREAMSDatabase:
         CREATE INDEX IF NOT EXISTS idx_power_hour_sessions_status ON power_hour_sessions(status);
         CREATE INDEX IF NOT EXISTS idx_power_hour_dispositions_session ON power_hour_dispositions(session_id);
         CREATE INDEX IF NOT EXISTS idx_power_hour_dispositions_contact ON power_hour_dispositions(contact_id);
+        -- Pursuits indexes
+        CREATE INDEX IF NOT EXISTS idx_pursuits_buyer ON pursuits(buyer_id);
+        CREATE INDEX IF NOT EXISTS idx_pursuits_status ON pursuits(status);
+        CREATE INDEX IF NOT EXISTS idx_pursuit_properties_pursuit ON pursuit_properties(pursuit_id);
+        CREATE INDEX IF NOT EXISTS idx_pursuit_properties_property ON pursuit_properties(property_id);
         '''
 
     def _seed_default_settings(self, conn) -> None:

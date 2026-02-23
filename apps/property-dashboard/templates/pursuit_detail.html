@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ pursuit.name }} - Pursuit - DREAMS</title>
+    <link rel="icon" type="image/svg+xml" href="{{ favicon }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='shared/css/dreams.css') }}">
+    <style>
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .back-link {
+            display: inline-block;
+            margin: 16px 20px 0 20px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            text-decoration: none;
+        }
+        .back-link:hover { color: var(--primary); }
+
+        .pursuit-meta {
+            display: flex;
+            gap: 24px;
+            align-items: center;
+            margin-top: 8px;
+            flex-wrap: wrap;
+        }
+
+        .pursuit-status-badge {
+            padding: 3px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .pursuit-status-badge.active { background: #dcfce7; color: #16a34a; }
+        .pursuit-status-badge.paused { background: #fef3c7; color: #d97706; }
+        .pursuit-status-badge.converted { background: #dbeafe; color: #2563eb; }
+        .pursuit-status-badge.abandoned { background: #f3f4f6; color: #6b7280; }
+
+        .header-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .header-btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            text-decoration: none;
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            background: white;
+            cursor: pointer;
+        }
+        .header-btn:hover { background: var(--bg-secondary); color: var(--text-primary); }
+        .header-btn.primary { background: var(--primary); color: white; border-color: var(--primary); }
+        .header-btn.primary:hover { opacity: 0.9; }
+        .header-btn.danger { color: #dc2626; border-color: #fca5a5; }
+        .header-btn.danger:hover { background: #fef2f2; }
+
+        /* Layout */
+        .content-grid {
+            display: grid;
+            grid-template-columns: 1fr 320px;
+            gap: 20px;
+            margin: 0 20px 20px 20px;
+        }
+
+        .section-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--bg-secondary);
+        }
+
+        .section-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Property Cards */
+        .property-list { display: flex; flex-direction: column; gap: 12px; }
+
+        .property-card {
+            display: grid;
+            grid-template-columns: 140px 1fr auto;
+            gap: 16px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+            transition: border-color 0.15s;
+        }
+        .property-card:hover { border-color: var(--primary); }
+
+        .property-thumb {
+            width: 140px;
+            height: 100px;
+            border-radius: 6px;
+            object-fit: cover;
+            background: var(--bg-secondary);
+        }
+
+        .property-info { min-width: 0; }
+
+        .property-price {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .property-address {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+        .property-address a {
+            color: inherit;
+            text-decoration: none;
+        }
+        .property-address a:hover { color: var(--primary); }
+
+        .property-details {
+            display: flex;
+            gap: 12px;
+            margin-top: 6px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .property-detail-item { font-weight: 500; }
+
+        .property-status-chip {
+            display: inline-block;
+            margin-top: 6px;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .property-status-chip.suggested { background: #e0f2fe; color: #0369a1; }
+        .property-status-chip.sent { background: #fef3c7; color: #d97706; }
+        .property-status-chip.favorited { background: #dcfce7; color: #16a34a; }
+        .property-status-chip.rejected { background: #f3f4f6; color: #6b7280; }
+        .property-status-chip.showing { background: #ede9fe; color: #7c3aed; }
+
+        .property-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            align-items: flex-end;
+        }
+
+        .prop-btn {
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            background: white;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .prop-btn:hover { background: var(--bg-secondary); }
+        .prop-btn.remove { color: #dc2626; border-color: #fca5a5; }
+        .prop-btn.remove:hover { background: #fef2f2; }
+
+        /* Buyer Sidebar */
+        .buyer-card {
+            padding: 16px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+
+        .buyer-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        .buyer-name a { color: inherit; text-decoration: none; }
+        .buyer-name a:hover { color: var(--primary); }
+
+        .buyer-contact-info {
+            margin-top: 8px;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+        .buyer-contact-info div { margin-top: 4px; }
+
+        .buyer-requirements {
+            margin-top: 16px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border);
+        }
+
+        .req-label {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+        }
+
+        .req-value {
+            font-size: 14px;
+            color: var(--text-primary);
+            margin-bottom: 12px;
+        }
+
+        .score-row {
+            display: flex;
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        .score-item {
+            text-align: center;
+            padding: 8px 12px;
+            background: white;
+            border-radius: 6px;
+            flex: 1;
+        }
+        .score-value {
+            font-size: 18px;
+            font-weight: 700;
+        }
+        .score-label {
+            font-size: 10px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        /* Criteria card */
+        .criteria-card {
+            padding: 16px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+        }
+
+        /* Empty state */
+        .empty-properties {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-secondary);
+        }
+        .empty-properties-icon { font-size: 40px; opacity: 0.5; margin-bottom: 12px; }
+        .empty-properties-title { font-size: 16px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px; }
+        .empty-properties-text { font-size: 13px; }
+
+        /* Status dropdown */
+        .status-dropdown { position: relative; display: inline-block; }
+        .status-menu {
+            display: none;
+            position: absolute;
+            top: 100%;
+            right: 0;
+            margin-top: 4px;
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+            z-index: 100;
+            min-width: 160px;
+            padding: 4px;
+        }
+        .status-menu.show { display: block; }
+        .status-option {
+            display: block;
+            width: 100%;
+            padding: 8px 12px;
+            border: none;
+            background: none;
+            text-align: left;
+            font-size: 13px;
+            cursor: pointer;
+            border-radius: 4px;
+            color: var(--text-primary);
+        }
+        .status-option:hover { background: var(--bg-secondary); }
+
+        @media (max-width: 900px) {
+            .content-grid { grid-template-columns: 1fr; }
+            .property-card { grid-template-columns: 100px 1fr; }
+            .property-actions { flex-direction: row; }
+        }
+
+        @media (max-width: 600px) {
+            .property-card { grid-template-columns: 1fr; }
+            .property-thumb { width: 100%; height: 160px; }
+        }
+    </style>
+    {% set active_nav = 'pursuits' %}
+</head>
+<body>
+    {% include 'partials/sidebar.html' %}
+    <div class="main-content">
+    <!-- Header -->
+    <header class="dreams-header">
+        <div>
+            <h1>DREAMS Dashboard</h1>
+            <div class="dreams-header-subtitle">Pursuit Detail</div>
+        </div>
+        <div style="display: flex; gap: 16px; align-items: center;">
+            <span style="font-size: 13px; opacity: 0.8;">{{ refresh_time }}</span>
+        </div>
+    </header>
+
+    <a href="/pursuits" class="back-link">&larr; Back to Pursuits</a>
+
+    <!-- Page Header -->
+    <div class="page-header">
+        <div>
+            <h2 style="font-size: 22px; font-weight: 600; color: var(--text-primary); margin: 0;">
+                {{ pursuit.name or pursuit.buyer_name }}
+            </h2>
+            <div class="pursuit-meta">
+                <span class="pursuit-status-badge {{ pursuit.status }}">{{ pursuit.status }}</span>
+                <span style="font-size: 13px; color: var(--text-secondary);">
+                    {{ pursuit.properties|length }} properties
+                </span>
+                <span style="font-size: 13px; color: var(--text-secondary);">
+                    Created {{ pursuit.created_at[:10] if pursuit.created_at else 'N/A' }}
+                </span>
+            </div>
+        </div>
+        <div class="header-actions">
+            <form action="/pursuits/{{ pursuit.id }}/auto-populate" method="POST" style="display:inline;">
+                <button type="submit" class="header-btn">Auto-Match</button>
+            </form>
+            <a href="/properties?pursuit={{ pursuit.id }}" class="header-btn primary">Browse Properties</a>
+            <div class="status-dropdown">
+                <button class="header-btn" onclick="toggleStatusMenu()">Status</button>
+                <div class="status-menu" id="statusMenu">
+                    <form action="/pursuits/{{ pursuit.id }}/status" method="POST">
+                        <input type="hidden" name="status" value="active">
+                        <button type="submit" class="status-option">Active</button>
+                    </form>
+                    <form action="/pursuits/{{ pursuit.id }}/status" method="POST">
+                        <input type="hidden" name="status" value="paused">
+                        <button type="submit" class="status-option">Paused</button>
+                    </form>
+                    <form action="/pursuits/{{ pursuit.id }}/status" method="POST">
+                        <input type="hidden" name="status" value="converted">
+                        <button type="submit" class="status-option">Converted (Under Contract)</button>
+                    </form>
+                    <form action="/pursuits/{{ pursuit.id }}/status" method="POST">
+                        <input type="hidden" name="status" value="abandoned">
+                        <button type="submit" class="status-option">Abandoned</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Content Grid -->
+    <div class="content-grid">
+        <!-- Properties List (Main) -->
+        <div class="section-card">
+            <div class="section-header">
+                <h3 class="section-title">Properties ({{ pursuit.properties|length }})</h3>
+            </div>
+
+            {% if pursuit.properties %}
+            <div class="property-list">
+                {% for prop in pursuit.properties %}
+                <div class="property-card">
+                    {% if prop.photo_urls %}
+                    <img src="{{ prop.photo_urls }}" alt="Property photo" class="property-thumb"
+                         onerror="this.style.display='none'">
+                    {% else %}
+                    <div class="property-thumb" style="display:flex;align-items:center;justify-content:center;color:var(--text-secondary);font-size:12px;">No Photo</div>
+                    {% endif %}
+
+                    <div class="property-info">
+                        <div class="property-price">
+                            {% if prop.price %}${{ "{:,.0f}".format(prop.price) }}{% else %}Price N/A{% endif %}
+                        </div>
+                        <div class="property-address">
+                            <a href="/properties/{{ prop.property_id }}">
+                                {{ prop.address or 'Address unavailable' }}{% if prop.city %}, {{ prop.city }}{% endif %}
+                            </a>
+                        </div>
+                        <div class="property-details">
+                            {% if prop.beds %}<span class="property-detail-item">{{ prop.beds }} bed</span>{% endif %}
+                            {% if prop.baths %}<span class="property-detail-item">{{ prop.baths }} bath</span>{% endif %}
+                            {% if prop.sqft %}<span class="property-detail-item">{{ "{:,.0f}".format(prop.sqft) }} sqft</span>{% endif %}
+                        </div>
+                        <span class="property-status-chip {{ prop.pursuit_status }}">{{ prop.pursuit_status }}</span>
+                        {% if prop.pursuit_notes %}
+                        <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">{{ prop.pursuit_notes }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="property-actions">
+                        <a href="/properties/{{ prop.property_id }}" class="prop-btn">View</a>
+                        <form action="/pursuits/{{ pursuit.id }}/remove-property" method="POST"
+                              onsubmit="return confirm('Remove this property from the pursuit?')">
+                            <input type="hidden" name="pursuit_property_id" value="{{ prop.pursuit_property_id }}">
+                            <button type="submit" class="prop-btn remove">Remove</button>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-properties">
+                <div class="empty-properties-icon">&#127968;</div>
+                <div class="empty-properties-title">No Properties Yet</div>
+                <div class="empty-properties-text">
+                    Click "Auto-Match" to find listings matching the buyer's criteria,
+                    or browse properties and add them manually.
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Buyer Sidebar -->
+        <div>
+            <div class="section-card" style="margin-bottom: 16px;">
+                <div class="section-header">
+                    <h3 class="section-title">Buyer</h3>
+                </div>
+
+                <div class="buyer-card">
+                    <div class="buyer-name">
+                        <a href="/contacts/{{ pursuit.buyer_id }}">{{ pursuit.buyer_name }}</a>
+                    </div>
+                    <div class="buyer-contact-info">
+                        {% if pursuit.buyer_email %}
+                        <div>{{ pursuit.buyer_email }}</div>
+                        {% endif %}
+                        {% if pursuit.buyer_phone %}
+                        <div>{{ pursuit.buyer_phone }}</div>
+                        {% endif %}
+                    </div>
+
+                    {% if buyer %}
+                    <div class="score-row">
+                        <div class="score-item">
+                            <div class="score-value" style="color: #dc2626;">{{ "%.0f"|format(buyer.heat_score or 0) }}</div>
+                            <div class="score-label">Heat</div>
+                        </div>
+                        <div class="score-item">
+                            <div class="score-value" style="color: #2563eb;">{{ "%.0f"|format(buyer.priority_score or 0) }}</div>
+                            <div class="score-label">Priority</div>
+                        </div>
+                        <div class="score-item">
+                            <div class="score-value" style="color: #16a34a;">{{ "%.0f"|format(buyer.value_score or 0) }}</div>
+                            <div class="score-label">Value</div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Requirements -->
+            <div class="section-card">
+                <div class="section-header">
+                    <h3 class="section-title">Requirements</h3>
+                </div>
+
+                {% if pursuit.criteria_summary %}
+                <div class="criteria-card">{{ pursuit.criteria_summary }}</div>
+                {% endif %}
+
+                {% if buyer %}
+                <div class="buyer-requirements">
+                    {% if buyer.min_price or buyer.max_price %}
+                    <div class="req-label">Budget</div>
+                    <div class="req-value">
+                        {% if buyer.min_price %}${{ "{:,.0f}".format(buyer.min_price) }}{% endif %}
+                        {% if buyer.min_price and buyer.max_price %} &ndash; {% endif %}
+                        {% if buyer.max_price %}${{ "{:,.0f}".format(buyer.max_price) }}{% endif %}
+                    </div>
+                    {% endif %}
+
+                    {% if buyer.preferred_cities %}
+                    <div class="req-label">Preferred Areas</div>
+                    <div class="req-value">{{ buyer.preferred_cities }}</div>
+                    {% endif %}
+
+                    {% if buyer.min_beds or buyer.min_baths %}
+                    <div class="req-label">Size</div>
+                    <div class="req-value">
+                        {% if buyer.min_beds %}{{ buyer.min_beds }}+ beds{% endif %}
+                        {% if buyer.min_beds and buyer.min_baths %}, {% endif %}
+                        {% if buyer.min_baths %}{{ buyer.min_baths }}+ baths{% endif %}
+                        {% if buyer.min_sqft %}, {{ "{:,.0f}".format(buyer.min_sqft) }}+ sqft{% endif %}
+                    </div>
+                    {% endif %}
+
+                    {% if buyer.min_acreage %}
+                    <div class="req-label">Acreage</div>
+                    <div class="req-value">{{ buyer.min_acreage }}+ acres</div>
+                    {% endif %}
+
+                    {% if buyer.preferred_features %}
+                    <div class="req-label">Features</div>
+                    <div class="req-value">{{ buyer.preferred_features }}</div>
+                    {% endif %}
+
+                    {% if buyer.deal_breakers %}
+                    <div class="req-label">Deal Breakers</div>
+                    <div class="req-value" style="color: #dc2626;">{{ buyer.deal_breakers }}</div>
+                    {% endif %}
+                </div>
+                {% else %}
+                <div style="font-size: 13px; color: var(--text-secondary); text-align: center; padding: 20px;">
+                    No requirements captured yet.
+                    <br><a href="/contacts/{{ pursuit.buyer_id }}" style="color: var(--primary);">View contact</a> to add requirements.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="dreams-footer">
+        DREAMS - Desktop Real Estate Agent Management System | Joseph "Eugy" Williams
+    </footer>
+    </div>
+
+    <script>
+        function toggleStatusMenu() {
+            document.getElementById('statusMenu').classList.toggle('show');
+        }
+
+        // Close menu when clicking outside
+        document.addEventListener('click', function(e) {
+            const dropdown = document.querySelector('.status-dropdown');
+            if (!dropdown.contains(e.target)) {
+                document.getElementById('statusMenu').classList.remove('show');
+            }
+        });
+    </script>
+</body>
+</html>
