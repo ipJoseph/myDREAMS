@@ -22,7 +22,7 @@ interface PropertyMapProps {
   zip: string;
 }
 
-type ViewMode = "map" | "satellite" | "streetview";
+type ViewMode = "map" | "satellite" | "terrain" | "streetview";
 
 interface POICategory {
   id: string;
@@ -54,6 +54,8 @@ const POI_CATEGORIES: POICategory[] = [
   { id: "park", label: "Park", icon: "\u{1F333}", type: "park" },
   { id: "restaurant", label: "Restaurant", icon: "\u{1F37D}\uFE0F", type: "restaurant" },
   { id: "salon", label: "Salon", icon: "\u{1F487}", type: "beauty_salon" },
+  { id: "school", label: "School", icon: "\u{1F3EB}", type: "school" },
+  { id: "gas_station", label: "Gas Station", icon: "\u26FD", type: "gas_station" },
 ];
 
 const SEARCH_RADIUS = 48280; // ~30 miles in meters
@@ -111,6 +113,7 @@ function PropertyMapInner({
           {([
             { mode: "map" as ViewMode, label: "Map View" },
             { mode: "satellite" as ViewMode, label: "Satellite View" },
+            { mode: "terrain" as ViewMode, label: "Terrain" },
             { mode: "streetview" as ViewMode, label: "Street View" },
           ]).map(({ mode, label }) => (
             <button
@@ -209,7 +212,7 @@ function MapPanel({
 }: {
   latitude: number;
   longitude: number;
-  viewMode: "map" | "satellite";
+  viewMode: "map" | "satellite" | "terrain";
   activePOIs: Set<string>;
 }) {
   const map = useMap();
@@ -225,7 +228,8 @@ function MapPanel({
   // Switch map type
   useEffect(() => {
     if (!map) return;
-    map.setMapTypeId(viewMode === "satellite" ? "satellite" : "roadmap");
+    const typeId = viewMode === "satellite" ? "satellite" : viewMode === "terrain" ? "terrain" : "roadmap";
+    map.setMapTypeId(typeId);
   }, [map, viewMode]);
 
   // Property marker

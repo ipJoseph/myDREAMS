@@ -9,6 +9,23 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Map Search on Public Site** (2026-02-24)
+  - Grid/Map toggle on `/listings` search page with Google Maps + marker clustering
+  - New API endpoint `GET /api/public/listings/map` (lightweight marker data, up to 2,000 results)
+  - Color-coded markers by status (green=Active, orange=Pending, red=Sold)
+  - Clickable popups with photo, price, address, stats, and "View Details" link
+  - Shared filter logic extracted (`build_listing_filters()`) for DRY API code
+  - Components: `ListingsMap`, `ListingsMapWrapper` (SSR-safe), `ViewToggle`
+- **County Records on Public Site** (2026-02-24)
+  - Ported county document links from dashboard to public listing detail pages
+  - GIS Map, Property Record Card, tax records, and reports for 9 WNC counties
+  - Client-side URL builder (`countyLinks.ts`) with Jackson County dashed-PIN formatting
+  - `parcel_number` field now exposed in public API detail responses
+- **Terrain Map Layer** (2026-02-24)
+  - 4th map tab on both dashboard and public site property detail showing topographic contours
+  - Google Maps built-in `terrain` mapTypeId, ideal for WNC mountain market
+- **School + Gas Station POI** (2026-02-24)
+  - Added School and Gas Station categories to POI search on both dashboard and public site
 - **County GIS Documents on Property Detail** (2026-02-24)
   - "Documents & County Records" section with direct links to Property Record Cards, reports, and tax records
   - Jackson County: PRC PDF + Property Report HTML (auto-formats PIN with dashes)

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { searchListings } from "@/lib/api";
 import PropertyCard from "@/components/PropertyCard";
 import SearchFilters from "@/components/SearchFilters";
+import ListingsMapWrapper from "@/components/ListingsMapWrapper";
 
 export const metadata: Metadata = {
   title: "Property Search",
@@ -184,6 +185,7 @@ async function ListingsGrid({
 
 export default async function ListingsPage({ searchParams }: PageProps) {
   const params = await searchParams;
+  const isMapView = params.view === "map";
 
   return (
     <div className="bg-[var(--color-eggshell)] min-h-screen">
@@ -194,18 +196,30 @@ export default async function ListingsPage({ searchParams }: PageProps) {
         <SearchFilters />
       </Suspense>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {isMapView ? (
         <Suspense
           fallback={
-            <div className="text-center py-20">
+            <div className="flex items-center justify-center h-[600px] bg-gray-100">
               <div className="inline-block w-8 h-8 border-4 border-[var(--color-primary)]/20 border-t-[var(--color-accent)] rounded-full animate-spin" />
-              <p className="text-[var(--color-text-light)] mt-4">Loading listings...</p>
             </div>
           }
         >
-          <ListingsGrid searchParams={params} />
+          <ListingsMapWrapper />
         </Suspense>
-      </div>
+      ) : (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <Suspense
+            fallback={
+              <div className="text-center py-20">
+                <div className="inline-block w-8 h-8 border-4 border-[var(--color-primary)]/20 border-t-[var(--color-accent)] rounded-full animate-spin" />
+                <p className="text-[var(--color-text-light)] mt-4">Loading listings...</p>
+              </div>
+            }
+          >
+            <ListingsGrid searchParams={params} />
+          </Suspense>
+        </div>
+      )}
     </div>
   );
 }

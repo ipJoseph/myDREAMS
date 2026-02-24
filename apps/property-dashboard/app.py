@@ -2094,7 +2094,9 @@ def properties_map():
         query = '''
             SELECT id, address, city, county, state, zip, list_price as price,
                    beds, baths, sqft, acreage,
-                   status, latitude, longitude, photos, primary_photo
+                   status, latitude, longitude, photos, primary_photo,
+                   elevation_feet, flood_zone, flood_factor, view_potential,
+                   property_type, mls_number, parcel_number
             FROM listings
             WHERE latitude IS NOT NULL AND longitude IS NOT NULL
         '''

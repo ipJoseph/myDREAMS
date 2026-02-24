@@ -7,6 +7,7 @@
 
 import type {
   Listing,
+  MapListing,
   ListingSearchParams,
   Pagination,
   Area,
@@ -71,6 +72,28 @@ export async function searchListings(
     listings: data.data,
     pagination: data.pagination,
   };
+}
+
+/**
+ * Fetch lightweight marker data for map view (no pagination, up to 2000).
+ */
+export async function fetchMapListings(
+  params: ListingSearchParams = {}
+): Promise<MapListing[]> {
+  const searchParams = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== "") {
+      searchParams.set(key, String(value));
+    }
+  }
+
+  const qs = searchParams.toString();
+  const url = apiUrl(`/listings/map${qs ? `?${qs}` : ""}`);
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  const data = await res.json();
+  return data.data;
 }
 
 /**

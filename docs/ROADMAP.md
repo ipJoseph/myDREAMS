@@ -22,6 +22,11 @@
 
 | Feature | Commit | Description |
 |---------|--------|-------------|
+| **Map Search (Public Site)** | - | Grid/Map toggle on `/listings` with Google Maps, marker clustering, color-coded status, popup detail cards |
+| **County Records (Public Site)** | - | Ported county GIS/PRC/tax links to public listing detail; client-side URL builder for 9 counties |
+| **Terrain Map Layer** | - | 4th map tab (topographic contours) on dashboard and public site property detail |
+| **School + Gas POI** | - | Two new POI categories on both dashboard and public site maps |
+| **Dashboard Map Bug Fix** | - | Added missing columns (elevation, flood, view_potential, property_type, mls#) to map query |
 | **County GIS Documents** | `f0d22d8` | Documents & County Records section on property detail: PRC PDFs, tax records, property reports for 7 WNC counties |
 | **Elevation Enrichment** | `5376bb6` | USGS EPQS elevation for all 1,604 listings; displayed on dashboard, public site, sortable; daily cron enrichment |
 | **Filter Persistence** | `e904c9d` | Property list filters preserved via sessionStorage when navigating to detail and back |
@@ -31,7 +36,7 @@
 | **Pursuits MVP** | `5cc6b46` | Buyer-property portfolio system: detail page, add-to-pursuit on properties/search, Mission Control widget, auto-match |
 | **Daily Email Fix** | `c729adc` | Yesterday's activity window (not today's zeros), two-pass reassignment detection |
 | **Navica Cron Sync** | - | Automated MLS sync: incremental/15min, nightly full, weekly sold, daily agents |
-| **Interactive Property Maps** | - | Google Maps with POI search (13 categories), Satellite/Street View tabs |
+| **Interactive Property Maps** | - | Google Maps with POI search (15 categories), Satellite/Terrain/Street View tabs |
 | **Public Website (Next.js)** | - | `apps/public-site/` at wncmountain.homes: SSR property search, listing detail, area guides |
 | **Public API Endpoints** | - | `GET /api/public/listings`, `/listings/:id`, `/areas`, `/stats` (IDX-compliant, no auth) |
 | **Canopy MLS Integration** | - | `apps/mlsgrid/` MLS Grid OData client (pending credentials from Canopy) |

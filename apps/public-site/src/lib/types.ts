@@ -60,7 +60,26 @@ export interface Listing {
   virtual_tour_url?: string;
   public_remarks?: string;
   directions?: string;
+  parcel_number?: string;
   updated_at?: string;
+}
+
+export interface MapListing {
+  id: string;
+  mls_number: string;
+  status: string;
+  list_price: number;
+  address: string;
+  city: string;
+  county: string;
+  latitude: number;
+  longitude: number;
+  elevation_feet?: number;
+  property_type: string;
+  beds?: number;
+  baths?: number;
+  sqft?: number;
+  primary_photo?: string;
 }
 
 export interface ListingSearchParams {

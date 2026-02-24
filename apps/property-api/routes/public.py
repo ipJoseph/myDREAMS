@@ -7,6 +7,7 @@ the public-facing property search. They expose only IDX-compliant fields
 
 Endpoints:
     GET /public/listings          - Search/filter listings with pagination
+    GET /public/listings/map      - Lightweight marker data for map view
     GET /public/listings/:id      - Single listing detail
     GET /public/areas             - Distinct cities/counties with listing counts
     GET /public/stats             - Aggregate stats (total listings, price ranges)
@@ -44,6 +45,7 @@ PUBLIC_LISTING_FIELDS = [
     'listing_office_name',
     'primary_photo', 'photos', 'photo_count', 'virtual_tour_url',
     'public_remarks', 'directions',
+    'parcel_number',
     'idx_opt_in', 'idx_address_display',
     'updated_at',
 ]
@@ -57,6 +59,15 @@ PUBLIC_LIST_FIELDS = [
     'elevation_feet', 'year_built', 'primary_photo', 'photo_count',
     'days_on_market', 'list_date',
     'listing_office_name',
+]
+
+# Lightweight fields for map markers (no photos array, no remarks)
+MAP_MARKER_FIELDS = [
+    'id', 'mls_number', 'status', 'list_price',
+    'address', 'city', 'county',
+    'latitude', 'longitude', 'elevation_feet',
+    'property_type', 'beds', 'baths', 'sqft',
+    'primary_photo',
 ]
 
 # Allowed sort columns (whitelist to prevent SQL injection)
@@ -99,6 +110,92 @@ def parse_mls_list(q: str) -> list | None:
     return tokens
 
 
+def build_listing_filters():
+    """Build WHERE conditions and params from query string filters.
+
+    Returns (conditions: list[str], params: list) shared by both
+    the paginated listings endpoint and the map markers endpoint.
+    """
+    conditions = ["idx_opt_in = 1"]
+    params = []
+
+    status = request.args.get('status', 'ACTIVE').upper()
+    if status:
+        conditions.append("UPPER(status) = ?")
+        params.append(status)
+
+    city = request.args.get('city')
+    if city:
+        conditions.append("LOWER(city) = LOWER(?)")
+        params.append(city)
+
+    county = request.args.get('county')
+    if county:
+        conditions.append("LOWER(county) = LOWER(?)")
+        params.append(county)
+
+    min_price = request.args.get('min_price', type=int)
+    if min_price is not None:
+        conditions.append("list_price >= ?")
+        params.append(min_price)
+
+    max_price = request.args.get('max_price', type=int)
+    if max_price is not None:
+        conditions.append("list_price <= ?")
+        params.append(max_price)
+
+    min_beds = request.args.get('min_beds', type=int)
+    if min_beds is not None:
+        conditions.append("beds >= ?")
+        params.append(min_beds)
+
+    min_baths = request.args.get('min_baths', type=float)
+    if min_baths is not None:
+        conditions.append("baths >= ?")
+        params.append(min_baths)
+
+    min_sqft = request.args.get('min_sqft', type=int)
+    if min_sqft is not None:
+        conditions.append("sqft >= ?")
+        params.append(min_sqft)
+
+    min_acreage = request.args.get('min_acreage', type=float)
+    if min_acreage is not None:
+        conditions.append("acreage >= ?")
+        params.append(min_acreage)
+
+    max_dom = request.args.get('max_dom', type=int)
+    if max_dom is not None:
+        conditions.append("days_on_market <= ?")
+        params.append(max_dom)
+
+    property_type = request.args.get('property_type')
+    if property_type:
+        conditions.append("property_type = ?")
+        params.append(property_type)
+
+    mls_source = request.args.get('mls_source')
+    if mls_source:
+        conditions.append("mls_source = ?")
+        params.append(mls_source)
+
+    q = request.args.get('q')
+    mls_list = parse_mls_list(q) if q else None
+    if mls_list:
+        placeholders = ','.join(['?'] * len(mls_list))
+        conditions.append(f'mls_number IN ({placeholders})')
+        params.extend(mls_list)
+    elif q:
+        search_term = f"%{q}%"
+        conditions.append(
+            "(address LIKE ? OR city LIKE ? OR county LIKE ? "
+            "OR subdivision LIKE ? OR public_remarks LIKE ? OR mls_number LIKE ?)"
+        )
+        params.extend([search_term] * 6)
+
+    return conditions, params
+
+
 @public_bp.route('/listings', methods=['GET'])
 def search_listings():
     """
@@ -124,95 +221,7 @@ def search_listings():
     """
     try:
         db = get_db()
-
-        # Build WHERE clauses
-        conditions = ["idx_opt_in = 1"]  # Only IDX-opted-in listings
-        params = []
-
-        # Status filter (default: ACTIVE)
-        status = request.args.get('status', 'ACTIVE').upper()
-        if status:
-            conditions.append("UPPER(status) = ?")
-            params.append(status)
-
-        # City filter
-        city = request.args.get('city')
-        if city:
-            conditions.append("LOWER(city) = LOWER(?)")
-            params.append(city)
-
-        # County filter
-        county = request.args.get('county')
-        if county:
-            conditions.append("LOWER(county) = LOWER(?)")
-            params.append(county)
-
-        # Price range
-        min_price = request.args.get('min_price', type=int)
-        if min_price is not None:
-            conditions.append("list_price >= ?")
-            params.append(min_price)
-
-        max_price = request.args.get('max_price', type=int)
-        if max_price is not None:
-            conditions.append("list_price <= ?")
-            params.append(max_price)
-
-        # Beds/baths
-        min_beds = request.args.get('min_beds', type=int)
-        if min_beds is not None:
-            conditions.append("beds >= ?")
-            params.append(min_beds)
-
-        min_baths = request.args.get('min_baths', type=float)
-        if min_baths is not None:
-            conditions.append("baths >= ?")
-            params.append(min_baths)
-
-        # Sqft
-        min_sqft = request.args.get('min_sqft', type=int)
-        if min_sqft is not None:
-            conditions.append("sqft >= ?")
-            params.append(min_sqft)
-
-        # Acreage
-        min_acreage = request.args.get('min_acreage', type=float)
-        if min_acreage is not None:
-            conditions.append("acreage >= ?")
-            params.append(min_acreage)
-
-        # Max days on market
-        max_dom = request.args.get('max_dom', type=int)
-        if max_dom is not None:
-            conditions.append("days_on_market <= ?")
-            params.append(max_dom)
-
-        # Property type
-        property_type = request.args.get('property_type')
-        if property_type:
-            conditions.append("property_type = ?")
-            params.append(property_type)
-
-        # MLS source
-        mls_source = request.args.get('mls_source')
-        if mls_source:
-            conditions.append("mls_source = ?")
-            params.append(mls_source)
-
-        # Full-text search (supports multiple MLS numbers)
-        q = request.args.get('q')
-        mls_list = parse_mls_list(q) if q else None
-        if mls_list:
-            placeholders = ','.join(['?'] * len(mls_list))
-            conditions.append(f'mls_number IN ({placeholders})')
-            params.extend(mls_list)
-        elif q:
-            search_term = f"%{q}%"
-            conditions.append(
-                "(address LIKE ? OR city LIKE ? OR county LIKE ? "
-                "OR subdivision LIKE ? OR public_remarks LIKE ? OR mls_number LIKE ?)"
-            )
-            params.extend([search_term] * 6)
+        conditions, params = build_listing_filters()
 
         # Sort
         sort_col = request.args.get('sort', 'list_date')
@@ -272,6 +281,58 @@ def search_listings():
         return jsonify({
             'success': False,
             'error': {'code': 'SERVER_ERROR', 'message': 'Failed to search listings'}
+        }), 500
+
+
+@public_bp.route('/listings/map', methods=['GET'])
+def map_listings():
+    """
+    Lightweight marker data for the map search view.
+
+    Returns all matching listings (up to 2,000) with only the fields
+    needed for map markers and popups. No pagination; filters are
+    the same as /listings.
+    """
+    try:
+        db = get_db()
+        conditions, params = build_listing_filters()
+
+        # Map markers require coordinates
+        conditions.append("latitude IS NOT NULL")
+        conditions.append("longitude IS NOT NULL")
+
+        where_clause = " AND ".join(conditions)
+        fields_str = ", ".join(MAP_MARKER_FIELDS + ['idx_address_display'])
+
+        query = (
+            f"SELECT {fields_str} FROM listings "
+            f"WHERE {where_clause} "
+            f"ORDER BY list_price DESC "
+            f"LIMIT 2000"
+        )
+        rows = db.execute(query, params).fetchall()
+
+        listings = []
+        for row in rows:
+            d = dict(row)
+            # Suppress address/coords if opted out
+            if not d.get('idx_address_display'):
+                continue  # Skip entirely for map view (no coords = no marker)
+            d.pop('idx_address_display', None)
+            listings.append(d)
+
+        db.close()
+
+        return jsonify({
+            'success': True,
+            'data': listings,
+            'count': len(listings),
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': {'code': 'SERVER_ERROR', 'message': 'Failed to retrieve map listings'}
         }), 500
 
 

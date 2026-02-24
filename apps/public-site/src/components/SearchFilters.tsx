@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useRef } from "react";
+import ViewToggle from "./ViewToggle";
 
 const PRICE_OPTIONS = [
   { label: "Any", value: "" },
@@ -173,6 +174,8 @@ export default function SearchFilters() {
               Clear All
             </button>
           )}
+
+          <ViewToggle />
 
           <select
             value={currentSort}
