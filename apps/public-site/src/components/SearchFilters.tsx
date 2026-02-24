@@ -40,6 +40,8 @@ const SORT_OPTIONS = [
   { label: "Beds", value: "beds:desc" },
   { label: "Sqft", value: "sqft:desc" },
   { label: "Acreage", value: "acreage:desc" },
+  { label: "Elevation: High to Low", value: "elevation_feet:desc" },
+  { label: "Elevation: Low to High", value: "elevation_feet:asc" },
 ];
 
 export default function SearchFilters() {

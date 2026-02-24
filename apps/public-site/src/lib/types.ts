@@ -18,6 +18,7 @@ export interface Listing {
   county: string;
   latitude?: number;
   longitude?: number;
+  elevation_feet?: number;
   subdivision?: string;
   property_type: string;
   property_subtype?: string;

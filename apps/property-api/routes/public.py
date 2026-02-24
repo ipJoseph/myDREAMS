@@ -32,7 +32,7 @@ PUBLIC_LISTING_FIELDS = [
     'id', 'mls_number', 'mls_source', 'status', 'list_price',
     'original_list_price', 'list_date', 'days_on_market',
     'address', 'city', 'state', 'zip', 'county',
-    'latitude', 'longitude', 'subdivision',
+    'latitude', 'longitude', 'elevation_feet', 'subdivision',
     'property_type', 'property_subtype', 'beds', 'baths', 'sqft',
     'acreage', 'lot_sqft', 'year_built', 'stories', 'garage_spaces',
     'heating', 'cooling', 'appliances', 'interior_features',
@@ -54,7 +54,7 @@ PUBLIC_LIST_FIELDS = [
     'address', 'city', 'state', 'zip', 'county',
     'latitude', 'longitude',
     'property_type', 'beds', 'baths', 'sqft', 'acreage',
-    'year_built', 'primary_photo', 'photo_count',
+    'elevation_feet', 'year_built', 'primary_photo', 'photo_count',
     'days_on_market', 'list_date',
     'listing_office_name',
 ]
@@ -62,7 +62,7 @@ PUBLIC_LIST_FIELDS = [
 # Allowed sort columns (whitelist to prevent SQL injection)
 ALLOWED_SORT_COLUMNS = {
     'list_price', 'days_on_market', 'list_date', 'beds', 'baths',
-    'sqft', 'acreage', 'year_built', 'updated_at', 'city',
+    'sqft', 'acreage', 'elevation_feet', 'year_built', 'updated_at', 'city',
 }
 
 

@@ -157,6 +157,14 @@ export default async function ListingDetailPage({ params }: PageProps) {
                     <span className="text-[var(--color-text-light)]">acres</span>
                   </div>
                 )}
+                {listing.elevation_feet != null && (
+                  <div>
+                    <span className="font-semibold text-[var(--color-primary)]">
+                      {formatNumber(listing.elevation_feet)}
+                    </span>{" "}
+                    <span className="text-[var(--color-text-light)]">ft elevation</span>
+                  </div>
+                )}
                 {listing.year_built != null && (
                   <div>
                     <span className="text-[var(--color-text-light)]">Built</span>{" "}
@@ -194,6 +202,7 @@ export default async function ListingDetailPage({ params }: PageProps) {
                 <Detail label="Stories" value={listing.stories?.toString()} />
                 <Detail label="Garage Spaces" value={listing.garage_spaces?.toString()} />
                 <Detail label="Subdivision" value={listing.subdivision} />
+                <Detail label="Elevation" value={listing.elevation_feet ? `${formatNumber(listing.elevation_feet)} ft` : undefined} />
                 <Detail
                   label="HOA Fee"
                   value={

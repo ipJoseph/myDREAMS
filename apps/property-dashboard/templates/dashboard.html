@@ -870,6 +870,7 @@
                     {% if prop.baths is not none %}<span>{{ prop.baths }} ba</span>{% endif %}
                     {% if prop.sqft %}<span>{{ "{:,.0f}".format(prop.sqft) }} sqft</span>{% endif %}
                     {% if prop.lot_acres %}<span>{{ "{:.2f}".format(prop.lot_acres) }} ac</span>{% endif %}
+                    {% if prop.elevation_feet %}<span>{{ "{:,}".format(prop.elevation_feet) }} ft elev</span>{% endif %}
                 </div>
                 <div class="dash-card-address">
                     <a href="/properties/{{ prop.id }}" title="View property details">{{ prop.address or 'Unknown Address' }}</a>
@@ -935,6 +936,7 @@
                     <th onclick="sortByCol('baths')" class="num-col sortable {% if sort_by == 'baths' %}sorted-{{ sort_order }}{% endif %}">Baths</th>
                     <th onclick="sortByCol('sqft')" class="num-col sortable {% if sort_by == 'sqft' %}sorted-{{ sort_order }}{% endif %}">SqFt</th>
                     <th onclick="sortByCol('acreage')" class="num-col sortable {% if sort_by == 'acreage' %}sorted-{{ sort_order }}{% endif %}">Lot</th>
+                    <th onclick="sortByCol('elevation')" class="num-col sortable {% if sort_by == 'elevation' %}sorted-{{ sort_order }}{% endif %}">Elev</th>
                     <th class="num-col">$/SqFt</th>
                     <th>Type</th>
                     <th onclick="sortByCol('year_built')" class="num-col sortable {% if sort_by == 'year_built' %}sorted-{{ sort_order }}{% endif %}">Year</th>
@@ -983,6 +985,7 @@
                     <td class="num-col">{{ prop.baths or '-' }}</td>
                     <td class="num-col">{{ "{:,.0f}".format(prop.sqft) if prop.sqft else '-' }}</td>
                     <td class="num-col">{{ "{:.2f}".format(prop.lot_acres) if prop.lot_acres else '-' }}</td>
+                    <td class="num-col">{{ "{:,}".format(prop.elevation_feet) if prop.elevation_feet else '-' }}</td>
                     <td class="num-col">{{ "${:,.0f}".format(prop.price_per_sqft) if prop.price_per_sqft else '-' }}</td>
                     <td>{{ prop.property_type or '-' }}</td>
                     <td class="num-col">{{ prop.year_built or '-' }}</td>

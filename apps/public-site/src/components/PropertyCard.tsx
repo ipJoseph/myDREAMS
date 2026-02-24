@@ -91,6 +91,9 @@ export default function PropertyCard({ listing, variant = "light" }: PropertyCar
           {listing.acreage != null && listing.acreage > 0 && (
             <span>{listing.acreage.toFixed(2)} ac</span>
           )}
+          {listing.elevation_feet != null && (
+            <span>{formatNumber(listing.elevation_feet)} ft elev</span>
+          )}
         </div>
         <div className={`text-sm mt-3 truncate ${isDark ? "text-white/70" : "text-[var(--color-text)]"}`}>
           {listing.address}

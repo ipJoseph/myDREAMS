@@ -643,7 +643,8 @@ def fetch_properties(added_for: Optional[str] = None, status: Optional[str] = No
         'price': 'list_price', 'address': 'address', 'city': 'city', 'county': 'county',
         'beds': 'beds', 'baths': 'baths', 'sqft': 'sqft', 'acreage': 'acreage',
         'status': 'status', 'dom': 'days_on_market', 'year_built': 'year_built',
-        'created_at': 'captured_at', 'mls_number': 'mls_number'
+        'created_at': 'captured_at', 'mls_number': 'mls_number',
+        'elevation': 'elevation_feet'
     }
     sort_column = ALLOWED_SORTS.get(sort_by, 'list_price')
     sort_dir = 'ASC' if sort_order == 'asc' else 'DESC'

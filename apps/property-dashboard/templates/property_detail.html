@@ -1070,7 +1070,7 @@
                 </span>
                 {% endif %}
                 {% if property.elevation_feet %}
-                <span class="prop-badge badge-elevation">{{ "{:,}".format(property.elevation_feet) }} ft</span>
+                <span class="prop-badge badge-elevation">{{ "{:,}".format(property.elevation_feet) }} ft elev</span>
                 {% endif %}
                 {% if property.view_potential and property.view_potential >= 7 %}
                 <span class="prop-badge badge-view">Mountain Views</span>
@@ -1418,6 +1418,10 @@
                             <div class="fact-item">
                                 <div class="fact-label">Subdivision</div>
                                 <div class="fact-value">{{ property.subdivision or '-' }}</div>
+                            </div>
+                            <div class="fact-item">
+                                <div class="fact-label">Elevation</div>
+                                <div class="fact-value">{{ "{:,}".format(property.elevation_feet) ~ ' ft' if property.elevation_feet else '-' }}</div>
                             </div>
                             {% if property.latitude and property.longitude %}
                             <div class="fact-item">

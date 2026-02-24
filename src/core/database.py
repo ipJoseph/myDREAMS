@@ -1747,7 +1747,7 @@ class DREAMSDatabase:
 
         # Location
         'address', 'city', 'state', 'zip', 'county',
-        'latitude', 'longitude', 'subdivision', 'directions',
+        'latitude', 'longitude', 'elevation_feet', 'subdivision', 'directions',
 
         # Property details
         'property_type', 'property_subtype', 'beds', 'baths', 'sqft',
