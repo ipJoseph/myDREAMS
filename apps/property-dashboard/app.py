@@ -81,7 +81,7 @@ app = Flask(__name__)
 COUNTY_GIS_URLS = {
     'Macon': 'https://gis2.maconnc.org/lightmap/Maps/default.htm?pid={parcel}',
     'Buncombe': 'https://gis.buncombecounty.org/buncomap/Default.aspx?PINN={parcel}',
-    'Jackson': 'https://gis.jacksonnc.org/rpv/',
+    'Jackson': 'https://gis.jacksonnc.org/rpv/?find={parcel}',
     'Henderson': 'https://henderson.roktech.net/gomaps4/',
     'Haywood': 'https://taxes.haywoodcountync.gov/itspublic/appraisalcard.aspx?id={parcel}',
     'Swain': 'https://www.bttaxpayerportal.com/ITSPublicSW/BasicSearch/Parcel?id={parcel}',
@@ -2267,7 +2267,11 @@ def property_detail(property_id):
         if county and parcel:
             template = COUNTY_GIS_URLS.get(county)
             if template:
-                gis_url = template.replace('{parcel}', urllib.parse.quote(parcel))
+                # Jackson County PINs need dashes: 7554695441 -> 7554-69-5441
+                gis_parcel = parcel
+                if county == 'Jackson' and re.match(r'^\d{10}$', parcel):
+                    gis_parcel = f"{parcel[:4]}-{parcel[4:6]}-{parcel[6:]}"
+                gis_url = template.replace('{parcel}', urllib.parse.quote(gis_parcel))
 
         # Build Google Maps directions URL
         directions_url = None
