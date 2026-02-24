@@ -75,20 +75,67 @@ load_env_file()
 
 app = Flask(__name__)
 
-# County GIS parcel lookup URLs for WNC counties
-# Counties with direct parcel linking use {parcel} placeholder.
-# Counties without direct linking go to their search page.
-COUNTY_GIS_URLS = {
-    'Macon': 'https://gis2.maconnc.org/lightmap/Maps/default.htm?pid={parcel}',
-    'Buncombe': 'https://gis.buncombecounty.org/buncomap/Default.aspx?PINN={parcel}',
-    'Jackson': 'https://gis.jacksonnc.org/rpv/?find={parcel}',
-    'Henderson': 'https://henderson.roktech.net/gomaps4/',
-    'Haywood': 'https://taxes.haywoodcountync.gov/itspublic/appraisalcard.aspx?id={parcel}',
-    'Swain': 'https://www.bttaxpayerportal.com/ITSPublicSW/BasicSearch/Parcel?id={parcel}',
-    'Cherokee': 'https://maps.cherokeecounty-nc.gov/GISweb/GISviewer/',
-    'Clay': 'https://bttaxpayerportal.com/ITSPublicCL/BasicSearch/Parcel?id={parcel}',
-    'Graham': 'https://bttaxpayerportal.com/itspublicgr/BasicSearch.aspx',
+# County GIS and document links for WNC counties.
+# {parcel} = raw parcel number from DB. {parcel_dashed} = Jackson-format with dashes.
+# Each county has: gis (map link), prc (property record card), docs (other documents).
+COUNTY_LINKS = {
+    'Jackson': {
+        'gis': 'https://gis.jacksonnc.org/rpv/?find={parcel_dashed}',
+        'prc': ('Property Record Card', 'https://gis.jacksonnc.org/PRC/PRC/{parcel}.pdf'),
+        'docs': [
+            ('Property Report', 'https://gis.jacksonnc.org/reports/{parcel_dashed}.html'),
+        ],
+    },
+    'Macon': {
+        'gis': 'https://gis2.maconnc.org/lightmap/Maps/default.htm?pid={parcel}',
+        'prc': ('Property Record Card', 'https://gis.maconnc.org/itspublic/AppraisalCard.aspx?id={parcel}'),
+        'docs': [
+            ('Property Card (HTML)', 'https://gis2.maconnc.org/propcards/{parcel}.1.html'),
+            ('Reappraisal Notice', 'https://gis.maconnc.org/reappraisalnotices/{parcel}.pdf'),
+        ],
+    },
+    'Buncombe': {
+        'gis': 'https://gis.buncombecounty.org/buncomap/Default.aspx?PINN={parcel}',
+        'prc': ('Property Record Card', 'https://prc-buncombe.spatialest.com/#/property/{parcel}'),
+        'docs': [
+            ('Tax Detail', 'https://tax.buncombenc.gov/parcel/details/{parcel}'),
+            ('PIN History', 'https://pinhistory.buncombenc.gov/?P={parcel}'),
+        ],
+    },
+    'Henderson': {
+        'gis': 'https://gisweb.hendersoncountync.gov/gisweb?pin={parcel}',
+        'prc': ('Property Summary', 'https://lrcpwa.ncptscloud.com/Henderson/PropertySummary.aspx?PIN={parcel}'),
+        'docs': [],
+    },
+    'Haywood': {
+        'gis': 'https://maps.haywoodcountync.gov/gisweb/default.htm?find={parcel}',
+        'prc': ('Appraisal Card', 'https://taxes.haywoodcountync.gov/itspublic/appraisalcard.aspx?id={parcel}'),
+        'docs': [],
+    },
+    'Swain': {
+        'gis': 'https://maps.swaincountync.gov/gis/?find={parcel}',
+        'prc': ('Appraisal Card', 'https://www.bttaxpayerportal.com/ITSPublicSW/AppraisalCard.aspx?id={parcel}'),
+        'docs': [],
+    },
+    'Clay': {
+        'gis': None,
+        'prc': ('Appraisal Card', 'https://bttaxpayerportal.com/ITSPublicCL/AppraisalCard.aspx?id={parcel}'),
+        'docs': [],
+    },
+    'Cherokee': {
+        'gis': 'https://maps.cherokeecounty-nc.gov/GISweb/GISviewer/',
+        'prc': None,
+        'docs': [],
+    },
+    'Graham': {
+        'gis': 'https://bttaxpayerportal.com/itspublicgr/RealEstate.aspx',
+        'prc': None,
+        'docs': [],
+    },
 }
+
+# Backward-compatible lookup for GIS URLs only
+COUNTY_GIS_URLS = {county: info['gis'] for county, info in COUNTY_LINKS.items() if info.get('gis')}
 
 
 # Custom Jinja2 filter for phone number formatting
@@ -2260,18 +2307,37 @@ def property_detail(property_id):
                 'office': prop_dict.get('buyer_office_name', ''),
             }
 
-        # Build GIS URL from county + parcel number
+        # Build GIS URL and county document links from parcel number
         gis_url = None
+        county_docs = []
         county = prop_dict.get('county', '')
         parcel = prop_dict.get('parcel_number', '')
         if county and parcel:
-            template = COUNTY_GIS_URLS.get(county)
-            if template:
-                # Jackson County PINs need dashes: 7554695441 -> 7554-69-5441
-                gis_parcel = parcel
-                if county == 'Jackson' and re.match(r'^\d{10}$', parcel):
-                    gis_parcel = f"{parcel[:4]}-{parcel[4:6]}-{parcel[6:]}"
-                gis_url = template.replace('{parcel}', urllib.parse.quote(gis_parcel))
+            county_info = COUNTY_LINKS.get(county, {})
+            # Jackson County PINs need dashes: 7554695441 -> 7554-69-5441
+            parcel_dashed = parcel
+            if county == 'Jackson' and re.match(r'^\d{10}$', parcel):
+                parcel_dashed = f"{parcel[:4]}-{parcel[4:6]}-{parcel[6:]}"
+            replacements = {'{parcel}': parcel, '{parcel_dashed}': parcel_dashed}
+
+            def apply_template(tmpl):
+                result = tmpl
+                for key, val in replacements.items():
+                    result = result.replace(key, urllib.parse.quote(val, safe=''))
+                return result
+
+            # GIS map link
+            if county_info.get('gis'):
+                gis_url = apply_template(county_info['gis'])
+
+            # Property Record Card
+            if county_info.get('prc'):
+                label, url_tmpl = county_info['prc']
+                county_docs.append((label, apply_template(url_tmpl)))
+
+            # Additional documents
+            for label, url_tmpl in county_info.get('docs', []):
+                county_docs.append((label, apply_template(url_tmpl)))
 
         # Build Google Maps directions URL
         directions_url = None
@@ -2307,6 +2373,7 @@ def property_detail(property_id):
                              agent_info=agent_info,
                              buyer_agent_info=buyer_agent_info,
                              gis_url=gis_url,
+                             county_docs=county_docs,
                              directions_url=directions_url,
                              price_per_sqft=price_per_sqft,
                              google_maps_key=google_maps_key,

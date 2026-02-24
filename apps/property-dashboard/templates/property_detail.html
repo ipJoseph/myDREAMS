@@ -836,6 +836,7 @@
             color: var(--dash-text);
         }
         .doc-icon { color: var(--dash-text-light); }
+        a.doc-item:hover { background: #faf9f7; }
         .doc-note {
             margin-top: 12px;
             font-size: 12px;
@@ -1433,16 +1434,35 @@
                     </div>
                 </div>
 
-                {# ── Documents ── #}
-                {% if property.documents_available or property.documents_count %}
+                {# ── Documents & County Records ── #}
+                {% if property.documents_available or property.documents_count or county_docs %}
                 <div class="detail-section" data-section="documents">
                     <div class="section-header" onclick="toggleSection('documents')">
-                        <h3>Documents</h3>
+                        <h3>Documents &amp; County Records</h3>
                         <span class="section-toggle-icon" id="toggle-documents">&#9660;</span>
                     </div>
                     <div class="section-body" id="body-documents">
+                        {% if county_docs %}
+                        <div class="doc-list" style="margin-bottom: 12px;">
+                            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--dash-text-light); margin-bottom: 6px;">{{ property.county }} County Records</div>
+                            {% for label, url in county_docs %}
+                            <a href="{{ url }}" target="_blank" class="doc-item" style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; text-decoration: none; color: var(--dash-primary); border: 1px solid #e5e1db; border-radius: 6px; margin-bottom: 4px; font-size: 13px; transition: background 0.15s;">
+                                <span class="doc-icon" style="color: var(--dash-accent);">
+                                    {% if 'PDF' in label or 'Card' in label or 'Appraisal' in label %}
+                                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                                    {% else %}
+                                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                                    {% endif %}
+                                </span>
+                                {{ label }}
+                                <span style="margin-left: auto; font-size: 11px; color: var(--dash-text-light);">{{ property.county }} Co.</span>
+                            </a>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
                         {% if property.documents_available %}
                         <div class="doc-list">
+                            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--dash-text-light); margin-bottom: 6px;">MLS Documents</div>
                             {% for doc in property.documents_available %}
                             <div class="doc-item">
                                 <span class="doc-icon">
