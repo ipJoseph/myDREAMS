@@ -9,6 +9,53 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **County GIS Documents on Property Detail** (2026-02-24)
+  - "Documents & County Records" section with direct links to Property Record Cards, reports, and tax records
+  - Jackson County: PRC PDF + Property Report HTML (auto-formats PIN with dashes)
+  - Macon County: Appraisal Card PDF + Property Card HTML + Reappraisal Notice
+  - Buncombe County: PRC (Spatialest) + Tax Detail + PIN History
+  - Henderson County: Property Summary (ncptscloud), updated GIS deep link from deprecated GoMaps
+  - Haywood, Swain, Clay: Appraisal Card PDF links
+  - Restructured `COUNTY_GIS_URLS` into `COUNTY_LINKS` with multiple document types per county
+- **Elevation Data on All Listings** (2026-02-24)
+  - USGS Elevation Point Query Service enrichment for all 1,604 listings (8 ft to 4,900 ft)
+  - New script: `apps/navica/enrich_elevation.py` with polite rate limiting
+  - Dashboard: elevation on property cards, sortable table column, detail page badge and facts
+  - Public site: elevation on listing cards, detail page key stats, Property Details grid
+  - Public API: `elevation_feet` in list and detail field sets
+  - Sort by elevation on both dashboard table and public site search
+  - Daily cron job enriches new listings after nightly Navica sync
+- **Property Views Report Generator** (2026-02-23)
+  - Generate reports showing property views, favorites, and shares grouped by contact
+  - Date range presets (Today, Yesterday, This Week, Last Week, Last 7 Days)
+  - Accessible from Saved Reports page on dashboard
+- **Filter Persistence on Property List** (2026-02-24)
+  - Filters preserved via sessionStorage when navigating to property detail and back
+  - "Back to Properties" link restores exact filter state
+
+### Changed
+- **Parcel ID promoted to badge row** (2026-02-24)
+  - Replaced redundant status badge (already in header) with clickable Parcel ID link
+- **Jackson County GIS deep link** (2026-02-24)
+  - Now uses `?find=` parameter with dashed PIN format for direct parcel search
+
+### Fixed
+- **Clay County GIS link returning 404** (2026-02-24)
+  - Replaced broken `/BasicSearch/Parcel` with working `/AppraisalCard.aspx` direct PDF link
+- **Swain County GIS link** (2026-02-24)
+  - Added Appraisal Card PDF link and GIS map deep link
+- **Henderson County GIS link** (2026-02-24)
+  - Updated from deprecated GoMaps (`henderson.roktech.net/gomaps4/`) to new GISWeb portal
+- **PRD Navica cron not running** (2026-02-24)
+  - Fixed argument syntax: positional args changed to flags (`--nightly`, `--weekly-sold`, `--daily-extras`)
+  - Added missing Navica API tokens to PRD `.env`
+- **Property Views report column alignment** (2026-02-23)
+  - Fixed column widths with `table-layout: fixed` and explicit `<colgroup>` percentages
+- **PRD crontab cleanup** (2026-02-24)
+  - Removed stale IDX cache populator and property-monitor entries
+  - Added Navica sync schedule, daily DB backup, elevation enrichment
+
+### Added
 - **Pursuits MVP: Buyer-Property Portfolio System** (2026-02-23)
   - Pursuit detail page with property list, buyer sidebar, requirements display, status management
   - "Start Pursuit" button on contact detail page (creates pursuit with auto-populated matching listings)

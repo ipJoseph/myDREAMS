@@ -18,7 +18,7 @@ This document defines the technical architecture for the DREAMS (Desktop Real Es
 | Public Website | Next.js 16 at `apps/public-site/` | Production |
 | MLS Data | Navica API (Carolina Smokies MLS) | Production, cron sync |
 | CRM | Follow Up Boss (FUB) | Production, daily sync |
-| Property Table | `listings` (95+ columns, RESO standard) | 1,589 listings |
+| Property Table | `listings` (95+ columns, RESO standard) | 1,604 listings |
 | Contacts Table | `leads` (862 contacts from FUB) | Production |
 | Pursuits | Buyer-property portfolio system | MVP active |
 | Domain | wncmountain.homes | Production |
@@ -205,6 +205,7 @@ CREATE TABLE listings (
     -- Geo & Media
     latitude REAL,
     longitude REAL,
+    elevation_feet INTEGER,                 -- USGS EPQS enrichment
     photo_url TEXT,                          -- Primary photo (CloudFront CDN)
     photo_local_path TEXT,                  -- Local photo cache
     photo_count INTEGER,
@@ -735,23 +736,26 @@ EMAIL_RECIPIENT=agent@example.com
 ### Cron Schedule (DEV)
 
 ```cron
-# FUB sync + daily email (6:00 AM)
-0 6 * * * cd /home/bigeug/myDREAMS && python3 apps/fub-to-sheets/fub_to_sheets_v2.py
+# FUB sync + daily email (6:00 AM ET)
+00 06 * * * /home/bigeug/myDREAMS/apps/fub-to-sheets/run_fub_sync.sh
 
-# Navica incremental sync (every 15 min, business hours)
-*/15 8-20 * * * cd /home/bigeug/myDREAMS && python3 -m apps.navica.cron_sync incremental
+# Navica incremental sync (every 15 min, 6 AM - 8 PM ET)
+*/15 6-20 * * * cd /home/bigeug/myDREAMS && python3 -m apps.navica.cron_sync >> logs/navica_sync.log 2>&1
 
-# Navica nightly full sync (2:00 AM)
-0 2 * * * cd /home/bigeug/myDREAMS && python3 -m apps.navica.cron_sync nightly
+# Navica nightly full sync (2:00 AM ET)
+0 2 * * * cd /home/bigeug/myDREAMS && python3 -m apps.navica.cron_sync --nightly >> logs/navica_sync.log 2>&1
 
-# Navica weekly sold data (Sunday 3:00 AM)
-0 3 * * 0 cd /home/bigeug/myDREAMS && python3 -m apps.navica.cron_sync weekly-sold
+# Navica weekly sold data (Sunday 3:00 AM ET)
+0 3 * * 0 cd /home/bigeug/myDREAMS && python3 -m apps.navica.cron_sync --weekly-sold >> logs/navica_sync.log 2>&1
 
-# Navica daily agents + open houses (6:30 AM)
-30 6 * * * cd /home/bigeug/myDREAMS && python3 -m apps.navica.cron_sync daily-extras
+# Navica daily agents + open houses (6:30 AM ET)
+30 6 * * * cd /home/bigeug/myDREAMS && python3 -m apps.navica.cron_sync --daily-extras >> logs/navica_sync.log 2>&1
 
-# Daily backup (11:00 PM)
-0 23 * * * cd /home/bigeug/myDREAMS && cp data/dreams.db data/backups/dreams_$(date +\%Y\%m\%d).db
+# Elevation enrichment for new listings (2:30 AM ET, after nightly sync)
+30 2 * * * cd /home/bigeug/myDREAMS && python3 -m apps.navica.enrich_elevation >> logs/elevation_enrich.log 2>&1
+
+# Daily backup (11:00 PM ET)
+0 23 * * * /home/bigeug/scripts/backup-mydreams.sh
 ```
 
 ---
@@ -1120,4 +1124,4 @@ def api_call_with_retry(func, *args, **kwargs):
 ---
 
 *Architecture document maintained by Joseph & Claude*
-*Last updated: February 23, 2026 (listings table, Navica MLS, pursuits, public site)*
+*Last updated: February 24, 2026 (elevation_feet column, cron schedule update, county GIS docs)*

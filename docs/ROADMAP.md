@@ -22,6 +22,12 @@
 
 | Feature | Commit | Description |
 |---------|--------|-------------|
+| **County GIS Documents** | `f0d22d8` | Documents & County Records section on property detail: PRC PDFs, tax records, property reports for 7 WNC counties |
+| **Elevation Enrichment** | `5376bb6` | USGS EPQS elevation for all 1,604 listings; displayed on dashboard, public site, sortable; daily cron enrichment |
+| **Filter Persistence** | `e904c9d` | Property list filters preserved via sessionStorage when navigating to detail and back |
+| **Parcel ID Badge** | `9758902` | Parcel ID promoted to clickable badge (replaced redundant status badge) |
+| **Jackson County GIS Fix** | `c3f4f1a` | Deep link with `?find=` param and auto-dashed PIN format |
+| **PRD Cron Fixes** | - | Fixed Navica cron argument syntax, added missing env tokens, removed stale entries |
 | **Pursuits MVP** | `5cc6b46` | Buyer-property portfolio system: detail page, add-to-pursuit on properties/search, Mission Control widget, auto-match |
 | **Daily Email Fix** | `c729adc` | Yesterday's activity window (not today's zeros), two-pass reassignment detection |
 | **Navica Cron Sync** | - | Automated MLS sync: incremental/15min, nightly full, weekly sold, daily agents |
@@ -160,7 +166,7 @@
 **Data Source Status:**
 | Source | Status | Notes |
 |--------|--------|-------|
-| Navica (RESO API) | **Production** | 1,589 listings synced, cron schedule active |
+| Navica (RESO API) | **Production** | 1,604 listings synced, cron schedule active |
 | Canopy MLS (MLS Grid) | Pending | Code ready at `apps/mlsgrid/`, awaiting credentials |
 | Redfin | Archived | Retired, code in `archive/pre-navica-2026-02-19/` |
 | Zillow | Archived | Was broken, code archived |
@@ -271,6 +277,8 @@ Goal: Make the property database a reliable single source of truth with automate
 - [x] First Navica sync: 1,589 listings + 645 agents + 1,575 photos
 - [x] Automated cron sync (incremental/15min, nightly full, weekly sold, daily extras)
 - [x] Price/status change detection from Navica ModificationTimestamp
+- [x] Elevation enrichment via USGS EPQS (all 1,604 listings, daily cron for new)
+- [x] County GIS documents (PRC, tax records, property reports for 7 WNC counties)
 - [ ] Canopy MLS credentials (contact data@canopyrealtors.com)
 
 See: `docs/DATA_QUALITY_TRACKING.md` for full details.
@@ -360,4 +368,4 @@ The tension between personal workflow optimization vs. building a configurable p
 ---
 
 *Roadmap maintained by Joseph & Claude*
-*Last updated: February 23, 2026 - Pursuits MVP, email fix, Navica cron, docs refresh*
+*Last updated: February 24, 2026 - Elevation, county docs, filter persistence, GIS fixes*

@@ -2,7 +2,7 @@
 
 *Exhaustive prioritized task list - check off as completed*
 
-Last updated: February 23, 2026 (Pursuits MVP, email fix, Navica cron)
+Last updated: February 24, 2026 (Elevation, county docs, filter persistence, GIS fixes)
 
 ---
 
@@ -126,6 +126,13 @@ Last updated: February 23, 2026 (Pursuits MVP, email fix, Navica cron)
 | - | Daily email report fix | Feb 23, 2026 | Yesterday's activity window, two-pass reassignment detection |
 | - | Navica cron schedule | Feb 23, 2026 | Incremental/15min, nightly full, weekly sold, daily extras |
 | - | Contact-property search cleanup | Feb 23, 2026 | Removed dead redfin_imports code, added pursuit integration |
+| - | Elevation enrichment (USGS EPQS) | Feb 24, 2026 | All 1,604 listings enriched; dashboard + public site display; daily cron |
+| - | County GIS documents | Feb 24, 2026 | Documents & County Records section for 7 WNC counties (PRC, tax, reports) |
+| - | Filter persistence | Feb 24, 2026 | sessionStorage preserves property list filters across detail page navigation |
+| - | Parcel ID badge promotion | Feb 24, 2026 | Clickable parcel ID replaces redundant status badge on property detail |
+| - | Jackson County GIS deep link | Feb 24, 2026 | ?find= param with auto-dashed PIN format |
+| - | Clay/Swain/Henderson GIS fixes | Feb 24, 2026 | Fixed broken URLs, updated deprecated endpoints |
+| - | PRD Navica cron fixes | Feb 24, 2026 | Fixed argument syntax, added missing env tokens, removed stale entries |
 
 ---
 
