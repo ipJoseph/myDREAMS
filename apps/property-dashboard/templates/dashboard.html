@@ -1136,6 +1136,9 @@
         // Run on page load to apply cascade if counties are pre-selected
         document.addEventListener('DOMContentLoaded', filterCitiesByCounty);
 
+        // Save current filter URL so property detail can link back with filters intact
+        sessionStorage.setItem('propertiesFilterUrl', window.location.href);
+
         // ── Card click to navigate (skip checkbox and phone links) ──
         document.addEventListener('click', function(e) {
             // Skip if clicking checkbox, label wrapping checkbox, or tel: links

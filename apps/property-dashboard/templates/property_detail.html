@@ -906,10 +906,16 @@
 
         {# ── Action Bar ── #}
         <div class="detail-action-bar">
-            <a href="/properties" class="action-back">
+            <a id="backToProperties" href="/properties" class="action-back">
                 <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
                 Back to Properties
             </a>
+            <script>
+                (function() {
+                    var saved = sessionStorage.getItem('propertiesFilterUrl');
+                    if (saved) document.getElementById('backToProperties').href = saved;
+                })();
+            </script>
             <div class="action-buttons">
                 {% if property.mls_number %}
                 <button class="action-btn" onclick="copyMLS()" title="Copy MLS #">
