@@ -2252,6 +2252,9 @@ def property_detail(property_id):
 
         prop_dict = dict(prop)
 
+        # Compute DOM dynamically from list_date (not stale API snapshot)
+        prop_dict['days_on_market'] = _calculate_dom(prop_dict)
+
         # Normalize list_price to price for template
         prop_dict['price'] = prop_dict.get('list_price')
 
@@ -3784,6 +3787,7 @@ def contact_property_search(contact_id):
             # Normalize list_price to price for templates
             for prop in properties:
                 prop['price'] = prop.get('list_price')
+                prop['days_on_market'] = _calculate_dom(prop)
 
     except Exception as e:
         logger.error(f"Property search error: {e}")
@@ -5105,7 +5109,7 @@ def photos_dashboard():
                 l.id, l.address, l.city, l.county, l.zip, l.state,
                 l.list_price, l.beds, l.baths, l.sqft, l.acreage,
                 l.year_built, l.property_type, l.style, l.days_on_market,
-                l.hoa_fee,
+                l.status, l.list_date, l.hoa_fee,
                 l.primary_photo, l.photo_source, l.photo_confidence, l.photo_review_status,
                 l.redfin_url, l.idx_url, l.mls_number, l.mls_source,
                 l.listing_agent_name, l.listing_agent_phone, l.listing_office_name,
@@ -5116,6 +5120,8 @@ def photos_dashboard():
             LIMIT ? OFFSET ?
         ''', params + [per_page, offset]).fetchall()
         listings = [dict(row) for row in listings]
+        for listing in listings:
+            listing['days_on_market'] = _calculate_dom(listing)
 
     return render_template('photos_dashboard.html',
                          listings=listings,

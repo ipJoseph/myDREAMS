@@ -18,6 +18,7 @@ import re
 import os
 import sqlite3
 import sys
+from datetime import datetime
 from pathlib import Path
 from flask import Blueprint, request, jsonify
 
@@ -93,6 +94,26 @@ def row_to_dict(row, fields=None):
     if fields:
         d = {k: v for k, v in d.items() if k in fields}
     return d
+
+
+def _compute_dom(listing: dict) -> int | None:
+    """Compute Days on Market dynamically from list_date for active listings."""
+    status = (listing.get('status') or '').lower()
+    stored = listing.get('days_on_market')
+    # For closed/expired/withdrawn, the stored value is the final DOM
+    if status in ('sold', 'withdrawn', 'terminated', 'expired', 'off market', 'closed'):
+        return stored
+    list_date_str = listing.get('list_date')
+    if list_date_str:
+        try:
+            if 'T' in str(list_date_str):
+                ld = datetime.fromisoformat(list_date_str.replace('Z', '+00:00'))
+            else:
+                ld = datetime.strptime(str(list_date_str)[:10], '%Y-%m-%d')
+            return max(0, (datetime.now() - ld.replace(tzinfo=None)).days)
+        except (ValueError, TypeError):
+            pass
+    return stored
 
 
 def parse_mls_list(q: str) -> list | None:
@@ -263,6 +284,7 @@ def search_listings():
                 listing['latitude'] = None
                 listing['longitude'] = None
             listing.pop('idx_address_display', None)
+            listing['days_on_market'] = _compute_dom(listing)
 
         db.close()
 
@@ -361,6 +383,9 @@ def get_listing(listing_id):
             }), 404
 
         listing = row_to_dict(row)
+
+        # Compute DOM dynamically
+        listing['days_on_market'] = _compute_dom(listing)
 
         # Suppress address if opted out
         if not listing.get('idx_address_display'):
