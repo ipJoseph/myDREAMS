@@ -9,6 +9,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Historical MLS Import** (2026-02-25)
+  - Imported all Closed, Expired, and Withdrawn listings from Navica MLS
+  - Total database: 54,329 listings (28,201 Sold, 15,351 Expired, 9,189 Withdrawn, 1,382 Active, 206 Pending)
+  - Chunked queries by PropertyType and County to work around Navica API 10k offset limit
+- **Enrichment Pipeline Script** (2026-02-25)
+  - `apps/navica/enrich_all.sh`: chains elevation, flood zone, and view potential enrichment sequentially
+  - Resumable (each script skips already-enriched records)
+  - `--flood-and-views` flag to skip elevation during overnight runs
+  - Summary stats printed at completion
 - **Map Search on Public Site** (2026-02-24)
   - Grid/Map toggle on `/listings` search page with Google Maps + marker clustering
   - New API endpoint `GET /api/public/listings/map` (lightweight marker data, up to 2,000 results)
@@ -68,6 +77,18 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Now uses `?find=` parameter with dashed PIN format for direct parcel search
 
 ### Fixed
+- **Days on Market showing stale values** (2026-02-25)
+  - `days_on_market` was a static snapshot from MLS API, becoming stale immediately after sync
+  - Now computed dynamically from `list_date` for Active/Pending listings across all views
+  - Sold/Expired/Withdrawn listings correctly use stored final DOM value
+  - Fixed in: dashboard detail, property search, photos dashboard, public API list and detail endpoints
+- **Navica API 10k offset limit** (2026-02-25)
+  - API returns 400 error when offset exceeds 10,000; previously discarded all accumulated records
+  - `client.py` `get_all_pages()` now catches the offset error and returns records fetched so far
+- **USGS API timeout crashes** (2026-02-25)
+  - `TimeoutError` was not caught by enrichment scripts (not a subclass of `urllib.error.URLError`)
+  - Added explicit `(TimeoutError, OSError)` handling with 3 retries and exponential backoff
+  - Applied to all three enrichment scripts (elevation, flood, views)
 - **Clay County GIS link returning 404** (2026-02-24)
   - Replaced broken `/BasicSearch/Parcel` with working `/AppraisalCard.aspx` direct PDF link
 - **Swain County GIS link** (2026-02-24)

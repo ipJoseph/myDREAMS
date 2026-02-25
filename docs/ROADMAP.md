@@ -13,7 +13,7 @@
 | SQLite Database | Done | Canonical data store with WAL mode |
 | Property API | Done | Flask REST API on port 5000 |
 | Property Dashboard | Done | Flask web UI on port 5001 (Mission Control v3) |
-| Navica MLS Sync | Done | 1,589 listings from Carolina Smokies MLS via RESO API |
+| Navica MLS Sync | Done | 54,329 listings from Carolina Smokies MLS via RESO API |
 | Public Website | Done | Next.js at wncmountain.homes |
 | Lead Management | Done | FUB sync, multi-dimensional scoring, daily emails |
 | Pursuits System | Done | Buyer-property portfolios with auto-matching |
@@ -28,6 +28,11 @@
 | **School + Gas POI** | - | Two new POI categories on both dashboard and public site maps |
 | **Dashboard Map Bug Fix** | - | Added missing columns (elevation, flood, view_potential, property_type, mls#) to map query |
 | **County GIS Documents** | `f0d22d8` | Documents & County Records section on property detail: PRC PDFs, tax records, property reports for 7 WNC counties |
+| **Historical MLS Import** | `57fb97e` | 54,329 total listings: all Closed, Expired, Withdrawn from Navica; chunked queries to bypass 10k offset limit |
+| **Flood Zone Enrichment** | `8d06b49` | FEMA NFHL API integration; `flood_zone` + `flood_factor` (1-10 score); weekly cron |
+| **View Potential Enrichment** | `8d06b49` | USGS EPQS 8-point terrain sampling; 1-10 score (60% elevation advantage + 40% directional dominance); weekly cron |
+| **Enrichment Pipeline** | `104d0c7` | `enrich_all.sh` chains elevation, flood, views sequentially; resumable; overnight-safe |
+| **DOM Dynamic Calculation** | `57fb97e` | Days on market computed from list_date for active listings (no more stale API snapshots) |
 | **Elevation Enrichment** | `5376bb6` | USGS EPQS elevation for all 1,604 listings; displayed on dashboard, public site, sortable; daily cron enrichment |
 | **Filter Persistence** | `e904c9d` | Property list filters preserved via sessionStorage when navigating to detail and back |
 | **Parcel ID Badge** | `9758902` | Parcel ID promoted to clickable badge (replaced redundant status badge) |
@@ -53,7 +58,7 @@
 | **Data Quality Dashboard** | - | `/data-quality` route showing coverage metrics, MLS Grid status, import history |
 | **MLS Grid Integration** | - | `import_mlsgrid.py` script for Canopy MLS API (RESO Web API via MLS Grid) |
 | **Data Quality Tracking** | - | `docs/DATA_QUALITY_TRACKING.md` with baseline audit and experiment tracking |
-| NC OneMap Spatial Data | - | Flood zones, elevation, view potential, wildfire risk - enriches property data with NC geographic intelligence |
+| NC OneMap Spatial Data | Done | Flood zones (FEMA NFHL), elevation (USGS EPQS), view potential (8-point terrain sampling); weekly cron enrichment |
 | Enhanced Property Ingest | - | PropStream expansion, Redfin change detection, daily CLI, changes dashboard, price drop alerts |
 | IDX MLS Validation | `f157fb0` | Automatic validation with address fallback |
 | On-Demand Validation | `016271b` | Validates properties when creating IDX portfolio |
@@ -283,6 +288,11 @@ Goal: Make the property database a reliable single source of truth with automate
 - [x] Automated cron sync (incremental/15min, nightly full, weekly sold, daily extras)
 - [x] Price/status change detection from Navica ModificationTimestamp
 - [x] Elevation enrichment via USGS EPQS (all 1,604 listings, daily cron for new)
+- [x] Flood zone enrichment via FEMA NFHL API (flood_zone + flood_factor 1-10, weekly cron)
+- [x] View potential enrichment via USGS terrain sampling (8 compass points, 1-10 score, weekly cron)
+- [x] Historical MLS import (54,329 listings: Closed, Expired, Withdrawn from Navica)
+- [x] Enrichment pipeline script (`enrich_all.sh`: chains all three, resumable, overnight-safe)
+- [x] Dynamic DOM calculation (compute from list_date, not stale API snapshot)
 - [x] County GIS documents (PRC, tax records, property reports for 7 WNC counties)
 - [ ] Canopy MLS credentials (contact data@canopyrealtors.com)
 

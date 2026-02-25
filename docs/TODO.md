@@ -2,7 +2,7 @@
 
 *Exhaustive prioritized task list - check off as completed*
 
-Last updated: February 24, 2026 (Elevation, county docs, filter persistence, GIS fixes)
+Last updated: February 25, 2026 (Historical import, flood/view enrichment, DOM fix)
 
 ---
 
@@ -133,6 +133,11 @@ Last updated: February 24, 2026 (Elevation, county docs, filter persistence, GIS
 | - | Jackson County GIS deep link | Feb 24, 2026 | ?find= param with auto-dashed PIN format |
 | - | Clay/Swain/Henderson GIS fixes | Feb 24, 2026 | Fixed broken URLs, updated deprecated endpoints |
 | - | PRD Navica cron fixes | Feb 24, 2026 | Fixed argument syntax, added missing env tokens, removed stale entries |
+| - | Flood zone enrichment (FEMA NFHL) | Feb 25, 2026 | All listings enriched with flood_zone + flood_factor; weekly cron |
+| - | View potential enrichment (USGS) | Feb 25, 2026 | 8-point terrain sampling, 1-10 score; weekly cron |
+| - | Historical MLS import | Feb 25, 2026 | 54,329 total listings from Navica (Closed, Expired, Withdrawn) |
+| - | Enrichment pipeline script | Feb 25, 2026 | enrich_all.sh chains elevation/flood/views; resumable; overnight-safe |
+| - | DOM dynamic calculation fix | Feb 25, 2026 | Compute from list_date for active listings; no more stale API snapshots |
 
 ---
 
