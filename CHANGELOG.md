@@ -9,7 +9,35 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
-- **Historical MLS Import** (2026-02-25)
+- **Single-Property Brochure PDF** (2026-02-25)
+  - `GET /api/public/listings/:id/brochure` generates branded PDF brochure per property
+  - Navy/gold design: hero cover with photo + price, details page with two-column grid, feature pills, conditional extended page for long descriptions, agent contact page
+  - `GET /api/public/collections/:token/brochure` generates combined PDF for entire collection
+  - "Download Brochure" button on listing detail sidebar
+  - "Download All as PDF" button on collection detail and shared collection pages
+  - New files: `apps/automation/brochure_generator.py`, `apps/automation/templates/property_brochure.html`
+- **Sold Property Search on Public Site** (2026-02-25)
+  - Status filter dropdown (Active, Pending, Sold) on search page
+  - `sold_price` and `sold_date` fields in public API list and detail endpoints
+  - PropertyCard: red SOLD badge with date, sold price with strikethrough on original list price
+  - Listing detail: "Sold for $X" header, sold date in details grid
+  - "Recently Sold" sort option (by sold_date)
+- **Address History on Listing Detail** (2026-02-25)
+  - `GET /api/public/listings/:id/history` endpoint
+  - Smart matching: parcel_number when available, address+city fallback (handles duplicate addresses)
+  - PropertyHistory client component with vertical timeline showing prior listings and price/status changes
+- **User Accounts (Auth.js v5)** (2026-02-25)
+  - Auth.js (NextAuth v5) with Credentials + Google OAuth providers, JWT session strategy
+  - Flask user API blueprint (`/api/user/`): register, login, oauth-sync, profile, favorites, saved searches
+  - Database tables: `users`, `user_favorites`, `saved_searches`, `auth_accounts`, `auth_sessions`
+  - UI: AuthModal (login/register), UserMenu (avatar dropdown), FavoriteButton (heart toggle)
+  - Account pages: `/account/favorites`, `/account/searches`
+  - Save Search button on search filters when active
+  - SessionProvider wrapper for client-side session access
+- **Buyer Collections** (2026-02-25)
+  - Collection CRUD API: create, list, get, update, delete collections; add/remove listings
+  - `user_id` and `collection_type` columns on `property_packages` table
+  - Public share endpoint: `GET /api/public/collections/:share_token` (no auth
   - Imported all Closed, Expired, and Withdrawn listings from Navica MLS
   - Total database: 54,329 listings (28,201 Sold, 15,351 Expired, 9,189 Withdrawn, 1,382 Active, 206 Pending)
   - Chunked queries by PropertyType and County to work around Navica API 10k offset limit

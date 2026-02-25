@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>{{ address }} - Property Brochure</title>
+    <style>
+        @page {
+            size: letter;
+            margin: 0;
+        }
+
+        :root {
+            --primary: #1B2A4A;
+            --accent: #C5A55A;
+            --text: #2D3748;
+            --text-light: #718096;
+            --bg-warm: #FAF8F5;
+            --border: #E2DDD5;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Georgia', 'Times New Roman', serif;
+            color: var(--text);
+            line-height: 1.5;
+            background: white;
+        }
+
+        .sans {
+            font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        /* ================================================
+           PAGE 1: HERO COVER
+           ================================================ */
+        .cover {
+            page-break-after: always;
+            position: relative;
+            width: 8.5in;
+            height: 11in;
+            overflow: hidden;
+            background: var(--primary);
+        }
+
+        .cover-photo {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .cover-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(transparent 0%, rgba(27,42,74,0.7) 30%, rgba(27,42,74,0.92) 100%);
+            padding: 140px 60px 80px;
+        }
+
+        .cover-status-badge {
+            position: absolute;
+            top: 25px;
+            right: 25px;
+            padding: 8px 22px;
+            font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2.5px;
+        }
+        .cover-status-badge.active {
+            background: var(--accent);
+            color: var(--primary);
+        }
+        .cover-status-badge.pending {
+            background: white;
+            color: var(--text);
+        }
+        .cover-status-badge.sold {
+            background: #C53030;
+            color: white;
+        }
+
+        .cover-price {
+            font-size: 52px;
+            color: white;
+            font-weight: normal;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        .cover-address {
+            font-size: 22px;
+            color: rgba(255,255,255,0.9);
+            margin-bottom: 4px;
+        }
+
+        .cover-location {
+            font-size: 14px;
+            color: rgba(255,255,255,0.6);
+            letter-spacing: 0.5px;
+            margin-bottom: 28px;
+        }
+
+        .cover-stats {
+            display: flex;
+            gap: 0;
+        }
+
+        .cover-stat {
+            text-align: center;
+            padding: 0 20px;
+            border-right: 1px solid rgba(255,255,255,0.2);
+        }
+        .cover-stat:first-child {
+            padding-left: 0;
+        }
+        .cover-stat:last-child {
+            border-right: none;
+        }
+
+        .cover-stat-value {
+            font-size: 22px;
+            color: white;
+            font-weight: normal;
+        }
+
+        .cover-stat-label {
+            font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+            font-size: 9px;
+            color: rgba(255,255,255,0.5);
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            margin-top: 2px;
+        }
+
+        .cover-footer {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--primary);
+            padding: 14px 60px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .cover-footer-brand {
+            font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+            font-size: 11px;
+            color: rgba(255,255,255,0.5);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .cover-footer-agent {
+            font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+            font-size: 11px;
+            color: var(--accent);
+            letter-spacing: 1px;
+        }
+
+        /* ================================================
+           PAGE 2: DETAILS & FEATURES
+           ================================================ */
+        .details-page {
+            page-break-after: always;
+            width: 8.5in;
+            height: 11in;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .details-header {
+            background: var(--primary);
+            padding: 18px 50px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .details-header-mls {
+            font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+            font-size: 12px;
+            color: rgba(255,255,255,0.7);
+            letter-spacing: 1px;
+        }
+
+        .details-header-status {
+            font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+            font-size: 11px;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-weight: 600;
+        }
+
+        .details-content {
+            padding: 30px 50px 15px;
+        }
+
+        /* Address repeat */
+        .details-address {
+            font-size: 24px;
+            color: var(--primary);
+            margin-bottom: 2px;
+        }
+
+        .details-location {
+            font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+            font-size: 13px;
+            color: var(--text-light);
+            margin-bottom: 20px;
+        }
+
+        /* Two-column property details */
+        .prop-details {
+            display: flex;
+            gap: 30px;
+            margin-bottom: 22px;
+        }
+
+        .prop-details-col {
+            flex: 1;
+        }
+
+        .prop-detail-title {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--accent);
+            margin-bottom: 8px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid var(--border);
+            font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        .prop-detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            font-size: 12px;
+            border-bottom: 1px solid #f0ede8;
+            font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+        }
+        .prop-detail-row:last-child {
+            border-bottom: none;
+        }
+
+        .prop-detail-label {
+            color: var(--text-light);
+        }
+
+        .prop-detail-value {
+            color: var(--primary);
+            font-weight: 600;
+            text-align: right;
+            max-width: 55%;
+        }
+
+        /* HOA and Tax row */
+        .financial-row {
+            display: flex;
+            gap: 30px;
+            margin-bottom: 22px;
+            padding: 12px 0;
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .financial-item {
+            flex: 1;
+            display: flex;
+            justify-content: space-between;
+            font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+            font-size: 12px;
+        }
+
+        .financial-label {
+            color: var(--text-light);
+        }
+
+        .financial-value {
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+        /* Feature pills sections */
+        .features-section {
+            margin-bottom: 18px;
+        }
+
+        .features-title {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--accent);
+            margin-bottom: 8px;
+            font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        .features-pills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
+        .feature-pill {
+            padding: 3px 10px;
+            background: var(--bg-warm);
+            border: 1px solid var(--border);
+            font-size: 10px;
+            color: var(--text);
+            font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+            letter-spacing: 0.3px;
+        }
+
+        /* Description block */
+        .description-block {
+            margin-top: 18px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border);
+        }
+
+        .description-title {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--accent);
+            margin-bottom: 8px;
+            font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        .description-text {
+            font-size: 11.5px;
+            line-height: 1.7;
+            color: var(--text);
+        }
+
+        .description-text.truncated {
+            max-height: 200px;
+            overflow: hidden;
+        }
+
+        /* Page footer */
+        .page-footer {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 8px 50px;
+            display: flex;
+            justify-content: space-between;
+            font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+            font-size: 9px;
+            color: var(--text-light);
+            border-top: 1px solid var(--border);
+        }
+
+        /* ================================================
+           PAGE 3 (CONDITIONAL): EXTENDED DESCRIPTION
+           ================================================ */
+        .extended-page {
+            page-break-after: always;
+            width: 8.5in;
+            height: 11in;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .extended-content {
+            padding: 40px 50px 15px;
+        }
+
+        .extended-description {
+            font-size: 12px;
+            line-height: 1.8;
+            color: var(--text);
+            margin-bottom: 30px;
+        }
+
+        .directions-block {
+            padding: 16px 20px;
+            background: var(--bg-warm);
+            border-left: 3px solid var(--accent);
+            margin-bottom: 25px;
+        }
+
+        .directions-title {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--accent);
+            margin-bottom: 6px;
+            font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        .directions-text {
+            font-size: 12px;
+            line-height: 1.7;
+            color: var(--text);
+        }
+
+        /* Sold info section */
+        .sold-info {
+            margin-top: 25px;
+            padding: 20px;
+            background: var(--bg-warm);
+            border: 1px solid var(--border);
+        }
+
+        .sold-info-title {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--accent);
+            margin-bottom: 12px;
+            font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        .sold-info-grid {
+            display: flex;
+            gap: 30px;
+        }
+
+        .sold-info-item {
+            font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        .sold-info-label {
+            font-size: 10px;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .sold-info-value {
+            font-size: 18px;
+            color: var(--primary);
+            margin-top: 2px;
+        }
+
+        /* ================================================
+           AGENT CONTACT PAGE
+           ================================================ */
+        .agent-page {
+            page-break-before: always;
+            width: 8.5in;
+            height: 11in;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: var(--primary);
+            text-align: center;
+        }
+
+        .agent-accent-line {
+            width: 60px;
+            height: 2px;
+            background: var(--accent);
+            margin: 0 auto 30px;
+        }
+
+        .agent-photo {
+            width: 160px;
+            height: 160px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid var(--accent);
+            margin-bottom: 25px;
+        }
+
+        .agent-name {
+            font-size: 32px;
+            color: white;
+            font-weight: normal;
+            margin-bottom: 5px;
+        }
+
+        .agent-title-text {
+            font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+            font-size: 12px;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            margin-bottom: 5px;
+        }
+
+        .agent-brokerage {
+            font-size: 16px;
+            color: rgba(255,255,255,0.6);
+            margin-bottom: 35px;
+        }
+
+        .agent-contact-block {
+            margin-bottom: 35px;
+        }
+
+        .agent-contact-item {
+            font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+            font-size: 16px;
+            color: rgba(255,255,255,0.8);
+            margin: 10px 0;
+            letter-spacing: 0.5px;
+        }
+        .agent-contact-item a {
+            color: rgba(255,255,255,0.8);
+            text-decoration: none;
+        }
+
+        .agent-message {
+            max-width: 450px;
+            font-size: 15px;
+            color: rgba(255,255,255,0.5);
+            line-height: 1.7;
+            font-style: italic;
+            margin-bottom: 40px;
+        }
+
+        .agent-website {
+            font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+            font-size: 14px;
+            color: var(--accent);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .agent-brokerage-logo {
+            max-width: 160px;
+            margin-top: 30px;
+            opacity: 0.6;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ====================== PAGE 1: HERO COVER ====================== -->
+    <div class="cover">
+        {% if primary_photo %}
+        <img src="{{ primary_photo }}" alt="{{ address }}" class="cover-photo">
+        {% endif %}
+
+        {% set status_lower = status|lower %}
+        <span class="cover-status-badge {{ 'active' if status_lower == 'active' else ('pending' if status_lower == 'pending' else ('sold' if status_lower in ['sold','closed'] else 'active')) }}">
+            {% if status_lower in ['sold','closed'] and sold_date %}
+                Sold {{ sold_date[:10] }}
+            {% else %}
+                {{ status }}
+            {% endif %}
+        </span>
+
+        <div class="cover-overlay">
+            {% if status_lower in ['sold','closed'] and sold_price %}
+            <div class="cover-price">${{ '{:,.0f}'.format(sold_price) }}</div>
+            {% else %}
+            <div class="cover-price">${{ '{:,.0f}'.format(list_price) }}</div>
+            {% endif %}
+            <div class="cover-address">{{ address }}</div>
+            <div class="cover-location sans">{{ city }}, {{ state }} {{ zip }}{% if county %} ({{ county }} County){% endif %}</div>
+
+            <div class="cover-stats">
+                {% if beds is not none and beds %}
+                <div class="cover-stat">
+                    <div class="cover-stat-value">{{ beds }}</div>
+                    <div class="cover-stat-label">Beds</div>
+                </div>
+                {% endif %}
+                {% if baths is not none and baths %}
+                <div class="cover-stat">
+                    <div class="cover-stat-value">{{ baths }}</div>
+                    <div class="cover-stat-label">Baths</div>
+                </div>
+                {% endif %}
+                {% if sqft %}
+                <div class="cover-stat">
+                    <div class="cover-stat-value">{{ '{:,}'.format(sqft) }}</div>
+                    <div class="cover-stat-label">Sq Ft</div>
+                </div>
+                {% endif %}
+                {% if acreage %}
+                <div class="cover-stat">
+                    <div class="cover-stat-value">{{ acreage }}</div>
+                    <div class="cover-stat-label">Acres</div>
+                </div>
+                {% endif %}
+                {% if elevation_feet %}
+                <div class="cover-stat">
+                    <div class="cover-stat-value">{{ '{:,}'.format(elevation_feet) }}</div>
+                    <div class="cover-stat-label">Ft Elev</div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="cover-footer">
+            <span class="cover-footer-brand">{{ brokerage_name }}</span>
+            <span class="cover-footer-agent">{{ agent_name }} | {{ agent_phone }}</span>
+        </div>
+    </div>
+
+    <!-- ====================== PAGE 2: DETAILS & FEATURES ====================== -->
+    <div class="details-page">
+        <div class="details-header">
+            <span class="details-header-mls">MLS# {{ mls_number }}{% if mls_source %} &bull; {{ mls_source }}{% endif %}</span>
+            <span class="details-header-status">{{ status }}</span>
+        </div>
+
+        <div class="details-content">
+            <div class="details-address">{{ address }}</div>
+            <div class="details-location">{{ city }}, {{ state }} {{ zip }}{% if county %} &bull; {{ county }} County{% endif %}{% if subdivision %} &bull; {{ subdivision }}{% endif %}</div>
+
+            <!-- Two-column details -->
+            <div class="prop-details">
+                <div class="prop-details-col">
+                    <div class="prop-detail-title">Property Information</div>
+                    {% if property_type %}
+                    <div class="prop-detail-row">
+                        <span class="prop-detail-label">Type</span>
+                        <span class="prop-detail-value">{{ property_type }}</span>
+                    </div>
+                    {% endif %}
+                    {% if style %}
+                    <div class="prop-detail-row">
+                        <span class="prop-detail-label">Style</span>
+                        <span class="prop-detail-value">{{ style }}</span>
+                    </div>
+                    {% endif %}
+                    {% if year_built %}
+                    <div class="prop-detail-row">
+                        <span class="prop-detail-label">Year Built</span>
+                        <span class="prop-detail-value">{{ year_built }}</span>
+                    </div>
+                    {% endif %}
+                    {% if days_on_market is not none %}
+                    <div class="prop-detail-row">
+                        <span class="prop-detail-label">Days on Market</span>
+                        <span class="prop-detail-value">{{ days_on_market }}</span>
+                    </div>
+                    {% endif %}
+                    {% if stories %}
+                    <div class="prop-detail-row">
+                        <span class="prop-detail-label">Stories</span>
+                        <span class="prop-detail-value">{{ stories }}</span>
+                    </div>
+                    {% endif %}
+                    {% if garage_spaces %}
+                    <div class="prop-detail-row">
+                        <span class="prop-detail-label">Garage</span>
+                        <span class="prop-detail-value">{{ garage_spaces }} spaces</span>
+                    </div>
+                    {% endif %}
+                    {% if subdivision %}
+                    <div class="prop-detail-row">
+                        <span class="prop-detail-label">Subdivision</span>
+                        <span class="prop-detail-value">{{ subdivision }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="prop-details-col">
+                    <div class="prop-detail-title">Land & Structure</div>
+                    {% if acreage %}
+                    <div class="prop-detail-row">
+                        <span class="prop-detail-label">Lot Size</span>
+                        <span class="prop-detail-value">{{ acreage }} acres{% if lot_sqft %} ({{ '{:,}'.format(lot_sqft) }} sqft){% endif %}</span>
+                    </div>
+                    {% endif %}
+                    {% if heating %}
+                    <div class="prop-detail-row">
+                        <span class="prop-detail-label">Heating</span>
+                        <span class="prop-detail-value">{{ heating }}</span>
+                    </div>
+                    {% endif %}
+                    {% if cooling %}
+                    <div class="prop-detail-row">
+                        <span class="prop-detail-label">Cooling</span>
+                        <span class="prop-detail-value">{{ cooling }}</span>
+                    </div>
+                    {% endif %}
+                    {% if water_source %}
+                    <div class="prop-detail-row">
+                        <span class="prop-detail-label">Water</span>
+                        <span class="prop-detail-value">{{ water_source }}</span>
+                    </div>
+                    {% endif %}
+                    {% if sewer %}
+                    <div class="prop-detail-row">
+                        <span class="prop-detail-label">Sewer</span>
+                        <span class="prop-detail-value">{{ sewer }}</span>
+                    </div>
+                    {% endif %}
+                    {% if roof %}
+                    <div class="prop-detail-row">
+                        <span class="prop-detail-label">Roof</span>
+                        <span class="prop-detail-value">{{ roof }}</span>
+                    </div>
+                    {% endif %}
+                    {% if foundation %}
+                    <div class="prop-detail-row">
+                        <span class="prop-detail-label">Foundation</span>
+                        <span class="prop-detail-value">{{ foundation }}</span>
+                    </div>
+                    {% endif %}
+                    {% if construction_materials %}
+                    <div class="prop-detail-row">
+                        <span class="prop-detail-label">Construction</span>
+                        <span class="prop-detail-value">{{ construction_materials }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- HOA and Tax row -->
+            {% if hoa_fee or tax_annual_amount %}
+            <div class="financial-row">
+                {% if hoa_fee %}
+                <div class="financial-item">
+                    <span class="financial-label">HOA Fee</span>
+                    <span class="financial-value">${{ '{:,.0f}'.format(hoa_fee) }}{% if hoa_frequency %} / {{ hoa_frequency }}{% endif %}</span>
+                </div>
+                {% endif %}
+                {% if tax_annual_amount %}
+                <div class="financial-item">
+                    <span class="financial-label">Annual Taxes</span>
+                    <span class="financial-value">${{ '{:,.0f}'.format(tax_annual_amount) }}{% if tax_year %} ({{ tax_year }}){% endif %}</span>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <!-- Feature pills -->
+            {% if interior_features_list %}
+            <div class="features-section">
+                <div class="features-title">Interior Features</div>
+                <div class="features-pills">
+                    {% for feat in interior_features_list %}
+                    <span class="feature-pill">{{ feat }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if exterior_features_list %}
+            <div class="features-section">
+                <div class="features-title">Exterior Features</div>
+                <div class="features-pills">
+                    {% for feat in exterior_features_list %}
+                    <span class="feature-pill">{{ feat }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if appliances_list %}
+            <div class="features-section">
+                <div class="features-title">Appliances</div>
+                <div class="features-pills">
+                    {% for feat in appliances_list %}
+                    <span class="feature-pill">{{ feat }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if flooring_list %}
+            <div class="features-section">
+                <div class="features-title">Flooring</div>
+                <div class="features-pills">
+                    {% for feat in flooring_list %}
+                    <span class="feature-pill">{{ feat }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Description (truncated if long) -->
+            {% if public_remarks %}
+            <div class="description-block">
+                <div class="description-title">Description</div>
+                <div class="description-text {{ 'truncated' if needs_extended_page else '' }}">
+                    {{ public_remarks }}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="page-footer">
+            <span>{{ agent_name }} | {{ agent_phone }}</span>
+            <span>MLS# {{ mls_number }}</span>
+        </div>
+    </div>
+
+    <!-- ====================== PAGE 3 (CONDITIONAL): EXTENDED ====================== -->
+    {% if needs_extended_page %}
+    <div class="extended-page">
+        <div class="details-header">
+            <span class="details-header-mls">{{ address }} &bull; {{ city }}, {{ state }}</span>
+            <span class="details-header-status">Continued</span>
+        </div>
+
+        <div class="extended-content">
+            {% if public_remarks %}
+            <div class="description-title">Full Description</div>
+            <div class="extended-description">
+                {{ public_remarks }}
+            </div>
+            {% endif %}
+
+            {% if directions %}
+            <div class="directions-block">
+                <div class="directions-title">Directions</div>
+                <div class="directions-text">{{ directions }}</div>
+            </div>
+            {% endif %}
+
+            {% if flood_zone %}
+            <div class="features-section">
+                <div class="features-title">Environmental</div>
+                <div class="prop-details" style="gap:30px;">
+                    <div class="prop-details-col">
+                        {% if flood_zone %}
+                        <div class="prop-detail-row">
+                            <span class="prop-detail-label">Flood Zone</span>
+                            <span class="prop-detail-value">{{ flood_zone }}{% if flood_factor %} (Factor: {{ flood_factor }}/10){% endif %}</span>
+                        </div>
+                        {% endif %}
+                        {% if elevation_feet %}
+                        <div class="prop-detail-row">
+                            <span class="prop-detail-label">Elevation</span>
+                            <span class="prop-detail-value">{{ '{:,}'.format(elevation_feet) }} ft</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="prop-details-col"></div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Sold info for closed listings -->
+            {% set status_lower = status|lower %}
+            {% if status_lower in ['sold','closed'] and sold_price %}
+            <div class="sold-info">
+                <div class="sold-info-title">Sale Information</div>
+                <div class="sold-info-grid">
+                    <div class="sold-info-item">
+                        <div class="sold-info-label">Sold Price</div>
+                        <div class="sold-info-value">${{ '{:,.0f}'.format(sold_price) }}</div>
+                    </div>
+                    {% if sold_date %}
+                    <div class="sold-info-item">
+                        <div class="sold-info-label">Sold Date</div>
+                        <div class="sold-info-value">{{ sold_date[:10] }}</div>
+                    </div>
+                    {% endif %}
+                    {% if original_list_price and original_list_price != list_price %}
+                    <div class="sold-info-item">
+                        <div class="sold-info-label">Original List</div>
+                        <div class="sold-info-value">${{ '{:,.0f}'.format(original_list_price) }}</div>
+                    </div>
+                    {% endif %}
+                    <div class="sold-info-item">
+                        <div class="sold-info-label">Final List</div>
+                        <div class="sold-info-value">${{ '{:,.0f}'.format(list_price) }}</div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="page-footer">
+            <span>{{ agent_name }} | {{ agent_phone }}</span>
+            <span>MLS# {{ mls_number }}</span>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ====================== AGENT CONTACT PAGE ====================== -->
+    <div class="agent-page">
+        <div class="agent-accent-line"></div>
+
+        {% if agent_headshot %}
+        <img src="{{ agent_headshot }}" alt="{{ agent_name }}" class="agent-photo">
+        {% endif %}
+
+        <div class="agent-name">{{ agent_name }}</div>
+        <div class="agent-title-text">REALTOR</div>
+        <div class="agent-brokerage">{{ brokerage_name }}</div>
+
+        <div class="agent-contact-block">
+            <div class="agent-contact-item">
+                <a href="mailto:{{ agent_email }}">{{ agent_email }}</a>
+            </div>
+            <div class="agent-contact-item">
+                <a href="tel:{{ agent_phone }}">{{ agent_phone }}</a>
+            </div>
+        </div>
+
+        <div class="agent-message">
+            "Interested in this property? I would love to help you schedule
+            a showing or answer any questions. Please don't hesitate to reach out."
+        </div>
+
+        <div class="agent-website">wncmountain.homes</div>
+
+        {% if brokerage_logo %}
+        <img src="{{ brokerage_logo }}" alt="{{ brokerage_name }}" class="agent-brokerage-logo">
+        {% endif %}
+    </div>
+
+</body>
+</html>

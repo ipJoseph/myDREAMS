@@ -710,3 +710,85 @@ def listing_stats():
             'success': False,
             'error': {'code': 'SERVER_ERROR', 'message': 'Failed to retrieve stats'}
         }), 500
+
+
+@public_bp.route('/listings/<listing_id>/brochure', methods=['GET'])
+def get_listing_brochure(listing_id):
+    """
+    Generate and return a single-property brochure PDF.
+
+    Returns application/pdf with Content-Disposition attachment header.
+    """
+    from flask import Response
+    try:
+        from apps.automation.brochure_generator import (
+            generate_brochure_bytes, get_listing_data, get_brochure_filename
+        )
+    except ImportError:
+        return jsonify({
+            'success': False,
+            'error': {'code': 'SERVER_ERROR', 'message': 'PDF generation unavailable'}
+        }), 500
+
+    listing = get_listing_data(listing_id)
+    if not listing:
+        return jsonify({
+            'success': False,
+            'error': {'code': 'NOT_FOUND', 'message': 'Listing not found'}
+        }), 404
+
+    pdf_bytes = generate_brochure_bytes(listing_id)
+    if not pdf_bytes:
+        return jsonify({
+            'success': False,
+            'error': {'code': 'SERVER_ERROR', 'message': 'Failed to generate brochure'}
+        }), 500
+
+    filename = get_brochure_filename(listing)
+
+    return Response(
+        pdf_bytes,
+        mimetype='application/pdf',
+        headers={
+            'Content-Disposition': f'attachment; filename="{filename}"',
+        },
+    )
+
+
+@public_bp.route('/collections/<share_token>/brochure', methods=['GET'])
+def get_collection_brochure(share_token):
+    """
+    Generate and return a combined PDF brochure for all properties in a collection.
+
+    Each property gets its own full brochure pages, concatenated into one PDF.
+    """
+    from flask import Response
+    try:
+        from apps.automation.brochure_generator import generate_collection_pdf
+    except ImportError:
+        return jsonify({
+            'success': False,
+            'error': {'code': 'SERVER_ERROR', 'message': 'PDF generation unavailable'}
+        }), 500
+
+    pdf_bytes, collection_name = generate_collection_pdf(share_token)
+
+    if not pdf_bytes:
+        return jsonify({
+            'success': False,
+            'error': {'code': 'NOT_FOUND', 'message': 'Collection not found or empty'}
+        }), 404
+
+    # Clean collection name for filename
+    import re as _re
+    clean_name = _re.sub(r'[^a-zA-Z0-9\- ]', '', collection_name)
+    clean_name = clean_name.replace(' ', '-').strip('-') or 'Collection'
+    filename = f"{clean_name}.pdf"
+
+    return Response(
+        pdf_bytes,
+        mimetype='application/pdf',
+        headers={
+            'Content-Disposition': f'attachment; filename="{filename}"',
+        },
+    )

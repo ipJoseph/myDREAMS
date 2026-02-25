@@ -201,12 +201,25 @@ export default async function SharedCollectionPage({
           <p className="text-sm text-[var(--color-text-light)] mb-4">
             Interested in any of these properties?
           </p>
-          <Link
-            href="/contact"
-            className="inline-block px-8 py-3 bg-[var(--color-accent)] text-[var(--color-primary)] font-semibold text-sm uppercase tracking-wider hover:bg-[var(--color-accent-hover)] transition"
-          >
-            Contact Us
-          </Link>
+          <div className="flex items-center justify-center gap-4">
+            <Link
+              href="/contact"
+              className="inline-block px-8 py-3 bg-[var(--color-accent)] text-[var(--color-primary)] font-semibold text-sm uppercase tracking-wider hover:bg-[var(--color-accent-hover)] transition"
+            >
+              Contact Us
+            </Link>
+            {collection.listings.length > 0 && (
+              <a
+                href={`/api/public/collections/${token}/brochure`}
+                className="inline-flex items-center gap-2 px-6 py-3 border border-gray-300 text-sm text-[var(--color-text)] font-semibold uppercase tracking-wider hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] transition"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Download PDF
+              </a>
+            )}
+          </div>
         </div>
       </div>
     </div>

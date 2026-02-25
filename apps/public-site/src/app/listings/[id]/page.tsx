@@ -310,6 +310,19 @@ export default async function ListingDetailPage({ params }: PageProps) {
                 <AddToCollectionButton listingId={listing.id} variant="button" />
               </div>
 
+              {/* Download Brochure */}
+              <div className="mt-4 pt-4 border-t border-gray-200/60">
+                <a
+                  href={`/api/public/listings/${listing.id}/brochure`}
+                  className="flex items-center justify-center gap-2 w-full py-2.5 border border-gray-300 text-sm text-[var(--color-text)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] transition"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Download Brochure
+                </a>
+              </div>
+
               {/* Agent info */}
               {listing.listing_agent_name && (
                 <div className="border-t border-gray-200/60 pt-4 mt-5">
