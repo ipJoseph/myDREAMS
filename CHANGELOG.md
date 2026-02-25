@@ -34,6 +34,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Henderson County: Property Summary (ncptscloud), updated GIS deep link from deprecated GoMaps
   - Haywood, Swain, Clay: Appraisal Card PDF links
   - Restructured `COUNTY_GIS_URLS` into `COUNTY_LINKS` with multiple document types per county
+- **Flood Zone Enrichment** (2026-02-24)
+  - FEMA National Flood Hazard Layer (NFHL) API integration for all listings
+  - New script: `apps/navica/enrich_flood.py` with 0.3s rate limiting
+  - Stores `flood_zone` (FEMA code) and derived `flood_factor` (1-10 risk score)
+  - Flood factor scoring: Floodway=10, SFHA zones=8, A99=6, 500-year=4, minimal=1
+  - Dashboard map query now includes flood_zone, flood_factor, view_potential columns
+- **View Potential Enrichment** (2026-02-24)
+  - USGS EPQS terrain sampling: 8 compass points at 1km radius around each listing
+  - New script: `apps/navica/enrich_views.py` with scoring algorithm
+  - Score 1-10: 60% elevation advantage + 40% directional dominance
+  - Requires existing `elevation_feet` data as baseline
 - **Elevation Data on All Listings** (2026-02-24)
   - USGS Elevation Point Query Service enrichment for all 1,604 listings (8 ft to 4,900 ft)
   - New script: `apps/navica/enrich_elevation.py` with polite rate limiting
