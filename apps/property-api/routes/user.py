@@ -1,0 +1,526 @@
+"""
+User API endpoints for authentication, favorites, and saved searches.
+
+These endpoints handle buyer account management for the public website.
+Authentication is handled by Auth.js (NextAuth v5) on the Next.js side;
+these endpoints are called from the Auth.js callbacks and from the
+client-side UI.
+
+Endpoints:
+    POST /user/register       - Create account with email/password
+    POST /user/login          - Validate credentials, return user data
+    POST /user/oauth-sync     - Sync OAuth user (called from Auth.js callback)
+    GET  /user/me             - Get current user profile (requires JWT)
+    GET  /user/favorites      - List user's favorited listings
+    POST /user/favorites      - Add a listing to favorites
+    DELETE /user/favorites/:id - Remove a favorite
+    GET  /user/searches       - List saved searches
+    POST /user/searches       - Save a search
+    DELETE /user/searches/:id - Delete a saved search
+"""
+
+import json
+import os
+import sqlite3
+import sys
+import uuid
+from datetime import datetime
+from pathlib import Path
+
+from flask import Blueprint, request, jsonify
+
+PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+
+user_bp = Blueprint('user', __name__)
+
+DB_PATH = os.getenv('DREAMS_DB_PATH', str(PROJECT_ROOT / 'data' / 'dreams.db'))
+
+
+def get_db():
+    """Get a database connection."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA busy_timeout = 5000")
+    conn.execute("PRAGMA foreign_keys = ON")
+    return conn
+
+
+def _hash_password(password: str) -> str:
+    """Hash a password with bcrypt."""
+    import bcrypt
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+
+def _check_password(password: str, hashed: str) -> bool:
+    """Verify a password against a bcrypt hash."""
+    import bcrypt
+    return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
+
+
+def _get_user_from_jwt():
+    """Extract user ID from the Authorization header (Bearer JWT).
+
+    In our architecture, Auth.js manages sessions via JWTs. The Next.js
+    client sends the JWT in the Authorization header for API calls that
+    need authentication. We decode it using the shared AUTH_SECRET.
+    """
+    auth_header = request.headers.get('Authorization', '')
+    if not auth_header.startswith('Bearer '):
+        return None
+
+    token = auth_header[7:]
+    auth_secret = os.getenv('AUTH_SECRET')
+    if not auth_secret:
+        return None
+
+    try:
+        import jwt
+        payload = jwt.decode(token, auth_secret, algorithms=['HS256'])
+        return payload.get('id') or payload.get('sub')
+    except Exception:
+        return None
+
+
+def _user_dict(row) -> dict:
+    """Convert a user row to a safe dict (no password hash)."""
+    if not row:
+        return None
+    d = dict(row)
+    d.pop('password_hash', None)
+    return d
+
+
+# -----------------------------------------------------------------------
+# Registration & Login
+# -----------------------------------------------------------------------
+
+@user_bp.route('/register', methods=['POST'])
+def register():
+    """Create a new user account with email and password."""
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'error': 'Request body required'}), 400
+
+    email = (data.get('email') or '').strip().lower()
+    password = data.get('password', '')
+    name = (data.get('name') or '').strip()
+
+    if not email or not password:
+        return jsonify({'success': False, 'error': 'Email and password are required'}), 400
+
+    if len(password) < 8:
+        return jsonify({'success': False, 'error': 'Password must be at least 8 characters'}), 400
+
+    try:
+        db = get_db()
+
+        # Check for existing user
+        existing = db.execute('SELECT id FROM users WHERE email = ?', [email]).fetchone()
+        if existing:
+            db.close()
+            return jsonify({'success': False, 'error': 'An account with this email already exists'}), 409
+
+        user_id = str(uuid.uuid4())
+        now = datetime.now().isoformat()
+
+        db.execute(
+            'INSERT INTO users (id, email, name, password_hash, created_at, last_login) '
+            'VALUES (?, ?, ?, ?, ?, ?)',
+            [user_id, email, name, _hash_password(password), now, now]
+        )
+        db.commit()
+
+        user = db.execute('SELECT * FROM users WHERE id = ?', [user_id]).fetchone()
+        db.close()
+
+        return jsonify({
+            'success': True,
+            'data': _user_dict(user),
+        }), 201
+
+    except Exception:
+        return jsonify({'success': False, 'error': 'Registration failed'}), 500
+
+
+@user_bp.route('/login', methods=['POST'])
+def login():
+    """Validate email/password and return user data.
+
+    Called by Auth.js Credentials provider's authorize() function.
+    """
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'error': 'Request body required'}), 400
+
+    email = (data.get('email') or '').strip().lower()
+    password = data.get('password', '')
+
+    if not email or not password:
+        return jsonify({'success': False, 'error': 'Email and password are required'}), 400
+
+    try:
+        db = get_db()
+        user = db.execute('SELECT * FROM users WHERE email = ?', [email]).fetchone()
+
+        if not user or not user['password_hash']:
+            db.close()
+            return jsonify({'success': False, 'error': 'Invalid email or password'}), 401
+
+        if not _check_password(password, user['password_hash']):
+            db.close()
+            return jsonify({'success': False, 'error': 'Invalid email or password'}), 401
+
+        # Update last login
+        db.execute('UPDATE users SET last_login = ? WHERE id = ?',
+                   [datetime.now().isoformat(), user['id']])
+        db.commit()
+        db.close()
+
+        return jsonify({
+            'success': True,
+            'data': _user_dict(user),
+        })
+
+    except Exception:
+        return jsonify({'success': False, 'error': 'Login failed'}), 500
+
+
+@user_bp.route('/oauth-sync', methods=['POST'])
+def oauth_sync():
+    """Sync an OAuth user (Google) to our database.
+
+    Called from Auth.js jwt callback when a user signs in with Google.
+    Creates the user if they don't exist, or returns existing user.
+    """
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'error': 'Request body required'}), 400
+
+    provider = data.get('provider')
+    provider_account_id = data.get('provider_account_id')
+    email = (data.get('email') or '').strip().lower()
+    name = data.get('name', '')
+    avatar_url = data.get('avatar_url', '')
+
+    if not provider or not provider_account_id or not email:
+        return jsonify({'success': False, 'error': 'Missing required fields'}), 400
+
+    try:
+        db = get_db()
+        now = datetime.now().isoformat()
+
+        # Check if user exists by email
+        user = db.execute('SELECT * FROM users WHERE email = ?', [email]).fetchone()
+
+        if user:
+            # Update last login and avatar if needed
+            updates = {'last_login': now}
+            if avatar_url and not user['avatar_url']:
+                updates['avatar_url'] = avatar_url
+            if provider == 'google' and not user['google_id']:
+                updates['google_id'] = provider_account_id
+
+            set_clause = ', '.join(f'{k} = ?' for k in updates.keys())
+            db.execute(
+                f'UPDATE users SET {set_clause} WHERE id = ?',
+                list(updates.values()) + [user['id']]
+            )
+            db.commit()
+            user_id = user['id']
+        else:
+            # Create new user
+            user_id = str(uuid.uuid4())
+            google_id = provider_account_id if provider == 'google' else None
+
+            db.execute(
+                'INSERT INTO users (id, email, name, google_id, avatar_url, email_verified, created_at, last_login) '
+                'VALUES (?, ?, ?, ?, ?, 1, ?, ?)',
+                [user_id, email, name, google_id, avatar_url, now, now]
+            )
+            db.commit()
+
+        # Ensure auth_accounts entry exists
+        existing_account = db.execute(
+            'SELECT id FROM auth_accounts WHERE provider = ? AND provider_account_id = ?',
+            [provider, provider_account_id]
+        ).fetchone()
+
+        if not existing_account:
+            db.execute(
+                'INSERT INTO auth_accounts (id, user_id, type, provider, provider_account_id) '
+                'VALUES (?, ?, ?, ?, ?)',
+                [str(uuid.uuid4()), user_id, 'oauth', provider, provider_account_id]
+            )
+            db.commit()
+
+        user = db.execute('SELECT * FROM users WHERE id = ?', [user_id]).fetchone()
+        db.close()
+
+        return jsonify({
+            'success': True,
+            'data': _user_dict(user),
+        })
+
+    except Exception:
+        return jsonify({'success': False, 'error': 'OAuth sync failed'}), 500
+
+
+@user_bp.route('/me', methods=['GET'])
+def get_me():
+    """Get the current user's profile."""
+    user_id = _get_user_from_jwt()
+    if not user_id:
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+    try:
+        db = get_db()
+        user = db.execute('SELECT * FROM users WHERE id = ?', [user_id]).fetchone()
+        db.close()
+
+        if not user:
+            return jsonify({'success': False, 'error': 'User not found'}), 404
+
+        return jsonify({
+            'success': True,
+            'data': _user_dict(user),
+        })
+
+    except Exception:
+        return jsonify({'success': False, 'error': 'Failed to get profile'}), 500
+
+
+# -----------------------------------------------------------------------
+# Favorites
+# -----------------------------------------------------------------------
+
+@user_bp.route('/favorites', methods=['GET'])
+def list_favorites():
+    """List the current user's favorited listings."""
+    user_id = _get_user_from_jwt()
+    if not user_id:
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+    try:
+        db = get_db()
+
+        rows = db.execute(
+            '''SELECT uf.id as favorite_id, uf.created_at as favorited_at,
+                      l.id, l.mls_number, l.status, l.list_price, l.sold_price,
+                      l.address, l.city, l.state, l.zip, l.county,
+                      l.property_type, l.beds, l.baths, l.sqft, l.acreage,
+                      l.primary_photo, l.days_on_market, l.list_date
+               FROM user_favorites uf
+               JOIN listings l ON l.id = uf.listing_id
+               WHERE uf.user_id = ?
+               ORDER BY uf.created_at DESC''',
+            [user_id]
+        ).fetchall()
+
+        db.close()
+
+        return jsonify({
+            'success': True,
+            'data': [dict(r) for r in rows],
+            'count': len(rows),
+        })
+
+    except Exception:
+        return jsonify({'success': False, 'error': 'Failed to list favorites'}), 500
+
+
+@user_bp.route('/favorites', methods=['POST'])
+def add_favorite():
+    """Add a listing to the user's favorites."""
+    user_id = _get_user_from_jwt()
+    if not user_id:
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+    data = request.get_json()
+    listing_id = data.get('listing_id') if data else None
+    if not listing_id:
+        return jsonify({'success': False, 'error': 'listing_id is required'}), 400
+
+    try:
+        db = get_db()
+
+        # Verify listing exists
+        listing = db.execute('SELECT id FROM listings WHERE id = ?', [listing_id]).fetchone()
+        if not listing:
+            db.close()
+            return jsonify({'success': False, 'error': 'Listing not found'}), 404
+
+        fav_id = str(uuid.uuid4())
+        db.execute(
+            'INSERT OR IGNORE INTO user_favorites (id, user_id, listing_id, created_at) '
+            'VALUES (?, ?, ?, ?)',
+            [fav_id, user_id, listing_id, datetime.now().isoformat()]
+        )
+        db.commit()
+        db.close()
+
+        return jsonify({'success': True, 'data': {'id': fav_id}}), 201
+
+    except Exception:
+        return jsonify({'success': False, 'error': 'Failed to add favorite'}), 500
+
+
+@user_bp.route('/favorites/<listing_id>', methods=['DELETE'])
+def remove_favorite(listing_id):
+    """Remove a listing from the user's favorites."""
+    user_id = _get_user_from_jwt()
+    if not user_id:
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+    try:
+        db = get_db()
+        db.execute(
+            'DELETE FROM user_favorites WHERE user_id = ? AND listing_id = ?',
+            [user_id, listing_id]
+        )
+        db.commit()
+        db.close()
+
+        return jsonify({'success': True})
+
+    except Exception:
+        return jsonify({'success': False, 'error': 'Failed to remove favorite'}), 500
+
+
+@user_bp.route('/favorites/check', methods=['GET'])
+def check_favorites():
+    """Check which listing IDs from a list are favorited by the current user.
+
+    Query params:
+        ids - Comma-separated listing IDs
+    """
+    user_id = _get_user_from_jwt()
+    if not user_id:
+        return jsonify({'success': True, 'data': []})
+
+    ids_param = request.args.get('ids', '')
+    if not ids_param:
+        return jsonify({'success': True, 'data': []})
+
+    listing_ids = [lid.strip() for lid in ids_param.split(',') if lid.strip()]
+    if not listing_ids:
+        return jsonify({'success': True, 'data': []})
+
+    try:
+        db = get_db()
+        placeholders = ','.join(['?'] * len(listing_ids))
+        rows = db.execute(
+            f'SELECT listing_id FROM user_favorites WHERE user_id = ? AND listing_id IN ({placeholders})',
+            [user_id] + listing_ids
+        ).fetchall()
+        db.close()
+
+        return jsonify({
+            'success': True,
+            'data': [r['listing_id'] for r in rows],
+        })
+
+    except Exception:
+        return jsonify({'success': False, 'error': 'Failed to check favorites'}), 500
+
+
+# -----------------------------------------------------------------------
+# Saved Searches
+# -----------------------------------------------------------------------
+
+@user_bp.route('/searches', methods=['GET'])
+def list_searches():
+    """List the current user's saved searches."""
+    user_id = _get_user_from_jwt()
+    if not user_id:
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+    try:
+        db = get_db()
+        rows = db.execute(
+            'SELECT * FROM saved_searches WHERE user_id = ? ORDER BY created_at DESC',
+            [user_id]
+        ).fetchall()
+        db.close()
+
+        searches = []
+        for row in rows:
+            d = dict(row)
+            # Parse filters_json back to object
+            try:
+                d['filters'] = json.loads(d.pop('filters_json'))
+            except (json.JSONDecodeError, KeyError):
+                d['filters'] = {}
+            searches.append(d)
+
+        return jsonify({
+            'success': True,
+            'data': searches,
+            'count': len(searches),
+        })
+
+    except Exception:
+        return jsonify({'success': False, 'error': 'Failed to list searches'}), 500
+
+
+@user_bp.route('/searches', methods=['POST'])
+def save_search():
+    """Save a search with filters."""
+    user_id = _get_user_from_jwt()
+    if not user_id:
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'error': 'Request body required'}), 400
+
+    name = (data.get('name') or '').strip()
+    filters = data.get('filters', {})
+    alert_frequency = data.get('alert_frequency', 'daily')
+
+    if not name:
+        return jsonify({'success': False, 'error': 'Search name is required'}), 400
+
+    if alert_frequency not in ('daily', 'weekly', 'never'):
+        alert_frequency = 'daily'
+
+    try:
+        db = get_db()
+        search_id = str(uuid.uuid4())
+        db.execute(
+            'INSERT INTO saved_searches (id, user_id, name, filters_json, alert_frequency, created_at) '
+            'VALUES (?, ?, ?, ?, ?, ?)',
+            [search_id, user_id, name, json.dumps(filters), alert_frequency, datetime.now().isoformat()]
+        )
+        db.commit()
+        db.close()
+
+        return jsonify({
+            'success': True,
+            'data': {'id': search_id, 'name': name, 'filters': filters},
+        }), 201
+
+    except Exception:
+        return jsonify({'success': False, 'error': 'Failed to save search'}), 500
+
+
+@user_bp.route('/searches/<search_id>', methods=['DELETE'])
+def delete_search(search_id):
+    """Delete a saved search."""
+    user_id = _get_user_from_jwt()
+    if not user_id:
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+    try:
+        db = get_db()
+        db.execute(
+            'DELETE FROM saved_searches WHERE id = ? AND user_id = ?',
+            [search_id, user_id]
+        )
+        db.commit()
+        db.close()
+
+        return jsonify({'success': True})
+
+    except Exception:
+        return jsonify({'success': False, 'error': 'Failed to delete search'}), 500

@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import type { Listing } from "@/lib/types";
 import { formatPrice, formatNumber } from "@/lib/api";
+import FavoriteButton from "./FavoriteButton";
 
 interface PropertyCardProps {
   listing: Listing;
@@ -56,10 +57,16 @@ export default function PropertyCard({ listing, variant = "light" }: PropertyCar
                 ? "bg-[var(--color-accent)] text-[var(--color-primary)]"
                 : listing.status === "PENDING"
                   ? "bg-white/90 text-gray-700"
-                  : "bg-gray-600 text-white"
+                  : listing.status === "SOLD" || listing.status === "CLOSED"
+                    ? "bg-red-600 text-white"
+                    : "bg-gray-600 text-white"
             }`}
           >
-            {listing.status}
+            {listing.status === "SOLD" || listing.status === "CLOSED"
+              ? listing.sold_date
+                ? `Sold ${new Date(listing.sold_date).toLocaleDateString("en-US", { month: "short", year: "numeric" })}`
+                : "Sold"
+              : listing.status}
           </span>
         </div>
         {/* Days on market */}
@@ -68,6 +75,10 @@ export default function PropertyCard({ listing, variant = "light" }: PropertyCar
             {listing.days_on_market} DOM
           </div>
         )}
+        {/* Favorite button */}
+        <div className="absolute bottom-3 left-3">
+          <FavoriteButton listingId={listing.id} />
+        </div>
         {/* Photo count */}
         {listing.photo_count != null && listing.photo_count > 1 && (
           <div className="absolute bottom-3 right-3 bg-black/60 text-white text-xs px-2 py-1">
@@ -78,10 +89,24 @@ export default function PropertyCard({ listing, variant = "light" }: PropertyCar
 
       {/* Info */}
       <div className="p-5">
-        <div className={`text-2xl font-light ${isDark ? "text-white" : "text-[var(--color-primary)]"}`}
-          style={{ fontFamily: "Georgia, serif" }}>
-          {formatPrice(listing.list_price)}
-        </div>
+        {(listing.status === "SOLD" || listing.status === "CLOSED") && listing.sold_price ? (
+          <div>
+            <div className={`text-2xl font-light ${isDark ? "text-white" : "text-[var(--color-primary)]"}`}
+              style={{ fontFamily: "Georgia, serif" }}>
+              {formatPrice(listing.sold_price)}
+            </div>
+            {listing.sold_price !== listing.list_price && (
+              <div className={`text-sm line-through ${isDark ? "text-white/40" : "text-[var(--color-text-light)]"}`}>
+                Listed at {formatPrice(listing.list_price)}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className={`text-2xl font-light ${isDark ? "text-white" : "text-[var(--color-primary)]"}`}
+            style={{ fontFamily: "Georgia, serif" }}>
+            {formatPrice(listing.list_price)}
+          </div>
+        )}
         <div className={`flex items-center gap-3 text-sm mt-2 ${isDark ? "text-white/50" : "text-[var(--color-text-light)]"}`}>
           {listing.beds != null && <span>{listing.beds} bd</span>}
           {listing.baths != null && <span>{listing.baths} ba</span>}

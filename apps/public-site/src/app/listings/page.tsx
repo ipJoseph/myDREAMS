@@ -24,6 +24,7 @@ async function ListingsGrid({
   let listings, pagination;
   try {
     const result = await searchListings({
+    status: searchParams.status,
     q: searchParams.q,
     city: searchParams.city,
     county: searchParams.county,

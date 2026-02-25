@@ -61,6 +61,8 @@ export interface Listing {
   public_remarks?: string;
   directions?: string;
   parcel_number?: string;
+  sold_price?: number;
+  sold_date?: string;
   updated_at?: string;
 }
 
@@ -115,6 +117,32 @@ export interface Area {
   min_price: number;
   max_price: number;
   avg_price: number | null;
+}
+
+export interface AddressHistoryListing {
+  id: string;
+  mls_number: string;
+  status: string;
+  list_price: number;
+  sold_price?: number;
+  list_date?: string;
+  sold_date?: string;
+  days_on_market?: number;
+  listing_office_name?: string;
+}
+
+export interface PropertyChange {
+  change_type: string;
+  old_value: string;
+  new_value: string;
+  change_amount?: number;
+  change_percent?: number;
+  date: string;
+}
+
+export interface AddressHistory {
+  prior_listings: AddressHistoryListing[];
+  changes: PropertyChange[];
 }
 
 export interface ListingStats {

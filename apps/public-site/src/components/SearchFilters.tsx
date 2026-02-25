@@ -1,8 +1,10 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
+import { useSession } from "next-auth/react";
 import ViewToggle from "./ViewToggle";
+import AuthModal from "./AuthModal";
 
 const PRICE_OPTIONS = [
   { label: "Any", value: "" },
@@ -34,6 +36,12 @@ const TYPE_OPTIONS = [
   { label: "Multi-Family", value: "Multi-Family" },
 ];
 
+const STATUS_OPTIONS = [
+  { label: "Active", value: "" },
+  { label: "Pending", value: "PENDING" },
+  { label: "Sold", value: "SOLD" },
+];
+
 const SORT_OPTIONS = [
   { label: "Newest", value: "list_date:desc" },
   { label: "Price: Low to High", value: "list_price:asc" },
@@ -43,12 +51,16 @@ const SORT_OPTIONS = [
   { label: "Acreage", value: "acreage:desc" },
   { label: "Elevation: High to Low", value: "elevation_feet:desc" },
   { label: "Elevation: Low to High", value: "elevation_feet:asc" },
+  { label: "Recently Sold", value: "sold_date:desc" },
 ];
 
 export default function SearchFilters() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const { data: session } = useSession();
+  const [showAuth, setShowAuth] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
 
   const updateFilters = useCallback(
     (key: string, value: string) => {
@@ -116,6 +128,18 @@ export default function SearchFilters() {
         {/* Filter row */}
         <div className="flex flex-wrap gap-3 items-center">
           <select
+            value={searchParams.get("status") || ""}
+            onChange={(e) => updateFilters("status", e.target.value)}
+            className="px-3 py-2 bg-white/10 border border-white/20 text-white text-sm focus:outline-none focus:border-[var(--color-accent)] [&>option]:text-gray-900"
+          >
+            {STATUS_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+
+          <select
             value={searchParams.get("min_price") || ""}
             onChange={(e) => updateFilters("min_price", e.target.value)}
             className="px-3 py-2 bg-white/10 border border-white/20 text-white text-sm focus:outline-none focus:border-[var(--color-accent)] [&>option]:text-gray-900"
@@ -167,12 +191,46 @@ export default function SearchFilters() {
           </select>
 
           {hasActiveFilters && (
-            <button
-              onClick={clearAllFilters}
-              className="px-3 py-2 text-sm text-[var(--color-accent)] hover:text-white transition"
-            >
-              Clear All
-            </button>
+            <>
+              <button
+                onClick={clearAllFilters}
+                className="px-3 py-2 text-sm text-[var(--color-accent)] hover:text-white transition"
+              >
+                Clear All
+              </button>
+              <button
+                onClick={async () => {
+                  if (!session) {
+                    setShowAuth(true);
+                    return;
+                  }
+                  setSaveStatus("saving");
+                  const filters: Record<string, string> = {};
+                  for (const [key, value] of searchParams.entries()) {
+                    if (!["sort", "order", "page", "view"].includes(key) && value) {
+                      filters[key] = value;
+                    }
+                  }
+                  const name = filters.city || filters.county || filters.q || "My Search";
+                  try {
+                    await fetch("/api/user/searches", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ name, filters }),
+                    });
+                    setSaveStatus("saved");
+                    setTimeout(() => setSaveStatus("idle"), 2000);
+                  } catch {
+                    setSaveStatus("idle");
+                  }
+                }}
+                disabled={saveStatus === "saving"}
+                className="px-3 py-2 text-sm text-white/70 hover:text-[var(--color-accent)] transition disabled:opacity-50"
+              >
+                {saveStatus === "saved" ? "Saved!" : saveStatus === "saving" ? "Saving..." : "Save Search"}
+              </button>
+              <AuthModal isOpen={showAuth} onClose={() => setShowAuth(false)} />
+            </>
           )}
 
           <ViewToggle />

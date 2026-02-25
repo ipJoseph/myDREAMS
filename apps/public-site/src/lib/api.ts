@@ -12,6 +12,7 @@ import type {
   Pagination,
   Area,
   ListingStats,
+  AddressHistory,
 } from "./types";
 
 const API_BASE =
@@ -103,6 +104,19 @@ export async function getListing(id: string): Promise<Listing | null> {
   try {
     const url = apiUrl(`/listings/${id}`);
     const data = await fetchApi<ApiResponse<Listing>>(url);
+    return data.data;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Get address history for a listing (prior listings + price/status changes).
+ */
+export async function getAddressHistory(listingId: string): Promise<AddressHistory | null> {
+  try {
+    const url = apiUrl(`/listings/${listingId}/history`);
+    const data = await fetchApi<ApiResponse<AddressHistory>>(url);
     return data.data;
   } catch {
     return null;

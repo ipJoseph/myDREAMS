@@ -5,6 +5,7 @@ import { getListing, formatPrice, formatNumber } from "@/lib/api";
 import { getCountyLinks } from "@/lib/countyLinks";
 import PhotoBrowser from "@/components/PhotoBrowser";
 import PropertyMap from "@/components/PropertyMap";
+import PropertyHistory from "@/components/PropertyHistory";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -17,7 +18,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   return {
     title: `${listing.address}, ${listing.city} NC`,
-    description: `${listing.beds} bed, ${listing.baths} bath ${listing.property_type} for sale at ${formatPrice(listing.list_price)} in ${listing.city}, NC. MLS# ${listing.mls_number}.`,
+    description: listing.status === "SOLD" || listing.status === "CLOSED"
+      ? `${listing.beds} bed, ${listing.baths} bath ${listing.property_type} sold for ${formatPrice(listing.sold_price || listing.list_price)} in ${listing.city}, NC. MLS# ${listing.mls_number}.`
+      : `${listing.beds} bed, ${listing.baths} bath ${listing.property_type} for sale at ${formatPrice(listing.list_price)} in ${listing.city}, NC. MLS# ${listing.mls_number}.`,
   };
 }
 
@@ -103,10 +106,24 @@ export default async function ListingDetailPage({ params }: PageProps) {
             <div className="mb-8">
               <div className="flex items-start justify-between">
                 <div>
-                  <h1 className="text-4xl font-light text-[var(--color-primary)]"
-                    style={{ fontFamily: "Georgia, serif" }}>
-                    {formatPrice(listing.list_price)}
-                  </h1>
+                  {(listing.status === "SOLD" || listing.status === "CLOSED") && listing.sold_price ? (
+                    <>
+                      <h1 className="text-4xl font-light text-[var(--color-primary)]"
+                        style={{ fontFamily: "Georgia, serif" }}>
+                        Sold for {formatPrice(listing.sold_price)}
+                      </h1>
+                      {listing.sold_price !== listing.list_price && (
+                        <p className="text-lg text-[var(--color-text-light)] line-through mt-1">
+                          Listed at {formatPrice(listing.list_price)}
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <h1 className="text-4xl font-light text-[var(--color-primary)]"
+                      style={{ fontFamily: "Georgia, serif" }}>
+                      {formatPrice(listing.list_price)}
+                    </h1>
+                  )}
                   <p className="text-lg text-[var(--color-text)] mt-2">
                     {listing.address}
                   </p>
@@ -121,10 +138,16 @@ export default async function ListingDetailPage({ params }: PageProps) {
                       ? "bg-[var(--color-accent)] text-[var(--color-primary)]"
                       : listing.status === "PENDING"
                         ? "bg-white text-[var(--color-text)]"
-                        : "bg-gray-200 text-[var(--color-text)]"
+                        : listing.status === "SOLD" || listing.status === "CLOSED"
+                          ? "bg-red-600 text-white"
+                          : "bg-gray-200 text-[var(--color-text)]"
                   }`}
                 >
-                  {listing.status}
+                  {listing.status === "SOLD" || listing.status === "CLOSED"
+                    ? listing.sold_date
+                      ? `Sold ${new Date(listing.sold_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
+                      : "Sold"
+                    : listing.status}
                 </span>
               </div>
 
@@ -198,6 +221,12 @@ export default async function ListingDetailPage({ params }: PageProps) {
                 <Detail label="MLS Source" value={listing.mls_source} />
                 <Detail label="Status" value={listing.status} />
                 <Detail label="List Date" value={listing.list_date} />
+                {listing.sold_date && (
+                  <Detail label="Sold Date" value={new Date(listing.sold_date).toLocaleDateString()} />
+                )}
+                {listing.sold_price != null && (
+                  <Detail label="Sold Price" value={formatPrice(listing.sold_price)} />
+                )}
                 <Detail label="Days on Market" value={listing.days_on_market?.toString()} />
                 <Detail label="Year Built" value={listing.year_built?.toString()} />
                 <Detail label="Stories" value={listing.stories?.toString()} />
@@ -246,6 +275,9 @@ export default async function ListingDetailPage({ params }: PageProps) {
 
             {/* County Records */}
             <CountyRecords county={listing.county} parcelNumber={listing.parcel_number} />
+
+            {/* Property History */}
+            <PropertyHistory listingId={listing.id} />
           </div>
 
           {/* Sidebar */}

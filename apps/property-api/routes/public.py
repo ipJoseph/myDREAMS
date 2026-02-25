@@ -47,6 +47,7 @@ PUBLIC_LISTING_FIELDS = [
     'primary_photo', 'photos', 'photo_count', 'virtual_tour_url',
     'public_remarks', 'directions',
     'parcel_number',
+    'sold_price', 'sold_date',
     'idx_opt_in', 'idx_address_display',
     'updated_at',
 ]
@@ -59,6 +60,7 @@ PUBLIC_LIST_FIELDS = [
     'property_type', 'beds', 'baths', 'sqft', 'acreage',
     'elevation_feet', 'year_built', 'primary_photo', 'photo_count',
     'days_on_market', 'list_date',
+    'sold_price', 'sold_date',
     'listing_office_name',
 ]
 
@@ -75,6 +77,7 @@ MAP_MARKER_FIELDS = [
 ALLOWED_SORT_COLUMNS = {
     'list_price', 'days_on_market', 'list_date', 'beds', 'baths',
     'sqft', 'acreage', 'elevation_feet', 'year_built', 'updated_at', 'city',
+    'sold_date', 'sold_price',
 }
 
 
@@ -409,6 +412,99 @@ def get_listing(listing_id):
         return jsonify({
             'success': False,
             'error': {'code': 'SERVER_ERROR', 'message': 'Failed to retrieve listing'}
+        }), 500
+
+
+@public_bp.route('/listings/<listing_id>/history', methods=['GET'])
+def get_listing_history(listing_id):
+    """
+    Get the transaction history for a listing's address.
+
+    Returns prior listings at the same address and price/status changes
+    from the property_changes table, merged into a unified timeline.
+
+    Matching strategy: uses parcel_number when available (handles duplicate
+    addresses like "00 Deerwood Drive"), falls back to address+city match.
+    """
+    try:
+        db = get_db()
+
+        # Get the current listing's address info
+        current = db.execute(
+            "SELECT address, city, parcel_number FROM listings WHERE id = ? AND idx_opt_in = 1",
+            [listing_id]
+        ).fetchone()
+
+        if not current:
+            db.close()
+            return jsonify({
+                'success': False,
+                'error': {'code': 'NOT_FOUND', 'message': 'Listing not found'}
+            }), 404
+
+        address = current['address']
+        city = current['city']
+        parcel = current['parcel_number']
+
+        # Find related listings: prefer parcel_number match, fall back to address+city
+        history_fields = [
+            'id', 'mls_number', 'status', 'list_price', 'sold_price',
+            'list_date', 'sold_date', 'days_on_market', 'listing_office_name',
+        ]
+        fields_str = ", ".join(history_fields)
+
+        if parcel and parcel.strip():
+            related_rows = db.execute(
+                f"SELECT {fields_str} FROM listings "
+                "WHERE parcel_number = ? AND id != ? AND idx_opt_in = 1 "
+                "ORDER BY list_date DESC",
+                [parcel, listing_id]
+            ).fetchall()
+        else:
+            related_rows = db.execute(
+                f"SELECT {fields_str} FROM listings "
+                "WHERE LOWER(address) = LOWER(?) AND LOWER(city) = LOWER(?) "
+                "AND id != ? AND idx_opt_in = 1 "
+                "ORDER BY list_date DESC",
+                [address, city, listing_id]
+            ).fetchall()
+
+        prior_listings = [row_to_dict(r) for r in related_rows]
+
+        # Get price/status changes from property_changes table
+        change_rows = db.execute(
+            "SELECT change_type, old_value, new_value, change_amount, "
+            "change_percent, detected_at "
+            "FROM property_changes WHERE property_id = ? "
+            "ORDER BY detected_at DESC",
+            [listing_id]
+        ).fetchall()
+
+        changes = []
+        for row in change_rows:
+            changes.append({
+                'change_type': row['change_type'],
+                'old_value': row['old_value'],
+                'new_value': row['new_value'],
+                'change_amount': row['change_amount'],
+                'change_percent': row['change_percent'],
+                'date': row['detected_at'],
+            })
+
+        db.close()
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'prior_listings': prior_listings,
+                'changes': changes,
+            },
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': {'code': 'SERVER_ERROR', 'message': 'Failed to retrieve listing history'}
         }), 500
 
 

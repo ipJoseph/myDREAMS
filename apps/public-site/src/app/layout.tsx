@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import SessionWrapper from "@/components/SessionWrapper";
+import UserMenu from "@/components/UserMenu";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -48,6 +50,7 @@ function Header() {
             >
               Contact
             </Link>
+            <UserMenu />
           </div>
           {/* Mobile nav */}
           <details className="md:hidden relative">
@@ -68,6 +71,9 @@ function Header() {
               </Link>
               <Link href="/contact" className="block px-6 py-3 text-[var(--color-accent)] text-sm uppercase tracking-wide">
                 Contact
+              </Link>
+              <Link href="/account/favorites" className="block px-6 py-3 text-white/80 hover:text-[var(--color-accent)] text-sm uppercase tracking-wide border-t border-white/10">
+                My Account
               </Link>
             </div>
           </details>
@@ -187,9 +193,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="antialiased min-h-screen flex flex-col">
-        <Header />
-        <main className="flex-1">{children}</main>
-        <Footer />
+        <SessionWrapper>
+          <Header />
+          <main className="flex-1">{children}</main>
+          <Footer />
+        </SessionWrapper>
       </body>
     </html>
   );

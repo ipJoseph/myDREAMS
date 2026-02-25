@@ -22,6 +22,7 @@ from routes.properties import properties_bp
 from routes.health import health_bp
 from routes.contacts import contacts_bp
 from routes.public import public_bp
+from routes.user import user_bp
 from services.notion_sync_service import NotionSyncService
 from services.idx_validation_service import IDXValidationService
 
@@ -81,6 +82,10 @@ def check_api_key():
     if request.path.startswith('/api/public/'):
         return None
 
+    # User endpoints handle their own auth (JWT-based)
+    if request.path.startswith('/api/user/'):
+        return None
+
     # Skip auth if no API key is configured (local development)
     if not API_KEY:
         return None
@@ -103,6 +108,7 @@ app.register_blueprint(health_bp)
 app.register_blueprint(properties_bp, url_prefix='/api/v1')
 app.register_blueprint(contacts_bp, url_prefix='/api/v1')
 app.register_blueprint(public_bp, url_prefix='/api/public')
+app.register_blueprint(user_bp, url_prefix='/api/user')
 
 # Initialize services
 notion_sync_service = None
