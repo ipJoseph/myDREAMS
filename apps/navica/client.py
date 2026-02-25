@@ -335,7 +335,19 @@ class NavicaClient:
 
         while True:
             params['offset'] = str(offset)
-            data = self.get(endpoint, params)
+
+            try:
+                data = self.get(endpoint, params)
+            except NavicaAPIError as e:
+                # Navica API has a max offset of 10,000. If we hit it, return
+                # whatever we've accumulated so far instead of losing everything.
+                if 'offset' in str(e).lower() and all_results:
+                    logger.warning(
+                        f"Hit API offset limit at offset={offset}. "
+                        f"Returning {len(all_results)} records fetched so far."
+                    )
+                    break
+                raise
 
             if not data.get('success'):
                 msg = data.get('bundle', {}).get('message', 'Unknown error')

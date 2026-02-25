@@ -146,6 +146,7 @@ def enrich_listing_view(lat: float, lon: float, listing_elev: float) -> int | No
 def enrich_listings(all_listings: bool = False, test_mode: bool = False):
     """Fetch view potential for listings that have elevation but no view score."""
     conn = sqlite3.connect(str(DB_PATH))
+    conn.execute("PRAGMA busy_timeout = 30000")
     conn.row_factory = sqlite3.Row
 
     if all_listings:

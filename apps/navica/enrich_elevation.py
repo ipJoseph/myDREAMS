@@ -44,6 +44,7 @@ def get_elevation(lat: float, lon: float) -> int | None:
 def enrich_listings(all_listings: bool = False, test_mode: bool = False):
     """Fetch elevation for listings that have coordinates but no elevation."""
     conn = sqlite3.connect(str(DB_PATH))
+    conn.execute("PRAGMA busy_timeout = 30000")
     conn.row_factory = sqlite3.Row
 
     if all_listings:
