@@ -3,6 +3,7 @@ import Image from "next/image";
 import type { Listing } from "@/lib/types";
 import { formatPrice, formatNumber } from "@/lib/api";
 import FavoriteButton from "./FavoriteButton";
+import AddToCollectionButton from "./AddToCollectionButton";
 
 interface PropertyCardProps {
   listing: Listing;
@@ -75,9 +76,10 @@ export default function PropertyCard({ listing, variant = "light" }: PropertyCar
             {listing.days_on_market} DOM
           </div>
         )}
-        {/* Favorite button */}
-        <div className="absolute bottom-3 left-3">
+        {/* Favorite + Collection buttons */}
+        <div className="absolute bottom-3 left-3 flex items-center gap-2">
           <FavoriteButton listingId={listing.id} />
+          <AddToCollectionButton listingId={listing.id} />
         </div>
         {/* Photo count */}
         {listing.photo_count != null && listing.photo_count > 1 && (

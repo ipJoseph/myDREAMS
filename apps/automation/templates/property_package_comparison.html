@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>{{ title or 'Property Comparison' }} - {{ client_name }}</title>
+    <style>
+        @page {
+            size: letter landscape;
+            margin: 0.4in;
+        }
+
+        :root {
+            --primary: #1B2A4A;
+            --accent: #C5A55A;
+            --text: #2D3748;
+            --text-light: #718096;
+            --bg-warm: #FAF8F5;
+            --border: #E2DDD5;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+            color: var(--text);
+            line-height: 1.4;
+            background: white;
+        }
+
+        .serif {
+            font-family: 'Georgia', 'Times New Roman', serif;
+        }
+
+        /* ================================================
+           COVER PAGE (landscape)
+           ================================================ */
+        .cover {
+            page-break-after: always;
+            position: relative;
+            width: 100%;
+            height: 7.5in;
+            overflow: hidden;
+            background: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        .cover-inner {
+            max-width: 600px;
+        }
+
+        .cover-accent-line {
+            width: 60px;
+            height: 2px;
+            background: var(--accent);
+            margin: 0 auto 25px;
+        }
+
+        .cover-title {
+            font-size: 40px;
+            color: white;
+            font-weight: normal;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        .cover-subtitle {
+            font-size: 14px;
+            color: var(--accent);
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            margin-bottom: 30px;
+        }
+
+        .cover-client {
+            font-size: 20px;
+            color: rgba(255,255,255,0.7);
+            margin-bottom: 5px;
+        }
+
+        .cover-meta {
+            font-size: 13px;
+            color: rgba(255,255,255,0.4);
+            letter-spacing: 0.5px;
+        }
+
+        .cover-footer {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 12px 40px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: rgba(255,255,255,0.4);
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+
+        /* ================================================
+           COMPARISON GRID (2-3 per page)
+           ================================================ */
+        .comparison-page {
+            page-break-after: always;
+            display: flex;
+            gap: 15px;
+            padding: 0;
+        }
+        .comparison-page:last-of-type {
+            page-break-after: avoid;
+        }
+
+        .comp-card {
+            flex: 1;
+            max-width: 50%;
+            border: 1px solid var(--border);
+            overflow: hidden;
+        }
+
+        .comp-card.third {
+            max-width: 33.333%;
+        }
+
+        /* Card photo */
+        .comp-photo {
+            width: 100%;
+            height: 200px;
+            overflow: hidden;
+            background: #e8e4df;
+            position: relative;
+        }
+
+        .comp-photo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .comp-status {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            padding: 3px 10px;
+            font-size: 9px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+        }
+        .comp-status.active {
+            background: var(--accent);
+            color: var(--primary);
+        }
+        .comp-status.pending {
+            background: white;
+            color: var(--text);
+        }
+        .comp-status.sold {
+            background: #C53030;
+            color: white;
+        }
+
+        /* Card content */
+        .comp-content {
+            padding: 12px 14px;
+        }
+
+        .comp-price {
+            font-size: 22px;
+            color: var(--primary);
+            margin-bottom: 2px;
+        }
+
+        .comp-address {
+            font-size: 13px;
+            color: var(--text);
+            margin-bottom: 1px;
+        }
+
+        .comp-location {
+            font-size: 11px;
+            color: var(--text-light);
+            margin-bottom: 10px;
+        }
+
+        /* Stats row */
+        .comp-stats {
+            display: flex;
+            gap: 0;
+            margin-bottom: 10px;
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .comp-stat {
+            flex: 1;
+            text-align: center;
+            padding: 8px 4px;
+            border-right: 1px solid var(--border);
+        }
+        .comp-stat:last-child {
+            border-right: none;
+        }
+
+        .comp-stat-value {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        .comp-stat-label {
+            font-size: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-light);
+        }
+
+        /* Details list */
+        .comp-details {
+            margin-bottom: 8px;
+        }
+
+        .comp-detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 3px 0;
+            font-size: 10px;
+            border-bottom: 1px solid #f0ede8;
+        }
+        .comp-detail-row:last-child {
+            border-bottom: none;
+        }
+
+        .comp-detail-label {
+            color: var(--text-light);
+        }
+
+        .comp-detail-value {
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+        /* Agent notes */
+        .comp-notes {
+            padding: 8px 10px;
+            background: #FFFBEB;
+            border-left: 2px solid var(--accent);
+            font-size: 10px;
+            line-height: 1.5;
+            color: var(--text);
+        }
+
+        .comp-notes-label {
+            font-size: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--accent);
+            margin-bottom: 3px;
+        }
+
+        /* Page footer */
+        .comparison-footer {
+            margin-top: 10px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 9px;
+            color: var(--text-light);
+            padding-top: 5px;
+            border-top: 1px solid var(--border);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ====================== COVER ====================== -->
+    <div class="cover">
+        <div class="cover-inner">
+            <div class="cover-accent-line"></div>
+            <div class="cover-subtitle">{{ title or 'Property Comparison' }}</div>
+            <div class="cover-title serif">{{ client_name }}</div>
+            <div class="cover-meta">
+                {{ package_date }} | {{ properties|length }} {{ 'Property' if properties|length == 1 else 'Properties' }}
+            </div>
+        </div>
+        <div class="cover-footer">
+            <span>{{ brokerage_name }}</span>
+            <span>{{ agent_name }} | {{ agent_phone }}</span>
+        </div>
+    </div>
+
+    <!-- ====================== COMPARISON PAGES ====================== -->
+    {% set cards_per_page = 3 if properties|length > 4 else 2 %}
+    {% set card_class = 'third' if cards_per_page == 3 else '' %}
+
+    {% for batch in properties|batch(cards_per_page) %}
+    <div class="comparison-page">
+        {% for property in batch %}
+        <div class="comp-card {{ card_class }}">
+            <!-- Photo -->
+            <div class="comp-photo">
+                {% if property.photo_url %}
+                <img src="{{ property.photo_url }}" alt="{{ property.address }}">
+                {% endif %}
+                {% set status_lower = property.status|lower %}
+                <span class="comp-status {{ 'active' if status_lower == 'active' else ('pending' if status_lower == 'pending' else ('sold' if status_lower in ['sold','closed'] else 'active')) }}">
+                    {{ property.status }}
+                </span>
+            </div>
+
+            <!-- Content -->
+            <div class="comp-content">
+                {% if property.sold_price and (property.status|lower in ['sold','closed']) %}
+                <div class="comp-price serif">${{ '{:,.0f}'.format(property.sold_price) }}</div>
+                {% else %}
+                <div class="comp-price serif">${{ '{:,.0f}'.format(property.price) }}</div>
+                {% endif %}
+                <div class="comp-address">{{ property.address }}</div>
+                <div class="comp-location">{{ property.city }}, {{ property.state }} {{ property.zip }}</div>
+
+                <!-- Stats -->
+                <div class="comp-stats">
+                    {% if property.beds is not none %}
+                    <div class="comp-stat">
+                        <div class="comp-stat-value">{{ property.beds }}</div>
+                        <div class="comp-stat-label">Beds</div>
+                    </div>
+                    {% endif %}
+                    {% if property.baths is not none %}
+                    <div class="comp-stat">
+                        <div class="comp-stat-value">{{ property.baths }}</div>
+                        <div class="comp-stat-label">Baths</div>
+                    </div>
+                    {% endif %}
+                    {% if property.sqft %}
+                    <div class="comp-stat">
+                        <div class="comp-stat-value">{{ '{:,}'.format(property.sqft) }}</div>
+                        <div class="comp-stat-label">Sq Ft</div>
+                    </div>
+                    {% endif %}
+                    {% if property.acreage %}
+                    <div class="comp-stat">
+                        <div class="comp-stat-value">{{ property.acreage }}</div>
+                        <div class="comp-stat-label">Acres</div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Details -->
+                <div class="comp-details">
+                    {% if property.year_built %}
+                    <div class="comp-detail-row">
+                        <span class="comp-detail-label">Year Built</span>
+                        <span class="comp-detail-value">{{ property.year_built }}</span>
+                    </div>
+                    {% endif %}
+                    {% if property.property_type %}
+                    <div class="comp-detail-row">
+                        <span class="comp-detail-label">Type</span>
+                        <span class="comp-detail-value">{{ property.property_type }}</span>
+                    </div>
+                    {% endif %}
+                    {% if property.elevation_feet %}
+                    <div class="comp-detail-row">
+                        <span class="comp-detail-label">Elevation</span>
+                        <span class="comp-detail-value">{{ '{:,}'.format(property.elevation_feet) }} ft</span>
+                    </div>
+                    {% endif %}
+                    {% if property.days_on_market is not none %}
+                    <div class="comp-detail-row">
+                        <span class="comp-detail-label">DOM</span>
+                        <span class="comp-detail-value">{{ property.days_on_market }}</span>
+                    </div>
+                    {% endif %}
+                    {% if property.mls_number %}
+                    <div class="comp-detail-row">
+                        <span class="comp-detail-label">MLS #</span>
+                        <span class="comp-detail-value">{{ property.mls_number }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+
+                {% if property.agent_notes %}
+                <div class="comp-notes">
+                    <div class="comp-notes-label">Agent Notes</div>
+                    {{ property.agent_notes }}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endfor %}
+
+</body>
+</html>

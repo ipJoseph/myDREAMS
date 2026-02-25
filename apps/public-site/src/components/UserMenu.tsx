@@ -83,6 +83,13 @@ export default function UserMenu() {
             >
               Saved Searches
             </Link>
+            <Link
+              href="/account/collections"
+              className="block px-4 py-3 text-white/70 hover:text-[var(--color-accent)] text-sm transition"
+              onClick={() => setShowDropdown(false)}
+            >
+              My Collections
+            </Link>
             <button
               onClick={() => signOut({ callbackUrl: "/" })}
               className="w-full text-left px-4 py-3 text-white/50 hover:text-red-400 text-sm border-t border-white/10 transition"

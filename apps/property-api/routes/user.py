@@ -524,3 +524,268 @@ def delete_search(search_id):
 
     except Exception:
         return jsonify({'success': False, 'error': 'Failed to delete search'}), 500
+
+
+# -----------------------------------------------------------------------
+# Collections (Buyer property groupings)
+# -----------------------------------------------------------------------
+
+@user_bp.route('/collections', methods=['GET'])
+def list_collections():
+    """List the current user's property collections."""
+    user_id = _get_user_from_jwt()
+    if not user_id:
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+    try:
+        db = get_db()
+        rows = db.execute(
+            '''SELECT pp.*, COUNT(pkp.listing_id) as property_count
+               FROM property_packages pp
+               LEFT JOIN package_properties pkp ON pkp.package_id = pp.id
+               WHERE pp.user_id = ? AND pp.collection_type = 'buyer_collection'
+               GROUP BY pp.id
+               ORDER BY pp.created_at DESC''',
+            [user_id]
+        ).fetchall()
+        db.close()
+
+        return jsonify({
+            'success': True,
+            'data': [dict(r) for r in rows],
+            'count': len(rows),
+        })
+
+    except Exception:
+        return jsonify({'success': False, 'error': 'Failed to list collections'}), 500
+
+
+@user_bp.route('/collections', methods=['POST'])
+def create_collection():
+    """Create a new property collection."""
+    user_id = _get_user_from_jwt()
+    if not user_id:
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'error': 'Request body required'}), 400
+
+    name = (data.get('name') or '').strip()
+    if not name:
+        return jsonify({'success': False, 'error': 'Collection name is required'}), 400
+
+    try:
+        db = get_db()
+        import secrets
+        collection_id = str(uuid.uuid4())
+        share_token = secrets.token_urlsafe(16)
+        now = datetime.now().isoformat()
+
+        db.execute(
+            '''INSERT INTO property_packages
+               (id, name, description, status, user_id, collection_type,
+                share_token, created_at, updated_at)
+               VALUES (?, ?, ?, 'draft', ?, 'buyer_collection', ?, ?, ?)''',
+            [collection_id, name, data.get('description', ''),
+             user_id, share_token, now, now]
+        )
+        db.commit()
+        db.close()
+
+        return jsonify({
+            'success': True,
+            'data': {'id': collection_id, 'name': name, 'share_token': share_token},
+        }), 201
+
+    except Exception:
+        return jsonify({'success': False, 'error': 'Failed to create collection'}), 500
+
+
+@user_bp.route('/collections/<collection_id>', methods=['GET'])
+def get_collection(collection_id):
+    """Get a collection with its listings."""
+    user_id = _get_user_from_jwt()
+    if not user_id:
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+    try:
+        db = get_db()
+
+        collection = db.execute(
+            'SELECT * FROM property_packages WHERE id = ? AND user_id = ?',
+            [collection_id, user_id]
+        ).fetchone()
+
+        if not collection:
+            db.close()
+            return jsonify({'success': False, 'error': 'Collection not found'}), 404
+
+        # Get listings in collection
+        listings = db.execute(
+            '''SELECT l.id, l.mls_number, l.status, l.list_price, l.sold_price,
+                      l.address, l.city, l.state, l.zip,
+                      l.property_type, l.beds, l.baths, l.sqft, l.acreage,
+                      l.primary_photo, l.days_on_market,
+                      pp.display_order, pp.agent_notes, pp.added_at
+               FROM package_properties pp
+               JOIN listings l ON l.id = pp.listing_id
+               WHERE pp.package_id = ?
+               ORDER BY pp.display_order, pp.added_at''',
+            [collection_id]
+        ).fetchall()
+
+        db.close()
+
+        result = dict(collection)
+        result['listings'] = [dict(r) for r in listings]
+
+        return jsonify({'success': True, 'data': result})
+
+    except Exception:
+        return jsonify({'success': False, 'error': 'Failed to get collection'}), 500
+
+
+@user_bp.route('/collections/<collection_id>', methods=['PUT'])
+def update_collection(collection_id):
+    """Update a collection's name or description."""
+    user_id = _get_user_from_jwt()
+    if not user_id:
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'error': 'Request body required'}), 400
+
+    try:
+        db = get_db()
+        updates = []
+        params = []
+
+        if 'name' in data:
+            updates.append('name = ?')
+            params.append(data['name'])
+        if 'description' in data:
+            updates.append('description = ?')
+            params.append(data['description'])
+
+        if not updates:
+            db.close()
+            return jsonify({'success': False, 'error': 'Nothing to update'}), 400
+
+        updates.append('updated_at = ?')
+        params.append(datetime.now().isoformat())
+        params.extend([collection_id, user_id])
+
+        db.execute(
+            f'UPDATE property_packages SET {", ".join(updates)} WHERE id = ? AND user_id = ?',
+            params
+        )
+        db.commit()
+        db.close()
+
+        return jsonify({'success': True})
+
+    except Exception:
+        return jsonify({'success': False, 'error': 'Failed to update collection'}), 500
+
+
+@user_bp.route('/collections/<collection_id>', methods=['DELETE'])
+def delete_collection(collection_id):
+    """Delete a collection."""
+    user_id = _get_user_from_jwt()
+    if not user_id:
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+    try:
+        db = get_db()
+        # Delete items first (FK cascade may not be enabled)
+        db.execute('DELETE FROM package_properties WHERE package_id = ?', [collection_id])
+        db.execute(
+            'DELETE FROM property_packages WHERE id = ? AND user_id = ?',
+            [collection_id, user_id]
+        )
+        db.commit()
+        db.close()
+
+        return jsonify({'success': True})
+
+    except Exception:
+        return jsonify({'success': False, 'error': 'Failed to delete collection'}), 500
+
+
+@user_bp.route('/collections/<collection_id>/items', methods=['POST'])
+def add_to_collection(collection_id):
+    """Add a listing to a collection."""
+    user_id = _get_user_from_jwt()
+    if not user_id:
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+    data = request.get_json()
+    listing_id = data.get('listing_id') if data else None
+    if not listing_id:
+        return jsonify({'success': False, 'error': 'listing_id is required'}), 400
+
+    try:
+        db = get_db()
+
+        # Verify collection belongs to user
+        collection = db.execute(
+            'SELECT id FROM property_packages WHERE id = ? AND user_id = ?',
+            [collection_id, user_id]
+        ).fetchone()
+        if not collection:
+            db.close()
+            return jsonify({'success': False, 'error': 'Collection not found'}), 404
+
+        # Get next display_order
+        max_order = db.execute(
+            'SELECT COALESCE(MAX(display_order), 0) FROM package_properties WHERE package_id = ?',
+            [collection_id]
+        ).fetchone()[0]
+
+        item_id = str(uuid.uuid4())
+        db.execute(
+            'INSERT OR IGNORE INTO package_properties (id, package_id, listing_id, display_order, added_at) '
+            'VALUES (?, ?, ?, ?, ?)',
+            [item_id, collection_id, listing_id, max_order + 1, datetime.now().isoformat()]
+        )
+        db.commit()
+        db.close()
+
+        return jsonify({'success': True, 'data': {'id': item_id}}), 201
+
+    except Exception:
+        return jsonify({'success': False, 'error': 'Failed to add to collection'}), 500
+
+
+@user_bp.route('/collections/<collection_id>/items/<listing_id>', methods=['DELETE'])
+def remove_from_collection(collection_id, listing_id):
+    """Remove a listing from a collection."""
+    user_id = _get_user_from_jwt()
+    if not user_id:
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+    try:
+        db = get_db()
+
+        # Verify collection belongs to user
+        collection = db.execute(
+            'SELECT id FROM property_packages WHERE id = ? AND user_id = ?',
+            [collection_id, user_id]
+        ).fetchone()
+        if not collection:
+            db.close()
+            return jsonify({'success': False, 'error': 'Collection not found'}), 404
+
+        db.execute(
+            'DELETE FROM package_properties WHERE package_id = ? AND listing_id = ?',
+            [collection_id, listing_id]
+        )
+        db.commit()
+        db.close()
+
+        return jsonify({'success': True})
+
+    except Exception:
+        return jsonify({'success': False, 'error': 'Failed to remove from collection'}), 500

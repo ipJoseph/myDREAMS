@@ -77,13 +77,15 @@ def get_package_data(package_id: str) -> Optional[Dict[str, Any]]:
         props = conn.execute('''
             SELECT
                 pr.id, pr.mls_number, pr.address, pr.city, pr.state, pr.zip, pr.county,
-                pr.price, pr.beds, pr.baths, pr.sqft, pr.acreage, pr.year_built,
-                pr.property_type, pr.style, pr.status, pr.views, pr.water_features,
-                pr.days_on_market, pr.heating, pr.cooling, pr.garage,
-                pr.photo_urls, pr.zillow_url, pr.redfin_url, pr.idx_url, pr.notes,
+                pr.list_price as price, pr.beds, pr.baths, pr.sqft, pr.acreage, pr.year_built,
+                pr.property_type, pr.style, pr.status, pr.views,
+                pr.days_on_market, pr.heating, pr.cooling, pr.garage_spaces as garage,
+                pr.photos as photo_urls, pr.primary_photo,
+                pr.zillow_url, pr.redfin_url, pr.idx_url, pr.public_remarks as notes,
+                pr.elevation_feet, pr.sold_price, pr.sold_date,
                 pp.display_order, pp.agent_notes as package_notes
             FROM package_properties pp
-            JOIN listings pr ON pr.id = pp.property_id
+            JOIN listings pr ON pr.id = pp.listing_id
             WHERE pp.package_id = ?
             ORDER BY pp.display_order, pp.added_at
         ''', [package_id]).fetchall()
@@ -94,8 +96,10 @@ def get_package_data(package_id: str) -> Optional[Dict[str, Any]]:
             for prop in props:
                 prop_dict = dict(prop)
 
-                # Parse photo URLs
-                if prop_dict.get('photo_urls'):
+                # Parse photo URLs: prefer primary_photo, then first from photos JSON
+                if prop_dict.get('primary_photo'):
+                    prop_dict['photo_url'] = prop_dict['primary_photo']
+                elif prop_dict.get('photo_urls'):
                     try:
                         photos = json.loads(prop_dict['photo_urls'])
                         prop_dict['photo_url'] = photos[0] if photos else None
@@ -139,12 +143,13 @@ def get_agent_branding() -> Dict[str, Any]:
     }
 
 
-def render_package_html(package_id: str) -> Optional[str]:
+def render_package_html(package_id: str, layout: str = 'showcase') -> Optional[str]:
     """
     Render a property package as HTML.
 
     Args:
         package_id: The package ID to render
+        layout: 'showcase' (1 property per page, default) or 'comparison' (side-by-side grid)
 
     Returns:
         HTML string or None if package not found
@@ -164,10 +169,11 @@ def render_package_html(package_id: str) -> Optional[str]:
         'showing_date': package_data.get('showing_date', '')
     }
 
-    return render_template('property_package.html', **context)
+    template_name = 'property_package_comparison.html' if layout == 'comparison' else 'property_package.html'
+    return render_template(template_name, **context)
 
 
-def generate_pdf(package_id: str, output_path: Optional[str] = None) -> Optional[str]:
+def generate_pdf(package_id: str, output_path: Optional[str] = None, layout: str = 'showcase') -> Optional[str]:
     """
     Generate a PDF from a property package.
 
@@ -175,6 +181,7 @@ def generate_pdf(package_id: str, output_path: Optional[str] = None) -> Optional
         package_id: The package ID to generate PDF for
         output_path: Optional custom output path. If not provided,
                     saves to PDF_OUTPUT_DIR with auto-generated name.
+        layout: 'showcase' (1 property per page) or 'comparison' (side-by-side grid)
 
     Returns:
         Path to generated PDF or None if failed
@@ -183,10 +190,10 @@ def generate_pdf(package_id: str, output_path: Optional[str] = None) -> Optional
         logger.error("WeasyPrint not available. Cannot generate PDF.")
         return None
 
-    logger.info(f"Generating PDF for package {package_id}")
+    logger.info(f"Generating PDF for package {package_id} (layout={layout})")
 
     # Render HTML
-    html_content = render_package_html(package_id)
+    html_content = render_package_html(package_id, layout=layout)
 
     if not html_content:
         return None
@@ -214,12 +221,13 @@ def generate_pdf(package_id: str, output_path: Optional[str] = None) -> Optional
         return None
 
 
-def generate_pdf_bytes(package_id: str) -> Optional[bytes]:
+def generate_pdf_bytes(package_id: str, layout: str = 'showcase') -> Optional[bytes]:
     """
     Generate a PDF and return as bytes (for web serving).
 
     Args:
         package_id: The package ID to generate PDF for
+        layout: 'showcase' (1 property per page) or 'comparison' (side-by-side grid)
 
     Returns:
         PDF as bytes or None if failed
@@ -229,7 +237,7 @@ def generate_pdf_bytes(package_id: str) -> Optional[bytes]:
         return None
 
     # Render HTML
-    html_content = render_package_html(package_id)
+    html_content = render_package_html(package_id, layout=layout)
 
     if not html_content:
         return None
@@ -266,7 +274,7 @@ def list_packages_for_contact(contact_id: str) -> List[Dict[str, Any]]:
                 p.name as title,
                 p.status,
                 p.created_at,
-                COUNT(pp.property_id) as property_count
+                COUNT(pp.listing_id) as property_count
             FROM property_packages p
             LEFT JOIN package_properties pp ON pp.package_id = p.id
             WHERE p.lead_id = ?
@@ -290,16 +298,20 @@ def main():
     import sys
 
     if len(sys.argv) < 2:
-        print("Usage: python pdf_generator.py <package_id> [output_path]")
+        print("Usage: python pdf_generator.py <package_id> [output_path] [--comparison]")
         sys.exit(1)
 
     package_id = sys.argv[1]
-    output_path = sys.argv[2] if len(sys.argv) > 2 else None
+    layout = 'comparison' if '--comparison' in sys.argv else 'showcase'
 
-    result = generate_pdf(package_id, output_path)
+    # Filter out flags to find output_path
+    args = [a for a in sys.argv[2:] if not a.startswith('--')]
+    output_path = args[0] if args else None
+
+    result = generate_pdf(package_id, output_path, layout=layout)
 
     if result:
-        print(f"PDF generated: {result}")
+        print(f"PDF generated ({layout} layout): {result}")
         sys.exit(0)
     else:
         print("Failed to generate PDF")

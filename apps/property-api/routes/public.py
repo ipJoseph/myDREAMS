@@ -508,6 +508,79 @@ def get_listing_history(listing_id):
         }), 500
 
 
+@public_bp.route('/collections/<share_token>', methods=['GET'])
+def get_shared_collection(share_token):
+    """
+    Get a shared property collection by its share token (no auth required).
+
+    Returns collection metadata and associated listing data.
+    """
+    try:
+        db = get_db()
+
+        collection = db.execute(
+            'SELECT id, name, description, status, created_at '
+            'FROM property_packages WHERE share_token = ?',
+            [share_token]
+        ).fetchone()
+
+        if not collection:
+            db.close()
+            return jsonify({
+                'success': False,
+                'error': {'code': 'NOT_FOUND', 'message': 'Collection not found'}
+            }), 404
+
+        # Get listings in collection
+        rows = db.execute(
+            '''SELECT l.id, l.mls_number, l.status, l.list_price, l.sold_price,
+                      l.address, l.city, l.state, l.zip, l.county,
+                      l.latitude, l.longitude,
+                      l.property_type, l.beds, l.baths, l.sqft, l.acreage,
+                      l.elevation_feet, l.primary_photo, l.photo_count,
+                      l.days_on_market, l.list_date,
+                      pp.display_order, pp.agent_notes
+               FROM package_properties pp
+               JOIN listings l ON l.id = pp.listing_id
+               WHERE pp.package_id = ? AND l.idx_opt_in = 1
+               ORDER BY pp.display_order, pp.added_at''',
+            [collection['id']]
+        ).fetchall()
+
+        listings = []
+        for row in rows:
+            d = dict(row)
+            d['days_on_market'] = _compute_dom(d)
+            listings.append(d)
+
+        # Increment view count
+        db.execute(
+            'UPDATE property_packages SET view_count = COALESCE(view_count, 0) + 1, '
+            'viewed_at = ? WHERE id = ?',
+            [datetime.now().isoformat(), collection['id']]
+        )
+        db.commit()
+        db.close()
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'name': collection['name'],
+                'description': collection['description'],
+                'status': collection['status'],
+                'created_at': collection['created_at'],
+                'listings': listings,
+                'listing_count': len(listings),
+            },
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': {'code': 'SERVER_ERROR', 'message': 'Failed to retrieve collection'}
+        }), 500
+
+
 @public_bp.route('/areas', methods=['GET'])
 def list_areas():
     """

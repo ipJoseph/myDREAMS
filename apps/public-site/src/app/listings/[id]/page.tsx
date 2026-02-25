@@ -6,6 +6,8 @@ import { getCountyLinks } from "@/lib/countyLinks";
 import PhotoBrowser from "@/components/PhotoBrowser";
 import PropertyMap from "@/components/PropertyMap";
 import PropertyHistory from "@/components/PropertyHistory";
+import FavoriteButton from "@/components/FavoriteButton";
+import AddToCollectionButton from "@/components/AddToCollectionButton";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -301,6 +303,12 @@ export default async function ListingDetailPage({ params }: PageProps) {
               >
                 Call (828) 283-9003
               </a>
+
+              {/* Save actions */}
+              <div className="flex items-center gap-3 mt-4 pt-4 border-t border-gray-200/60">
+                <FavoriteButton listingId={listing.id} size="md" />
+                <AddToCollectionButton listingId={listing.id} variant="button" />
+              </div>
 
               {/* Agent info */}
               {listing.listing_agent_name && (

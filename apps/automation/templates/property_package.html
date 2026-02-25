@@ -2,406 +2,643 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Property Package - {{ client_name }}</title>
+    <title>{{ title or 'Property Package' }} - {{ client_name }}</title>
     <style>
         @page {
             size: letter;
-            margin: 0.5in;
+            margin: 0;
         }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            line-height: 1.5;
-            color: #333;
+        @page :first {
+            margin: 0;
+        }
+
+        :root {
+            --primary: #1B2A4A;
+            --accent: #C5A55A;
+            --text: #2D3748;
+            --text-light: #718096;
+            --bg-warm: #FAF8F5;
+            --border: #E2DDD5;
+        }
+
+        * {
             margin: 0;
             padding: 0;
+            box-sizing: border-box;
         }
 
-        /* Cover Page */
-        .cover-page {
+        body {
+            font-family: 'Georgia', 'Times New Roman', serif;
+            color: var(--text);
+            line-height: 1.5;
+            background: white;
+        }
+
+        .sans {
+            font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        /* ================================================
+           COVER PAGE
+           ================================================ */
+        .cover {
             page-break-after: always;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-        }
-        .cover-logo {
-            max-width: 200px;
-            max-height: 100px;
-            margin-bottom: 40px;
-        }
-        .cover-title {
-            font-size: 36px;
-            font-weight: 700;
-            color: #1a365d;
-            margin-bottom: 10px;
-        }
-        .cover-subtitle {
-            font-size: 20px;
-            color: #64748b;
-            margin-bottom: 40px;
-        }
-        .cover-client {
-            font-size: 24px;
-            color: #475569;
-            margin-bottom: 10px;
-        }
-        .cover-date {
-            font-size: 16px;
-            color: #94a3b8;
-        }
-        .cover-property-count {
-            margin-top: 40px;
-            padding: 15px 30px;
-            background: #1a365d;
-            color: white;
-            border-radius: 30px;
-            font-size: 18px;
+            position: relative;
+            width: 8.5in;
+            height: 11in;
+            overflow: hidden;
         }
 
-        /* Property Card */
+        .cover-photo {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .cover-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(transparent 0%, rgba(27,42,74,0.85) 40%, rgba(27,42,74,0.95) 100%);
+            padding: 120px 60px 60px;
+        }
+
+        .cover-title {
+            font-size: 42px;
+            color: white;
+            font-weight: normal;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        .cover-subtitle {
+            font-size: 16px;
+            color: var(--accent);
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            margin-bottom: 30px;
+        }
+
+        .cover-meta {
+            font-size: 14px;
+            color: rgba(255,255,255,0.7);
+            letter-spacing: 0.5px;
+        }
+        .cover-meta span {
+            display: inline-block;
+        }
+        .cover-meta .divider {
+            display: inline-block;
+            width: 30px;
+            height: 1px;
+            background: var(--accent);
+            vertical-align: middle;
+            margin: 0 15px;
+        }
+
+        .cover-footer {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--primary);
+            padding: 15px 60px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .cover-footer-brand {
+            font-size: 12px;
+            color: rgba(255,255,255,0.6);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .cover-footer-agent {
+            font-size: 12px;
+            color: var(--accent);
+            letter-spacing: 1px;
+        }
+
+        /* ================================================
+           PROPERTY PAGE
+           ================================================ */
         .property-page {
             page-break-after: always;
-            padding: 20px 0;
+            width: 8.5in;
+            height: 11in;
+            position: relative;
+            overflow: hidden;
         }
         .property-page:last-of-type {
             page-break-after: avoid;
         }
-        .property-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 15px;
-            padding-bottom: 15px;
-            border-bottom: 2px solid #1a365d;
-        }
-        .property-price {
-            font-size: 32px;
-            font-weight: 700;
-            color: #1a365d;
-        }
-        .property-status {
-            display: inline-block;
-            padding: 5px 15px;
-            border-radius: 20px;
-            font-size: 14px;
-            font-weight: 500;
-        }
-        .status-active {
-            background: #dcfce7;
-            color: #166534;
-        }
-        .status-pending {
-            background: #fef3c7;
-            color: #92400e;
-        }
-        .status-sold {
-            background: #fee2e2;
-            color: #991b1b;
-        }
-        .property-address {
-            font-size: 20px;
-            color: #475569;
-            margin-bottom: 5px;
-        }
-        .property-location {
-            font-size: 14px;
-            color: #94a3b8;
-        }
-        .property-image-container {
+
+        /* Hero photo section */
+        .prop-hero {
+            position: relative;
             width: 100%;
-            height: 300px;
-            margin: 15px 0;
-            border-radius: 8px;
+            height: 480px;
             overflow: hidden;
-            background: #f1f5f9;
+            background: #e8e4df;
         }
-        .property-image {
+
+        .prop-hero img {
             width: 100%;
             height: 100%;
             object-fit: cover;
         }
-        .property-specs {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 15px;
-            margin: 20px 0;
-        }
-        .spec-item {
-            text-align: center;
-            padding: 15px;
-            background: #f8fafc;
-            border-radius: 8px;
-        }
-        .spec-value {
-            font-size: 24px;
-            font-weight: 700;
-            color: #1a365d;
-        }
-        .spec-label {
-            font-size: 12px;
-            color: #64748b;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        .property-details {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 20px;
-            margin: 20px 0;
-        }
-        .detail-section {
-            background: #f8fafc;
-            padding: 15px;
-            border-radius: 8px;
-        }
-        .detail-title {
-            font-size: 14px;
-            font-weight: 600;
-            color: #1a365d;
-            margin-bottom: 10px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        .detail-list {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-        .detail-list li {
-            padding: 5px 0;
-            border-bottom: 1px solid #e2e8f0;
-            font-size: 13px;
-        }
-        .detail-list li:last-child {
-            border-bottom: none;
-        }
-        .detail-list .label {
-            color: #64748b;
-        }
-        .detail-list .value {
-            color: #1a365d;
-            font-weight: 500;
-            float: right;
-        }
-        .property-description {
-            margin: 20px 0;
-            padding: 15px;
-            background: #eff6ff;
-            border-radius: 8px;
-            font-size: 14px;
-            line-height: 1.6;
-        }
-        .property-links {
-            display: flex;
-            gap: 15px;
-            margin-top: 20px;
-        }
-        .property-link {
-            padding: 8px 16px;
-            background: #1a365d;
-            color: white;
-            text-decoration: none;
-            border-radius: 6px;
-            font-size: 13px;
-        }
-        .property-notes {
-            margin-top: 20px;
-            padding: 15px;
-            background: #fefce8;
-            border-left: 4px solid #eab308;
-            border-radius: 0 8px 8px 0;
-        }
-        .property-notes h4 {
-            margin: 0 0 10px 0;
-            color: #854d0e;
-            font-size: 14px;
-        }
-        .property-notes p {
-            margin: 0;
-            font-size: 13px;
-            color: #713f12;
-        }
 
-        /* Agent Contact Page */
-        .agent-page {
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-        }
-        .agent-photo {
-            width: 150px;
-            height: 150px;
-            border-radius: 50%;
-            object-fit: cover;
-            margin-bottom: 20px;
-            border: 4px solid #1a365d;
-        }
-        .agent-name {
-            font-size: 28px;
-            font-weight: 700;
-            color: #1a365d;
-            margin-bottom: 5px;
-        }
-        .agent-title {
-            font-size: 16px;
-            color: #64748b;
-            margin-bottom: 20px;
-        }
-        .agent-brokerage {
-            font-size: 18px;
-            color: #475569;
-            margin-bottom: 30px;
-        }
-        .agent-contact-info {
-            margin-bottom: 30px;
-        }
-        .agent-contact-item {
-            font-size: 16px;
-            color: #475569;
-            margin: 10px 0;
-        }
-        .agent-contact-item a {
-            color: #2b6cb0;
-            text-decoration: none;
-        }
-        .agent-message {
-            max-width: 500px;
-            font-size: 16px;
-            color: #64748b;
-            line-height: 1.6;
-            font-style: italic;
-        }
-        .brokerage-logo {
-            max-width: 180px;
-            margin-top: 30px;
-        }
-
-        /* Page Numbers */
-        .page-footer {
-            position: fixed;
-            bottom: 0.25in;
+        .prop-hero-overlay {
+            position: absolute;
+            bottom: 0;
             left: 0;
             right: 0;
-            text-align: center;
+            background: linear-gradient(transparent, rgba(27,42,74,0.9));
+            padding: 60px 50px 25px;
+        }
+
+        .prop-hero-price {
+            font-size: 38px;
+            color: white;
+            font-weight: normal;
+            letter-spacing: 1px;
+        }
+
+        .prop-hero-address {
+            font-size: 18px;
+            color: rgba(255,255,255,0.85);
+            margin-top: 4px;
+        }
+
+        .prop-hero-location {
+            font-size: 13px;
+            color: rgba(255,255,255,0.55);
+            margin-top: 2px;
+            letter-spacing: 0.5px;
+        }
+
+        .prop-status-badge {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            padding: 6px 18px;
             font-size: 11px;
-            color: #94a3b8;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        .prop-status-badge.active {
+            background: var(--accent);
+            color: var(--primary);
+        }
+        .prop-status-badge.pending {
+            background: white;
+            color: var(--text);
+        }
+        .prop-status-badge.sold {
+            background: #C53030;
+            color: white;
+        }
+
+        /* Content area */
+        .prop-content {
+            padding: 25px 50px 15px;
+        }
+
+        /* Key metrics row */
+        .prop-metrics {
+            display: flex;
+            gap: 0;
+            margin-bottom: 22px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 18px;
+        }
+
+        .prop-metric {
+            flex: 1;
+            text-align: center;
+            border-right: 1px solid var(--border);
+            padding: 0 10px;
+        }
+        .prop-metric:last-child {
+            border-right: none;
+        }
+
+        .prop-metric-value {
+            font-size: 24px;
+            color: var(--primary);
+            font-weight: normal;
+        }
+
+        .prop-metric-label {
+            font-size: 10px;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            margin-top: 2px;
+        }
+
+        /* Two-column detail layout */
+        .prop-details {
+            display: flex;
+            gap: 30px;
+            margin-bottom: 18px;
+        }
+
+        .prop-details-col {
+            flex: 1;
+        }
+
+        .prop-detail-title {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--accent);
+            margin-bottom: 8px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .prop-detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            font-size: 12px;
+            border-bottom: 1px solid #f0ede8;
+        }
+        .prop-detail-row:last-child {
+            border-bottom: none;
+        }
+
+        .prop-detail-label {
+            color: var(--text-light);
+        }
+
+        .prop-detail-value {
+            color: var(--primary);
+            font-weight: 600;
+            text-align: right;
+        }
+
+        /* Feature pills */
+        .prop-features {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 18px;
+        }
+
+        .prop-feature-pill {
+            padding: 4px 12px;
+            background: var(--bg-warm);
+            border: 1px solid var(--border);
+            font-size: 10px;
+            color: var(--text);
+            letter-spacing: 0.3px;
+        }
+
+        /* Description */
+        .prop-description {
+            font-size: 12px;
+            line-height: 1.7;
+            color: var(--text);
+            margin-bottom: 15px;
+            max-height: 80px;
+            overflow: hidden;
+        }
+
+        /* Agent notes callout */
+        .prop-agent-notes {
+            padding: 12px 16px;
+            background: #FFFBEB;
+            border-left: 3px solid var(--accent);
+            margin-bottom: 10px;
+        }
+        .prop-agent-notes-title {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--accent);
+            margin-bottom: 4px;
+        }
+        .prop-agent-notes p {
+            font-size: 12px;
+            color: var(--text);
+            line-height: 1.6;
+        }
+
+        /* Page footer */
+        .prop-page-footer {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 8px 50px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 9px;
+            color: var(--text-light);
+            border-top: 1px solid var(--border);
+        }
+
+        /* ================================================
+           AGENT CONTACT PAGE
+           ================================================ */
+        .agent-page {
+            page-break-before: always;
+            width: 8.5in;
+            height: 11in;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: var(--primary);
+            text-align: center;
+        }
+
+        .agent-accent-line {
+            width: 60px;
+            height: 2px;
+            background: var(--accent);
+            margin: 0 auto 30px;
+        }
+
+        .agent-photo {
+            width: 160px;
+            height: 160px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid var(--accent);
+            margin-bottom: 25px;
+        }
+
+        .agent-name {
+            font-size: 32px;
+            color: white;
+            font-weight: normal;
+            margin-bottom: 5px;
+        }
+
+        .agent-title-text {
+            font-size: 12px;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            margin-bottom: 5px;
+        }
+
+        .agent-brokerage {
+            font-size: 16px;
+            color: rgba(255,255,255,0.6);
+            margin-bottom: 35px;
+        }
+
+        .agent-contact-block {
+            margin-bottom: 35px;
+        }
+
+        .agent-contact-item {
+            font-size: 16px;
+            color: rgba(255,255,255,0.8);
+            margin: 10px 0;
+            letter-spacing: 0.5px;
+        }
+        .agent-contact-item a {
+            color: rgba(255,255,255,0.8);
+            text-decoration: none;
+        }
+
+        .agent-message {
+            max-width: 450px;
+            font-size: 15px;
+            color: rgba(255,255,255,0.5);
+            line-height: 1.7;
+            font-style: italic;
+            margin-bottom: 40px;
+        }
+
+        .agent-website {
+            font-size: 14px;
+            color: var(--accent);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .agent-brokerage-logo {
+            max-width: 160px;
+            margin-top: 30px;
+            opacity: 0.6;
         }
     </style>
 </head>
 <body>
-    <!-- Cover Page -->
-    <div class="cover-page">
-        {% if brokerage_logo %}
-        <img src="{{ brokerage_logo }}" alt="{{ brokerage_name }}" class="cover-logo">
+
+    <!-- ====================== COVER PAGE ====================== -->
+    <div class="cover">
+        {% if properties and properties[0].photo_url %}
+        <img src="{{ properties[0].photo_url }}" alt="Cover" class="cover-photo">
+        {% else %}
+        <div style="width:100%;height:100%;background:var(--primary);"></div>
         {% endif %}
-        <div class="cover-title">Property Package</div>
-        <div class="cover-subtitle">Curated Selection of Homes</div>
-        <div class="cover-client">Prepared for {{ client_name }}</div>
-        <div class="cover-date">{{ package_date }}</div>
-        <div class="cover-property-count">{{ properties|length }} Properties</div>
+
+        <div class="cover-overlay">
+            <div class="cover-subtitle sans">{{ title or 'Property Package' }}</div>
+            <div class="cover-title">{{ client_name }}</div>
+            <div class="cover-meta sans">
+                <span>{{ package_date }}</span>
+                <span class="divider"></span>
+                <span>{{ properties|length }} {{ 'Property' if properties|length == 1 else 'Properties' }}</span>
+                {% if showing_date %}
+                <span class="divider"></span>
+                <span>{{ showing_date }}</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="cover-footer sans">
+            <span class="cover-footer-brand">{{ brokerage_name }}</span>
+            <span class="cover-footer-agent">{{ agent_name }} | {{ agent_phone }}</span>
+        </div>
     </div>
 
-    <!-- Property Pages -->
+    <!-- ====================== PROPERTY PAGES ====================== -->
     {% for property in properties %}
     <div class="property-page">
-        <div class="property-header">
-            <div>
-                <div class="property-price">${{ '{:,.0f}'.format(property.price) }}</div>
-                <div class="property-address">{{ property.address }}</div>
-                <div class="property-location">{{ property.city }}, {{ property.state }} {{ property.zip }}</div>
+        <!-- Hero photo -->
+        <div class="prop-hero">
+            {% if property.photo_url %}
+            <img src="{{ property.photo_url }}" alt="{{ property.address }}">
+            {% endif %}
+
+            <div class="prop-hero-overlay">
+                {% if property.sold_price and (property.status|lower == 'sold' or property.status|lower == 'closed') %}
+                <div class="prop-hero-price">${{ '{:,.0f}'.format(property.sold_price) }}</div>
+                {% else %}
+                <div class="prop-hero-price">${{ '{:,.0f}'.format(property.price) }}</div>
+                {% endif %}
+                <div class="prop-hero-address">{{ property.address }}</div>
+                <div class="prop-hero-location sans">{{ property.city }}, {{ property.state }} {{ property.zip }}{% if property.county %} ({{ property.county }} County){% endif %}</div>
             </div>
-            <span class="property-status status-{{ property.status|lower }}">{{ property.status }}</span>
+
+            {% set status_lower = property.status|lower %}
+            <span class="prop-status-badge sans {{ 'active' if status_lower == 'active' else ('pending' if status_lower == 'pending' else ('sold' if status_lower in ['sold','closed'] else 'active')) }}">
+                {% if status_lower in ['sold','closed'] and property.sold_date %}
+                    Sold {{ property.sold_date[:10] }}
+                {% else %}
+                    {{ property.status }}
+                {% endif %}
+            </span>
         </div>
 
-        {% if property.photo_url %}
-        <div class="property-image-container">
-            <img src="{{ property.photo_url }}" alt="{{ property.address }}" class="property-image">
-        </div>
-        {% endif %}
+        <!-- Content -->
+        <div class="prop-content">
+            <!-- Key metrics -->
+            <div class="prop-metrics sans">
+                {% if property.beds is not none %}
+                <div class="prop-metric">
+                    <div class="prop-metric-value">{{ property.beds }}</div>
+                    <div class="prop-metric-label">Bedrooms</div>
+                </div>
+                {% endif %}
+                {% if property.baths is not none %}
+                <div class="prop-metric">
+                    <div class="prop-metric-value">{{ property.baths }}</div>
+                    <div class="prop-metric-label">Bathrooms</div>
+                </div>
+                {% endif %}
+                {% if property.sqft %}
+                <div class="prop-metric">
+                    <div class="prop-metric-value">{{ '{:,}'.format(property.sqft) }}</div>
+                    <div class="prop-metric-label">Sq Ft</div>
+                </div>
+                {% endif %}
+                {% if property.acreage %}
+                <div class="prop-metric">
+                    <div class="prop-metric-value">{{ property.acreage }}</div>
+                    <div class="prop-metric-label">Acres</div>
+                </div>
+                {% endif %}
+                {% if property.elevation_feet %}
+                <div class="prop-metric">
+                    <div class="prop-metric-value">{{ '{:,}'.format(property.elevation_feet) }}</div>
+                    <div class="prop-metric-label">Ft Elev</div>
+                </div>
+                {% endif %}
+            </div>
 
-        <div class="property-specs">
-            <div class="spec-item">
-                <div class="spec-value">{{ property.beds }}</div>
-                <div class="spec-label">Bedrooms</div>
-            </div>
-            <div class="spec-item">
-                <div class="spec-value">{{ property.baths }}</div>
-                <div class="spec-label">Bathrooms</div>
-            </div>
-            <div class="spec-item">
-                <div class="spec-value">{{ '{:,}'.format(property.sqft) if property.sqft else 'N/A' }}</div>
-                <div class="spec-label">Sq Ft</div>
-            </div>
-            <div class="spec-item">
-                <div class="spec-value">{{ property.acreage if property.acreage else 'N/A' }}</div>
-                <div class="spec-label">Acres</div>
-            </div>
-        </div>
-
-        <div class="property-details">
-            <div class="detail-section">
-                <div class="detail-title">Property Details</div>
-                <ul class="detail-list">
-                    <li><span class="label">Year Built</span><span class="value">{{ property.year_built or 'N/A' }}</span></li>
-                    <li><span class="label">Property Type</span><span class="value">{{ property.property_type or 'N/A' }}</span></li>
-                    <li><span class="label">Style</span><span class="value">{{ property.style or 'N/A' }}</span></li>
-                    <li><span class="label">MLS #</span><span class="value">{{ property.mls_number or 'N/A' }}</span></li>
-                    <li><span class="label">Days on Market</span><span class="value">{{ property.days_on_market or 'N/A' }}</span></li>
-                </ul>
-            </div>
-            <div class="detail-section">
-                <div class="detail-title">Features</div>
-                <ul class="detail-list">
-                    {% if property.views %}
-                    <li><span class="label">Views</span><span class="value">{{ property.views }}</span></li>
+            <!-- Two-column details -->
+            <div class="prop-details sans">
+                <div class="prop-details-col">
+                    <div class="prop-detail-title">Property Details</div>
+                    {% if property.property_type %}
+                    <div class="prop-detail-row">
+                        <span class="prop-detail-label">Type</span>
+                        <span class="prop-detail-value">{{ property.property_type }}</span>
+                    </div>
                     {% endif %}
-                    {% if property.water_features %}
-                    <li><span class="label">Water</span><span class="value">{{ property.water_features }}</span></li>
+                    {% if property.style %}
+                    <div class="prop-detail-row">
+                        <span class="prop-detail-label">Style</span>
+                        <span class="prop-detail-value">{{ property.style }}</span>
+                    </div>
                     {% endif %}
+                    {% if property.year_built %}
+                    <div class="prop-detail-row">
+                        <span class="prop-detail-label">Year Built</span>
+                        <span class="prop-detail-value">{{ property.year_built }}</span>
+                    </div>
+                    {% endif %}
+                    {% if property.days_on_market is not none %}
+                    <div class="prop-detail-row">
+                        <span class="prop-detail-label">Days on Market</span>
+                        <span class="prop-detail-value">{{ property.days_on_market }}</span>
+                    </div>
+                    {% endif %}
+                    {% if property.mls_number %}
+                    <div class="prop-detail-row">
+                        <span class="prop-detail-label">MLS #</span>
+                        <span class="prop-detail-value">{{ property.mls_number }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="prop-details-col">
+                    <div class="prop-detail-title">Features</div>
                     {% if property.heating %}
-                    <li><span class="label">Heating</span><span class="value">{{ property.heating }}</span></li>
+                    <div class="prop-detail-row">
+                        <span class="prop-detail-label">Heating</span>
+                        <span class="prop-detail-value">{{ property.heating }}</span>
+                    </div>
                     {% endif %}
                     {% if property.cooling %}
-                    <li><span class="label">Cooling</span><span class="value">{{ property.cooling }}</span></li>
+                    <div class="prop-detail-row">
+                        <span class="prop-detail-label">Cooling</span>
+                        <span class="prop-detail-value">{{ property.cooling }}</span>
+                    </div>
                     {% endif %}
                     {% if property.garage %}
-                    <li><span class="label">Garage</span><span class="value">{{ property.garage }}</span></li>
+                    <div class="prop-detail-row">
+                        <span class="prop-detail-label">Garage</span>
+                        <span class="prop-detail-value">{{ property.garage }} spaces</span>
+                    </div>
                     {% endif %}
-                </ul>
+                    {% if property.views %}
+                    <div class="prop-detail-row">
+                        <span class="prop-detail-label">Views</span>
+                        <span class="prop-detail-value">{{ property.views }}</span>
+                    </div>
+                    {% endif %}
+                    {% if property.sold_price and (property.status|lower in ['sold','closed']) and property.sold_price != property.price %}
+                    <div class="prop-detail-row">
+                        <span class="prop-detail-label">Listed At</span>
+                        <span class="prop-detail-value">${{ '{:,.0f}'.format(property.price) }}</span>
+                    </div>
+                    {% endif %}
+                </div>
             </div>
+
+            <!-- Description -->
+            {% if property.notes %}
+            <div class="prop-description">
+                {{ property.notes }}
+            </div>
+            {% endif %}
+
+            <!-- Agent notes -->
+            {% if property.agent_notes %}
+            <div class="prop-agent-notes">
+                <div class="prop-agent-notes-title sans">Agent Notes</div>
+                <p>{{ property.agent_notes }}</p>
+            </div>
+            {% endif %}
         </div>
 
-        {% if property.description %}
-        <div class="property-description">
-            {{ property.description }}
+        <!-- Page footer -->
+        <div class="prop-page-footer sans">
+            <span>{{ agent_name }} | {{ agent_phone }}</span>
+            <span>{{ property.mls_number }}</span>
         </div>
-        {% endif %}
-
-        {% if property.agent_notes %}
-        <div class="property-notes">
-            <h4>Agent Notes</h4>
-            <p>{{ property.agent_notes }}</p>
-        </div>
-        {% endif %}
     </div>
     {% endfor %}
 
-    <!-- Agent Contact Page -->
+    <!-- ====================== AGENT CONTACT PAGE ====================== -->
     <div class="agent-page">
+        <div class="agent-accent-line"></div>
+
         {% if agent_headshot %}
         <img src="{{ agent_headshot }}" alt="{{ agent_name }}" class="agent-photo">
         {% endif %}
+
         <div class="agent-name">{{ agent_name }}</div>
-        <div class="agent-title">REALTOR</div>
+        <div class="agent-title-text sans">REALTOR</div>
         <div class="agent-brokerage">{{ brokerage_name }}</div>
 
-        <div class="agent-contact-info">
+        <div class="agent-contact-block sans">
             <div class="agent-contact-item">
                 <a href="mailto:{{ agent_email }}">{{ agent_email }}</a>
             </div>
@@ -412,13 +649,16 @@
 
         <div class="agent-message">
             "Thank you for allowing me to help you find your perfect home.
-            If you have any questions about these properties or would like to schedule showings,
-            please don't hesitate to reach out. I'm here to help!"
+            Please don't hesitate to reach out with any questions about
+            these properties or to schedule showings."
         </div>
 
+        <div class="agent-website sans">wncmountain.homes</div>
+
         {% if brokerage_logo %}
-        <img src="{{ brokerage_logo }}" alt="{{ brokerage_name }}" class="brokerage-logo">
+        <img src="{{ brokerage_logo }}" alt="{{ brokerage_name }}" class="agent-brokerage-logo">
         {% endif %}
     </div>
+
 </body>
 </html>

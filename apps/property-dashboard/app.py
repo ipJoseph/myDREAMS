@@ -3860,10 +3860,6 @@ def contact_create_package(contact_id):
             ''', (package_id, contact_id, intake_form_id, package_name, share_token,
                   datetime.now().isoformat(), datetime.now().isoformat()))
 
-            # TODO: Rebuild package_properties table with listings-compatible schema
-            # Package-property linking disabled during Navica migration
-            pass
-
             conn.commit()
     except Exception as e:
         logger.error(f"Error creating package: {e}")
@@ -3899,9 +3895,18 @@ def contact_package_detail(contact_id, package_id):
 
             package = dict(package)
 
-            # Package properties table was dropped during Navica migration.
-            # Property packages will be rebuilt with listings-compatible schema.
-            pass
+            # Get properties in this package
+            prop_rows = conn.execute('''
+                SELECT l.id, l.mls_number, l.address, l.city, l.state, l.zip,
+                       l.list_price, l.beds, l.baths, l.sqft, l.acreage,
+                       l.property_type, l.status, l.primary_photo, l.days_on_market,
+                       pp.display_order, pp.agent_notes
+                FROM package_properties pp
+                JOIN listings l ON l.id = pp.listing_id
+                WHERE pp.package_id = ?
+                ORDER BY pp.display_order, pp.added_at
+            ''', (package_id,)).fetchall()
+            properties = [dict(r) for r in prop_rows]
 
     except Exception as e:
         logger.error(f"Error fetching package: {e}")
@@ -3927,22 +3932,50 @@ def contact_package_add_properties(contact_id, package_id):
     import uuid
     db = get_db()
 
-    property_ids = request.form.getlist('property_ids')
-    if not property_ids:
+    listing_ids = request.form.getlist('property_ids')
+    if not listing_ids:
         return jsonify({'success': False, 'error': 'No properties selected'}), 400
 
-    # TODO: Rebuild package_properties table with listings-compatible schema
-    return jsonify({'success': False, 'error': 'Package property linking not yet available (Navica migration in progress)'}), 501
+    try:
+        with db._get_connection() as conn:
+            # Get current max display_order
+            max_order = conn.execute(
+                'SELECT COALESCE(MAX(display_order), 0) FROM package_properties WHERE package_id = ?',
+                [package_id]
+            ).fetchone()[0]
+
+            for i, listing_id in enumerate(listing_ids):
+                conn.execute(
+                    'INSERT OR IGNORE INTO package_properties (id, package_id, listing_id, display_order, added_at) '
+                    'VALUES (?, ?, ?, ?, ?)',
+                    [str(uuid.uuid4()), package_id, listing_id, max_order + i + 1,
+                     datetime.now().isoformat()]
+                )
+            conn.commit()
+
+        return redirect(url_for('contact_package_detail', contact_id=contact_id, package_id=package_id))
+    except Exception as e:
+        logger.error(f"Error adding properties to package: {e}")
+        return jsonify({'success': False, 'error': 'Failed to add properties'}), 500
 
 
 @app.route('/contacts/<contact_id>/packages/<package_id>/remove/<property_id>', methods=['POST'])
 @requires_auth
 def contact_package_remove_property(contact_id, package_id, property_id):
-    """Remove a property from a package."""
+    """Remove a listing from a package."""
     db = get_db()
 
-    # TODO: Rebuild package_properties table with listings-compatible schema
-    return jsonify({'success': False, 'error': 'Package property linking not yet available (Navica migration in progress)'}), 501
+    try:
+        with db._get_connection() as conn:
+            conn.execute(
+                'DELETE FROM package_properties WHERE package_id = ? AND listing_id = ?',
+                [package_id, property_id]
+            )
+            conn.commit()
+        return redirect(url_for('contact_package_detail', contact_id=contact_id, package_id=package_id))
+    except Exception as e:
+        logger.error(f"Error removing property from package: {e}")
+        return jsonify({'success': False, 'error': 'Failed to remove property'}), 500
 
 
 @app.route('/contacts/<contact_id>/packages/<package_id>/pdf')
