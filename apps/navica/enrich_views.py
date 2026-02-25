@@ -60,19 +60,25 @@ def offset_point(lat: float, lon: float, bearing_deg: float, distance_km: float)
     return (math.degrees(new_lat), math.degrees(new_lon))
 
 
-def get_elevation(lat: float, lon: float) -> float | None:
-    """Query USGS EPQS for elevation in feet at a given lat/lon."""
+def get_elevation(lat: float, lon: float, retries: int = 3) -> float | None:
+    """Query USGS EPQS for elevation in feet at a given lat/lon, with retries."""
     url = f"{USGS_EPQS_URL}?x={lon}&y={lat}&units=Feet&wkid=4326&includeDate=false"
-    req = urllib.request.Request(url, headers={"User-Agent": "myDREAMS/1.0"})
-    try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            data = json.loads(resp.read())
-            value = data.get("value")
-            if value is not None and value != -1000000:
-                return float(value)
+    for attempt in range(retries):
+        req = urllib.request.Request(url, headers={"User-Agent": "myDREAMS/1.0"})
+        try:
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                data = json.loads(resp.read())
+                value = data.get("value")
+                if value is not None and value != -1000000:
+                    return float(value)
+                return None
+        except (urllib.error.URLError, json.JSONDecodeError, ValueError, KeyError):
             return None
-    except (urllib.error.URLError, json.JSONDecodeError, ValueError, KeyError):
-        return None
+        except (TimeoutError, OSError):
+            if attempt < retries - 1:
+                time.sleep(2 * (attempt + 1))
+                continue
+            return None
 
 
 def calculate_view_potential(listing_elev: float, surrounding_elevs: list[float | None]) -> int:
