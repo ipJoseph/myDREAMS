@@ -25,20 +25,27 @@ USGS_EPQS_URL = "https://epqs.nationalmap.gov/v1/json"
 REQUEST_DELAY = 0.15  # seconds between requests (polite rate limiting)
 
 
-def get_elevation(lat: float, lon: float) -> int | None:
-    """Query USGS EPQS for elevation in feet at a given lat/lon."""
+def get_elevation(lat: float, lon: float, retries: int = 3) -> int | None:
+    """Query USGS EPQS for elevation in feet at a given lat/lon, with retries."""
     url = f"{USGS_EPQS_URL}?x={lon}&y={lat}&units=Feet&wkid=4326&includeDate=false"
-    req = urllib.request.Request(url, headers={"User-Agent": "myDREAMS/1.0"})
-    try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            data = json.loads(resp.read())
-            value = data.get("value")
-            if value is not None and value != -1000000:
-                return round(float(value))
+    for attempt in range(retries):
+        req = urllib.request.Request(url, headers={"User-Agent": "myDREAMS/1.0"})
+        try:
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                data = json.loads(resp.read())
+                value = data.get("value")
+                if value is not None and value != -1000000:
+                    return round(float(value))
+                return None
+        except (urllib.error.URLError, json.JSONDecodeError, ValueError, KeyError) as e:
+            print(f"  Error for ({lat}, {lon}): {e}")
             return None
-    except (urllib.error.URLError, json.JSONDecodeError, ValueError, KeyError) as e:
-        print(f"  Error for ({lat}, {lon}): {e}")
-        return None
+        except (TimeoutError, OSError):
+            if attempt < retries - 1:
+                time.sleep(2 * (attempt + 1))
+                continue
+            print(f"  Timeout for ({lat}, {lon}) after {retries} attempts")
+            return None
 
 
 def enrich_listings(all_listings: bool = False, test_mode: bool = False):
