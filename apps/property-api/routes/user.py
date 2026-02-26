@@ -124,6 +124,52 @@ def _resolve_lead_id(db, user_id: str) -> str | None:
     return None
 
 
+def _ensure_lead_for_user(db, user_id: str) -> str | None:
+    """Resolve user to a lead, creating one if needed.
+
+    First tries _resolve_lead_id (cached value or email match).
+    If no lead found, creates a new lead with source='Website'.
+    Returns the lead ID or None on failure.
+    """
+    lead_id = _resolve_lead_id(db, user_id)
+    if lead_id:
+        return lead_id
+
+    # No existing lead found; create one
+    user = db.execute(
+        'SELECT id, email, name FROM users WHERE id = ?', [user_id]
+    ).fetchone()
+    if not user or not user['email']:
+        return None
+
+    name = (user['name'] or '').strip()
+    parts = name.split(None, 1)
+    first_name = parts[0] if parts else ''
+    last_name = parts[1] if len(parts) > 1 else ''
+
+    new_lead_id = str(uuid.uuid4())
+    now = datetime.now().isoformat()
+
+    try:
+        db.execute(
+            '''INSERT INTO leads (id, email, first_name, last_name,
+                   source, external_source, external_id, stage,
+                   type, created_at, updated_at)
+               VALUES (?, ?, ?, ?, 'Website', 'website', ?, 'Lead',
+                   'buyer', ?, ?)''',
+            [new_lead_id, user['email'], first_name, last_name,
+             user_id, now, now]
+        )
+        db.execute('UPDATE users SET lead_id = ? WHERE id = ?',
+                   [new_lead_id, user_id])
+        db.commit()
+        logger.info(f"Auto-created lead {new_lead_id} for website user {user['email']}")
+        return new_lead_id
+    except Exception as e:
+        logger.warning(f"Failed to auto-create lead for user {user_id}: {e}")
+        return None
+
+
 def _log_buyer_activity(
     user_id: str,
     activity_type: str,
@@ -135,7 +181,7 @@ def _log_buyer_activity(
     """Log a buyer action to buyer_activity. Never raises."""
     try:
         db = get_db()
-        lead_id = _resolve_lead_id(db, user_id)
+        lead_id = _ensure_lead_for_user(db, user_id)
         db.execute(
             '''INSERT INTO buyer_activity
                (user_id, lead_id, activity_type, entity_type, entity_id,
@@ -190,6 +236,9 @@ def register():
             [user_id, email, name, _hash_password(password), now, now]
         )
         db.commit()
+
+        # Auto-create a lead for this new website user
+        _ensure_lead_for_user(db, user_id)
 
         user = db.execute('SELECT * FROM users WHERE id = ?', [user_id]).fetchone()
         db.close()
@@ -313,6 +362,9 @@ def oauth_sync():
                 [str(uuid.uuid4()), user_id, 'oauth', provider, provider_account_id]
             )
             db.commit()
+
+        # Auto-create a lead for this website user if needed
+        _ensure_lead_for_user(db, user_id)
 
         user = db.execute('SELECT * FROM users WHERE id = ?', [user_id]).fetchone()
         db.close()

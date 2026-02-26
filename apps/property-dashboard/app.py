@@ -1410,6 +1410,94 @@ td {{ padding: 10px 16px; font-size: 13px; border-bottom: 1px solid #f1f5f9; ver
     })
 
 
+@app.route('/api/reports/generate-buyer-activity', methods=['POST'])
+@requires_auth
+def api_generate_buyer_activity_report():
+    """Generate a buyer activity report for a given number of days."""
+    data = request.get_json() or {}
+    days = data.get('days', 7)
+    if not isinstance(days, int) or days < 1:
+        days = 7
+
+    from datetime import date as date_type
+    end_date = date_type.today()
+    start_date = end_date - timedelta(days=days)
+
+    conn = sqlite3.connect(str(DB_PATH))
+    conn.row_factory = sqlite3.Row
+    try:
+        # Get activities in range
+        activities = conn.execute('''
+            SELECT ba.*, u.name as buyer_name, u.email as buyer_email,
+                   COALESCE(u.lead_id, u.fub_lead_id) as lead_id
+            FROM buyer_activity ba
+            LEFT JOIN users u ON u.id = ba.user_id
+            WHERE ba.occurred_at >= ?
+            ORDER BY ba.occurred_at DESC
+        ''', [start_date.isoformat()]).fetchall()
+
+        # Get showing requests in range
+        showing_requests = conn.execute('''
+            SELECT pp.id, pp.name as collection_name,
+                   pp.showing_requested_at,
+                   u.name as buyer_name, u.email as buyer_email,
+                   (SELECT COUNT(*) FROM package_properties WHERE package_id = pp.id) as property_count
+            FROM property_packages pp
+            LEFT JOIN users u ON u.id = pp.user_id
+            WHERE pp.showing_requested = 1
+            AND pp.showing_requested_at >= ?
+            ORDER BY pp.showing_requested_at DESC
+        ''', [start_date.isoformat()]).fetchall()
+    finally:
+        conn.close()
+
+    activity_list = [dict(a) for a in activities]
+    showing_list = [dict(s) for s in showing_requests]
+
+    # Compute summary stats
+    total_actions = len(activity_list)
+    unique_buyers = len(set(a.get('user_id') for a in activity_list if a.get('user_id')))
+    total_showings = len(showing_list)
+
+    # Count by type
+    type_counts = {}
+    for a in activity_list:
+        t = a.get('activity_type', 'unknown')
+        type_counts[t] = type_counts.get(t, 0) + 1
+
+    # Group by buyer
+    buyer_groups = {}
+    for a in activity_list:
+        bname = a.get('buyer_name') or a.get('buyer_email') or 'Unknown'
+        if bname not in buyer_groups:
+            buyer_groups[bname] = {'actions': [], 'lead_id': a.get('lead_id')}
+        buyer_groups[bname]['actions'].append(a)
+
+    # Render report HTML
+    date_label = f"{start_date.strftime('%B %d')} to {end_date.strftime('%B %d, %Y')}"
+
+    report_html = render_template('buyer_activity_report.html',
+        date_label=date_label,
+        total_actions=total_actions,
+        unique_buyers=unique_buyers,
+        total_showings=total_showings,
+        type_counts=type_counts,
+        buyer_groups=buyer_groups,
+        showing_requests=showing_list,
+        activities=activity_list,
+    )
+
+    filename = f"buyer-activity-{start_date.isoformat()}-to-{end_date.isoformat()}.html"
+    report_path = REPORTS_DIR / filename
+    report_path.write_text(report_html)
+
+    return jsonify({
+        'success': True,
+        'filename': filename,
+        'url': f'/reports/{filename}'
+    })
+
+
 @app.route('/reports/<path:filename>')
 @requires_auth
 def serve_report(filename):
@@ -1835,8 +1923,42 @@ def pursuits_list():
     """Pursuits list view - Buyer + Property portfolios"""
     db = get_db()
 
-    # Get all pursuits with details
+    # Get all agent-created pursuits
     pursuits = db.get_all_pursuits()
+
+    # Tag each pursuit with its source
+    for p in pursuits:
+        p['collection_source'] = 'pursuit'
+
+    # Get buyer-created collections from property_packages
+    conn = sqlite3.connect(str(DB_PATH))
+    conn.row_factory = sqlite3.Row
+    buyer_collections = conn.execute('''
+        SELECT pp.id, pp.name, pp.status, pp.user_id, pp.share_token,
+               pp.showing_requested, pp.showing_requested_at,
+               pp.created_at, pp.updated_at,
+               u.name as buyer_name, u.email as buyer_email, u.lead_id,
+               COUNT(pkp.listing_id) as property_count
+        FROM property_packages pp
+        LEFT JOIN users u ON u.id = pp.user_id
+        LEFT JOIN package_properties pkp ON pkp.package_id = pp.id
+        WHERE pp.collection_type = 'buyer_collection'
+        GROUP BY pp.id
+        ORDER BY pp.updated_at DESC
+    ''').fetchall()
+    conn.close()
+
+    for bc in buyer_collections:
+        bc = dict(bc)
+        bc['collection_source'] = 'buyer_package'
+        bc['buyer_name'] = bc.get('buyer_name') or bc.get('buyer_email') or 'Unknown'
+        pursuits.append(bc)
+
+    # Sort combined list by updated_at descending
+    def sort_key(item):
+        ts = item.get('updated_at') or item.get('created_at') or ''
+        return ts
+    pursuits.sort(key=sort_key, reverse=True)
 
     # Get buyers who could become pursuits (qualified but no pursuit yet)
     potential_buyers = db.get_potential_pursuit_buyers()
@@ -2166,6 +2288,95 @@ def buyer_collection_detail(collection_id):
         buyer=buyer,
         lead=lead,
         properties=[dict(p) for p in properties],
+    )
+
+
+@app.route('/buyer-collections/<collection_id>/brochure')
+@requires_auth
+def buyer_collection_brochure(collection_id):
+    """Generate and download a PDF brochure for a buyer collection."""
+    conn = sqlite3.connect(str(DB_PATH))
+    conn.row_factory = sqlite3.Row
+    collection = conn.execute(
+        'SELECT share_token, name FROM property_packages WHERE id = ?',
+        [collection_id]
+    ).fetchone()
+    conn.close()
+
+    if not collection or not collection['share_token']:
+        return "Collection not found", 404
+
+    try:
+        from apps.automation.brochure_generator import generate_collection_pdf
+    except ImportError:
+        return "PDF generation unavailable", 500
+
+    pdf_bytes, collection_name = generate_collection_pdf(collection['share_token'])
+    if not pdf_bytes:
+        return "Failed to generate brochure (collection may be empty)", 404
+
+    clean_name = re.sub(r'[^a-zA-Z0-9\- ]', '', collection_name)
+    clean_name = clean_name.replace(' ', '-').strip('-') or 'Collection'
+    filename = f"{clean_name}.pdf"
+
+    return Response(
+        pdf_bytes,
+        mimetype='application/pdf',
+        headers={'Content-Disposition': f'attachment; filename="{filename}"'},
+    )
+
+
+@app.route('/collections/<pursuit_id>/brochure')
+@requires_auth
+def pursuit_brochure(pursuit_id):
+    """Generate and download a PDF brochure for an agent pursuit collection."""
+    db = get_db()
+    pursuit = db.get_pursuit_with_properties(pursuit_id)
+    if not pursuit or not pursuit.get('properties'):
+        return "Collection not found or empty", 404
+
+    try:
+        from apps.automation.brochure_generator import generate_brochure_bytes
+    except ImportError:
+        return "PDF generation unavailable", 500
+
+    # Generate individual PDFs for each property
+    all_pdfs = []
+    for prop in pursuit['properties']:
+        pid = prop.get('property_id') or prop.get('id')
+        if pid:
+            pdf_data = generate_brochure_bytes(pid)
+            if pdf_data:
+                all_pdfs.append(pdf_data)
+
+    if not all_pdfs:
+        return "Failed to generate brochure", 500
+
+    if len(all_pdfs) == 1:
+        result_pdf = all_pdfs[0]
+    else:
+        try:
+            import pypdf, io
+            merger = pypdf.PdfWriter()
+            for pdf_data in all_pdfs:
+                reader = pypdf.PdfReader(io.BytesIO(pdf_data))
+                for page in reader.pages:
+                    merger.add_page(page)
+            output = io.BytesIO()
+            merger.write(output)
+            result_pdf = output.getvalue()
+        except ImportError:
+            result_pdf = all_pdfs[0]
+
+    name = pursuit.get('name') or pursuit.get('buyer_name') or 'Collection'
+    clean_name = re.sub(r'[^a-zA-Z0-9\- ]', '', name)
+    clean_name = clean_name.replace(' ', '-').strip('-') or 'Collection'
+    filename = f"{clean_name}.pdf"
+
+    return Response(
+        result_pdf,
+        mimetype='application/pdf',
+        headers={'Content-Disposition': f'attachment; filename="{filename}"'},
     )
 
 

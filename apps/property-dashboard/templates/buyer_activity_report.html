@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buyer Activity Report | {{ date_label }}</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8fafc;
+            color: #1a1a1a;
+            padding: 32px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        h1 { font-size: 26px; font-weight: 800; margin-bottom: 4px; }
+        .subtitle { font-size: 14px; color: #64748b; margin-bottom: 32px; }
+
+        /* Summary Cards */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 14px;
+            margin-bottom: 28px;
+        }
+        .summary-card {
+            background: white;
+            border-radius: 10px;
+            padding: 18px 16px;
+            text-align: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        }
+        .summary-card .value {
+            font-size: 32px;
+            font-weight: 800;
+            line-height: 1;
+            margin-bottom: 4px;
+        }
+        .summary-card .label {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #64748b;
+        }
+        .total .value { color: #1e3a5f; }
+        .buyers .value { color: #2563eb; }
+        .showings .value { color: #d97706; }
+        .favorites .value { color: #dc2626; }
+
+        /* Action type breakdown */
+        .breakdown {
+            background: white;
+            border-radius: 10px;
+            padding: 20px 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+            margin-bottom: 28px;
+        }
+        .breakdown h2 {
+            font-size: 15px;
+            font-weight: 700;
+            margin-bottom: 14px;
+        }
+        .breakdown-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            font-size: 13px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .breakdown-row:last-child { border-bottom: none; }
+        .breakdown-type { color: #374151; }
+        .breakdown-count { font-weight: 700; color: #1e3a5f; }
+
+        /* Showing requests section */
+        .showings-section {
+            background: #fffbeb;
+            border: 2px solid #f59e0b;
+            border-radius: 10px;
+            padding: 20px 24px;
+            margin-bottom: 28px;
+        }
+        .showings-section h2 {
+            font-size: 15px;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 14px;
+        }
+        .showing-item {
+            background: white;
+            border: 1px solid #fde68a;
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 8px;
+        }
+        .showing-item:last-child { margin-bottom: 0; }
+        .showing-buyer { font-weight: 600; font-size: 15px; }
+        .showing-meta { font-size: 13px; color: #64748b; margin-top: 2px; }
+
+        /* Buyer activity groups */
+        .buyer-section {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+            margin-bottom: 16px;
+            overflow: hidden;
+        }
+        .buyer-header {
+            padding: 14px 20px;
+            border-bottom: 1px solid #f1f5f9;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .buyer-name { font-size: 16px; font-weight: 700; }
+        .buyer-count {
+            font-size: 12px;
+            font-weight: 600;
+            color: white;
+            background: #2563eb;
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+        .buyer-actions { padding: 12px 20px; }
+        .action-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 0;
+            font-size: 13px;
+            border-bottom: 1px solid #f8fafc;
+        }
+        .action-item:last-child { border-bottom: none; }
+        .action-type { color: #374151; }
+        .action-entity { color: #2563eb; font-weight: 500; }
+        .action-time { color: #94a3b8; font-size: 12px; }
+
+        /* Footer */
+        .report-footer {
+            text-align: center;
+            margin-top: 32px;
+            padding-top: 16px;
+            border-top: 1px solid #e2e8f0;
+            font-size: 12px;
+            color: #94a3b8;
+        }
+
+        @media (max-width: 700px) {
+            .summary-grid { grid-template-columns: repeat(2, 1fr); }
+            body { padding: 16px; }
+        }
+    </style>
+</head>
+<body>
+    <h1>Buyer Activity Report</h1>
+    <div class="subtitle">{{ date_label }} | Generated {{ now().strftime('%B %d, %Y at %I:%M %p') if now is defined else '' }}</div>
+
+    <!-- Summary -->
+    <div class="summary-grid">
+        <div class="summary-card total">
+            <div class="value">{{ total_actions }}</div>
+            <div class="label">Total Actions</div>
+        </div>
+        <div class="summary-card buyers">
+            <div class="value">{{ unique_buyers }}</div>
+            <div class="label">Unique Buyers</div>
+        </div>
+        <div class="summary-card showings">
+            <div class="value">{{ total_showings }}</div>
+            <div class="label">Showing Requests</div>
+        </div>
+        <div class="summary-card favorites">
+            <div class="value">{{ type_counts.get('favorite', 0) }}</div>
+            <div class="label">Favorites</div>
+        </div>
+    </div>
+
+    <!-- Action Type Breakdown -->
+    {% if type_counts %}
+    <div class="breakdown">
+        <h2>Activity Breakdown</h2>
+        {% for atype, count in type_counts.items()|sort(attribute='1', reverse=true) %}
+        <div class="breakdown-row">
+            <span class="breakdown-type">
+                {% if atype == 'favorite' %}Favorited a property
+                {% elif atype == 'unfavorite' %}Unfavorited a property
+                {% elif atype == 'create_collection' %}Created a collection
+                {% elif atype == 'add_to_collection' %}Added to collection
+                {% elif atype == 'remove_from_collection' %}Removed from collection
+                {% elif atype == 'request_showings' %}Requested showings
+                {% elif atype == 'cancel_showings' %}Cancelled showings
+                {% elif atype == 'save_search' %}Saved a search
+                {% else %}{{ atype }}{% endif %}
+            </span>
+            <span class="breakdown-count">{{ count }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Showing Requests -->
+    {% if showing_requests %}
+    <div class="showings-section">
+        <h2>Showing Requests ({{ showing_requests|length }})</h2>
+        {% for sr in showing_requests %}
+        <div class="showing-item">
+            <div class="showing-buyer">{{ sr.buyer_name or sr.buyer_email or 'Unknown' }}</div>
+            <div class="showing-meta">
+                {{ sr.collection_name }} ({{ sr.property_count }} {{ 'property' if sr.property_count == 1 else 'properties' }})
+                {% if sr.showing_requested_at %}
+                | Requested {{ sr.showing_requested_at[:16] }}
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Activity by Buyer -->
+    <h2 style="font-size: 18px; font-weight: 700; margin-bottom: 14px; margin-top: 8px;">Activity by Buyer</h2>
+    {% for buyer_name, group in buyer_groups.items() %}
+    <div class="buyer-section">
+        <div class="buyer-header">
+            <span class="buyer-name">{{ buyer_name }}</span>
+            <span class="buyer-count">{{ group.actions|length }} actions</span>
+        </div>
+        <div class="buyer-actions">
+            {% for act in group.actions %}
+            <div class="action-item">
+                <div>
+                    <span class="action-type">
+                        {% if act.activity_type == 'favorite' %}Favorited
+                        {% elif act.activity_type == 'unfavorite' %}Unfavorited
+                        {% elif act.activity_type == 'create_collection' %}Created collection
+                        {% elif act.activity_type == 'add_to_collection' %}Added to collection
+                        {% elif act.activity_type == 'remove_from_collection' %}Removed from collection
+                        {% elif act.activity_type == 'request_showings' %}Requested showings
+                        {% elif act.activity_type == 'cancel_showings' %}Cancelled showings
+                        {% elif act.activity_type == 'save_search' %}Saved search
+                        {% else %}{{ act.activity_type }}{% endif %}
+                    </span>
+                    {% if act.entity_name %}
+                    <span class="action-entity">{{ act.entity_name }}</span>
+                    {% endif %}
+                </div>
+                <span class="action-time">{{ act.occurred_at[:16] if act.occurred_at else '' }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+
+    {% if not buyer_groups %}
+    <div style="text-align: center; padding: 40px; color: #94a3b8; font-size: 14px;">
+        No buyer activity in this date range.
+    </div>
+    {% endif %}
+
+    <div class="report-footer">
+        DREAMS - Desktop Real Estate Agent Management System | Jon Tharp Homes
+    </div>
+</body>
+</html>

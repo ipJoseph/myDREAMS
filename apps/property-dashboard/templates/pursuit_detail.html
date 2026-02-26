@@ -352,6 +352,9 @@
             </div>
         </div>
         <div class="header-actions">
+            {% if pursuit.properties %}
+            <a href="/collections/{{ pursuit.id }}/brochure" class="header-btn">Download Brochure</a>
+            {% endif %}
             <form action="/collections/{{ pursuit.id }}/auto-populate" method="POST" style="display:inline;">
                 <button type="submit" class="header-btn">Auto-Match</button>
             </form>

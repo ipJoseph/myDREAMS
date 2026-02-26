@@ -113,7 +113,7 @@
             .property-card { grid-template-columns: 100px 1fr; }
         }
     </style>
-    {% set active_nav = 'buyer-activity' %}
+    {% set active_nav = 'collections' %}
 </head>
 <body>
     {% include 'partials/sidebar.html' %}
@@ -125,7 +125,7 @@
         </div>
     </header>
 
-    <a href="/buyer-activity" class="back-link">&larr; Back to Buyer Activity</a>
+    <a href="/collections" class="back-link">&larr; Back to Collections</a>
 
     <div class="page-header">
         <div>
@@ -144,6 +144,13 @@
                 <span style="font-size: 13px; color: var(--text-secondary);">
                     Created {{ collection.created_at[:10] if collection.created_at else 'N/A' }}
                 </span>
+                {% if properties %}
+                <a href="/buyer-collections/{{ collection.id }}/brochure"
+                   style="padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: 500; background: white; border: 1px solid var(--border); color: var(--text-secondary); text-decoration: none;"
+                   onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background='white'">
+                    Download Brochure
+                </a>
+                {% endif %}
             </div>
         </div>
     </div>

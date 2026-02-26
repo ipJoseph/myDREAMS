@@ -159,7 +159,47 @@
             <h2 class="page-title">Buyer Activity</h2>
             <p class="page-subtitle">Actions from buyers on the public website</p>
         </div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+            <select id="reportDays" style="padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; background: white;">
+                <option value="7">Last 7 days</option>
+                <option value="14">Last 14 days</option>
+                <option value="30">Last 30 days</option>
+            </select>
+            <button onclick="generateReport()" id="reportBtn"
+                    style="padding: 6px 14px; border-radius: 6px; font-size: 13px; font-weight: 500; background: var(--primary); color: white; border: none; cursor: pointer;">
+                Generate Report
+            </button>
+        </div>
     </div>
+
+    <script>
+    function generateReport() {
+        const days = parseInt(document.getElementById('reportDays').value);
+        const btn = document.getElementById('reportBtn');
+        btn.textContent = 'Generating...';
+        btn.disabled = true;
+        fetch('/api/reports/generate-buyer-activity', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({days: days})
+        })
+        .then(r => r.json())
+        .then(data => {
+            btn.textContent = 'Generate Report';
+            btn.disabled = false;
+            if (data.success) {
+                window.open(data.url, '_blank');
+            } else {
+                alert('Failed to generate report: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(() => {
+            btn.textContent = 'Generate Report';
+            btn.disabled = false;
+            alert('Failed to generate report.');
+        });
+    }
+    </script>
 
     <div class="content-area">
         {# Pending showing requests #}
