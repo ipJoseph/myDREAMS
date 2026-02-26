@@ -2,7 +2,7 @@
 
 *Exhaustive prioritized task list - check off as completed*
 
-Last updated: February 25, 2026 (Historical import, flood/view enrichment, DOM fix)
+Last updated: February 26, 2026 (Collections bridge, buyer activity, agent notifications, saved search alerts)
 
 ---
 
@@ -138,6 +138,12 @@ Last updated: February 25, 2026 (Historical import, flood/view enrichment, DOM f
 | - | Historical MLS import | Feb 25, 2026 | 54,329 total listings from Navica (Closed, Expired, Withdrawn) |
 | - | Enrichment pipeline script | Feb 25, 2026 | enrich_all.sh chains elevation/flood/views; resumable; overnight-safe |
 | - | DOM dynamic calculation fix | Feb 25, 2026 | Compute from list_date for active listings; no more stale API snapshots |
+| - | Collections bridge (Pursuits rename) | Feb 26, 2026 | Renamed Pursuits to Collections across all dashboard UI; route aliases for backward compat |
+| - | Buyer activity tracking | Feb 26, 2026 | buyer_activity table, logging on favorites/collections/searches/showing requests |
+| - | Showing request feature | Feb 26, 2026 | Request/cancel showings API, buyer UI button, immediate agent email notification |
+| - | Agent notifications (email) | Feb 26, 2026 | Immediate showing alerts + daily activity digest; buyer_notifications.py + 2 templates |
+| - | Dashboard buyer activity page | Feb 26, 2026 | /buyer-activity with urgency panel, activity feed; /buyer-collections/:id detail view |
+| - | Saved search email alerts | Feb 26, 2026 | Daily/weekly cron, filter matching engine, buyer-facing email with property cards |
 
 ---
 

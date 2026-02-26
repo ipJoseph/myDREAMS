@@ -16,12 +16,16 @@
 | Navica MLS Sync | Done | 54,329 listings from Carolina Smokies MLS via RESO API |
 | Public Website | Done | Next.js at wncmountain.homes |
 | Lead Management | Done | FUB sync, multi-dimensional scoring, daily emails |
-| Pursuits System | Done | Buyer-property portfolios with auto-matching |
+| Collections System | Done | Buyer-property portfolios with auto-matching (renamed from Pursuits) |
+| Buyer Activity Tracking | Done | Activity logging, showing requests, agent notifications |
+| Saved Search Alerts | Done | Daily/weekly email alerts for buyer saved searches |
 
 ### Recent Additions (February 2026)
 
 | Feature | Commit | Description |
 |---------|--------|-------------|
+| **Collections Bridge** | `864b2f7` | Unified buyer/agent collections: Pursuits renamed to Collections, buyer activity tracking, showing requests, agent email notifications |
+| **Saved Search Alerts** | `864b2f7` | Daily/weekly buyer email alerts with matching listings; filter matching engine reuses public API logic |
 | **Map Search (Public Site)** | - | Grid/Map toggle on `/listings` with Google Maps, marker clustering, color-coded status, popup detail cards |
 | **County Records (Public Site)** | - | Ported county GIS/PRC/tax links to public listing detail; client-side URL builder for 9 counties |
 | **Terrain Map Layer** | - | 4th map tab (topographic contours) on dashboard and public site property detail |

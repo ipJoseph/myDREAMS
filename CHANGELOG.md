@@ -9,6 +9,21 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Collections Bridge, Buyer Activity, and Agent Notifications** (2026-02-26)
+  - Rename Pursuits to Collections across all dashboard templates and routes (UI-only; database tables unchanged)
+  - `buyer_activity` table for tracking buyer website actions (favorites, collections, showing requests, saved searches)
+  - Showing request feature: `POST /collections/:id/request-showings` and `/cancel-showings` endpoints
+  - Activity logging on all buyer actions (fire-and-forget pattern, never breaks buyer flows)
+  - Immediate agent email on showing requests (`apps/automation/buyer_notifications.py`)
+  - Daily buyer activity digest email (cron: `python3 -m apps.automation.buyer_notifications`)
+  - Dashboard Buyer Activity page (`/buyer-activity`) with urgency panel for pending showing requests
+  - Buyer Collection detail view (`/buyer-collections/:id`) for agent review of buyer collections
+  - "Request Showings" button on public site collection detail page (gold accent, state management)
+  - Mission Control widget for buyer activity with showing request count
+  - Sidebar badge showing pending showing request count (injected via context processor)
+  - Saved search email alerts (`apps/automation/saved_search_alerts.py`): daily and weekly cron, filter matching engine
+  - Saved search alert email template with property cards, agent branding, manage link
+  - New files: `buyer_notifications.py`, `saved_search_alerts.py`, 3 email templates, 2 dashboard templates
 - **Single-Property Brochure PDF** (2026-02-25)
   - `GET /api/public/listings/:id/brochure` generates branded PDF brochure per property
   - Navy/gold design: hero cover with photo + price, details page with two-column grid, feature pills, conditional extended page for long descriptions, agent contact page
