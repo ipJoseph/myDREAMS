@@ -1510,7 +1510,7 @@
                                 <span class="briefing-stat-value">{{ pipeline.pending_offers|length }}{% if pipeline.pending_offers %} <span style="font-weight:400; font-size:11px; color:var(--text-muted, #94a3b8);">({% for po in pipeline.pending_offers[:3] %}{{ po.first_name or po.name or 'Lead' }}{{ ', ' if not loop.last }}{% endfor %}{% if pipeline.pending_offers|length > 3 %}...{% endif %})</span>{% endif %}</span>
                             </div>
                             <div class="briefing-stat-row">
-                                <span class="briefing-stat-label">Active Pursuits</span>
+                                <span class="briefing-stat-label">Active Collections</span>
                                 <span class="briefing-stat-value">{{ pipeline.active_pursuits }}</span>
                             </div>
                             <div class="briefing-stat-row">
@@ -1520,20 +1520,61 @@
                         </div>
                     </div>
 
-                    <!-- Active Pursuits -->
+                    <!-- Active Collections -->
                     {% if active_pursuits %}
                     <div class="briefing-card">
                         <div class="briefing-card-header">
-                            <div class="briefing-card-title">Active Pursuits</div>
-                            <a href="/pursuits" class="briefing-card-action">All &rarr;</a>
+                            <div class="briefing-card-title">Active Collections</div>
+                            <a href="/collections" class="briefing-card-action">All &rarr;</a>
                         </div>
                         <div class="briefing-card-body" style="padding:0;">
                             {% for p in active_pursuits[:3] %}
-                            <a href="/pursuits/{{ p.id }}" style="display:block;padding:8px 14px;border-bottom:1px solid #f1f5f9;text-decoration:none;color:inherit;">
+                            <a href="/collections/{{ p.id }}" style="display:block;padding:8px 14px;border-bottom:1px solid #f1f5f9;text-decoration:none;color:inherit;">
                                 <div style="font-size:13px;font-weight:600;color:var(--text-primary);">{{ p.buyer_name }}</div>
                                 <div style="font-size:11px;color:var(--text-secondary);">{{ p.property_count or 0 }} properties{% if p.new_count %} ({{ p.new_count }} new){% endif %}</div>
                             </a>
                             {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Buyer Activity -->
+                    {% if showing_request_count > 0 or buyer_activity_recent %}
+                    <div class="briefing-card">
+                        <div class="briefing-card-header">
+                            <div class="briefing-card-title">
+                                {% if showing_request_count > 0 %}
+                                <span style="color:#dc2626;">&#9679;</span>
+                                {% endif %}
+                                Buyer Activity
+                            </div>
+                            <a href="/buyer-activity" class="briefing-card-action">View All &rarr;</a>
+                        </div>
+                        <div class="briefing-card-body" style="padding:0;">
+                            {% if showing_request_count > 0 %}
+                            <a href="/buyer-activity" style="display:block;padding:10px 14px;background:#fffbeb;border-bottom:1px solid #fde68a;text-decoration:none;color:inherit;">
+                                <div style="font-size:13px;font-weight:600;color:#92400e;">{{ showing_request_count }} showing {{ 'request' if showing_request_count == 1 else 'requests' }} pending</div>
+                                <div style="font-size:11px;color:#b45309;">Buyers want to schedule viewings</div>
+                            </a>
+                            {% endif %}
+                            {% if buyer_activity_recent %}
+                            {% for act in buyer_activity_recent[:5] %}
+                            <div style="padding:8px 14px;border-bottom:1px solid #f1f5f9;font-size:12px;">
+                                <span style="font-weight:600;">{{ act.buyer_name or act.buyer_email or 'Unknown' }}</span>
+                                <span style="color:var(--text-secondary);">
+                                    {% if act.activity_type == 'favorite' %}favorited
+                                    {% elif act.activity_type == 'create_collection' %}created collection
+                                    {% elif act.activity_type == 'add_to_collection' %}added to collection
+                                    {% elif act.activity_type == 'request_showings' %}requested showings
+                                    {% elif act.activity_type == 'save_search' %}saved search
+                                    {% else %}{{ act.activity_type }}{% endif %}
+                                </span>
+                                {% if act.entity_name %}<span style="color:var(--primary);font-weight:500;">{{ act.entity_name }}</span>{% endif %}
+                            </div>
+                            {% endfor %}
+                            {% elif showing_request_count == 0 %}
+                            <div style="padding:14px;text-align:center;color:var(--text-secondary);font-size:12px;">No recent buyer activity</div>
+                            {% endif %}
                         </div>
                     </div>
                     {% endif %}
@@ -1864,7 +1905,7 @@
                 </div>
                 <div class="pipe-item">
                     <div class="pipe-value">{{ pipeline.active_pursuits }}</div>
-                    <div class="pipe-label">Active Pursuits</div>
+                    <div class="pipe-label">Active Collections</div>
                 </div>
                 <div class="pipe-item">
                     <div class="pipe-value">{{ pipeline.buyers_needing_properties }}</div>

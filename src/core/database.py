@@ -161,6 +161,34 @@ class DREAMSDatabase:
                 except sqlite3.OperationalError:
                     pass  # Column already exists
 
+        # Apply migrations for property_packages table (showing request columns)
+        cursor = conn.execute("PRAGMA table_info(property_packages)")
+        existing_pkg_cols = {row[1] for row in cursor.fetchall()}
+
+        new_pkg_columns = [
+            ("showing_requested", "INTEGER DEFAULT 0"),
+            ("showing_requested_at", "TEXT"),
+        ]
+
+        for col_name, col_type in new_pkg_columns:
+            if col_name not in existing_pkg_cols:
+                try:
+                    conn.execute(f"ALTER TABLE property_packages ADD COLUMN {col_name} {col_type}")
+                    logger.info(f"Added column {col_name} to property_packages table")
+                except sqlite3.OperationalError:
+                    pass
+
+        # Apply migrations for users table (lead_id link)
+        cursor = conn.execute("PRAGMA table_info(users)")
+        existing_user_cols = {row[1] for row in cursor.fetchall()}
+
+        if 'lead_id' not in existing_user_cols:
+            try:
+                conn.execute("ALTER TABLE users ADD COLUMN lead_id TEXT")
+                logger.info("Added column lead_id to users table")
+            except sqlite3.OperationalError:
+                pass
+
     @contextmanager
     def _get_connection(self):
         """Get database connection with context manager."""
@@ -696,6 +724,21 @@ class DREAMSDatabase:
             FOREIGN KEY (property_id) REFERENCES listings(id),
             UNIQUE(pursuit_id, property_id)
         );
+
+        -- Buyer activity tracking (public website actions visible to agent)
+        CREATE TABLE IF NOT EXISTS buyer_activity (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT NOT NULL,
+            lead_id TEXT,
+            activity_type TEXT NOT NULL,
+            entity_type TEXT,
+            entity_id TEXT,
+            entity_name TEXT,
+            metadata TEXT,
+            occurred_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            agent_notified INTEGER DEFAULT 0,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        );
         '''
 
     def _get_indexes_schema(self) -> str:
@@ -774,6 +817,10 @@ class DREAMSDatabase:
         CREATE INDEX IF NOT EXISTS idx_pursuits_status ON pursuits(status);
         CREATE INDEX IF NOT EXISTS idx_pursuit_properties_pursuit ON pursuit_properties(pursuit_id);
         CREATE INDEX IF NOT EXISTS idx_pursuit_properties_property ON pursuit_properties(property_id);
+        -- Buyer activity indexes
+        CREATE INDEX IF NOT EXISTS idx_buyer_activity_user ON buyer_activity(user_id, occurred_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_buyer_activity_notified ON buyer_activity(agent_notified, occurred_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_buyer_activity_lead ON buyer_activity(lead_id);
         '''
 
     def _seed_default_settings(self, conn) -> None:
@@ -846,6 +893,52 @@ class DREAMSDatabase:
                 INSERT OR IGNORE INTO system_settings (key, value, value_type, category, description)
                 VALUES (?, ?, ?, ?, ?)
             ''', [key, value, value_type, category, description])
+
+    # ==========================================
+    # USER-LEAD RESOLUTION
+    # ==========================================
+
+    def resolve_user_lead_id(self, user_id: str) -> Optional[str]:
+        """Resolve a public-site user ID to a leads table ID.
+
+        Checks users.lead_id first (cached value). Falls back to matching
+        the user's email against leads.email, then caches the result.
+
+        Returns the lead_id or None if no match found.
+        """
+        with self._get_connection() as conn:
+            # Check cached lead_id first
+            user = conn.execute(
+                'SELECT lead_id, fub_lead_id, email FROM users WHERE id = ?',
+                [user_id]
+            ).fetchone()
+            if not user:
+                return None
+
+            # Return cached value if available
+            cached = user['lead_id'] or user['fub_lead_id']
+            if cached:
+                return cached
+
+            # Fall back to email match
+            if not user['email']:
+                return None
+
+            lead = conn.execute(
+                'SELECT id FROM leads WHERE LOWER(email) = LOWER(?) LIMIT 1',
+                [user['email']]
+            ).fetchone()
+
+            if lead:
+                # Cache for next time
+                conn.execute(
+                    'UPDATE users SET lead_id = ? WHERE id = ?',
+                    [lead['id'], user_id]
+                )
+                conn.commit()
+                return lead['id']
+
+            return None
 
     # ==========================================
     # SYSTEM SETTINGS OPERATIONS

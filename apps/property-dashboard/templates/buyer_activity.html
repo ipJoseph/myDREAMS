@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buyer Activity - DREAMS</title>
+    <link rel="icon" type="image/svg+xml" href="{{ favicon }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='shared/css/dreams.css') }}">
+    <style>
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+        .page-title { font-size: 24px; font-weight: 600; color: var(--text-primary); }
+        .page-subtitle { font-size: 14px; color: var(--text-secondary); margin-top: 4px; }
+        .content-area { margin: 0 20px 20px 20px; }
+
+        /* Urgent panel */
+        .urgent-panel {
+            background: #fffbeb;
+            border: 2px solid #f59e0b;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .urgent-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #92400e;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .urgent-card {
+            background: white;
+            border: 1px solid #fde68a;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .urgent-card:last-child { margin-bottom: 0; }
+        .urgent-info { flex: 1; }
+        .urgent-buyer { font-weight: 600; font-size: 15px; color: var(--text-primary); }
+        .urgent-meta { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
+        .urgent-time { font-size: 12px; color: #92400e; margin-top: 4px; }
+        .urgent-actions { display: flex; gap: 8px; }
+        .urgent-btn {
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            text-decoration: none;
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            background: white;
+        }
+        .urgent-btn:hover { background: var(--bg-secondary); color: var(--text-primary); }
+        .urgent-btn.primary { background: var(--primary); color: white; border-color: var(--primary); }
+
+        /* Activity feed */
+        .activity-section {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .section-title {
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--bg-secondary);
+        }
+        .day-group { margin-bottom: 24px; }
+        .day-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+        .activity-item {
+            display: flex;
+            gap: 12px;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--bg-secondary);
+        }
+        .activity-item:last-child { border-bottom: none; }
+        .activity-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+        .icon-favorite { background: #fef2f2; color: #dc2626; }
+        .icon-collection { background: #eff6ff; color: #2563eb; }
+        .icon-showing { background: #fffbeb; color: #d97706; }
+        .icon-search { background: #f0fdf4; color: #16a34a; }
+        .icon-default { background: #f8fafc; color: #64748b; }
+        .activity-content { flex: 1; min-width: 0; }
+        .activity-buyer {
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--text-primary);
+        }
+        .activity-buyer a { color: inherit; text-decoration: none; }
+        .activity-buyer a:hover { color: var(--primary); }
+        .activity-desc { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
+        .activity-entity { color: var(--primary); font-weight: 500; }
+        .activity-time {
+            font-size: 11px;
+            color: var(--text-secondary);
+            opacity: 0.7;
+            margin-top: 4px;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-secondary);
+        }
+        .empty-state-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.5; }
+        .empty-state-title { font-size: 16px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px; }
+        .empty-state-text { font-size: 13px; }
+    </style>
+    {% set active_nav = 'buyer-activity' %}
+</head>
+<body>
+    {% include 'partials/sidebar.html' %}
+    <div class="main-content">
+    <header class="dreams-header">
+        <div>
+            <h1>DREAMS Dashboard</h1>
+            <div class="dreams-header-subtitle">Buyer Activity</div>
+        </div>
+        <div style="display: flex; gap: 16px; align-items: center;">
+            <span style="font-size: 13px; opacity: 0.8;">{{ refresh_time }}</span>
+        </div>
+    </header>
+
+    <div class="page-header">
+        <div>
+            <h2 class="page-title">Buyer Activity</h2>
+            <p class="page-subtitle">Actions from buyers on the public website</p>
+        </div>
+    </div>
+
+    <div class="content-area">
+        {# Pending showing requests #}
+        {% if showing_requests %}
+        <div class="urgent-panel">
+            <div class="urgent-title">
+                <span>&#128680;</span> Pending Showing Requests ({{ showing_requests|length }})
+            </div>
+            {% for sr in showing_requests %}
+            <div class="urgent-card">
+                <div class="urgent-info">
+                    <div class="urgent-buyer">{{ sr.buyer_name or sr.buyer_email or 'Unknown' }}</div>
+                    <div class="urgent-meta">
+                        {{ sr.collection_name }} &middot; {{ sr.property_count }} {{ 'property' if sr.property_count == 1 else 'properties' }}
+                    </div>
+                    <div class="urgent-time">
+                        Requested {{ sr.showing_requested_at[:16] if sr.showing_requested_at else 'recently' }}
+                    </div>
+                </div>
+                <div class="urgent-actions">
+                    <a href="/buyer-collections/{{ sr.collection_id }}" class="urgent-btn primary">View Collection</a>
+                    {% if sr.lead_id %}
+                    <a href="/contacts/{{ sr.lead_id }}" class="urgent-btn">View Contact</a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {# Activity feed #}
+        <div class="activity-section">
+            <div class="section-title">Recent Activity</div>
+
+            {% if activities %}
+                {% for day, day_activities in grouped_activities.items() %}
+                <div class="day-group">
+                    <div class="day-label">{{ day }}</div>
+                    {% for act in day_activities %}
+                    <div class="activity-item">
+                        <div class="activity-icon
+                            {% if act.activity_type in ('favorite', 'unfavorite') %}icon-favorite
+                            {% elif act.activity_type in ('create_collection', 'add_to_collection', 'remove_from_collection') %}icon-collection
+                            {% elif act.activity_type in ('request_showings', 'cancel_showings') %}icon-showing
+                            {% elif act.activity_type == 'save_search' %}icon-search
+                            {% else %}icon-default{% endif %}
+                        ">
+                            {% if act.activity_type == 'favorite' %}&#10084;
+                            {% elif act.activity_type == 'unfavorite' %}&#128148;
+                            {% elif act.activity_type == 'create_collection' %}&#128193;
+                            {% elif act.activity_type in ('add_to_collection', 'remove_from_collection') %}&#128204;
+                            {% elif act.activity_type in ('request_showings', 'cancel_showings') %}&#128197;
+                            {% elif act.activity_type == 'save_search' %}&#128269;
+                            {% else %}&#9679;{% endif %}
+                        </div>
+                        <div class="activity-content">
+                            <div class="activity-buyer">
+                                {% if act.lead_id %}
+                                <a href="/contacts/{{ act.lead_id }}">{{ act.buyer_name or act.buyer_email or 'Unknown' }}</a>
+                                {% else %}
+                                {{ act.buyer_name or act.buyer_email or 'Unknown' }}
+                                {% endif %}
+                            </div>
+                            <div class="activity-desc">
+                                {% if act.activity_type == 'favorite' %}Favorited
+                                {% elif act.activity_type == 'unfavorite' %}Unfavorited
+                                {% elif act.activity_type == 'create_collection' %}Created collection
+                                {% elif act.activity_type == 'add_to_collection' %}Added to collection:
+                                {% elif act.activity_type == 'remove_from_collection' %}Removed from collection:
+                                {% elif act.activity_type == 'request_showings' %}Requested showings for
+                                {% elif act.activity_type == 'cancel_showings' %}Cancelled showings for
+                                {% elif act.activity_type == 'save_search' %}Saved search:
+                                {% else %}{{ act.activity_type }}{% endif %}
+                                {% if act.entity_name %}<span class="activity-entity">{{ act.entity_name }}</span>{% endif %}
+                            </div>
+                            <div class="activity-time">{{ act.occurred_at[11:16] if act.occurred_at and act.occurred_at|length > 16 else act.occurred_at }}</div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <div class="empty-state-icon">&#128064;</div>
+                    <div class="empty-state-title">No Buyer Activity Yet</div>
+                    <div class="empty-state-text">
+                        When buyers favorite properties, create collections, or request showings on the website, their actions will appear here.
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <footer class="dreams-footer">
+        DREAMS - Desktop Real Estate Agent Management System | Joseph "Eugy" Williams
+    </footer>
+    </div>
+</body>
+</html>

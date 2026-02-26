@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ pursuit.name }} - Pursuit - DREAMS</title>
+    <title>{{ pursuit.name }} - Collection - DREAMS</title>
     <link rel="icon" type="image/svg+xml" href="{{ favicon }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='shared/css/dreams.css') }}">
     <style>
@@ -317,7 +317,7 @@
             .property-thumb { width: 100%; height: 160px; }
         }
     </style>
-    {% set active_nav = 'pursuits' %}
+    {% set active_nav = 'collections' %}
 </head>
 <body>
     {% include 'partials/sidebar.html' %}
@@ -326,14 +326,14 @@
     <header class="dreams-header">
         <div>
             <h1>DREAMS Dashboard</h1>
-            <div class="dreams-header-subtitle">Pursuit Detail</div>
+            <div class="dreams-header-subtitle">Collection Detail</div>
         </div>
         <div style="display: flex; gap: 16px; align-items: center;">
             <span style="font-size: 13px; opacity: 0.8;">{{ refresh_time }}</span>
         </div>
     </header>
 
-    <a href="/pursuits" class="back-link">&larr; Back to Pursuits</a>
+    <a href="/collections" class="back-link">&larr; Back to Collections</a>
 
     <!-- Page Header -->
     <div class="page-header">
@@ -352,26 +352,26 @@
             </div>
         </div>
         <div class="header-actions">
-            <form action="/pursuits/{{ pursuit.id }}/auto-populate" method="POST" style="display:inline;">
+            <form action="/collections/{{ pursuit.id }}/auto-populate" method="POST" style="display:inline;">
                 <button type="submit" class="header-btn">Auto-Match</button>
             </form>
             <a href="/properties?pursuit={{ pursuit.id }}" class="header-btn primary">Browse Properties</a>
             <div class="status-dropdown">
                 <button class="header-btn" onclick="toggleStatusMenu()">Status</button>
                 <div class="status-menu" id="statusMenu">
-                    <form action="/pursuits/{{ pursuit.id }}/status" method="POST">
+                    <form action="/collections/{{ pursuit.id }}/status" method="POST">
                         <input type="hidden" name="status" value="active">
                         <button type="submit" class="status-option">Active</button>
                     </form>
-                    <form action="/pursuits/{{ pursuit.id }}/status" method="POST">
+                    <form action="/collections/{{ pursuit.id }}/status" method="POST">
                         <input type="hidden" name="status" value="paused">
                         <button type="submit" class="status-option">Paused</button>
                     </form>
-                    <form action="/pursuits/{{ pursuit.id }}/status" method="POST">
+                    <form action="/collections/{{ pursuit.id }}/status" method="POST">
                         <input type="hidden" name="status" value="converted">
                         <button type="submit" class="status-option">Converted (Under Contract)</button>
                     </form>
-                    <form action="/pursuits/{{ pursuit.id }}/status" method="POST">
+                    <form action="/collections/{{ pursuit.id }}/status" method="POST">
                         <input type="hidden" name="status" value="abandoned">
                         <button type="submit" class="status-option">Abandoned</button>
                     </form>
@@ -421,8 +421,8 @@
 
                     <div class="property-actions">
                         <a href="/properties/{{ prop.property_id }}" class="prop-btn">View</a>
-                        <form action="/pursuits/{{ pursuit.id }}/remove-property" method="POST"
-                              onsubmit="return confirm('Remove this property from the pursuit?')">
+                        <form action="/collections/{{ pursuit.id }}/remove-property" method="POST"
+                              onsubmit="return confirm('Remove this property from the collection?')">
                             <input type="hidden" name="pursuit_property_id" value="{{ prop.pursuit_property_id }}">
                             <button type="submit" class="prop-btn remove">Remove</button>
                         </form>

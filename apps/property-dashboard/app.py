@@ -222,12 +222,25 @@ CONTACT_VIEWS = {
 @app.context_processor
 def inject_globals():
     """Inject global variables into all templates"""
+    # Count pending showing requests for sidebar badge
+    showing_count = 0
+    try:
+        conn = get_db()
+        row = conn.execute(
+            "SELECT COUNT(*) as cnt FROM property_packages WHERE showing_requested = 1"
+        ).fetchone()
+        if row:
+            showing_count = row['cnt']
+    except Exception:
+        pass
+
     return {
         'dreams_env': DREAMS_ENV,
         'favicon': f'/static/favicon-{DREAMS_ENV}.svg',
         'current_user_name': CURRENT_USER_NAME,
         'contact_views': CONTACT_VIEWS,
         'fub_url': FUB_APP_URL,
+        'showing_request_count': showing_count,
     }
 
 
@@ -880,6 +893,22 @@ def home():
             # Active pursuits for briefing sidebar
             active_pursuits = db.get_active_pursuits(limit=5)
 
+            # Recent buyer activity for Mission Control widget
+            buyer_activity_recent = []
+            try:
+                conn = get_db()
+                rows = conn.execute('''
+                    SELECT ba.activity_type, ba.entity_name, ba.occurred_at,
+                           u.name as buyer_name, u.email as buyer_email
+                    FROM buyer_activity ba
+                    LEFT JOIN users u ON u.id = ba.user_id
+                    ORDER BY ba.occurred_at DESC
+                    LIMIT 5
+                ''').fetchall()
+                buyer_activity_recent = [dict(r) for r in rows]
+            except Exception:
+                pass
+
             # Pre-serialize contacts for Power Hour JS
             contacts_json = json.dumps(contacts, default=str)
 
@@ -897,6 +926,7 @@ def home():
                                  reassigned_leads=reassigned_leads,
                                  new_leads_detail=new_leads_detail,
                                  active_pursuits=active_pursuits,
+                                 buyer_activity_recent=buyer_activity_recent,
                                  current_user_id=CURRENT_USER_ID,
                                  refresh_time=datetime.now(tz=ET).strftime('%B %d, %Y %I:%M %p'))
         except Exception as e:
@@ -1964,6 +1994,179 @@ def api_active_pursuits():
     db = get_db()
     pursuits = db.get_active_pursuits(limit=10)
     return jsonify({'success': True, 'pursuits': pursuits})
+
+
+# ===== COLLECTIONS route aliases (renamed from Pursuits) =====
+# These map /collections/* URLs to the same handlers as /pursuits/*
+# Keeps old /pursuits URLs working for backward compatibility.
+
+@app.route('/collections')
+@requires_auth
+def collections_list():
+    return pursuits_list()
+
+@app.route('/collections/create', methods=['POST'])
+@requires_auth
+def create_collection_dashboard():
+    return create_pursuit()
+
+@app.route('/collections/<pursuit_id>')
+@requires_auth
+def collection_detail(pursuit_id):
+    return pursuit_detail(pursuit_id)
+
+@app.route('/collections/<pursuit_id>/add-property', methods=['POST'])
+@requires_auth
+def add_property_to_collection(pursuit_id):
+    return add_property_to_pursuit(pursuit_id)
+
+@app.route('/collections/<pursuit_id>/remove-property', methods=['POST'])
+@requires_auth
+def remove_property_from_collection(pursuit_id):
+    return remove_property_from_pursuit(pursuit_id)
+
+@app.route('/collections/<pursuit_id>/status', methods=['POST'])
+@requires_auth
+def update_collection_status(pursuit_id):
+    return update_pursuit_status(pursuit_id)
+
+@app.route('/collections/<pursuit_id>/auto-populate', methods=['POST'])
+@requires_auth
+def auto_populate_collection(pursuit_id):
+    return auto_populate_pursuit(pursuit_id)
+
+@app.route('/api/collections/active')
+@requires_auth
+def api_active_collections():
+    return api_active_pursuits()
+
+
+# ===== BUYER ACTIVITY routes =====
+
+@app.route('/buyer-activity')
+@requires_auth
+def buyer_activity():
+    """Buyer activity feed: shows buyer actions from the public website."""
+    conn = get_db()
+
+    # Pending showing requests (urgent, shown at top)
+    showing_requests = conn.execute('''
+        SELECT pp.id as collection_id, pp.name as collection_name,
+               pp.showing_requested_at, pp.user_id,
+               u.name as buyer_name, u.email as buyer_email,
+               u.lead_id,
+               (SELECT COUNT(*) FROM package_properties WHERE package_id = pp.id) as property_count
+        FROM property_packages pp
+        LEFT JOIN users u ON u.id = pp.user_id
+        WHERE pp.showing_requested = 1
+        ORDER BY pp.showing_requested_at DESC
+    ''').fetchall()
+
+    # Recent activity (last 30 days)
+    activities = conn.execute('''
+        SELECT ba.*, u.name as buyer_name, u.email as buyer_email,
+               COALESCE(u.lead_id, u.fub_lead_id) as lead_id
+        FROM buyer_activity ba
+        LEFT JOIN users u ON u.id = ba.user_id
+        ORDER BY ba.occurred_at DESC
+        LIMIT 200
+    ''').fetchall()
+
+    activity_list = [dict(a) for a in activities]
+
+    # Group by day
+    grouped = {}
+    for act in activity_list:
+        ts = act.get('occurred_at', '')
+        if ts and len(ts) >= 10:
+            day = ts[:10]
+        else:
+            day = 'Unknown'
+        # Format day label
+        try:
+            dt = datetime.strptime(day, '%Y-%m-%d')
+            today = datetime.now().date()
+            if dt.date() == today:
+                day_label = 'Today'
+            elif dt.date() == today - timedelta(days=1):
+                day_label = 'Yesterday'
+            else:
+                day_label = dt.strftime('%A, %B %d')
+        except (ValueError, TypeError):
+            day_label = day
+
+        if day_label not in grouped:
+            grouped[day_label] = []
+        grouped[day_label].append(act)
+
+    now = datetime.now(ET)
+    refresh_time = now.strftime('%I:%M %p ET')
+
+    return render_template('buyer_activity.html',
+        showing_requests=[dict(sr) for sr in showing_requests],
+        activities=activity_list,
+        grouped_activities=grouped,
+        refresh_time=refresh_time,
+    )
+
+
+@app.route('/buyer-collections/<collection_id>')
+@requires_auth
+def buyer_collection_detail(collection_id):
+    """Agent view of a buyer's collection (property package)."""
+    conn = get_db()
+
+    # Get collection
+    collection = conn.execute(
+        'SELECT * FROM property_packages WHERE id = ?', [collection_id]
+    ).fetchone()
+
+    if not collection:
+        return redirect('/buyer-activity')
+
+    collection = dict(collection)
+
+    # Get buyer info
+    buyer = {}
+    lead = None
+    if collection.get('user_id'):
+        user_row = conn.execute(
+            'SELECT * FROM users WHERE id = ?', [collection['user_id']]
+        ).fetchone()
+        if user_row:
+            buyer = dict(user_row)
+            # Try to find linked lead
+            lead_id = buyer.get('lead_id') or buyer.get('fub_lead_id')
+            if lead_id:
+                lead_row = conn.execute(
+                    'SELECT id, heat_score, priority_score FROM leads WHERE id = ?', [lead_id]
+                ).fetchone()
+                if lead_row:
+                    lead = dict(lead_row)
+            elif buyer.get('email'):
+                lead_row = conn.execute(
+                    'SELECT id, heat_score, priority_score FROM leads WHERE email = ?',
+                    [buyer['email']]
+                ).fetchone()
+                if lead_row:
+                    lead = dict(lead_row)
+
+    # Get properties in collection
+    properties = conn.execute('''
+        SELECT l.id, l.address, l.city, l.state, l.list_price,
+               l.beds, l.baths, l.sqft, l.primary_photo, l.mls_number
+        FROM package_properties pp
+        JOIN listings l ON l.id = pp.listing_id
+        WHERE pp.package_id = ?
+        ORDER BY pp.display_order, pp.added_at
+    ''', [collection_id]).fetchall()
+
+    return render_template('buyer_collection_detail.html',
+        collection=collection,
+        buyer=buyer,
+        lead=lead,
+        properties=[dict(p) for p in properties],
+    )
 
 
 @app.route('/properties')

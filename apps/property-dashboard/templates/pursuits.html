@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pursuits - DREAMS</title>
+    <title>Collections - DREAMS</title>
     <link rel="icon" type="image/svg+xml" href="{{ favicon }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='shared/css/dreams.css') }}">
     <style>
@@ -341,7 +341,7 @@
             }
         }
     </style>
-    {% set active_nav = 'pursuits' %}
+    {% set active_nav = 'collections' %}
 </head>
 <body>
     {% include 'partials/sidebar.html' %}
@@ -350,7 +350,7 @@
     <header class="dreams-header">
         <div>
             <h1>DREAMS Dashboard</h1>
-            <div class="dreams-header-subtitle">Pursuits</div>
+            <div class="dreams-header-subtitle">Collections</div>
         </div>
         <div style="display: flex; gap: 16px; align-items: center;">
             <span style="font-size: 13px; opacity: 0.8;">{{ refresh_time }}</span>
@@ -360,7 +360,7 @@
     <!-- Page Header -->
     <div class="page-header">
         <div>
-            <h2 class="page-title">Active Pursuits</h2>
+            <h2 class="page-title">Active Collections</h2>
             <p class="page-subtitle">Buyer + Property portfolios in progress</p>
         </div>
     </div>
@@ -370,7 +370,7 @@
         <!-- Active Pursuits -->
         <div class="section-card">
             <div class="section-header">
-                <h3 class="section-title">Pursuits ({{ pursuits|length }})</h3>
+                <h3 class="section-title">Collections ({{ pursuits|length }})</h3>
             </div>
 
             {% if pursuits %}
@@ -415,7 +415,7 @@
                         {% endif %}
                     </div>
                     <div class="pursuit-actions">
-                        <a href="/pursuits/{{ pursuit.id }}" class="pursuit-btn primary">View Pursuit</a>
+                        <a href="/collections/{{ pursuit.id }}" class="pursuit-btn primary">View Collection</a>
                         <a href="/contacts/{{ pursuit.buyer_id }}" class="pursuit-btn">View Buyer</a>
                     </div>
                 </div>
@@ -423,8 +423,8 @@
             {% else %}
                 <div class="empty-state">
                     <div class="empty-state-icon">&#128269;</div>
-                    <div class="empty-state-title">No Active Pursuits</div>
-                    <div class="empty-state-text">Create a pursuit by selecting a buyer from the right panel.</div>
+                    <div class="empty-state-title">No Active Collections</div>
+                    <div class="empty-state-text">Create a collection by selecting a buyer from the right panel.</div>
                 </div>
             {% endif %}
         </div>
@@ -432,10 +432,10 @@
         <!-- Potential Buyers (no pursuit yet) -->
         <div class="section-card">
             <div class="section-header">
-                <h3 class="section-title">Start New Pursuit</h3>
+                <h3 class="section-title">Start New Collection</h3>
             </div>
             <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 16px;">
-                Qualified buyers without an active pursuit:
+                Qualified buyers without an active collection:
             </p>
 
             {% if potential_buyers %}
@@ -458,7 +458,7 @@
                 {% endfor %}
             {% else %}
                 <div class="empty-state">
-                    <div class="empty-state-text">No qualified buyers without pursuits.</div>
+                    <div class="empty-state-text">No qualified buyers without collections.</div>
                 </div>
             {% endif %}
         </div>
@@ -467,8 +467,8 @@
     <!-- Create Pursuit Modal -->
     <div class="modal-overlay" id="createModal">
         <div class="modal">
-            <h3 class="modal-title">Create New Pursuit</h3>
-            <form action="/pursuits/create" method="POST">
+            <h3 class="modal-title">Create New Collection</h3>
+            <form action="/collections/create" method="POST">
                 <input type="hidden" name="buyer_id" id="modal_buyer_id">
 
                 <div class="form-group">
@@ -477,7 +477,7 @@
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">Pursuit Name</label>
+                    <label class="form-label">Collection Name</label>
                     <input type="text" class="form-input" name="name" id="modal_name" placeholder="e.g., John Smith - Primary Residence">
                 </div>
 
@@ -488,7 +488,7 @@
 
                 <div class="modal-actions">
                     <button type="button" class="pursuit-btn" onclick="closeCreateModal()">Cancel</button>
-                    <button type="submit" class="pursuit-btn primary">Create Pursuit</button>
+                    <button type="submit" class="pursuit-btn primary">Create Collection</button>
                 </div>
             </form>
         </div>

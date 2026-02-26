@@ -35,6 +35,8 @@ interface CollectionDetail {
   description: string;
   status: string;
   share_token: string;
+  showing_requested: number;
+  showing_requested_at: string | null;
   created_at: string;
   listings: CollectionListing[];
 }
@@ -48,6 +50,8 @@ export default function CollectionDetailPage() {
   const [collection, setCollection] = useState<CollectionDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [showingLoading, setShowingLoading] = useState(false);
+  const [showingMessage, setShowingMessage] = useState("");
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -93,6 +97,60 @@ export default function CollectionDetailPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const requestShowings = async () => {
+    if (!collection || showingLoading) return;
+    setShowingLoading(true);
+    setShowingMessage("");
+    try {
+      const res = await fetch(
+        `/api/user/collections/${collectionId}/request-showings`,
+        { method: "POST" }
+      );
+      const data = await res.json();
+      if (data.success) {
+        setCollection((prev) =>
+          prev
+            ? {
+                ...prev,
+                showing_requested: 1,
+                showing_requested_at: data.data.showing_requested_at,
+              }
+            : prev
+        );
+        setShowingMessage("Showing request sent to your agent!");
+        setTimeout(() => setShowingMessage(""), 5000);
+      }
+    } catch {
+      setShowingMessage("Something went wrong. Please try again.");
+      setTimeout(() => setShowingMessage(""), 4000);
+    } finally {
+      setShowingLoading(false);
+    }
+  };
+
+  const cancelShowings = async () => {
+    if (!collection || showingLoading) return;
+    setShowingLoading(true);
+    try {
+      const res = await fetch(
+        `/api/user/collections/${collectionId}/cancel-showings`,
+        { method: "POST" }
+      );
+      const data = await res.json();
+      if (data.success) {
+        setCollection((prev) =>
+          prev
+            ? { ...prev, showing_requested: 0, showing_requested_at: null }
+            : prev
+        );
+      }
+    } catch {
+      // Silently fail
+    } finally {
+      setShowingLoading(false);
+    }
+  };
+
   if (status === "loading" || loading) {
     return (
       <div className="bg-[var(--color-eggshell)] min-h-screen">
@@ -128,7 +186,7 @@ export default function CollectionDetailPage() {
           <Link href="/account/collections" className="text-sm text-[var(--color-text-light)] hover:text-[var(--color-accent)] transition mb-4 inline-block">
             &larr; All Collections
           </Link>
-          <div className="flex items-start justify-between">
+          <div className="flex items-start justify-between flex-wrap gap-4">
             <div>
               <h1
                 className="text-3xl text-[var(--color-primary)]"
@@ -143,7 +201,44 @@ export default function CollectionDetailPage() {
                 {collection.listings.length} {collection.listings.length === 1 ? "property" : "properties"}
               </p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
+              {/* Request Showings Button */}
+              {collection.listings.length > 0 && (
+                collection.showing_requested ? (
+                  <div className="flex items-center gap-2">
+                    <span className="flex items-center gap-2 px-4 py-2.5 bg-green-50 border border-green-200 text-sm text-green-700">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      Showings Requested
+                      {collection.showing_requested_at && (
+                        <span className="text-xs text-green-500 ml-1">
+                          {new Date(collection.showing_requested_at).toLocaleDateString()}
+                        </span>
+                      )}
+                    </span>
+                    <button
+                      onClick={cancelShowings}
+                      disabled={showingLoading}
+                      className="text-xs text-gray-400 hover:text-red-500 transition px-2 py-1"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={requestShowings}
+                    disabled={showingLoading}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-[var(--color-accent)] text-[var(--color-primary)] font-semibold text-sm uppercase tracking-wider hover:bg-[var(--color-accent-hover)] transition disabled:opacity-50"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    {showingLoading ? "Sending..." : "Request Showings"}
+                  </button>
+                )
+              )}
               {collection.share_token && collection.listings.length > 0 && (
                 <a
                   href={`/api/public/collections/${collection.share_token}/brochure`}
@@ -168,6 +263,13 @@ export default function CollectionDetailPage() {
               </button>
             </div>
           </div>
+
+          {/* Showing confirmation message */}
+          {showingMessage && (
+            <div className="mt-4 px-4 py-3 bg-green-50 border border-green-200 text-green-700 text-sm">
+              {showingMessage}
+            </div>
+          )}
         </div>
 
         {/* Listings grid */}
@@ -179,7 +281,7 @@ export default function CollectionDetailPage() {
             </svg>
             <h3 className="text-xl text-[var(--color-primary)] mb-2">No properties yet</h3>
             <p className="text-[var(--color-text-light)] mb-6">
-              Add properties from listing pages using the "Add to Collection" button.
+              Add properties from listing pages using the &quot;Add to Collection&quot; button.
             </p>
             <Link
               href="/listings"

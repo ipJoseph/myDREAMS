@@ -20,6 +20,7 @@ Endpoints:
 """
 
 import json
+import logging
 import os
 import sqlite3
 import sys
@@ -28,6 +29,8 @@ from datetime import datetime
 from pathlib import Path
 
 from flask import Blueprint, request, jsonify
+
+logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
@@ -89,6 +92,63 @@ def _user_dict(row) -> dict:
     d = dict(row)
     d.pop('password_hash', None)
     return d
+
+
+def _resolve_lead_id(db, user_id: str) -> str | None:
+    """Resolve a user to a lead ID via cached value or email match."""
+    user = db.execute(
+        'SELECT lead_id, fub_lead_id, email FROM users WHERE id = ?',
+        [user_id]
+    ).fetchone()
+    if not user:
+        return None
+
+    cached = user['lead_id'] or user['fub_lead_id']
+    if cached:
+        return cached
+
+    if not user['email']:
+        return None
+
+    lead = db.execute(
+        'SELECT id FROM leads WHERE LOWER(email) = LOWER(?) LIMIT 1',
+        [user['email']]
+    ).fetchone()
+
+    if lead:
+        db.execute('UPDATE users SET lead_id = ? WHERE id = ?',
+                   [lead['id'], user_id])
+        db.commit()
+        return lead['id']
+
+    return None
+
+
+def _log_buyer_activity(
+    user_id: str,
+    activity_type: str,
+    entity_type: str = None,
+    entity_id: str = None,
+    entity_name: str = None,
+    metadata: dict = None,
+):
+    """Log a buyer action to buyer_activity. Never raises."""
+    try:
+        db = get_db()
+        lead_id = _resolve_lead_id(db, user_id)
+        db.execute(
+            '''INSERT INTO buyer_activity
+               (user_id, lead_id, activity_type, entity_type, entity_id,
+                entity_name, metadata, occurred_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+            [user_id, lead_id, activity_type, entity_type, entity_id,
+             entity_name, json.dumps(metadata) if metadata else None,
+             datetime.now().isoformat()]
+        )
+        db.commit()
+        db.close()
+    except Exception as e:
+        logger.warning(f"Failed to log buyer activity: {e}")
 
 
 # -----------------------------------------------------------------------
@@ -350,6 +410,12 @@ def add_favorite():
             db.close()
             return jsonify({'success': False, 'error': 'Listing not found'}), 404
 
+        # Get listing details for activity metadata
+        listing_info = db.execute(
+            'SELECT address, city, list_price FROM listings WHERE id = ?',
+            [listing_id]
+        ).fetchone()
+
         fav_id = str(uuid.uuid4())
         db.execute(
             'INSERT OR IGNORE INTO user_favorites (id, user_id, listing_id, created_at) '
@@ -358,6 +424,12 @@ def add_favorite():
         )
         db.commit()
         db.close()
+
+        _log_buyer_activity(
+            user_id, 'favorite', 'listing', listing_id,
+            entity_name=f"{listing_info['address']}, {listing_info['city']}" if listing_info else None,
+            metadata={'list_price': listing_info['list_price']} if listing_info else None,
+        )
 
         return jsonify({'success': True, 'data': {'id': fav_id}}), 201
 
@@ -380,6 +452,8 @@ def remove_favorite(listing_id):
         )
         db.commit()
         db.close()
+
+        _log_buyer_activity(user_id, 'unfavorite', 'listing', listing_id)
 
         return jsonify({'success': True})
 
@@ -494,6 +568,11 @@ def save_search():
         )
         db.commit()
         db.close()
+
+        _log_buyer_activity(
+            user_id, 'save_search', 'search', search_id,
+            entity_name=name, metadata={'filters': filters},
+        )
 
         return jsonify({
             'success': True,
@@ -642,6 +721,11 @@ def create_collection():
         db.commit()
         db.close()
 
+        _log_buyer_activity(
+            user_id, 'create_collection', 'collection', collection_id,
+            entity_name=name,
+        )
+
         return jsonify({
             'success': True,
             'data': {'id': collection_id, 'name': name, 'share_token': share_token},
@@ -662,7 +746,10 @@ def get_collection(collection_id):
         db = get_db()
 
         collection = db.execute(
-            'SELECT * FROM property_packages WHERE id = ? AND user_id = ?',
+            '''SELECT id, name, description, status, user_id, collection_type,
+                      share_token, created_at, updated_at,
+                      showing_requested, showing_requested_at
+               FROM property_packages WHERE id = ? AND user_id = ?''',
             [collection_id, user_id]
         ).fetchone()
 
@@ -793,6 +880,12 @@ def add_to_collection(collection_id):
             [collection_id]
         ).fetchone()[0]
 
+        # Get listing details for activity metadata
+        listing_info = db.execute(
+            'SELECT address, city, list_price FROM listings WHERE id = ?',
+            [listing_id]
+        ).fetchone()
+
         item_id = str(uuid.uuid4())
         db.execute(
             'INSERT OR IGNORE INTO package_properties (id, package_id, listing_id, display_order, added_at) '
@@ -801,6 +894,12 @@ def add_to_collection(collection_id):
         )
         db.commit()
         db.close()
+
+        _log_buyer_activity(
+            user_id, 'add_to_collection', 'listing', listing_id,
+            entity_name=f"{listing_info['address']}, {listing_info['city']}" if listing_info else None,
+            metadata={'collection_id': collection_id, 'list_price': listing_info['list_price']} if listing_info else None,
+        )
 
         return jsonify({'success': True, 'data': {'id': item_id}}), 201
 
@@ -834,7 +933,116 @@ def remove_from_collection(collection_id, listing_id):
         db.commit()
         db.close()
 
+        _log_buyer_activity(
+            user_id, 'remove_from_collection', 'listing', listing_id,
+            metadata={'collection_id': collection_id},
+        )
+
         return jsonify({'success': True})
 
     except Exception:
         return jsonify({'success': False, 'error': 'Failed to remove from collection'}), 500
+
+
+# -----------------------------------------------------------------------
+# Showing Requests
+# -----------------------------------------------------------------------
+
+@user_bp.route('/collections/<collection_id>/request-showings', methods=['POST'])
+def request_showings(collection_id):
+    """Request showings for all properties in a collection."""
+    user_id = _get_user_from_jwt()
+    if not user_id:
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+    try:
+        db = get_db()
+
+        # Verify collection belongs to user and get details
+        collection = db.execute(
+            'SELECT id, name, showing_requested FROM property_packages WHERE id = ? AND user_id = ?',
+            [collection_id, user_id]
+        ).fetchone()
+        if not collection:
+            db.close()
+            return jsonify({'success': False, 'error': 'Collection not found'}), 404
+
+        # Count properties
+        prop_count = db.execute(
+            'SELECT COUNT(*) FROM package_properties WHERE package_id = ?',
+            [collection_id]
+        ).fetchone()[0]
+
+        if prop_count == 0:
+            db.close()
+            return jsonify({'success': False, 'error': 'Collection has no properties'}), 400
+
+        now = datetime.now().isoformat()
+        db.execute(
+            'UPDATE property_packages SET showing_requested = 1, showing_requested_at = ?, updated_at = ? WHERE id = ?',
+            [now, now, collection_id]
+        )
+        db.commit()
+        db.close()
+
+        _log_buyer_activity(
+            user_id, 'request_showings', 'collection', collection_id,
+            entity_name=collection['name'],
+            metadata={'property_count': prop_count},
+        )
+
+        # Fire immediate agent notification (best effort)
+        try:
+            from apps.automation.buyer_notifications import send_showing_request_alert
+            send_showing_request_alert(user_id, collection_id)
+        except Exception as e:
+            logger.warning(f"Failed to send showing request alert: {e}")
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'showing_requested': 1,
+                'showing_requested_at': now,
+                'property_count': prop_count,
+            },
+        })
+
+    except Exception:
+        return jsonify({'success': False, 'error': 'Failed to request showings'}), 500
+
+
+@user_bp.route('/collections/<collection_id>/cancel-showings', methods=['POST'])
+def cancel_showings(collection_id):
+    """Cancel a showing request for a collection."""
+    user_id = _get_user_from_jwt()
+    if not user_id:
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+    try:
+        db = get_db()
+
+        collection = db.execute(
+            'SELECT id, name FROM property_packages WHERE id = ? AND user_id = ?',
+            [collection_id, user_id]
+        ).fetchone()
+        if not collection:
+            db.close()
+            return jsonify({'success': False, 'error': 'Collection not found'}), 404
+
+        now = datetime.now().isoformat()
+        db.execute(
+            'UPDATE property_packages SET showing_requested = 0, updated_at = ? WHERE id = ?',
+            [now, collection_id]
+        )
+        db.commit()
+        db.close()
+
+        _log_buyer_activity(
+            user_id, 'cancel_showings', 'collection', collection_id,
+            entity_name=collection['name'],
+        )
+
+        return jsonify({'success': True})
+
+    except Exception:
+        return jsonify({'success': False, 'error': 'Failed to cancel showings'}), 500

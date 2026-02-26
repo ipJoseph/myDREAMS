@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        line-height: 1.6;
+        color: #333;
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 20px;
+        background: #f1f5f9;
+    }
+    .container {
+        background: #ffffff;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .header {
+        background: linear-gradient(135deg, #1a365d 0%, #2b6cb0 100%);
+        color: white;
+        padding: 24px 20px;
+        text-align: center;
+    }
+    .header h1 {
+        margin: 0;
+        font-size: 20px;
+        font-weight: 600;
+    }
+    .header .subtitle {
+        opacity: 0.9;
+        font-size: 13px;
+        margin-top: 4px;
+    }
+    .summary-bar {
+        background: #eff6ff;
+        padding: 14px 20px;
+        border-bottom: 1px solid #dbeafe;
+        font-size: 14px;
+        color: #1e40af;
+    }
+    .summary-bar strong {
+        color: #1a365d;
+    }
+    .content {
+        padding: 24px 20px;
+    }
+    .listing-card {
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        overflow: hidden;
+        margin-bottom: 16px;
+    }
+    .listing-card:last-child {
+        margin-bottom: 0;
+    }
+    .listing-photo {
+        width: 100%;
+        height: 200px;
+        object-fit: cover;
+        display: block;
+        background: #f1f5f9;
+    }
+    .listing-info {
+        padding: 14px;
+    }
+    .listing-price {
+        font-size: 20px;
+        font-weight: 700;
+        color: #1a365d;
+        margin: 0;
+    }
+    .listing-address {
+        font-size: 14px;
+        color: #64748b;
+        margin-top: 2px;
+    }
+    .listing-address a {
+        color: inherit;
+        text-decoration: none;
+    }
+    .listing-address a:hover {
+        color: #2563eb;
+    }
+    .listing-details {
+        display: flex;
+        gap: 16px;
+        margin-top: 8px;
+        font-size: 13px;
+        color: #64748b;
+    }
+    .listing-detail {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .listing-cta {
+        display: inline-block;
+        margin-top: 10px;
+        padding: 8px 16px;
+        background: #1a365d;
+        color: #ffffff;
+        text-decoration: none;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 600;
+    }
+    .cta-section {
+        text-align: center;
+        margin: 24px 0 8px 0;
+    }
+    .cta-section a {
+        display: inline-block;
+        padding: 12px 28px;
+        background: #1a365d;
+        color: #ffffff;
+        text-decoration: none;
+        border-radius: 6px;
+        font-weight: 600;
+        font-size: 14px;
+    }
+    .agent-section {
+        padding: 16px 20px;
+        background: #f8fafc;
+        border-top: 1px solid #e2e8f0;
+        font-size: 13px;
+        color: #64748b;
+    }
+    .agent-name {
+        font-weight: 600;
+        color: #1a365d;
+    }
+    .footer {
+        text-align: center;
+        padding: 16px 20px;
+        color: #94a3b8;
+        font-size: 11px;
+        border-top: 1px solid #f1f5f9;
+    }
+    .footer a {
+        color: #64748b;
+        text-decoration: underline;
+    }
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>New Listings for "{{ search_name }}"</h1>
+        <div class="subtitle">{{ filter_summary }}</div>
+    </div>
+
+    <div class="summary-bar">
+        Hi {{ buyer_name }}, we found <strong>{{ listing_count }} new {{ 'listing' if listing_count == 1 else 'listings' }}</strong> matching your saved search.
+    </div>
+
+    <div class="content">
+        {% for listing in listings %}
+        <div class="listing-card">
+            {% if listing.primary_photo %}
+            <a href="{{ website_url }}/listings/{{ listing.id }}">
+                <img src="{{ listing.primary_photo }}" alt="Property photo" class="listing-photo">
+            </a>
+            {% endif %}
+            <div class="listing-info">
+                <div class="listing-price">
+                    {% if listing.list_price %}${{ "{:,.0f}".format(listing.list_price) }}{% else %}Price TBD{% endif %}
+                </div>
+                <div class="listing-address">
+                    <a href="{{ website_url }}/listings/{{ listing.id }}">
+                        {{ listing.address or 'Address unavailable' }}{% if listing.city %}, {{ listing.city }}{% endif %}{% if listing.state %}, {{ listing.state }}{% endif %}
+                    </a>
+                </div>
+                <div class="listing-details">
+                    {% if listing.beds %}<span class="listing-detail">{{ listing.beds }} bed</span>{% endif %}
+                    {% if listing.baths %}<span class="listing-detail">{{ listing.baths }} bath</span>{% endif %}
+                    {% if listing.sqft %}<span class="listing-detail">{{ "{:,.0f}".format(listing.sqft) }} sqft</span>{% endif %}
+                    {% if listing.acreage %}<span class="listing-detail">{{ "%.2f"|format(listing.acreage) }} acres</span>{% endif %}
+                </div>
+                <a href="{{ website_url }}/listings/{{ listing.id }}" class="listing-cta">View Details</a>
+            </div>
+        </div>
+        {% endfor %}
+
+        <div class="cta-section">
+            <a href="{{ website_url }}/listings">Browse All Listings</a>
+        </div>
+    </div>
+
+    <div class="agent-section">
+        <div class="agent-name">{{ agent_name }}</div>
+        <div>{{ brokerage }}</div>
+        {% if agent_phone %}<div>{{ agent_phone }}</div>{% endif %}
+        {% if agent_email %}<div>{{ agent_email }}</div>{% endif %}
+    </div>
+
+    <div class="footer">
+        You're receiving this because you saved a search on <a href="{{ website_url }}">wncmountain.homes</a>.<br>
+        <a href="{{ manage_url }}">Manage your saved searches</a>
+    </div>
+</div>
+</body>
+</html>

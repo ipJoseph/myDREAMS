@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ collection.name }} - Buyer Collection - DREAMS</title>
+    <link rel="icon" type="image/svg+xml" href="{{ favicon }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='shared/css/dreams.css') }}">
+    <style>
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+        .back-link {
+            display: inline-block;
+            margin: 16px 20px 0 20px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            text-decoration: none;
+        }
+        .back-link:hover { color: var(--primary); }
+
+        .status-badge {
+            padding: 3px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .status-badge.showing-requested { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
+        .status-badge.active { background: #dcfce7; color: #16a34a; }
+
+        .content-grid {
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            gap: 20px;
+            margin: 0 20px 20px 20px;
+        }
+        .section-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .section-title {
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--bg-secondary);
+        }
+
+        /* Property cards */
+        .property-list { display: flex; flex-direction: column; gap: 12px; }
+        .property-card {
+            display: grid;
+            grid-template-columns: 140px 1fr;
+            gap: 16px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+        }
+        .property-card:hover { border-color: var(--primary); }
+        .property-thumb {
+            width: 140px;
+            height: 100px;
+            border-radius: 6px;
+            object-fit: cover;
+            background: var(--bg-secondary);
+        }
+        .property-price { font-size: 18px; font-weight: 700; color: var(--text-primary); }
+        .property-address { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
+        .property-address a { color: inherit; text-decoration: none; }
+        .property-address a:hover { color: var(--primary); }
+        .property-details { display: flex; gap: 12px; margin-top: 6px; font-size: 12px; color: var(--text-secondary); }
+
+        /* Buyer sidebar */
+        .buyer-card {
+            padding: 16px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+        .buyer-name { font-size: 16px; font-weight: 600; color: var(--text-primary); }
+        .buyer-name a { color: inherit; text-decoration: none; }
+        .buyer-name a:hover { color: var(--primary); }
+        .buyer-contact-info { margin-top: 8px; font-size: 13px; color: var(--text-secondary); }
+        .buyer-contact-info div { margin-top: 4px; }
+        .score-row { display: flex; gap: 12px; margin-top: 12px; }
+        .score-item { text-align: center; padding: 8px 12px; background: white; border-radius: 6px; flex: 1; }
+        .score-value { font-size: 18px; font-weight: 700; }
+        .score-label { font-size: 10px; color: var(--text-secondary); text-transform: uppercase; }
+
+        .share-link {
+            padding: 12px;
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 12px;
+            word-break: break-all;
+            color: var(--text-secondary);
+        }
+
+        @media (max-width: 900px) {
+            .content-grid { grid-template-columns: 1fr; }
+            .property-card { grid-template-columns: 100px 1fr; }
+        }
+    </style>
+    {% set active_nav = 'buyer-activity' %}
+</head>
+<body>
+    {% include 'partials/sidebar.html' %}
+    <div class="main-content">
+    <header class="dreams-header">
+        <div>
+            <h1>DREAMS Dashboard</h1>
+            <div class="dreams-header-subtitle">Buyer Collection</div>
+        </div>
+    </header>
+
+    <a href="/buyer-activity" class="back-link">&larr; Back to Buyer Activity</a>
+
+    <div class="page-header">
+        <div>
+            <h2 style="font-size: 22px; font-weight: 600; color: var(--text-primary); margin: 0;">
+                {{ collection.name }}
+            </h2>
+            <div style="display: flex; gap: 16px; align-items: center; margin-top: 8px;">
+                {% if collection.showing_requested %}
+                <span class="status-badge showing-requested">Showing Requested</span>
+                {% else %}
+                <span class="status-badge active">{{ collection.status }}</span>
+                {% endif %}
+                <span style="font-size: 13px; color: var(--text-secondary);">
+                    {{ properties|length }} properties
+                </span>
+                <span style="font-size: 13px; color: var(--text-secondary);">
+                    Created {{ collection.created_at[:10] if collection.created_at else 'N/A' }}
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <div class="content-grid">
+        <!-- Properties -->
+        <div class="section-card">
+            <div class="section-title">Properties ({{ properties|length }})</div>
+            {% if properties %}
+            <div class="property-list">
+                {% for prop in properties %}
+                <div class="property-card">
+                    {% if prop.primary_photo %}
+                    <img src="{{ prop.primary_photo }}" alt="Property photo" class="property-thumb"
+                         onerror="this.style.display='none'">
+                    {% else %}
+                    <div class="property-thumb" style="display:flex;align-items:center;justify-content:center;color:var(--text-secondary);font-size:12px;">No Photo</div>
+                    {% endif %}
+                    <div>
+                        <div class="property-price">
+                            {% if prop.list_price %}${{ "{:,.0f}".format(prop.list_price) }}{% else %}Price N/A{% endif %}
+                        </div>
+                        <div class="property-address">
+                            <a href="/properties/{{ prop.id }}">
+                                {{ prop.address or 'Address unavailable' }}{% if prop.city %}, {{ prop.city }}{% endif %}
+                            </a>
+                        </div>
+                        <div class="property-details">
+                            {% if prop.beds %}<span>{{ prop.beds }} bed</span>{% endif %}
+                            {% if prop.baths %}<span>{{ prop.baths }} bath</span>{% endif %}
+                            {% if prop.sqft %}<span>{{ "{:,.0f}".format(prop.sqft) }} sqft</span>{% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div style="text-align: center; padding: 40px 20px; color: var(--text-secondary);">
+                No properties in this collection.
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Buyer info sidebar -->
+        <div>
+            <div class="section-card" style="margin-bottom: 16px;">
+                <div class="section-title">Buyer</div>
+                <div class="buyer-card">
+                    <div class="buyer-name">
+                        {% if lead %}
+                        <a href="/contacts/{{ lead.id }}">{{ buyer.name or buyer.email }}</a>
+                        {% else %}
+                        {{ buyer.name or buyer.email }}
+                        {% endif %}
+                    </div>
+                    <div class="buyer-contact-info">
+                        {% if buyer.email %}<div>{{ buyer.email }}</div>{% endif %}
+                    </div>
+                    {% if lead %}
+                    <div class="score-row">
+                        <div class="score-item">
+                            <div class="score-value" style="color: #dc2626;">{{ "%.0f"|format(lead.heat_score or 0) }}</div>
+                            <div class="score-label">Heat</div>
+                        </div>
+                        <div class="score-item">
+                            <div class="score-value" style="color: #2563eb;">{{ "%.0f"|format(lead.priority_score or 0) }}</div>
+                            <div class="score-label">Priority</div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if collection.share_token %}
+            <div class="section-card">
+                <div class="section-title">Share Link</div>
+                <div class="share-link">
+                    https://wncmountain.homes/shared/{{ collection.share_token }}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <footer class="dreams-footer">
+        DREAMS - Desktop Real Estate Agent Management System | Joseph "Eugy" Williams
+    </footer>
+    </div>
+</body>
+</html>
