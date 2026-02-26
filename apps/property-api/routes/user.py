@@ -504,6 +504,55 @@ def save_search():
         return jsonify({'success': False, 'error': 'Failed to save search'}), 500
 
 
+@user_bp.route('/searches/<search_id>', methods=['PUT'])
+def update_search(search_id):
+    """Update a saved search's name or alert frequency."""
+    user_id = _get_user_from_jwt()
+    if not user_id:
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'error': 'Request body required'}), 400
+
+    try:
+        db = get_db()
+        updates = []
+        params = []
+
+        if 'name' in data:
+            name = (data['name'] or '').strip()
+            if not name:
+                db.close()
+                return jsonify({'success': False, 'error': 'Name cannot be empty'}), 400
+            updates.append('name = ?')
+            params.append(name)
+
+        if 'alert_frequency' in data:
+            freq = data['alert_frequency']
+            if freq not in ('daily', 'weekly', 'never'):
+                freq = 'daily'
+            updates.append('alert_frequency = ?')
+            params.append(freq)
+
+        if not updates:
+            db.close()
+            return jsonify({'success': False, 'error': 'Nothing to update'}), 400
+
+        params.extend([search_id, user_id])
+        db.execute(
+            f'UPDATE saved_searches SET {", ".join(updates)} WHERE id = ? AND user_id = ?',
+            params
+        )
+        db.commit()
+        db.close()
+
+        return jsonify({'success': True})
+
+    except Exception:
+        return jsonify({'success': False, 'error': 'Failed to update search'}), 500
+
+
 @user_bp.route('/searches/<search_id>', methods=['DELETE'])
 def delete_search(search_id):
     """Delete a saved search."""

@@ -35,11 +35,21 @@ function filtersToSearchParams(filters: Record<string, string | number>): string
   return params.toString();
 }
 
+const ALERT_OPTIONS = [
+  { label: "Daily", value: "daily" },
+  { label: "Weekly", value: "weekly" },
+  { label: "Never", value: "never" },
+];
+
 export default function SavedSearchesPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [searches, setSearches] = useState<SavedSearch[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editFrequency, setEditFrequency] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -63,6 +73,47 @@ export default function SavedSearchesPage() {
     }
     fetchSearches();
   }, [status, router]);
+
+  const startEditing = (search: SavedSearch) => {
+    setEditingId(search.id);
+    setEditName(search.name);
+    setEditFrequency(search.alert_frequency);
+  };
+
+  const cancelEditing = () => {
+    setEditingId(null);
+    setEditName("");
+    setEditFrequency("");
+  };
+
+  const saveEdit = async () => {
+    if (!editingId || !editName.trim()) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/user/searches/${editingId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: editName.trim(),
+          alert_frequency: editFrequency,
+        }),
+      });
+      if (res.ok) {
+        setSearches((prev) =>
+          prev.map((s) =>
+            s.id === editingId
+              ? { ...s, name: editName.trim(), alert_frequency: editFrequency }
+              : s
+          )
+        );
+        setEditingId(null);
+      }
+    } catch {
+      // Silently fail
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const deleteSearch = async (searchId: string) => {
     await fetch(`/api/user/searches/${searchId}`, { method: "DELETE" });
@@ -119,34 +170,99 @@ export default function SavedSearchesPage() {
             {searches.map((search) => (
               <div
                 key={search.id}
-                className="bg-white border border-gray-200/60 p-6 flex items-center justify-between"
+                className="bg-white border border-gray-200/60 p-6"
               >
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-lg text-[var(--color-primary)] font-medium truncate">
-                    {search.name}
-                  </h3>
-                  <p className="text-sm text-[var(--color-text-light)] mt-1">
-                    {filterSummary(search.filters)}
-                  </p>
-                  <div className="flex items-center gap-4 mt-2 text-xs text-[var(--color-text-light)]">
-                    <span>Created {new Date(search.created_at).toLocaleDateString()}</span>
-                    <span className="capitalize">Alerts: {search.alert_frequency}</span>
+                {editingId === search.id ? (
+                  /* Edit mode */
+                  <div>
+                    <div className="flex flex-col sm:flex-row gap-4 mb-4">
+                      <div className="flex-1">
+                        <label className="block text-xs text-[var(--color-text-light)] uppercase tracking-wider mb-1">
+                          Name
+                        </label>
+                        <input
+                          type="text"
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") saveEdit();
+                            if (e.key === "Escape") cancelEditing();
+                          }}
+                          autoFocus
+                          className="w-full px-3 py-2 border border-gray-300 text-sm text-[var(--color-text)] focus:outline-none focus:border-[var(--color-accent)]"
+                        />
+                      </div>
+                      <div className="sm:w-40">
+                        <label className="block text-xs text-[var(--color-text-light)] uppercase tracking-wider mb-1">
+                          Alerts
+                        </label>
+                        <select
+                          value={editFrequency}
+                          onChange={(e) => setEditFrequency(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 text-sm text-[var(--color-text)] focus:outline-none focus:border-[var(--color-accent)]"
+                        >
+                          {ALERT_OPTIONS.map((o) => (
+                            <option key={o.value} value={o.value}>{o.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <p className="text-sm text-[var(--color-text-light)] mb-4">
+                      {filterSummary(search.filters)}
+                    </p>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={saveEdit}
+                        disabled={saving || !editName.trim()}
+                        className="px-4 py-2 bg-[var(--color-accent)] text-[var(--color-primary)] text-sm font-semibold uppercase tracking-wider hover:bg-[var(--color-accent-hover)] transition disabled:opacity-50"
+                      >
+                        {saving ? "Saving..." : "Save"}
+                      </button>
+                      <button
+                        onClick={cancelEditing}
+                        className="px-4 py-2 text-sm text-[var(--color-text-light)] hover:text-[var(--color-text)] transition"
+                      >
+                        Cancel
+                      </button>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-3 ml-4">
-                  <Link
-                    href={`/listings?${filtersToSearchParams(search.filters)}`}
-                    className="px-4 py-2 bg-[var(--color-accent)] text-[var(--color-primary)] text-sm font-semibold uppercase tracking-wider hover:bg-[var(--color-accent-hover)] transition"
-                  >
-                    Run Search
-                  </Link>
-                  <button
-                    onClick={() => deleteSearch(search.id)}
-                    className="px-3 py-2 text-sm text-red-500 hover:text-red-700 transition"
-                  >
-                    Delete
-                  </button>
-                </div>
+                ) : (
+                  /* View mode */
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-lg text-[var(--color-primary)] font-medium truncate">
+                        {search.name}
+                      </h3>
+                      <p className="text-sm text-[var(--color-text-light)] mt-1">
+                        {filterSummary(search.filters)}
+                      </p>
+                      <div className="flex items-center gap-4 mt-2 text-xs text-[var(--color-text-light)]">
+                        <span>Created {new Date(search.created_at).toLocaleDateString()}</span>
+                        <span className="capitalize">Alerts: {search.alert_frequency}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 ml-4">
+                      <Link
+                        href={`/listings?${filtersToSearchParams(search.filters)}`}
+                        className="px-4 py-2 bg-[var(--color-accent)] text-[var(--color-primary)] text-sm font-semibold uppercase tracking-wider hover:bg-[var(--color-accent-hover)] transition"
+                      >
+                        Run Search
+                      </Link>
+                      <button
+                        onClick={() => startEditing(search)}
+                        className="px-3 py-2 text-sm text-[var(--color-text-light)] hover:text-[var(--color-accent)] transition"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => deleteSearch(search.id)}
+                        className="px-3 py-2 text-sm text-red-500 hover:text-red-700 transition"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
