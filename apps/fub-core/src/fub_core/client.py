@@ -300,6 +300,27 @@ class FUBClient:
             self.logger.info(f"✓ Fetched {len(all_emails)} total emails")
         return all_emails
 
+    def _audit_log(self, operation, endpoint, http_method, fub_person_id=None,
+                   fub_entity_id=None, payload_summary=None, success=True,
+                   error_message=None, response_status=None):
+        """Log a write operation to the FUB audit table."""
+        try:
+            from src.core.fub_audit import log_fub_write
+            log_fub_write(
+                module='fub_core',
+                operation=operation,
+                endpoint=endpoint,
+                http_method=http_method,
+                fub_person_id=fub_person_id,
+                fub_entity_id=fub_entity_id,
+                payload_summary=payload_summary,
+                success=success,
+                error_message=error_message,
+                response_status=response_status,
+            )
+        except Exception:
+            pass  # never disrupt the caller
+
     def update_person_stage(self, person_id: str, new_stage: str):
         if not new_stage or not self.enable_stage_sync:
             return
@@ -311,9 +332,17 @@ class FUBClient:
             response.raise_for_status()
             if self.logger:
                 self.logger.info(f"Updated stage for {person_id} → {new_stage}")
+            self._audit_log('update_stage', f'people/{person_id}', 'PUT',
+                           fub_person_id=int(person_id),
+                           payload_summary=f'stage={new_stage}',
+                           response_status=response.status_code)
         except Exception as e:
             if self.logger:
                 self.logger.error(f"Failed to update stage for {person_id}: {e}")
+            self._audit_log('update_stage', f'people/{person_id}', 'PUT',
+                           fub_person_id=int(person_id),
+                           payload_summary=f'stage={new_stage}',
+                           success=False, error_message=str(e))
 
     def create_note(self, person_id: int, body: str, user_id: int = None) -> Optional[Dict]:
         """
@@ -354,19 +383,35 @@ class FUBClient:
             if self.logger:
                 self.logger.info(f"Created note for person {person_id}")
 
+            entity_id = result.get('id') if isinstance(result, dict) else None
+            self._audit_log('create_note', 'notes', 'POST',
+                           fub_person_id=int(person_id),
+                           fub_entity_id=entity_id,
+                           payload_summary=body[:200] if body else None,
+                           response_status=response.status_code)
             return result
 
         except requests.exceptions.HTTPError as e:
             if self.logger:
                 self.logger.error(f"HTTP error creating note for {person_id}: {e}")
+            self._audit_log('create_note', 'notes', 'POST',
+                           fub_person_id=int(person_id),
+                           payload_summary=body[:200] if body else None,
+                           success=False, error_message=str(e))
             return None
         except requests.exceptions.RequestException as e:
             if self.logger:
                 self.logger.error(f"Request error creating note for {person_id}: {e}")
+            self._audit_log('create_note', 'notes', 'POST',
+                           fub_person_id=int(person_id),
+                           success=False, error_message=str(e))
             return None
         except Exception as e:
             if self.logger:
                 self.logger.error(f"Unexpected error creating note for {person_id}: {e}")
+            self._audit_log('create_note', 'notes', 'POST',
+                           fub_person_id=int(person_id),
+                           success=False, error_message=str(e))
             return None
 
     def create_task(
@@ -424,19 +469,35 @@ class FUBClient:
             if self.logger:
                 self.logger.info(f"Created task for person {person_id}: {name}")
 
+            entity_id = result.get('id') if isinstance(result, dict) else None
+            self._audit_log('create_task', 'tasks', 'POST',
+                           fub_person_id=int(person_id),
+                           fub_entity_id=entity_id,
+                           payload_summary=f'{task_type}: {name}',
+                           response_status=response.status_code)
             return result
 
         except requests.exceptions.HTTPError as e:
             if self.logger:
                 self.logger.error(f"HTTP error creating task for {person_id}: {e}")
+            self._audit_log('create_task', 'tasks', 'POST',
+                           fub_person_id=int(person_id),
+                           payload_summary=f'{task_type}: {name}',
+                           success=False, error_message=str(e))
             return None
         except requests.exceptions.RequestException as e:
             if self.logger:
                 self.logger.error(f"Request error creating task for {person_id}: {e}")
+            self._audit_log('create_task', 'tasks', 'POST',
+                           fub_person_id=int(person_id),
+                           success=False, error_message=str(e))
             return None
         except Exception as e:
             if self.logger:
                 self.logger.error(f"Unexpected error creating task for {person_id}: {e}")
+            self._audit_log('create_task', 'tasks', 'POST',
+                           fub_person_id=int(person_id),
+                           success=False, error_message=str(e))
             return None
 
     def fetch_smart_lists(self) -> List[Dict]:

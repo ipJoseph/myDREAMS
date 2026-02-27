@@ -427,6 +427,15 @@ async def create_note(args: dict) -> str:
 
     await fub_request("POST", "notes", json_data=note_data)
 
+    try:
+        from src.core.fub_audit import log_fub_write
+        log_fub_write(module='mcp_server', operation='create_note',
+                      endpoint='notes', http_method='POST',
+                      fub_person_id=person_id,
+                      payload_summary=body[:200] if body else None)
+    except Exception:
+        pass
+
     return f"Note created successfully on person {person_id}"
 
 
@@ -563,6 +572,15 @@ async def update_person_stage(args: dict) -> str:
         return "Error: person_id and stage are required"
 
     await fub_request("PUT", f"people/{person_id}", json_data={"stage": stage})
+
+    try:
+        from src.core.fub_audit import log_fub_write
+        log_fub_write(module='mcp_server', operation='update_stage',
+                      endpoint=f'people/{person_id}', http_method='PUT',
+                      fub_person_id=person_id,
+                      payload_summary=f'stage={stage}')
+    except Exception:
+        pass
 
     return f"Updated person {person_id} to stage '{stage}'"
 

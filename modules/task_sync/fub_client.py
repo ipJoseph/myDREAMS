@@ -66,6 +66,15 @@ class FUBClient:
             response.raise_for_status()
             return response.json()
 
+    def _audit_log(self, operation: str, endpoint: str, http_method: str, **kwargs):
+        """Log a FUB write operation to the audit table."""
+        try:
+            from src.core.fub_audit import log_fub_write
+            log_fub_write(module='task_sync', operation=operation,
+                          endpoint=endpoint, http_method=http_method, **kwargs)
+        except Exception as e:
+            logger.warning(f"Failed to write audit log: {e}")
+
     # ==========================================================================
     # Tasks
     # ==========================================================================
@@ -118,6 +127,9 @@ class FUBClient:
 
         data = self._request('POST', 'tasks', json_data=task_data)
         logger.info(f"Created FUB task {data['id']}: {name}")
+        self._audit_log('create_task', 'tasks', 'POST',
+                        fub_person_id=person_id, fub_entity_id=data.get('id'),
+                        payload_summary=f'{task_type}: {name}')
         return FUBTask.from_api(data)
 
     def update_task(self, task_id: int, **kwargs) -> FUBTask:
@@ -142,6 +154,9 @@ class FUBClient:
 
         data = self._request('PUT', f'tasks/{task_id}', json_data=update_data)
         logger.info(f"Updated FUB task {task_id}")
+        self._audit_log('update_task', f'tasks/{task_id}', 'PUT',
+                        fub_entity_id=task_id,
+                        payload_summary=str(update_data)[:200])
         return FUBTask.from_api(data)
 
     def complete_task(self, task_id: int) -> FUBTask:
@@ -156,6 +171,8 @@ class FUBClient:
         """Delete a task."""
         self._request('DELETE', f'tasks/{task_id}')
         logger.info(f"Deleted FUB task {task_id}")
+        self._audit_log('delete_task', f'tasks/{task_id}', 'DELETE',
+                        fub_entity_id=task_id)
         return True
 
     # ==========================================================================

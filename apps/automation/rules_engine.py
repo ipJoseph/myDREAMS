@@ -270,6 +270,14 @@ class RuleEngine:
 
             if result:
                 logger.info(f"Created FUB task for {firing.contact_name}: {task_name}")
+                try:
+                    from src.core.fub_audit import log_fub_write
+                    log_fub_write(module='rules_engine', operation='create_task',
+                                  endpoint='tasks', http_method='POST',
+                                  fub_person_id=firing.fub_id,
+                                  payload_summary=f'{task_type}: {task_name}')
+                except Exception:
+                    pass
                 return True
             else:
                 logger.warning(f"FUB task creation returned None for {firing.contact_name}")
@@ -297,6 +305,14 @@ class RuleEngine:
 
             if result:
                 logger.info(f"Created FUB note for {firing.contact_name}")
+                try:
+                    from src.core.fub_audit import log_fub_write
+                    log_fub_write(module='rules_engine', operation='create_note',
+                                  endpoint='notes', http_method='POST',
+                                  fub_person_id=firing.fub_id,
+                                  payload_summary=f'[Automation] {rule_name}')
+                except Exception:
+                    pass
                 return True
             else:
                 return False

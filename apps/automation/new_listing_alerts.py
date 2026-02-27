@@ -113,6 +113,14 @@ def push_matches_to_fub(buyer: Dict, properties: List[Dict]) -> bool:
         result = fub.create_note(person_id=int(fub_id), body=note_body)
         if result:
             logger.info(f"Pushed match note to FUB contact {fub_id}")
+            try:
+                from src.core.fub_audit import log_fub_write
+                log_fub_write(module='new_listing_alerts', operation='create_note',
+                              endpoint='notes', http_method='POST',
+                              fub_person_id=int(fub_id),
+                              payload_summary=f'DREAMS Alert: {len(properties)} new listing(s) matched')
+            except Exception:
+                pass
             return True
         else:
             logger.warning(f"Failed to push note to FUB contact {fub_id}")

@@ -68,6 +68,15 @@ class FUBClient:
 
             return response.json()
 
+    def _audit_log(self, operation: str, endpoint: str, http_method: str, **kwargs):
+        """Log a FUB write operation to the audit table."""
+        try:
+            from src.core.fub_audit import log_fub_write
+            log_fub_write(module='linear_sync', operation=operation,
+                          endpoint=endpoint, http_method=http_method, **kwargs)
+        except Exception as e:
+            logger.warning(f"Failed to write audit log: {e}")
+
     # =========================================================================
     # TASKS
     # =========================================================================
@@ -123,6 +132,9 @@ class FUBClient:
             payload['assignedUserId'] = assigned_user_id
 
         data = self._request('POST', 'tasks', json_data=payload)
+        self._audit_log('create_task', 'tasks', 'POST',
+                        fub_person_id=person_id, fub_entity_id=data.get('id'),
+                        payload_summary=f'{task_type}: {name}')
         return FUBTask.from_api(data)
 
     def update_task(
@@ -145,17 +157,25 @@ class FUBClient:
             payload['note'] = note
 
         data = self._request('PUT', f'tasks/{task_id}', json_data=payload)
+        self._audit_log('update_task', f'tasks/{task_id}', 'PUT',
+                        fub_entity_id=task_id,
+                        payload_summary=str(payload)[:200])
         return FUBTask.from_api(data)
 
     def complete_task(self, task_id: int) -> FUBTask:
         """Mark a task as completed."""
         data = self._request('PUT', f'tasks/{task_id}', json_data={'isCompleted': True})
+        self._audit_log('complete_task', f'tasks/{task_id}', 'PUT',
+                        fub_entity_id=task_id,
+                        payload_summary='isCompleted=True')
         return FUBTask.from_api(data)
 
     def delete_task(self, task_id: int) -> bool:
         """Delete a task."""
         try:
             self._request('DELETE', f'tasks/{task_id}')
+            self._audit_log('delete_task', f'tasks/{task_id}', 'DELETE',
+                            fub_entity_id=task_id)
             return True
         except httpx.HTTPStatusError:
             return False
