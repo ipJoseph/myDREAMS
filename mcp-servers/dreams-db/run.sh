@@ -13,4 +13,4 @@ fi
 export DREAMS_DB_PATH="${DREAMS_DB_PATH:-$PROJECT_ROOT/data/dreams.db}"
 
 # Run the server
-exec python server.py
+exec python3 server.py

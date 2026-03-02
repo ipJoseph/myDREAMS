@@ -17,4 +17,4 @@ if [ -f "$PROJECT_ROOT/.env" ]; then
 fi
 
 # Run the server
-exec python server.py
+exec python3 server.py
