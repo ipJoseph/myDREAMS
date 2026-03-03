@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Saturday Showings - March 8, 2026</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0a1628; color: #e0e6ed; }
+    .layout { display: flex; flex-direction: column; height: 100vh; }
+    .top-row { display: flex; flex: 1; min-height: 0; }
+    .sidebar { width: 420px; overflow-y: auto; background: #0f1d32; border-right: 1px solid #1e3a5f; }
+    .sidebar-header { background: #132744; padding: 20px; border-bottom: 1px solid #1e3a5f; }
+    .sidebar-header h1 { font-size: 18px; color: #c8a84e; margin-bottom: 4px; }
+    .sidebar-header p { font-size: 13px; color: #8899aa; }
+    .route-summary { padding: 16px 20px; background: #1a2d4a; border-bottom: 1px solid #1e3a5f; }
+    .route-summary .stats { display: flex; gap: 20px; }
+    .route-summary .stat { text-align: center; }
+    .route-summary .stat-value { font-size: 20px; font-weight: 700; color: #c8a84e; }
+    .route-summary .stat-label { font-size: 11px; color: #8899aa; text-transform: uppercase; letter-spacing: 0.5px; }
+    .stop { padding: 16px 20px; border-bottom: 1px solid #1a2d4a; cursor: pointer; transition: background 0.2s; }
+    .stop:hover { background: #1a2d4a; }
+    .stop.active { background: #1e3a5f; border-left: 3px solid #c8a84e; }
+    .stop-header { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+    .stop-number { width: 28px; height: 28px; border-radius: 50%; background: #c8a84e; color: #0a1628; font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .stop-number.home { background: #4a9eff; }
+    .stop-number.break { background: #e67e22; color: #fff; font-size: 15px; }
+    .stop-name { font-weight: 600; font-size: 14px; }
+    .stop-details { margin-left: 40px; font-size: 12px; color: #8899aa; line-height: 1.6; }
+    .stop-details .time { color: #4a9eff; font-weight: 600; }
+    .stop-details .drive { color: #6b8aaa; }
+    .stop-details .note { color: #c8a84e; font-style: italic; }
+    #map { flex: 1; }
+    .loading { display: flex; align-items: center; justify-content: center; height: 100%; color: #8899aa; font-size: 16px; }
+
+    /* Property Details Grid */
+    .grid-panel { border-top: 2px solid #1e3a5f; background: #0f1d32; overflow-x: auto; max-height: 320px; }
+    .grid-panel h2 { font-size: 14px; color: #c8a84e; padding: 12px 16px 8px; background: #132744; border-bottom: 1px solid #1e3a5f; position: sticky; top: 0; z-index: 1; }
+    .prop-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .prop-table thead { position: sticky; top: 38px; z-index: 1; }
+    .prop-table th {
+      background: #1a2d4a; color: #8899aa; text-transform: uppercase; letter-spacing: 0.5px;
+      padding: 8px 12px; text-align: left; font-size: 10px; font-weight: 600;
+      border-bottom: 1px solid #1e3a5f; white-space: nowrap;
+    }
+    .prop-table td { padding: 6px 12px; border-bottom: 1px solid #0a1628; vertical-align: middle; }
+    .prop-table tr:hover td { background: #1a2d4a; }
+    .prop-table .stop-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 22px; height: 22px; border-radius: 50%;
+      background: #c8a84e; color: #0a1628; font-weight: 700; font-size: 11px;
+    }
+    .prop-table input {
+      background: #132744; border: 1px solid #1e3a5f; color: #e0e6ed;
+      padding: 4px 8px; border-radius: 4px; font-size: 12px; width: 100%;
+      font-family: inherit;
+    }
+    .prop-table input:focus { outline: none; border-color: #c8a84e; background: #1a2d4a; }
+    .prop-table input::placeholder { color: #4a5f7a; }
+    .prop-table input.prefilled { color: #4a9eff; }
+    .prop-table .addr-cell { color: #e0e6ed; font-weight: 500; white-space: nowrap; }
+    .prop-table .time-cell { color: #4a9eff; font-weight: 600; font-size: 11px; white-space: nowrap; }
+    .prop-table .duration-input {
+      width: 50px; text-align: center; font-weight: 600; color: #c8a84e;
+      background: #1a2d4a; border-color: #c8a84e;
+    }
+    .prop-table .duration-cell { white-space: nowrap; display: flex; align-items: center; gap: 4px; }
+    .duration-suffix { color: #6b8aaa; font-size: 11px; }
+
+    .btn-row { padding: 10px 16px; background: #132744; border-top: 1px solid #1e3a5f; display: flex; gap: 10px; }
+    .btn { padding: 8px 16px; border: none; border-radius: 6px; font-weight: 600; font-size: 12px; cursor: pointer; }
+    .btn-gold { background: #c8a84e; color: #0a1628; }
+    .btn-gold:hover { background: #d4b65e; }
+    .btn-outline { background: transparent; border: 1px solid #1e3a5f; color: #8899aa; }
+    .btn-outline:hover { border-color: #c8a84e; color: #c8a84e; }
+
+    @media print {
+      .layout { height: auto; }
+      .top-row { flex-direction: column; }
+      .sidebar { width: 100%; border: none; }
+      #map { height: 400px; }
+      .grid-panel { max-height: none; }
+      .btn-row { display: none; }
+      .prop-table input { border: none; background: transparent; padding: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <div class="top-row">
+      <div class="sidebar">
+        <div class="sidebar-header">
+          <h1>Saturday Showings</h1>
+          <p>March 8, 2026 | Murphy, NC | 7 Properties + Lunch</p>
+        </div>
+        <div class="route-summary">
+          <div class="stats">
+            <div class="stat">
+              <div class="stat-value" id="total-distance">--</div>
+              <div class="stat-label">Total Miles</div>
+            </div>
+            <div class="stat">
+              <div class="stat-value" id="total-time">--</div>
+              <div class="stat-label">Total Time</div>
+            </div>
+            <div class="stat">
+              <div class="stat-value" id="depart-time">--</div>
+              <div class="stat-label">Depart By</div>
+            </div>
+            <div class="stat">
+              <div class="stat-value" id="return-time">--</div>
+              <div class="stat-label">Return Home</div>
+            </div>
+          </div>
+        </div>
+        <div id="itinerary"></div>
+      </div>
+      <div id="map"><div class="loading">Loading map...</div></div>
+    </div>
+
+    <!-- Property Details Grid -->
+    <div class="grid-panel">
+      <h2>Property Details</h2>
+      <table class="prop-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Address</th>
+            <th>Appt Start</th>
+            <th>Duration</th>
+            <th>Appt End</th>
+            <th>MLS #</th>
+            <th>Parcel ID</th>
+            <th>List Price</th>
+            <th>Beds</th>
+            <th>Baths</th>
+            <th>SqFt</th>
+            <th>Listing Agent</th>
+            <th>Agent Phone</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody id="grid-body"></tbody>
+      </table>
+      <div class="btn-row">
+        <button class="btn btn-gold" onclick="saveData()">Save to Local Storage</button>
+        <button class="btn btn-outline" onclick="window.print()">Print Itinerary</button>
+        <button class="btn btn-outline" onclick="exportCSV()">Export CSV</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_KEY = 'AIzaSyDM3AF9u6g7CVh7PmuQSH1ijXkP11FBbt0';
+    const DEFAULT_DURATION = 30; // default minutes per showing
+    const FIRST_ARRIVAL = new Date('2026-03-08T09:45:00');
+    const STORAGE_KEY = 'saturday-showings-20260308';
+
+    const HOME = { address: '97 Country Bend Road, Murphy, NC', label: 'Home' };
+    const FIRST_STOP = { address: '36 Prairie Crossing, Murphy, NC', label: '36 Prairie Crossing' };
+
+    const REMAINING_STOPS = [
+      { address: '255 Birchwood Circle, Murphy, NC', label: '255 Birchwood Circle' },
+      { address: '234 Shade Tree Lane, Murphy, NC', label: '234 Shade Tree Lane' },
+      { address: '2923 Upper Peachtree Road, Murphy, NC', label: '2923 Upper Peachtree Rd' },
+      { address: '116 Grapevine Ridge, Murphy, NC', label: '116 Grapevine Ridge' },
+      { address: '39 Red Bud Lane, Murphy, NC', label: '39 Red Bud Lane' },
+      { address: '1205 Wells Road, Murphy, NC', label: '1205 Wells Road' },
+    ];
+
+    // Non-property stops (lunch, breaks, etc.) inserted after route optimization
+    // afterStop: insert after this stop number (1-based property count)
+    const EXTRA_STOPS = [
+      { address: '13 Tennessee St, Murphy, NC', label: 'Lunch', duration: 45, afterStop: 3, isBreak: true },
+    ];
+
+    const KNOWN_DATA = {
+      '1205 Wells Road': {
+        mls: '26042816', parcel: '550302972262000', price: '$350,000',
+        beds: '1', baths: '1', sqft: '', agent: 'Jonathan Tharp', phone: '828-347-9474',
+      },
+    };
+
+    let map, directionsRenderer;
+    let routeLegs = [];         // drive legs from Directions API
+    let homeToFirstSeconds = 0; // drive time from home to first stop
+    let homeToFirstMeters = 0;
+    let allStopsOrdered = [];   // property stops in optimized order
+    let fullStopList = [];      // all stops including breaks
+
+    function initMap() {
+      map = new google.maps.Map(document.getElementById('map'), {
+        zoom: 12, center: { lat: 35.09, lng: -84.03 }, mapTypeId: 'roadmap',
+        styles: [
+          { elementType: 'geometry', stylers: [{ color: '#1a2744' }] },
+          { elementType: 'labels.text.stroke', stylers: [{ color: '#0a1628' }] },
+          { elementType: 'labels.text.fill', stylers: [{ color: '#8899aa' }] },
+          { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#2a3f5f' }] },
+          { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#1e3a5f' }] },
+          { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0e1a2e' }] },
+          { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#152238' }] },
+        ],
+      });
+      directionsRenderer = new google.maps.DirectionsRenderer({
+        map, suppressMarkers: true,
+        polylineOptions: { strokeColor: '#c8a84e', strokeWeight: 4, strokeOpacity: 0.8 },
+      });
+      calculateRoute();
+    }
+
+    function calculateRoute() {
+      const ds = new google.maps.DirectionsService();
+
+      ds.route({
+        origin: HOME.address, destination: FIRST_STOP.address,
+        travelMode: google.maps.TravelMode.DRIVING,
+      }, (homeToFirst, s1) => {
+        if (s1 !== 'OK') { alert('Directions failed: ' + s1); return; }
+        homeToFirstSeconds = homeToFirst.routes[0].legs[0].duration.value;
+        homeToFirstMeters = homeToFirst.routes[0].legs[0].distance.value;
+
+        // First: optimize property route without breaks
+        ds.route({
+          origin: FIRST_STOP.address, destination: HOME.address,
+          waypoints: REMAINING_STOPS.map(s => ({ location: s.address, stopover: true })),
+          optimizeWaypoints: true, travelMode: google.maps.TravelMode.DRIVING,
+        }, (optimized, s2) => {
+          if (s2 !== 'OK') { alert('Directions failed: ' + s2); return; }
+
+          const order = optimized.routes[0].waypoint_order;
+          allStopsOrdered = [FIRST_STOP, ...order.map(i => REMAINING_STOPS[i])];
+
+          // Build full stop list with breaks inserted
+          fullStopList = [];
+          let propCount = 0;
+          for (let i = 0; i < allStopsOrdered.length; i++) {
+            propCount++;
+            fullStopList.push({ ...allStopsOrdered[i], isBreak: false });
+            // Insert any breaks after this property number
+            EXTRA_STOPS.forEach(es => {
+              if (es.afterStop === propCount) {
+                fullStopList.push({ ...es });
+              }
+            });
+          }
+
+          // Now get directions with breaks included as waypoints
+          const allWaypoints = fullStopList.slice(1).map(s => ({ location: s.address, stopover: true }));
+          ds.route({
+            origin: FIRST_STOP.address, destination: HOME.address,
+            waypoints: allWaypoints,
+            optimizeWaypoints: false, // already optimized, just include break
+            travelMode: google.maps.TravelMode.DRIVING,
+          }, (result, s3) => {
+            if (s3 !== 'OK') { alert('Directions with breaks failed: ' + s3); return; }
+            routeLegs = result.routes[0].legs;
+
+            document.getElementById('total-distance').textContent =
+              ((homeToFirstMeters + routeLegs.reduce((s, l) => s + l.distance.value, 0)) / 1609.34).toFixed(1);
+
+            recalcTimes();
+            directionsRenderer.setDirections(result);
+            addMarkers(homeToFirst);
+          });
+        });
+      });
+    }
+
+    // Recalculate all times based on per-stop durations
+    function recalcTimes() {
+      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+      const departTime = new Date(FIRST_ARRIVAL.getTime() - homeToFirstSeconds * 1000);
+      let currentTime = new Date(departTime);
+      const itinerary = [];
+
+      // Home
+      itinerary.push({
+        label: HOME.label, address: HOME.address, arrive: null,
+        depart: new Date(currentTime), driveToNext: formatDuration(homeToFirstSeconds),
+        driveSeconds: homeToFirstSeconds, isHome: true, isBreak: false,
+      });
+      currentTime = new Date(currentTime.getTime() + homeToFirstSeconds * 1000);
+
+      let totalStopMin = 0;
+      let propNumber = 0;
+
+      for (let i = 0; i < fullStopList.length; i++) {
+        const stop = fullStopList[i];
+        const key = stop.label;
+        const isBreak = !!stop.isBreak;
+
+        if (!isBreak) propNumber++;
+
+        // Break stops use their own duration; properties use saved/default
+        const dur = isBreak ? (stop.duration || 45) : getDuration(key, saved);
+        totalStopMin += dur;
+
+        const arriveTime = new Date(currentTime);
+        const departAfter = new Date(currentTime.getTime() + dur * 60 * 1000);
+        const leg = routeLegs[i];
+
+        itinerary.push({
+          label: key, address: stop.address,
+          arrive: arriveTime, depart: departAfter, duration: dur,
+          driveToNext: leg ? formatDuration(leg.duration.value) : null,
+          driveSeconds: leg ? leg.duration.value : 0,
+          isHome: false, isBreak,
+          stopNumber: isBreak ? null : propNumber,
+        });
+
+        currentTime = new Date(departAfter.getTime() + (leg ? leg.duration.value * 1000 : 0));
+      }
+
+      const returnTime = new Date(currentTime);
+      itinerary.push({
+        label: HOME.label + ' (Return)', address: HOME.address,
+        arrive: returnTime, depart: null, isHome: true, isBreak: false,
+      });
+
+      // Total time = drive time + all stop time
+      const totalDriveSeconds = homeToFirstSeconds + routeLegs.reduce((s, l) => s + l.duration.value, 0);
+      const totalSeconds = totalDriveSeconds + totalStopMin * 60;
+
+      document.getElementById('total-time').textContent = formatDuration(totalSeconds);
+      document.getElementById('depart-time').textContent = formatTime(departTime);
+      document.getElementById('return-time').textContent = formatTime(returnTime);
+
+      renderItinerary(itinerary);
+      renderGrid(itinerary, saved);
+    }
+
+    function getDuration(stopLabel, saved) {
+      const row = saved[stopLabel];
+      if (row && row.duration && parseInt(row.duration)) return parseInt(row.duration);
+      // Check if this is a break stop with its own default duration
+      const extra = EXTRA_STOPS.find(e => e.label === stopLabel);
+      if (extra) return extra.duration;
+      return DEFAULT_DURATION;
+    }
+
+    function onDurationChange() {
+      // Collect current grid values into saved, then recalc
+      const data = collectGridData();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      recalcTimes();
+    }
+
+    function collectGridData() {
+      const data = {};
+      document.querySelectorAll('.prop-table input').forEach(input => {
+        const stop = input.dataset.stop;
+        const field = input.dataset.field;
+        if (!data[stop]) data[stop] = {};
+        if (input.value) data[stop][field] = input.value;
+      });
+      return data;
+    }
+
+    function renderGrid(itinerary, saved) {
+      const tbody = document.getElementById('grid-body');
+      let html = '';
+
+      itinerary.forEach(stop => {
+        if (stop.isHome) return;
+        const key = stop.label;
+        const row = saved[key] || {};
+        const dur = stop.duration || DEFAULT_DURATION;
+
+        if (stop.isBreak) {
+          // Break row: spans property columns, distinct style
+          html += `<tr style="background: #1a2d4a;">`;
+          html += `<td><span class="stop-badge" style="background: #e67e22;">\u2615</span></td>`;
+          html += `<td class="addr-cell" style="color: #e67e22;">${stop.label}</td>`;
+          html += `<td class="time-cell">${formatTime(stop.arrive)}</td>`;
+          html += `<td><div class="duration-cell"><input type="number" class="duration-input" data-stop="${key}" data-field="duration" value="${dur}" min="5" max="180" onchange="onDurationChange()" style="border-color: #e67e22; color: #e67e22;"><span class="duration-suffix">min</span></div></td>`;
+          html += `<td class="time-cell">${formatTime(stop.depart)}</td>`;
+          html += `<td colspan="8" style="color: #6b8aaa; font-style: italic; text-align: center;">${stop.address}</td>`;
+          html += `<td><input type="text" data-stop="${key}" data-field="notes" value="${row.notes || ''}" placeholder="Notes"></td>`;
+          html += `</tr>`;
+        } else {
+          // Property row
+          const n = stop.stopNumber;
+          const known = KNOWN_DATA[key] || {};
+
+          const val = (field, placeholder) => {
+            const v = row[field] || known[field] || '';
+            const cls = known[field] && !row[field] ? 'prefilled' : '';
+            return `<input type="text" class="${cls}" data-stop="${key}" data-field="${field}" value="${v}" placeholder="${placeholder}">`;
+          };
+
+          html += `<tr>`;
+          html += `<td><span class="stop-badge">${n}</span></td>`;
+          html += `<td class="addr-cell">${stop.label}</td>`;
+          html += `<td class="time-cell">${formatTime(stop.arrive)}</td>`;
+          html += `<td><div class="duration-cell"><input type="number" class="duration-input" data-stop="${key}" data-field="duration" value="${dur}" min="5" max="120" onchange="onDurationChange()"><span class="duration-suffix">min</span></div></td>`;
+          html += `<td class="time-cell">${formatTime(stop.depart)}</td>`;
+          html += `<td>${val('mls', 'MLS #')}</td>`;
+          html += `<td>${val('parcel', 'Parcel ID')}</td>`;
+          html += `<td>${val('price', 'List Price')}</td>`;
+          html += `<td>${val('beds', 'Bd')}</td>`;
+          html += `<td>${val('baths', 'Ba')}</td>`;
+          html += `<td>${val('sqft', 'SqFt')}</td>`;
+          html += `<td>${val('agent', 'Agent Name')}</td>`;
+          html += `<td>${val('phone', 'Phone')}</td>`;
+          html += `<td>${val('notes', 'Notes')}</td>`;
+          html += `</tr>`;
+        }
+      });
+
+      tbody.innerHTML = html;
+    }
+
+    function saveData() {
+      const data = collectGridData();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      const btn = document.querySelector('.btn-gold');
+      btn.textContent = 'Saved!';
+      setTimeout(() => { btn.textContent = 'Save to Local Storage'; }, 1500);
+    }
+
+    function exportCSV() {
+      const headers = ['#','Address','Appt Start','Duration (min)','Appt End','MLS #','Parcel ID','List Price','Beds','Baths','SqFt','Listing Agent','Agent Phone','Notes'];
+      const rows = [headers.join(',')];
+      document.querySelectorAll('#grid-body tr').forEach(tr => {
+        const cells = [];
+        cells.push(tr.querySelector('.stop-badge')?.textContent || '');
+        cells.push('"' + (tr.querySelector('.addr-cell')?.textContent || '') + '"');
+        const timeCells = tr.querySelectorAll('.time-cell');
+        cells.push(timeCells[0]?.textContent || '');
+        const durInput = tr.querySelector('.duration-input');
+        cells.push(durInput?.value || '20');
+        cells.push(timeCells[1]?.textContent || '');
+        tr.querySelectorAll('input:not(.duration-input)').forEach(input => cells.push('"' + (input.value || '') + '"'));
+        rows.push(cells.join(','));
+      });
+      const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'saturday-showings-2026-03-08.csv';
+      a.click();
+    }
+
+    function addMarkers(homeToFirstResult) {
+      const bounds = new google.maps.LatLngBounds();
+      const homePos = homeToFirstResult.routes[0].legs[0].start_location;
+      new google.maps.Marker({
+        position: homePos, map,
+        label: { text: 'H', color: '#fff', fontWeight: '700', fontSize: '12px' },
+        icon: { path: google.maps.SymbolPath.CIRCLE, scale: 16, fillColor: '#4a9eff', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 },
+        title: 'Home',
+      });
+      bounds.extend(homePos);
+
+      let propNum = 0;
+      fullStopList.forEach((stop) => {
+        const isBreak = !!stop.isBreak;
+        if (!isBreak) propNum++;
+        const thisNum = propNum; // capture for async closure
+        const geocoder = new google.maps.Geocoder();
+        geocoder.geocode({ address: stop.address }, (results, status) => {
+          if (status === 'OK') {
+            const pos = results[0].geometry.location;
+            const markerLabel = isBreak
+              ? { text: '\u2615', color: '#fff', fontWeight: '700', fontSize: '14px' }
+              : { text: String(thisNum), color: '#0a1628', fontWeight: '700', fontSize: '12px' };
+            const markerColor = isBreak ? '#e67e22' : '#c8a84e';
+            new google.maps.Marker({
+              position: pos, map, label: markerLabel,
+              icon: { path: google.maps.SymbolPath.CIRCLE, scale: 16, fillColor: markerColor, fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 },
+              title: stop.label,
+            });
+            bounds.extend(pos);
+            map.fitBounds(bounds, { padding: 60 });
+          }
+        });
+      });
+    }
+
+    function renderItinerary(itinerary) {
+      const container = document.getElementById('itinerary');
+      let html = '';
+      itinerary.forEach((stop, idx) => {
+        const isFirst = idx === 0;
+        const isLast = idx === itinerary.length - 1;
+        const isBreak = !!stop.isBreak;
+
+        let numberClass = stop.isHome ? 'home' : (isBreak ? 'break' : '');
+        let numberText = stop.isHome ? 'H' : (isBreak ? '\u2615' : stop.stopNumber);
+
+        html += `<div class="stop" data-index="${idx}">`;
+        html += `<div class="stop-header">`;
+        html += `<div class="stop-number ${numberClass}">${numberText}</div>`;
+        html += `<div class="stop-name">${stop.label}${isBreak ? ' (' + stop.address + ')' : ''}</div>`;
+        html += `</div>`;
+        html += `<div class="stop-details">`;
+
+        if (isFirst) {
+          html += `<div class="time">Depart: ${formatTime(stop.depart)}</div>`;
+          html += `<div class="drive">Drive ${stop.driveToNext} to first showing</div>`;
+        } else if (isLast) {
+          html += `<div class="time">Arrive home: ${formatTime(stop.arrive)}</div>`;
+        } else if (isBreak) {
+          html += `<div class="time">Arrive: ${formatTime(stop.arrive)} | Depart: ${formatTime(stop.depart)}</div>`;
+          html += `<div class="note">${stop.duration} min break</div>`;
+          if (stop.driveToNext) {
+            html += `<div class="drive">Drive ${stop.driveToNext} to next stop</div>`;
+          }
+        } else {
+          html += `<div class="time">Arrive: ${formatTime(stop.arrive)} | Depart: ${formatTime(stop.depart)}</div>`;
+          html += `<div class="note">${stop.duration} min showing</div>`;
+          if (stop.driveToNext) {
+            html += `<div class="drive">Drive ${stop.driveToNext} to next stop</div>`;
+          }
+        }
+        html += `</div></div>`;
+      });
+      container.innerHTML = html;
+    }
+
+    function formatTime(date) {
+      return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    }
+    function formatDuration(seconds) {
+      const h = Math.floor(seconds / 3600);
+      const m = Math.round((seconds % 3600) / 60);
+      return h > 0 ? `${h}h ${m}m` : `${m} min`;
+    }
+
+    window.initMap = initMap;
+  </script>
+  <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDM3AF9u6g7CVh7PmuQSH1ijXkP11FBbt0&callback=initMap"></script>
+</body>
+</html>
