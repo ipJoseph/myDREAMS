@@ -103,3 +103,6 @@ clients/
 node_modules/
 .next/
 .env.local
+
+# Claude Code local settings (may contain secrets in permission history)
+.claude/dot-claude/settings.local.json

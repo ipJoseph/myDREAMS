@@ -3,12 +3,9 @@
 # Starts the Property API and Dashboard
 
 DREAMS_ROOT="/home/bigeug/myDREAMS"
-VENV_PATH="$DREAMS_ROOT/apps/property-api/venv"
+VENV_PYTHON="$DREAMS_ROOT/.venv/bin/python"
 
 echo "Starting DREAMS services..."
-
-# Activate virtual environment
-source "$VENV_PATH/bin/activate"
 
 # Kill any existing instances
 pkill -f "property-api.*app.py" 2>/dev/null
@@ -17,8 +14,8 @@ sleep 1
 
 # Start Property API (port 5000)
 echo "Starting Property API on port 5000..."
-cd "$DREAMS_ROOT/apps/property-api"
-python app.py > /tmp/dreams-api.log 2>&1 &
+cd "$DREAMS_ROOT"
+"$VENV_PYTHON" apps/property-api/app.py > /tmp/dreams-api.log 2>&1 &
 API_PID=$!
 
 # Wait for API to start
@@ -26,8 +23,7 @@ sleep 2
 
 # Start Dashboard (port 5001)
 echo "Starting Property Dashboard on port 5001..."
-cd "$DREAMS_ROOT/apps/property-dashboard"
-python app.py > /tmp/dreams-dashboard.log 2>&1 &
+"$VENV_PYTHON" apps/property-dashboard/app.py > /tmp/dreams-dashboard.log 2>&1 &
 DASHBOARD_PID=$!
 
 # Wait and verify
