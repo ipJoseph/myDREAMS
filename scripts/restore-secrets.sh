@@ -57,6 +57,11 @@ done
 
 # Create symlinks
 echo ""
+echo "--- Creating directories ---"
+mkdir -p "$PROJECT_ROOT/logs"
+echo "  Created: logs/"
+
+echo ""
 echo "--- Creating symlinks ---"
 if [ -f "$PROJECT_ROOT/service_account.json" ] && [ ! -e "$PROJECT_ROOT/apps/fub-to-sheets/service_account.json" ]; then
     ln -s "$PROJECT_ROOT/service_account.json" "$PROJECT_ROOT/apps/fub-to-sheets/service_account.json"
