@@ -151,7 +151,7 @@
   </div>
 
   <script>
-    const API_KEY = 'AIzaSyDM3AF9u6g7CVh7PmuQSH1ijXkP11FBbt0';
+    const API_KEY = localStorage.getItem('GOOGLE_MAPS_KEY') || new URLSearchParams(window.location.search).get('key') || '';
     const DEFAULT_DURATION = 30; // default minutes per showing
     const FIRST_ARRIVAL = new Date('2026-03-08T09:45:00');
     const STORAGE_KEY = 'saturday-showings-20260308';
@@ -528,6 +528,23 @@
 
     window.initMap = initMap;
   </script>
-  <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDM3AF9u6g7CVh7PmuQSH1ijXkP11FBbt0&callback=initMap"></script>
+  <script>
+    // Load Google Maps with key from localStorage or URL param
+    (function() {
+      let key = localStorage.getItem('GOOGLE_MAPS_KEY') || new URLSearchParams(window.location.search).get('key') || '';
+      if (!key) {
+        key = prompt('Enter your Google Maps API key (will be saved in browser):');
+        if (key) localStorage.setItem('GOOGLE_MAPS_KEY', key);
+      }
+      if (key) {
+        const s = document.createElement('script');
+        s.src = 'https://maps.googleapis.com/maps/api/js?key=' + key + '&callback=initMap';
+        s.async = true;
+        document.body.appendChild(s);
+      } else {
+        document.getElementById('map').innerHTML = '<div class="loading">No API key provided. Reload and enter your Google Maps key.</div>';
+      }
+    })();
+  </script>
 </body>
 </html>
