@@ -47,11 +47,19 @@ export default function PhotoBrowser({ photos, address, city }: PhotoBrowserProp
       }
     };
 
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      if (e.deltaY > 0) next();
+      else if (e.deltaY < 0) prev();
+    };
+
     document.body.style.overflow = "hidden";
     window.addEventListener("keydown", handleKey);
+    window.addEventListener("wheel", handleWheel, { passive: false });
     return () => {
       document.body.style.overflow = "";
       window.removeEventListener("keydown", handleKey);
+      window.removeEventListener("wheel", handleWheel);
     };
   }, [isOpen, prev, next, close]);
 
