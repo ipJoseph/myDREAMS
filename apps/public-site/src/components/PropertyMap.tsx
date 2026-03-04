@@ -85,6 +85,7 @@ function PropertyMapInner({
 }: PropertyMapProps & { apiKey: string }) {
   const [viewMode, setViewMode] = useState<ViewMode>("map");
   const [activePOIs, setActivePOIs] = useState<Set<string>>(new Set());
+  const [expanded, setExpanded] = useState(false);
 
   const togglePOI = useCallback((id: string) => {
     setActivePOIs((prev) => {
@@ -107,8 +108,20 @@ function PropertyMapInner({
         Property Map
       </h2>
 
-      <div className="bg-white border border-gray-200/60 overflow-hidden">
-        {/* View mode tabs */}
+      <div
+        className={`bg-white border border-gray-200/60 overflow-hidden transition-all duration-300 ${
+          expanded ? "fixed inset-4 z-50 flex flex-col shadow-2xl" : "relative"
+        }`}
+      >
+        {/* Overlay backdrop when expanded */}
+        {expanded && (
+          <div
+            className="fixed inset-0 bg-black/50 -z-10"
+            onClick={() => setExpanded(false)}
+          />
+        )}
+
+        {/* View mode tabs + expand button */}
         <div className="flex border-b border-gray-200/60">
           {([
             { mode: "map" as ViewMode, label: "Map View" },
@@ -128,11 +141,26 @@ function PropertyMapInner({
               {label}
             </button>
           ))}
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="px-4 py-3 text-xs font-semibold uppercase tracking-wider bg-white text-[var(--color-text-light)] hover:bg-gray-50 hover:text-[var(--color-primary)] transition border-l border-gray-200/60"
+            title={expanded ? "Collapse map" : "Expand map"}
+          >
+            {expanded ? (
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 9L4 4m0 0v4m0-4h4m6 6l5 5m0 0v-4m0 4h-4M9 15l-5 5m0 0h4m-4 0v-4m10-6l5-5m0 0h-4m4 0v4" />
+              </svg>
+            ) : (
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+              </svg>
+            )}
+          </button>
         </div>
 
         {/* Map / Street View */}
         <APIProvider apiKey={apiKey}>
-          <div style={{ height: 450 }}>
+          <div style={{ height: expanded ? undefined : 450 }} className={expanded ? "flex-1" : ""}>
             {viewMode === "streetview" ? (
               <StreetViewPanel latitude={latitude} longitude={longitude} />
             ) : (
@@ -333,7 +361,7 @@ function MapPanel({
       defaultZoom={14}
       gestureHandling="cooperative"
       zoomControl
-      fullscreenControl
+      fullscreenControl={false}
       streetViewControl={false}
       mapTypeControl={false}
       style={{ width: "100%", height: "100%" }}
@@ -467,7 +495,7 @@ function StreetViewPanel({
             pov: { heading: 0, pitch: 0 },
             zoom: 1,
             addressControl: false,
-            fullscreenControl: true,
+            fullscreenControl: false,
           });
         } else {
           setStatus("unavailable");
