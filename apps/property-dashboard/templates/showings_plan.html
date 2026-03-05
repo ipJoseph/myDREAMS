@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Plan Showings - DREAMS</title>
+  <link rel="icon" type="image/svg+xml" href="{{ favicon }}">
+  <link rel="stylesheet" href="/static/css/dashboard.css">
+  <style>
+    .plan-container { max-width: 800px; margin: 40px auto; padding: 0 24px; }
+    .plan-header { margin-bottom: 32px; }
+    .plan-header h1 { font-size: 24px; font-weight: 700; color: var(--text-primary, #1a1a1a); margin-bottom: 4px; }
+    .plan-header p { color: var(--text-secondary, #64748b); font-size: 14px; }
+
+    .upload-card {
+      background: #fff; border: 2px dashed #cbd5e1; border-radius: 12px;
+      padding: 40px; text-align: center; margin-bottom: 24px;
+      transition: border-color 0.2s, background 0.2s;
+      cursor: pointer; position: relative;
+    }
+    .upload-card:hover, .upload-card.dragover {
+      border-color: #2563eb; background: #eff6ff;
+    }
+    .upload-card svg { width: 48px; height: 48px; color: #94a3b8; margin-bottom: 12px; }
+    .upload-card h3 { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+    .upload-card p { font-size: 13px; color: #64748b; }
+    .upload-card input[type="file"] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer;
+    }
+
+    .divider { text-align: center; color: #94a3b8; font-size: 13px; margin: 20px 0; position: relative; }
+    .divider::before, .divider::after {
+      content: ''; position: absolute; top: 50%; width: calc(50% - 20px);
+      height: 1px; background: #e2e8f0;
+    }
+    .divider::before { left: 0; }
+    .divider::after { right: 0; }
+
+    .manual-form { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; }
+    .manual-form h3 { font-size: 15px; font-weight: 600; margin-bottom: 16px; }
+
+    .form-row { display: flex; gap: 12px; margin-bottom: 8px; align-items: center; }
+    .form-row .stop-num {
+      width: 28px; height: 28px; border-radius: 50%; background: #c8a84e; color: #fff;
+      font-weight: 700; font-size: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .form-row input {
+      flex: 1; padding: 8px 12px; border: 1px solid #e2e8f0; border-radius: 6px;
+      font-size: 13px; font-family: inherit;
+    }
+    .form-row input:focus { outline: none; border-color: #2563eb; }
+    .form-row .city-input { max-width: 140px; }
+    .form-row .state-input { max-width: 60px; }
+    .form-row .dur-input { max-width: 70px; text-align: center; }
+    .form-row .remove-btn {
+      width: 28px; height: 28px; border-radius: 50%; border: 1px solid #e2e8f0;
+      background: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      color: #94a3b8; font-size: 16px; flex-shrink: 0;
+    }
+    .form-row .remove-btn:hover { border-color: #ef4444; color: #ef4444; background: #fef2f2; }
+
+    .add-row { margin-top: 8px; }
+    .add-row button {
+      padding: 8px 16px; background: #f1f5f9; border: 1px dashed #cbd5e1; border-radius: 6px;
+      cursor: pointer; font-size: 13px; color: #64748b; width: 100%;
+    }
+    .add-row button:hover { border-color: #2563eb; color: #2563eb; background: #eff6ff; }
+
+    .form-actions { margin-top: 20px; display: flex; gap: 12px; justify-content: flex-end; }
+    .btn-primary {
+      padding: 10px 24px; background: #1a365d; color: #fff; border: none;
+      border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer;
+    }
+    .btn-primary:hover { background: #2d4a7c; }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .csv-preview {
+      background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;
+      padding: 16px; margin-top: 16px; display: none;
+    }
+    .csv-preview h4 { font-size: 13px; font-weight: 600; margin-bottom: 8px; color: #1a365d; }
+    .csv-preview table { width: 100%; font-size: 12px; border-collapse: collapse; }
+    .csv-preview th {
+      text-align: left; padding: 6px 8px; background: #e2e8f0;
+      font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;
+    }
+    .csv-preview td { padding: 6px 8px; border-bottom: 1px solid #f1f5f9; }
+
+    .match-badge {
+      font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 600;
+    }
+    .match-badge.found { background: #dcfce7; color: #16a34a; }
+    .match-badge.notfound { background: #fef3c7; color: #d97706; }
+
+    .plan-name-row { margin-bottom: 16px; }
+    .plan-name-row label { font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 4px; }
+    .plan-name-row input {
+      width: 100%; padding: 10px 14px; border: 1px solid #e2e8f0; border-radius: 8px;
+      font-size: 14px; font-family: inherit;
+    }
+    .plan-name-row input:focus { outline: none; border-color: #2563eb; }
+  </style>
+</head>
+<body>
+  {% set active_nav = 'showings' %}
+  {% include 'partials/sidebar.html' %}
+
+  <div class="main-content">
+    <div class="plan-container">
+      <div class="plan-header">
+        <h1>Plan Showings</h1>
+        <p>Upload a CSV or enter addresses manually to create a route-optimized showing tour.</p>
+      </div>
+
+      <form method="POST" action="/showings/plan" enctype="multipart/form-data" id="planForm">
+        <div class="plan-name-row">
+          <label>Tour Name</label>
+          <input type="text" name="tour_name" id="tourName" value="Saturday Showings - {{ today }}" placeholder="e.g. Murphy Buyer Tour">
+        </div>
+
+        <!-- CSV Upload -->
+        <div class="upload-card" id="uploadCard">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          <h3>Upload CSV File</h3>
+          <p>Drag and drop or click to select. Expected columns: Address, City, State, Duration, Type</p>
+          <input type="file" name="csv_file" id="csvFile" accept=".csv,.txt">
+        </div>
+
+        <!-- CSV Preview -->
+        <div class="csv-preview" id="csvPreview">
+          <h4>Preview</h4>
+          <table>
+            <thead><tr><th>#</th><th>Address</th><th>City</th><th>State</th><th>Duration</th></tr></thead>
+            <tbody id="csvPreviewBody"></tbody>
+          </table>
+        </div>
+
+        <div class="divider">or enter manually</div>
+
+        <!-- Manual Entry -->
+        <div class="manual-form">
+          <h3>Enter Addresses</h3>
+          <div id="stopsList">
+            <div class="form-row" data-row="1">
+              <div class="stop-num">1</div>
+              <input type="text" name="addr_1" class="addr-input" placeholder="Street address">
+              <input type="text" name="city_1" class="city-input" placeholder="City" value="Murphy">
+              <input type="text" name="state_1" class="state-input" placeholder="ST" value="NC">
+              <input type="number" name="dur_1" class="dur-input" placeholder="Min" value="30">
+              <button type="button" class="remove-btn" onclick="removeRow(this)">&times;</button>
+            </div>
+          </div>
+          <div class="add-row">
+            <button type="button" onclick="addRow()">+ Add Another Stop</button>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn-primary" id="submitBtn">Plan Route</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    var rowCount = 1;
+
+    function addRow(addr, city, state, dur) {
+      rowCount++;
+      var list = document.getElementById('stopsList');
+      var div = document.createElement('div');
+      div.className = 'form-row';
+      div.dataset.row = rowCount;
+      div.innerHTML =
+        '<div class="stop-num">' + rowCount + '</div>' +
+        '<input type="text" name="addr_' + rowCount + '" class="addr-input" placeholder="Street address" value="' + (addr || '') + '">' +
+        '<input type="text" name="city_' + rowCount + '" class="city-input" placeholder="City" value="' + (city || 'Murphy') + '">' +
+        '<input type="text" name="state_' + rowCount + '" class="state-input" placeholder="ST" value="' + (state || 'NC') + '">' +
+        '<input type="number" name="dur_' + rowCount + '" class="dur-input" placeholder="Min" value="' + (dur || 30) + '">' +
+        '<button type="button" class="remove-btn" onclick="removeRow(this)">&times;</button>';
+      list.appendChild(div);
+    }
+
+    function removeRow(btn) {
+      var rows = document.querySelectorAll('#stopsList .form-row');
+      if (rows.length <= 1) return;
+      btn.closest('.form-row').remove();
+      renumberRows();
+    }
+
+    function renumberRows() {
+      var rows = document.querySelectorAll('#stopsList .form-row');
+      rows.forEach(function(row, i) {
+        row.querySelector('.stop-num').textContent = i + 1;
+      });
+    }
+
+    // CSV file handling
+    var csvFile = document.getElementById('csvFile');
+    var uploadCard = document.getElementById('uploadCard');
+
+    csvFile.addEventListener('change', function(e) {
+      var file = e.target.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function(ev) { parseCSV(ev.target.result); };
+      reader.readAsText(file);
+    });
+
+    uploadCard.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      uploadCard.classList.add('dragover');
+    });
+    uploadCard.addEventListener('dragleave', function() {
+      uploadCard.classList.remove('dragover');
+    });
+    uploadCard.addEventListener('drop', function(e) {
+      e.preventDefault();
+      uploadCard.classList.remove('dragover');
+      var file = e.dataTransfer.files[0];
+      if (file) {
+        csvFile.files = e.dataTransfer.files;
+        var reader = new FileReader();
+        reader.onload = function(ev) { parseCSV(ev.target.result); };
+        reader.readAsText(file);
+      }
+    });
+
+    function parseCSV(text) {
+      var lines = text.trim().split('\n');
+      if (lines.length < 2) return;
+
+      // Parse header
+      var header = lines[0].split(',').map(function(h) { return h.trim().toLowerCase(); });
+      var addrIdx = header.indexOf('address');
+      var cityIdx = header.indexOf('city');
+      var stateIdx = header.indexOf('state');
+      var durIdx = header.indexOf('duration');
+
+      if (addrIdx === -1) { alert('CSV must have an "Address" column'); return; }
+
+      // Clear manual form and populate from CSV
+      document.getElementById('stopsList').innerHTML = '';
+      rowCount = 0;
+      var previewBody = document.getElementById('csvPreviewBody');
+      previewBody.innerHTML = '';
+
+      for (var i = 1; i < lines.length; i++) {
+        var cols = lines[i].split(',').map(function(c) { return c.trim(); });
+        if (!cols[addrIdx]) continue;
+
+        var addr = cols[addrIdx] || '';
+        var city = cityIdx >= 0 ? (cols[cityIdx] || '') : '';
+        var state = stateIdx >= 0 ? (cols[stateIdx] || 'NC') : 'NC';
+        var dur = durIdx >= 0 ? (parseInt(cols[durIdx]) || 30) : 30;
+
+        addRow(addr, city, state, dur);
+
+        // Preview
+        var tr = document.createElement('tr');
+        tr.innerHTML = '<td>' + i + '</td><td>' + addr + '</td><td>' + city + '</td><td>' + state + '</td><td>' + dur + ' min</td>';
+        previewBody.appendChild(tr);
+      }
+
+      document.getElementById('csvPreview').style.display = 'block';
+      uploadCard.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:#16a34a;"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>' +
+        '<h3 style="color:#16a34a;">File loaded: ' + lines.length - 1 + ' stops</h3>' +
+        '<p>Addresses populated below. Click "Plan Route" to continue.</p>';
+    }
+  </script>
+</body>
+</html>

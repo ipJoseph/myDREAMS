@@ -2420,6 +2420,196 @@ def collection_save_showing(collection_id):
     return redirect(f'/buyer-collections/{collection_id}')
 
 
+# ── Standalone Showings Planner (CSV / manual entry) ─────────────────────
+
+
+@app.route('/showings/plan', methods=['GET'])
+@requires_auth
+def showings_plan_form():
+    """Show the showings upload/manual entry form."""
+    today = datetime.now(ET).strftime('%Y-%m-%d')
+    return render_template('showings_plan.html', today=today)
+
+
+@app.route('/showings/plan', methods=['POST'])
+@requires_auth
+def showings_plan_route():
+    """Process CSV or manual addresses and render the route planner."""
+    import csv
+    import io as _io
+
+    conn = sqlite3.connect(str(DB_PATH))
+    conn.row_factory = sqlite3.Row
+    stops = []
+
+    # Check for CSV file upload
+    csv_file = request.files.get('csv_file')
+    if csv_file and csv_file.filename:
+        import re as _re
+        text = csv_file.read().decode('utf-8-sig')
+        reader = csv.DictReader(_io.StringIO(text))
+        # Detect format from headers
+        headers = {k.strip().lower() for k in (reader.fieldnames or [])}
+        is_wkt = 'wkt' in headers
+
+        for row in reader:
+            row = {k.strip().lower(): v.strip() for k, v in row.items() if k}
+
+            if is_wkt:
+                # WKT format: "POINT (lng lat)", name, description
+                addr = row.get('name', '')
+                if not addr:
+                    continue
+                lat, lng = None, None
+                wkt = row.get('wkt', '')
+                m = _re.search(r'POINT\s*\(\s*([-\d.]+)\s+([-\d.]+)\s*\)', wkt)
+                if m:
+                    lng, lat = float(m.group(1)), float(m.group(2))
+                stops.append({
+                    'address': addr,
+                    'city': '',
+                    'state': 'NC',
+                    'duration': 30,
+                    'type': 'Showing',
+                    'latitude': lat,
+                    'longitude': lng,
+                })
+            else:
+                # Standard CSV: Address, City, State, Duration, Type
+                addr = row.get('address', '')
+                if not addr:
+                    continue
+                stops.append({
+                    'address': addr,
+                    'city': row.get('city', ''),
+                    'state': row.get('state', 'NC'),
+                    'duration': int(row.get('duration', '30') or '30'),
+                    'type': row.get('type', 'Showing'),
+                })
+    else:
+        # Manual entry: collect addr_N, city_N, state_N, dur_N fields
+        i = 1
+        while True:
+            addr = request.form.get(f'addr_{i}', '').strip()
+            if not addr:
+                break
+            stops.append({
+                'address': addr,
+                'city': request.form.get(f'city_{i}', '').strip(),
+                'state': request.form.get(f'state_{i}', 'NC').strip(),
+                'duration': int(request.form.get(f'dur_{i}', '30') or '30'),
+                'type': 'Showing',
+            })
+            i += 1
+
+    if not stops:
+        return redirect('/showings/plan')
+
+    tour_name = request.form.get('tour_name', '').strip() or 'Showing Tour'
+
+    # Try to match each address against the listings database for enrichment
+    properties = []
+    for stop in stops:
+        # Match by street number + street name (space-separated, not substring)
+        addr_words = stop['address'].split()
+        if len(addr_words) >= 2:
+            # "39 Red Bud" -> "39 Red%" (exact number, space, then street name start)
+            like_pattern = f"{addr_words[0]} {addr_words[1]}%"
+        else:
+            like_pattern = f"{addr_words[0]}%"
+
+        match = None
+        if stop['city']:
+            match = conn.execute('''
+                SELECT id, address, city, state, zip, county,
+                       list_price, beds, baths, sqft, acreage,
+                       primary_photo, mls_number, latitude, longitude,
+                       status, property_type
+                FROM listings
+                WHERE address LIKE ? AND city LIKE ?
+                ORDER BY
+                    CASE WHEN status = 'ACTIVE' THEN 0
+                         WHEN status = 'PENDING' THEN 1
+                         ELSE 2 END,
+                    updated_at DESC
+                LIMIT 1
+            ''', [like_pattern, f"%{stop['city']}%"]).fetchone()
+
+        if not match:
+            # Broader search without city constraint
+            match = conn.execute('''
+                SELECT id, address, city, state, zip, county,
+                       list_price, beds, baths, sqft, acreage,
+                       primary_photo, mls_number, latitude, longitude,
+                       status, property_type
+                FROM listings
+                WHERE address LIKE ?
+                ORDER BY
+                    CASE WHEN status = 'ACTIVE' THEN 0
+                         WHEN status = 'PENDING' THEN 1
+                         ELSE 2 END,
+                    updated_at DESC
+                LIMIT 1
+            ''', [like_pattern]).fetchone()
+
+        if match:
+            prop = dict(match)
+            prop['_csv_address'] = stop['address']
+            prop['_csv_city'] = stop['city']
+            prop['_matched'] = True
+            # Use CSV lat/lng if DB doesn't have them
+            if not prop.get('latitude') and stop.get('latitude'):
+                prop['latitude'] = stop['latitude']
+                prop['longitude'] = stop['longitude']
+        else:
+            # No DB match: create a minimal property object
+            prop = {
+                'id': None,
+                'address': stop['address'],
+                'city': stop['city'],
+                'state': stop['state'],
+                'zip': '',
+                'county': '',
+                'list_price': None,
+                'beds': None,
+                'baths': None,
+                'sqft': None,
+                'acreage': None,
+                'primary_photo': None,
+                'mls_number': None,
+                'latitude': stop.get('latitude'),
+                'longitude': stop.get('longitude'),
+                'status': None,
+                'property_type': None,
+                '_csv_address': stop['address'],
+                '_csv_city': stop['city'],
+                '_matched': False,
+            }
+
+        prop['_duration'] = stop['duration']
+        properties.append(prop)
+
+    conn.close()
+
+    today = datetime.now(ET).strftime('%Y-%m-%d')
+    home_address = os.getenv('AGENT_HOME_ADDRESS', '')
+
+    # Create a virtual collection object for the template
+    collection = {
+        'id': None,
+        'name': tour_name,
+    }
+
+    return render_template('route_planner.html',
+        collection=collection,
+        properties=properties,
+        google_maps_key=os.getenv('GOOGLE_MAPS_API_KEY', ''),
+        today=today,
+        home_address=home_address,
+        standalone=True,
+    )
+
+
 @app.route('/buyer-collections/<collection_id>/brochure')
 @requires_auth
 def buyer_collection_brochure(collection_id):

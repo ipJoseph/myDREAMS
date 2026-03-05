@@ -123,12 +123,18 @@
     <!-- Top navigation bar -->
     <div class="top-bar">
       <div class="top-bar-left">
+        {% if standalone %}
+        <a href="/showings/plan">&larr; New Plan</a>
+        {% else %}
         <a href="/buyer-collections/{{ collection.id }}">&larr; Back to Collection</a>
+        {% endif %}
         <h1>Route Planner</h1>
         <span class="subtitle">{{ collection.name }} &middot; {{ properties|length }} properties</span>
       </div>
       <div style="display: flex; gap: 8px;">
+        {% if not standalone %}
         <button class="btn btn-green" onclick="saveShowing()">Save as Showing</button>
+        {% endif %}
       </div>
     </div>
 
@@ -239,9 +245,10 @@
     var COLLECTION_ID = {{ collection.id | tojson }};
     var COLLECTION_NAME = {{ collection.name | tojson }};
     var GOOGLE_MAPS_KEY = {{ google_maps_key | tojson }};
+    var STANDALONE = {{ standalone | default(false) | tojson }};
 
     var DEFAULT_DURATION = 30;
-    var STORAGE_KEY = 'route-planner-' + COLLECTION_ID;
+    var STORAGE_KEY = 'route-planner-' + (COLLECTION_ID || 'standalone-' + COLLECTION_NAME);
 
     var map, directionsRenderer;
     var routeLegs = [];
@@ -312,12 +319,27 @@
     }
 
     // ===== ROUTE CALCULATION =====
+    function getRouteAddress(p) {
+      // Use lat/lng for precise routing when available
+      if (p.latitude && p.longitude) {
+        return { lat: p.latitude, lng: p.longitude };
+      }
+      // Fallback to text address
+      var addr = p._csv_address || p.address;
+      var city = p._csv_city || p.city;
+      var state = p.state || 'NC';
+      return addr + (city ? ', ' + city : '') + ', ' + state;
+    }
+
     function calculateRoute() {
       var cfg = getConfig();
       DEFAULT_DURATION = cfg.duration;
 
-      var geoProps = PROPERTIES.filter(function(p) { return p.latitude && p.longitude; });
-      if (geoProps.length === 0) {
+      // Route by lat/lng when available, fallback to address in standalone mode
+      var routableProps = PROPERTIES.filter(function(p) {
+        return (p.latitude && p.longitude) || (STANDALONE && (p.address || p._csv_address));
+      });
+      if (routableProps.length === 0) {
         document.getElementById('map').innerHTML = '<div class="loading">No properties have location data for routing.</div>';
         return;
       }
@@ -327,10 +349,9 @@
       }
 
       var homeAddress = cfg.home;
-      // Use addresses for routing; Google resolves them
-      var firstStop = geoProps[0];
-      var firstAddr = firstStop.address + (firstStop.city ? ', ' + firstStop.city : '') + (firstStop.state ? ', ' + firstStop.state : '');
-      var remainingStops = geoProps.slice(1);
+      var firstStop = routableProps[0];
+      var firstAddr = getRouteAddress(firstStop);
+      var remainingStops = routableProps.slice(1);
 
       var ds = new google.maps.DirectionsService();
 
@@ -367,8 +388,7 @@
 
         // Stage 2: Optimize property route (first stop to home via remaining)
         var waypoints = remainingStops.map(function(p) {
-          var addr = p.address + (p.city ? ', ' + p.city : '') + (p.state ? ', ' + p.state : '');
-          return { location: addr, stopover: true };
+          return { location: getRouteAddress(p), stopover: true };
         });
 
         ds.route({
@@ -396,7 +416,7 @@
             addMarkers(homeToFirst);
           } else {
             var allWaypoints = fullStopList.slice(1).map(function(s) {
-              var addr = s.isBreak ? s.address : (s.address + (s.city ? ', ' + s.city : '') + (s.state ? ', ' + s.state : ''));
+              var addr = s.isBreak ? s.address : getRouteAddress(s);
               return { location: addr, stopover: true };
             });
             ds.route({
@@ -459,17 +479,19 @@
 
         if (!isBreak) propNumber++;
 
-        var dur = isBreak ? (stop.duration || 45) : getDuration(key, savedState);
+        var dur = isBreak ? (stop.duration || 45) : (stop._duration || getDuration(key, savedState));
         totalStopMin += dur;
 
         var arriveTime = new Date(currentTime);
         var departAfter = new Date(currentTime.getTime() + dur * 60 * 1000);
         var leg = routeLegs[i];
 
+        var displayAddr = isBreak ? stop.label : (stop._csv_address || stop.address || '');
+        var displayCity = stop._csv_city || stop.city || '';
         itinerary.push({
-          label: isBreak ? stop.label : (stop.address || ''),
-          address: isBreak ? stop.address : (stop.address + (stop.city ? ', ' + stop.city : '')),
-          fullAddress: isBreak ? stop.address : (stop.address + (stop.city ? ', ' + stop.city : '') + (stop.state ? ', ' + stop.state : '')),
+          label: displayAddr,
+          address: isBreak ? stop.address : (displayAddr + (displayCity ? ', ' + displayCity : '')),
+          fullAddress: isBreak ? stop.address : getRouteAddress(stop),
           arrive: arriveTime, depart: departAfter, duration: dur,
           driveToNext: leg ? formatDuration(leg.duration.value) : null,
           driveSeconds: leg ? leg.duration.value : 0,
@@ -743,6 +765,7 @@
     }
 
     function saveShowing() {
+      if (STANDALONE) return;
       var cfg = getConfig();
       var gridData = collectGridData();
 
