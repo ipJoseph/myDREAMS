@@ -14,6 +14,9 @@ interface Collection {
   property_count: number;
   created_at: string;
   updated_at: string;
+  collection_type?: string;
+  is_suggested?: boolean;
+  is_agent_assigned?: boolean;
 }
 
 export default function CollectionsPage() {
@@ -178,12 +181,24 @@ export default function CollectionsPage() {
                 className="bg-white border border-gray-200/60 p-6 flex items-center justify-between"
               >
                 <div className="flex-1 min-w-0">
-                  <Link
-                    href={`/account/collections/${col.id}`}
-                    className="text-lg text-[var(--color-primary)] font-medium hover:text-[var(--color-accent)] transition truncate block"
-                  >
-                    {col.name}
-                  </Link>
+                  <div className="flex items-center gap-2">
+                    <Link
+                      href={`/account/collections/${col.id}`}
+                      className="text-lg text-[var(--color-primary)] font-medium hover:text-[var(--color-accent)] transition truncate"
+                    >
+                      {col.name}
+                    </Link>
+                    {col.is_suggested && (
+                      <span className="flex-shrink-0 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 bg-amber-100 text-amber-700 rounded">
+                        Suggested for you
+                      </span>
+                    )}
+                    {col.is_agent_assigned && (
+                      <span className="flex-shrink-0 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 bg-blue-100 text-blue-700 rounded">
+                        From your agent
+                      </span>
+                    )}
+                  </div>
                   {col.description && (
                     <p className="text-sm text-[var(--color-text-light)] mt-1 truncate">
                       {col.description}

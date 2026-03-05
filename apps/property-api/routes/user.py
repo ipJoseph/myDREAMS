@@ -719,6 +719,8 @@ def list_collections():
 
     try:
         db = get_db()
+
+        # User's own collections
         rows = db.execute(
             '''SELECT pp.*, COUNT(pkp.listing_id) as property_count
                FROM property_packages pp
@@ -728,12 +730,36 @@ def list_collections():
                ORDER BY pp.created_at DESC''',
             [user_id]
         ).fetchall()
+
+        collections = [dict(r) for r in rows]
+
+        # Also include agent-assigned and accepted smart collections for this buyer's lead
+        lead_id = _resolve_lead_id(db, user_id)
+        if lead_id:
+            assigned = db.execute(
+                '''SELECT pp.*, COUNT(pkp.listing_id) as property_count
+                   FROM property_packages pp
+                   LEFT JOIN package_properties pkp ON pkp.package_id = pp.id
+                   WHERE pp.lead_id = ?
+                     AND pp.collection_type IN ('agent_package', 'smart')
+                     AND pp.status = 'ready'
+                     AND (pp.user_id IS NULL OR pp.user_id != ?)
+                   GROUP BY pp.id
+                   ORDER BY pp.created_at DESC''',
+                [lead_id, user_id]
+            ).fetchall()
+            for row in assigned:
+                item = dict(row)
+                item['is_suggested'] = item['collection_type'] == 'smart'
+                item['is_agent_assigned'] = item['collection_type'] == 'agent_package'
+                collections.append(item)
+
         db.close()
 
         return jsonify({
             'success': True,
-            'data': [dict(r) for r in rows],
-            'count': len(rows),
+            'data': collections,
+            'count': len(collections),
         })
 
     except Exception:

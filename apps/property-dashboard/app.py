@@ -2793,6 +2793,126 @@ def template_delete(template_id):
     return redirect('/templates')
 
 
+# =============================================================================
+# SMART COLLECTIONS QUEUE ROUTES
+# =============================================================================
+
+@app.route('/smart-collections')
+@requires_auth
+def smart_collections_queue():
+    """Smart collections awaiting agent review."""
+    conn = sqlite3.connect(str(DB_PATH))
+    conn.row_factory = sqlite3.Row
+
+    # Get pending smart collections
+    pending_rows = conn.execute('''
+        SELECT pp.id, pp.name, pp.lead_id, pp.status, pp.criteria_json,
+               pp.created_at, pp.updated_at,
+               COALESCE(l.first_name || ' ' || l.last_name, '') as lead_name,
+               COUNT(pkp.id) as property_count
+        FROM property_packages pp
+        LEFT JOIN leads l ON l.id = pp.lead_id OR l.fub_id = pp.lead_id
+        LEFT JOIN package_properties pkp ON pkp.package_id = pp.id
+        WHERE pp.collection_type = 'smart' AND pp.status = 'pending_review'
+        GROUP BY pp.id
+        ORDER BY pp.created_at DESC
+    ''').fetchall()
+
+    pending = []
+    for row in pending_rows:
+        item = dict(row)
+        # Parse criteria JSON
+        try:
+            item['criteria'] = json.loads(item['criteria_json'] or '{}')
+        except (json.JSONDecodeError, TypeError):
+            item['criteria'] = {}
+
+        # Calculate pseudo-confidence from criteria
+        criteria = item['criteria']
+        confidence = 50  # base
+        if criteria.get('cities'):
+            confidence += 10
+        if criteria.get('min_price') and criteria.get('max_price'):
+            price_range = criteria['max_price'] - criteria['min_price']
+            avg = (criteria['max_price'] + criteria['min_price']) / 2
+            if avg > 0 and price_range / avg < 0.5:
+                confidence += 15
+        if item['property_count'] >= 7:
+            confidence += 10
+        item['confidence'] = min(confidence, 100)
+
+        # Get first 6 properties for preview
+        props = conn.execute('''
+            SELECT l.id, l.address, l.city, l.list_price, l.primary_photo
+            FROM package_properties pkp
+            JOIN listings l ON l.id = pkp.listing_id
+            WHERE pkp.package_id = ?
+            ORDER BY pkp.display_order LIMIT 6
+        ''', (item['id'],)).fetchall()
+        item['properties'] = [dict(p) for p in props]
+
+        pending.append(item)
+
+    # Stats
+    accepted_count = conn.execute('''
+        SELECT COUNT(*) FROM property_packages
+        WHERE collection_type = 'smart' AND status = 'ready'
+          AND updated_at >= date('now', '-30 days')
+    ''').fetchone()[0]
+
+    total_properties = sum(item['property_count'] for item in pending)
+
+    conn.close()
+
+    return render_template('smart_collections_queue.html',
+        pending=pending,
+        accepted_count=accepted_count,
+        total_properties=total_properties,
+    )
+
+
+@app.route('/smart-collections/<collection_id>/review', methods=['POST'])
+@requires_auth
+def smart_collection_review(collection_id):
+    """Accept or reject a smart collection."""
+    action = request.form.get('action', '')
+    conn = sqlite3.connect(str(DB_PATH))
+    now = datetime.now(ET).isoformat()
+
+    if action == 'accept':
+        import secrets
+        share_token = secrets.token_urlsafe(16)
+        conn.execute('''
+            UPDATE property_packages
+            SET status = 'ready', share_token = ?, updated_at = ?
+            WHERE id = ? AND collection_type = 'smart'
+        ''', (share_token, now, collection_id))
+    elif action == 'reject':
+        conn.execute('''
+            UPDATE property_packages
+            SET status = 'archived', updated_at = ?
+            WHERE id = ? AND collection_type = 'smart'
+        ''', (now, collection_id))
+
+    conn.commit()
+    conn.close()
+    return redirect('/smart-collections')
+
+
+@app.route('/smart-collections/detect')
+@requires_auth
+def smart_collections_detect():
+    """Manually trigger pattern detection."""
+    try:
+        from apps.automation.smart_collections import detect_all_patterns
+        results = detect_all_patterns(days=14, min_events=10, dry_run=False)
+        logger.info("Manual detection: %d patterns found", len(results))
+    except Exception as e:
+        logger.error("Pattern detection failed: %s", e)
+
+    return redirect('/smart-collections')
+
+
 @app.route('/properties')
 @requires_auth
 def properties_list():
