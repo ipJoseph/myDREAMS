@@ -151,8 +151,17 @@
             <input type="time" id="cfgTime" value="10:00">
           </div>
           <div class="config-row">
-            <label>Home Address</label>
-            <input type="text" id="cfgHome" value="{{ home_address }}" placeholder="Your starting address">
+            <label>Start Address</label>
+            <input type="text" id="cfgStart" value="{{ home_address }}" placeholder="Starting address">
+          </div>
+          <div class="config-row">
+            <label style="width: auto; flex: none;">
+              <input type="checkbox" id="cfgRoundtrip" checked onchange="toggleRoundtrip()" style="width:auto; margin-right:4px; vertical-align:middle;"> Roundtrip
+            </label>
+          </div>
+          <div class="config-row" id="endAddrRow" style="display: none;">
+            <label>End Address</label>
+            <input type="text" id="cfgEnd" value="" placeholder="Ending address (if different)">
           </div>
           <div class="config-row">
             <label>Default Mins</label>
@@ -178,7 +187,7 @@
             </div>
             <div class="stat">
               <div class="stat-value" id="return-time">--</div>
-              <div class="stat-label">Return Home</div>
+              <div class="stat-label" id="return-label">Arrive End</div>
             </div>
           </div>
         </div>
@@ -266,18 +275,34 @@
     if (savedState._config) {
       if (savedState._config.date) document.getElementById('cfgDate').value = savedState._config.date;
       if (savedState._config.time) document.getElementById('cfgTime').value = savedState._config.time;
-      if (savedState._config.home) document.getElementById('cfgHome').value = savedState._config.home;
+      if (savedState._config.start) document.getElementById('cfgStart').value = savedState._config.start;
+      else if (savedState._config.home) document.getElementById('cfgStart').value = savedState._config.home;
       if (savedState._config.duration) document.getElementById('cfgDuration').value = savedState._config.duration;
+      if (savedState._config.roundtrip === false) {
+        document.getElementById('cfgRoundtrip').checked = false;
+        document.getElementById('endAddrRow').style.display = '';
+        if (savedState._config.end) document.getElementById('cfgEnd').value = savedState._config.end;
+      }
     }
     if (savedState._breaks) {
       extraStops = savedState._breaks;
     }
 
+    function toggleRoundtrip() {
+      var checked = document.getElementById('cfgRoundtrip').checked;
+      document.getElementById('endAddrRow').style.display = checked ? 'none' : '';
+    }
+
     function getConfig() {
+      var roundtrip = document.getElementById('cfgRoundtrip').checked;
+      var start = document.getElementById('cfgStart').value.trim();
       return {
         date: document.getElementById('cfgDate').value,
         time: document.getElementById('cfgTime').value,
-        home: document.getElementById('cfgHome').value.trim(),
+        start: start,
+        home: start,  // backward compat
+        end: roundtrip ? start : (document.getElementById('cfgEnd').value.trim() || start),
+        roundtrip: roundtrip,
         duration: parseInt(document.getElementById('cfgDuration').value) || 30,
       };
     }
@@ -372,68 +397,86 @@
         showMapMessage('No properties have location data for routing.');
         return;
       }
-      if (!cfg.home) {
-        showMapMessage('Enter a home/starting address to calculate route.');
+      if (!cfg.start) {
+        showMapMessage('Enter a start address to calculate route.');
         return;
       }
 
-      var homeAddress = cfg.home;
+      var startAddress = cfg.start;
+      var endAddress = cfg.end;
       var firstStop = routableProps[0];
       var firstAddr = getRouteAddress(firstStop);
       var remainingStops = routableProps.slice(1);
 
+      // Detect if start address matches first property (skip driving leg)
+      var startIsFirst = isAddressMatch(startAddress, firstStop);
+      // Detect if end address matches last property (set after optimization)
+      var endIsLast = false;
+
       var ds = new google.maps.DirectionsService();
 
-      // Stage 1: Home to first stop
-      ds.route({
-        origin: homeAddress,
-        destination: firstAddr,
-        travelMode: google.maps.TravelMode.DRIVING,
-      }, function(homeToFirst, s1) {
-        if (s1 !== 'OK') {
-          document.getElementById('map').innerHTML = '<div class="loading">Could not route from home address. Check the address and try again.</div>';
-          return;
-        }
-        homeToFirstSeconds = homeToFirst.routes[0].legs[0].duration.value;
-        homeToFirstMeters = homeToFirst.routes[0].legs[0].distance.value;
+      // Stage 1: Start to first stop (may be 0 if start IS the first stop)
+      if (startIsFirst) {
+        homeToFirstSeconds = 0;
+        homeToFirstMeters = 0;
+        doOptimize(null);
+      } else {
+        ds.route({
+          origin: startAddress,
+          destination: firstAddr,
+          travelMode: google.maps.TravelMode.DRIVING,
+        }, function(startToFirst, s1) {
+          if (s1 !== 'OK') {
+            showMapMessage('Could not route from start address. Check the address and try again.');
+            return;
+          }
+          homeToFirstSeconds = startToFirst.routes[0].legs[0].duration.value;
+          homeToFirstMeters = startToFirst.routes[0].legs[0].distance.value;
+          doOptimize(startToFirst);
+        });
+      }
 
+      function doOptimize(startToFirstResult) {
         if (remainingStops.length === 0) {
-          // Only one property: route home directly
+          // Only one property
           ds.route({
             origin: firstAddr,
-            destination: homeAddress,
+            destination: endAddress,
             travelMode: google.maps.TravelMode.DRIVING,
           }, function(returnRoute, s2) {
             if (s2 !== 'OK') return;
             allStopsOrdered = [firstStop];
+            endIsLast = isAddressMatch(endAddress, firstStop);
             routeLegs = returnRoute.routes[0].legs;
             buildFullStopList();
             recalcTimes();
             directionsRenderer.setDirections(returnRoute);
-            addMarkers(homeToFirst);
+            addMarkers(startToFirstResult, startIsFirst, endIsLast);
           });
           return;
         }
 
-        // Stage 2: Optimize property route (first stop to home via remaining)
+        // Stage 2: Optimize property route (first stop to end via remaining)
         var waypoints = remainingStops.map(function(p) {
           return { location: getRouteAddress(p), stopover: true };
         });
 
         ds.route({
           origin: firstAddr,
-          destination: homeAddress,
+          destination: endAddress,
           waypoints: waypoints,
           optimizeWaypoints: true,
           travelMode: google.maps.TravelMode.DRIVING,
         }, function(optimized, s2) {
           if (s2 !== 'OK') {
-            document.getElementById('map').innerHTML = '<div class="loading">Route optimization failed: ' + s2 + '</div>';
+            showMapMessage('Route optimization failed: ' + s2);
             return;
           }
 
           var order = optimized.routes[0].waypoint_order;
           allStopsOrdered = [firstStop].concat(order.map(function(i) { return remainingStops[i]; }));
+          var lastStop = allStopsOrdered[allStopsOrdered.length - 1];
+          endIsLast = isAddressMatch(endAddress, lastStop);
 
           buildFullStopList();
 
@@ -442,7 +485,7 @@
             routeLegs = optimized.routes[0].legs;
             recalcTimes();
             directionsRenderer.setDirections(optimized);
-            addMarkers(homeToFirst);
+            addMarkers(startToFirstResult, startIsFirst, endIsLast);
           } else {
             var allWaypoints = fullStopList.slice(1).map(function(s) {
               var addr = s.isBreak ? s.address : getRouteAddress(s);
@@ -450,7 +493,7 @@
             });
             ds.route({
               origin: firstAddr,
-              destination: homeAddress,
+              destination: endAddress,
               waypoints: allWaypoints,
               optimizeWaypoints: false,
               travelMode: google.maps.TravelMode.DRIVING,
@@ -459,11 +502,20 @@
               routeLegs = result.routes[0].legs;
               recalcTimes();
               directionsRenderer.setDirections(result);
-              addMarkers(homeToFirst);
+              addMarkers(startToFirstResult, startIsFirst, endIsLast);
             });
           }
         });
-      });
+      }
+    }
+
+    function isAddressMatch(typed, prop) {
+      // Check if a typed address roughly matches a property
+      if (!typed || !prop) return false;
+      var t = typed.toLowerCase().replace(/[^a-z0-9]/g, '');
+      var a = ((prop._csv_address || prop.address) + (prop._csv_city || prop.city || '')).toLowerCase().replace(/[^a-z0-9]/g, '');
+      // Match if either is a substring of the other (handles "36 Prairie Crossing" vs "36 Prairie Crossing, Murphy, NC")
+      return t.indexOf(a) >= 0 || a.indexOf(t) >= 0;
     }
 
     function buildFullStopList() {
@@ -490,11 +542,12 @@
 
       var cfg = getConfig();
 
-      // Home departure
+      // Start departure
+      var startLabel = cfg.roundtrip ? 'Start / End' : 'Start';
       itinerary.push({
-        label: 'Home', address: cfg.home, arrive: null,
+        label: startLabel, address: cfg.start, arrive: null,
         depart: new Date(currentTime), driveToNext: formatDuration(homeToFirstSeconds),
-        driveSeconds: homeToFirstSeconds, isHome: true, isBreak: false,
+        driveSeconds: homeToFirstSeconds, isStart: true, isHome: true, isBreak: false,
       });
       currentTime = new Date(currentTime.getTime() + homeToFirstSeconds * 1000);
 
@@ -539,9 +592,10 @@
       }
 
       var returnTime = new Date(currentTime);
+      var endLabel = cfg.roundtrip ? 'Return to Start' : 'End';
       itinerary.push({
-        label: 'Home (Return)', address: cfg.home,
-        arrive: returnTime, depart: null, isHome: true, isBreak: false,
+        label: endLabel, address: cfg.end,
+        arrive: returnTime, depart: null, isEnd: true, isHome: true, isBreak: false,
       });
 
       var totalDriveSeconds = homeToFirstSeconds + routeLegs.reduce(function(s, l) { return s + l.duration.value; }, 0);
@@ -593,7 +647,7 @@
         var isLast = idx === itinerary.length - 1;
         var isBreak = !!stop.isBreak;
         var numberClass = stop.isHome ? 'home' : (isBreak ? 'break' : '');
-        var numberText = stop.isHome ? 'H' : (isBreak ? '\u2615' : stop.stopNumber);
+        var numberText = stop.isStart ? 'S' : (stop.isEnd ? 'E' : (isBreak ? '\u2615' : stop.stopNumber));
 
         html += '<div class="stop" data-index="' + idx + '">';
         html += '<div class="stop-header">';
@@ -604,9 +658,11 @@
 
         if (isFirst) {
           html += '<div class="time">Depart: ' + formatTime(stop.depart) + '</div>';
-          html += '<div class="drive">Drive ' + stop.driveToNext + ' to first showing</div>';
+          if (stop.driveToNext && stop.driveToNext !== '0 min') {
+            html += '<div class="drive">Drive ' + stop.driveToNext + ' to first showing</div>';
+          }
         } else if (isLast) {
-          html += '<div class="time">Arrive home: ' + formatTime(stop.arrive) + '</div>';
+          html += '<div class="time">Arrive: ' + formatTime(stop.arrive) + '</div>';
         } else if (isBreak) {
           html += '<div class="time">Arrive: ' + formatTime(stop.arrive) + ' | Depart: ' + formatTime(stop.depart) + '</div>';
           html += '<div class="note">' + stop.duration + ' min break</div>';
@@ -665,55 +721,75 @@
     }
 
     // ===== MARKERS =====
-    function addMarkers(homeToFirstResult) {
-      var bounds = new google.maps.LatLngBounds();
-      var homePos = homeToFirstResult.routes[0].legs[0].start_location;
-      var hm = new google.maps.Marker({
-        position: homePos, map: map,
-        label: { text: 'H', color: '#fff', fontWeight: '700', fontSize: '12px' },
-        icon: { path: google.maps.SymbolPath.CIRCLE, scale: 16, fillColor: '#4a9eff', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 },
-        title: 'Home',
+    function createMarker(pos, label, color, title) {
+      var m = new google.maps.Marker({
+        position: pos, map: map,
+        label: { text: String(label), color: color === '#c8a84e' ? '#0a1628' : '#fff', fontWeight: '700', fontSize: '12px' },
+        icon: {
+          path: 'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z',
+          fillColor: color,
+          fillOpacity: 1,
+          strokeColor: '#fff',
+          strokeWeight: 2,
+          scale: 1.8,
+          anchor: new google.maps.Point(12, 22),
+          labelOrigin: new google.maps.Point(12, 9),
+        },
+        title: title,
       });
-      mapMarkers.push(hm);
-      bounds.extend(homePos);
+      mapMarkers.push(m);
+      return m;
+    }
+
+    function addMarkers(startToFirstResult, startIsFirst, endIsLast) {
+      var bounds = new google.maps.LatLngBounds();
+      var totalStops = fullStopList.filter(function(s) { return !s.isBreak; }).length;
+
+      // Start marker (only if start is NOT the first property)
+      if (!startIsFirst && startToFirstResult) {
+        var startPos = startToFirstResult.routes[0].legs[0].start_location;
+        createMarker(startPos, 'S', '#4a9eff', 'Start');
+        bounds.extend(startPos);
+      }
 
       var propNum = 0;
       fullStopList.forEach(function(stop) {
         var isBreak = !!stop.isBreak;
         if (!isBreak) propNum++;
-        var thisNum = propNum;
 
         if (stop.latitude && stop.longitude) {
           var pos = { lat: stop.latitude, lng: stop.longitude };
-          var markerLabel = isBreak
-            ? { text: '\u2615', color: '#fff', fontWeight: '700', fontSize: '14px' }
-            : { text: String(thisNum), color: '#0a1628', fontWeight: '700', fontSize: '12px' };
-          var markerColor = isBreak ? '#e67e22' : '#c8a84e';
-          var pm = new google.maps.Marker({
-            position: pos, map: map, label: markerLabel,
-            icon: { path: google.maps.SymbolPath.CIRCLE, scale: 16, fillColor: markerColor, fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 },
-            title: (isBreak ? stop.label : thisNum + '. ' + (stop._csv_address || stop.address)),
-          });
-          mapMarkers.push(pm);
+          if (isBreak) {
+            createMarker(pos, '\u2615', '#e67e22', stop.label);
+          } else {
+            createMarker(pos, propNum, '#c8a84e', propNum + '. ' + (stop._csv_address || stop.address));
+          }
           bounds.extend(pos);
         } else if (isBreak && stop.address) {
           var geocoder = new google.maps.Geocoder();
           geocoder.geocode({ address: stop.address }, function(results, status) {
             if (status === 'OK') {
-              var pos = results[0].geometry.location;
-              var bm = new google.maps.Marker({
-                position: pos, map: map,
-                label: { text: '\u2615', color: '#fff', fontWeight: '700', fontSize: '14px' },
-                icon: { path: google.maps.SymbolPath.CIRCLE, scale: 16, fillColor: '#e67e22', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 },
-                title: stop.label,
-              });
-              mapMarkers.push(bm);
-              bounds.extend(pos);
+              createMarker(results[0].geometry.location, '\u2615', '#e67e22', stop.label);
+              bounds.extend(results[0].geometry.location);
               map.fitBounds(bounds, { padding: 60 });
             }
           });
         }
       });
+
+      // End marker (only if end is NOT the last property and not roundtrip to start)
+      if (!endIsLast) {
+        // Get end position from the last leg's end
+        if (routeLegs.length > 0) {
+          var endPos = routeLegs[routeLegs.length - 1].end_location;
+          // Don't add 'E' marker if it's the same as 'S' (roundtrip)
+          var cfg = getConfig();
+          if (!cfg.roundtrip || !startIsFirst) {
+            createMarker(endPos, 'E', '#4a9eff', 'End');
+            bounds.extend(endPos);
+          }
+        }
+      }
 
       map.fitBounds(bounds, { padding: 60 });
     }
@@ -802,7 +878,7 @@
 
       var routeData = {
         config: cfg,
-        stops: fullStopList.map(function(s, i) {
+        stops: fullStopList.map(function(s) {
           return {
             address: s.address,
             city: s.city || '',
@@ -820,47 +896,21 @@
         returnTime: document.getElementById('return-time').textContent,
       };
 
-      // POST to server to create showing record
       var form = document.createElement('form');
       form.method = 'POST';
       form.action = '/buyer-collections/' + COLLECTION_ID + '/save-showing';
-
-      var nameInput = document.createElement('input');
-      nameInput.type = 'hidden';
-      nameInput.name = 'name';
-      nameInput.value = COLLECTION_NAME + ' - ' + cfg.date;
-      form.appendChild(nameInput);
-
-      var dateInput = document.createElement('input');
-      dateInput.type = 'hidden';
-      dateInput.name = 'scheduled_date';
-      dateInput.value = cfg.date;
-      form.appendChild(dateInput);
-
-      var timeInput = document.createElement('input');
-      timeInput.type = 'hidden';
-      timeInput.name = 'scheduled_time';
-      timeInput.value = cfg.time;
-      form.appendChild(timeInput);
-
-      var routeInput = document.createElement('input');
-      routeInput.type = 'hidden';
-      routeInput.name = 'route_data';
-      routeInput.value = JSON.stringify(routeData);
-      form.appendChild(routeInput);
-
-      var distInput = document.createElement('input');
-      distInput.type = 'hidden';
-      distInput.name = 'total_distance';
-      distInput.value = document.getElementById('total-distance').textContent;
-      form.appendChild(distInput);
-
-      var driveInput = document.createElement('input');
-      driveInput.type = 'hidden';
-      driveInput.name = 'total_drive_time';
-      driveInput.value = document.getElementById('total-time').textContent;
-      form.appendChild(driveInput);
-
+      [
+        ['name', COLLECTION_NAME + ' - ' + cfg.date],
+        ['scheduled_date', cfg.date],
+        ['scheduled_time', cfg.time],
+        ['route_data', JSON.stringify(routeData)],
+        ['total_distance', document.getElementById('total-distance').textContent],
+        ['total_drive_time', document.getElementById('total-time').textContent],
+      ].forEach(function(pair) {
+        var inp = document.createElement('input');
+        inp.type = 'hidden'; inp.name = pair[0]; inp.value = pair[1];
+        form.appendChild(inp);
+      });
       document.body.appendChild(form);
       form.submit();
     }
