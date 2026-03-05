@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import type { Metadata } from "next";
 import { getFeaturedCollection, formatPrice, formatNumber } from "@/lib/api";
+import CollectionViewToggle from "@/components/CollectionViewToggle";
 import { notFound } from "next/navigation";
 
 interface Props {
@@ -85,6 +86,7 @@ export default async function CollectionDetailPage({ params }: Props) {
       {/* Listings Grid */}
       <section className="max-w-7xl mx-auto px-6 py-12">
         {listings.length > 0 ? (
+          <CollectionViewToggle listings={listings}>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
             {listings.map((listing, index) => (
               <div
@@ -194,6 +196,7 @@ export default async function CollectionDetailPage({ params }: Props) {
               </div>
             ))}
           </div>
+          </CollectionViewToggle>
         ) : (
           <div className="text-center py-20">
             <p className="text-[var(--color-text-light)] text-lg">

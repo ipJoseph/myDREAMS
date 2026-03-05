@@ -2273,10 +2273,11 @@ def buyer_collection_detail(collection_id):
                 if lead_row:
                     lead = dict(lead_row)
 
-    # Get properties in collection
+    # Get properties in collection (include lat/lng for map)
     properties = conn.execute('''
         SELECT l.id, l.address, l.city, l.state, l.list_price,
-               l.beds, l.baths, l.sqft, l.primary_photo, l.mls_number
+               l.beds, l.baths, l.sqft, l.primary_photo, l.mls_number,
+               l.latitude, l.longitude
         FROM package_properties pp
         JOIN listings l ON l.id = pp.listing_id
         WHERE pp.package_id = ?
@@ -2288,6 +2289,7 @@ def buyer_collection_detail(collection_id):
         buyer=buyer,
         lead=lead,
         properties=[dict(p) for p in properties],
+        google_maps_key=os.getenv('GOOGLE_MAPS_API_KEY', ''),
     )
 
 

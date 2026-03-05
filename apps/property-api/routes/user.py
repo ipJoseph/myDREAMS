@@ -800,7 +800,8 @@ def get_collection(collection_id):
         collection = db.execute(
             '''SELECT id, name, description, status, user_id, collection_type,
                       share_token, created_at, updated_at,
-                      showing_requested, showing_requested_at
+                      showing_requested, showing_requested_at,
+                      derived_from_id, derived_from_type
                FROM property_packages WHERE id = ? AND user_id = ?''',
             [collection_id, user_id]
         ).fetchone()
@@ -812,9 +813,11 @@ def get_collection(collection_id):
         # Get listings in collection
         listings = db.execute(
             '''SELECT l.id, l.mls_number, l.status, l.list_price, l.sold_price,
-                      l.address, l.city, l.state, l.zip,
+                      l.address, l.city, l.state, l.zip, l.county,
+                      l.latitude, l.longitude,
                       l.property_type, l.beds, l.baths, l.sqft, l.acreage,
-                      l.primary_photo, l.days_on_market,
+                      l.primary_photo, l.photo_count, l.days_on_market,
+                      l.elevation_feet,
                       pp.display_order, pp.agent_notes, pp.added_at
                FROM package_properties pp
                JOIN listings l ON l.id = pp.listing_id
@@ -823,10 +826,22 @@ def get_collection(collection_id):
             [collection_id]
         ).fetchall()
 
+        # Get derivation info if this collection was cloned from a template
+        derived_from = None
+        coll_dict = dict(collection)
+        if coll_dict.get('derived_from_id'):
+            parent = db.execute(
+                'SELECT id, name, slug, collection_type FROM property_packages WHERE id = ?',
+                [coll_dict['derived_from_id']]
+            ).fetchone()
+            if parent:
+                derived_from = dict(parent)
+
         db.close()
 
-        result = dict(collection)
+        result = coll_dict
         result['listings'] = [dict(r) for r in listings]
+        result['derived_from'] = derived_from
 
         return jsonify({'success': True, 'data': result})
 

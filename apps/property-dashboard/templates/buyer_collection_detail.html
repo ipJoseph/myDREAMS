@@ -155,6 +155,22 @@
         </div>
     </div>
 
+    <!-- Map Section -->
+    {% if properties %}
+    <div style="margin: 0 20px 20px 20px;">
+        <div class="section-card" style="padding: 0; overflow: hidden;">
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px 20px;">
+                <div class="section-title" style="margin: 0; padding: 0; border: none;">Map View</div>
+                <button onclick="toggleMap()" id="mapToggleBtn"
+                    style="padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: 500; background: white; border: 1px solid var(--border); color: var(--text-secondary); cursor: pointer;">
+                    Show Map
+                </button>
+            </div>
+            <div id="collectionMap" style="height: 400px; display: none;"></div>
+        </div>
+    </div>
+    {% endif %}
+
     <div class="content-grid">
         <!-- Properties -->
         <div class="section-card">
@@ -239,5 +255,94 @@
         DREAMS - Desktop Real Estate Agent Management System | Joseph "Eugy" Williams
     </footer>
     </div>
+    <script>
+    var mapInitialized = false;
+    var properties = {{ properties | tojson }};
+
+    function toggleMap() {
+        var mapDiv = document.getElementById('collectionMap');
+        var btn = document.getElementById('mapToggleBtn');
+        if (mapDiv.style.display === 'none') {
+            mapDiv.style.display = 'block';
+            btn.textContent = 'Hide Map';
+            if (!mapInitialized) initMap();
+        } else {
+            mapDiv.style.display = 'none';
+            btn.textContent = 'Show Map';
+        }
+    }
+
+    function initMap() {
+        mapInitialized = true;
+        var geoProps = properties.filter(function(p) { return p.latitude && p.longitude; });
+        if (geoProps.length === 0) {
+            document.getElementById('collectionMap').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-secondary)">No location data available</div>';
+            return;
+        }
+
+        var map = new google.maps.Map(document.getElementById('collectionMap'), {
+            zoom: 10,
+            center: { lat: geoProps[0].latitude, lng: geoProps[0].longitude },
+            mapTypeControl: true,
+            streetViewControl: false,
+            fullscreenControl: true,
+            styles: [
+                { elementType: 'geometry', stylers: [{ color: '#242f3e' }] },
+                { elementType: 'labels.text.stroke', stylers: [{ color: '#242f3e' }] },
+                { elementType: 'labels.text.fill', stylers: [{ color: '#746855' }] },
+                { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#17263c' }] },
+                { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#38414e' }] },
+                { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#212a37' }] },
+            ]
+        });
+
+        var bounds = new google.maps.LatLngBounds();
+        var infoWindow = new google.maps.InfoWindow();
+
+        geoProps.forEach(function(prop, i) {
+            var pos = { lat: prop.latitude, lng: prop.longitude };
+            var marker = new google.maps.Marker({
+                position: pos,
+                map: map,
+                title: (i+1) + '. ' + prop.address,
+                label: { text: String(i+1), color: '#1B3A4B', fontWeight: 'bold', fontSize: '12px' },
+                icon: {
+                    path: 'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z',
+                    fillColor: '#C5A55A',
+                    fillOpacity: 1,
+                    strokeColor: '#1B3A4B',
+                    strokeWeight: 1.5,
+                    scale: 1.8,
+                    anchor: new google.maps.Point(12, 22),
+                    labelOrigin: new google.maps.Point(12, 9)
+                },
+                zIndex: geoProps.length - i
+            });
+            bounds.extend(pos);
+
+            marker.addListener('click', function() {
+                var price = prop.list_price ? '$' + prop.list_price.toLocaleString() : 'Price N/A';
+                var html = '<div style="font-family:system-ui;max-width:250px">' +
+                    '<div style="font-size:16px;font-weight:700;color:#1B3A4B">' + (i+1) + '. ' + price + '</div>' +
+                    '<div style="font-size:13px;color:#333;margin-top:2px">' + (prop.address || '') + '</div>' +
+                    '<div style="font-size:12px;color:#666">' + (prop.city || '') + '</div>' +
+                    '<div style="font-size:12px;color:#666;margin-top:4px">' +
+                    (prop.beds ? prop.beds + ' bd ' : '') +
+                    (prop.baths ? prop.baths + ' ba ' : '') +
+                    (prop.sqft ? prop.sqft.toLocaleString() + ' sqft' : '') +
+                    '</div>' +
+                    '<a href="/properties/' + prop.id + '" style="display:inline-block;margin-top:6px;padding:4px 10px;background:#1B3A4B;color:#fff;text-decoration:none;font-size:11px;font-weight:600">View</a>' +
+                    '</div>';
+                infoWindow.setContent(html);
+                infoWindow.open(map, marker);
+            });
+        });
+
+        if (geoProps.length > 1) {
+            map.fitBounds(bounds, { top: 40, bottom: 40, left: 40, right: 40 });
+        }
+    }
+    </script>
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_key }}&callback=Function.prototype"></script>
 </body>
 </html>

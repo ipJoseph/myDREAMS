@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { formatPrice, formatNumber } from "@/lib/api";
+import CollectionViewToggle from "@/components/CollectionViewToggle";
 import type { Metadata } from "next";
 
 interface SharedListing {
@@ -14,6 +15,8 @@ interface SharedListing {
   state: string;
   zip: string;
   county: string;
+  latitude?: number;
+  longitude?: number;
   property_type: string;
   beds?: number;
   baths?: number;
@@ -23,6 +26,7 @@ interface SharedListing {
   primary_photo?: string;
   photo_count?: number;
   days_on_market?: number;
+  display_order?: number;
   agent_notes?: string;
 }
 
@@ -125,6 +129,7 @@ export default async function SharedCollectionPage({
             <p className="text-[var(--color-text-light)]">No properties in this collection yet.</p>
           </div>
         ) : (
+          <CollectionViewToggle listings={collection.listings.map((l, i) => ({ ...l, display_order: l.display_order ?? i }))}>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {collection.listings.map((listing) => (
               <Link
@@ -194,6 +199,7 @@ export default async function SharedCollectionPage({
               </Link>
             ))}
           </div>
+          </CollectionViewToggle>
         )}
 
         {/* Footer CTA */}
