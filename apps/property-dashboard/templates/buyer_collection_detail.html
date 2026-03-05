@@ -145,6 +145,11 @@
                     Created {{ collection.created_at[:10] if collection.created_at else 'N/A' }}
                 </span>
                 {% if properties %}
+                <a href="/buyer-collections/{{ collection.id }}/route-planner"
+                   style="padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: 500; background: #132744; border: 1px solid #c8a84e; color: #c8a84e; text-decoration: none;"
+                   onmouseover="this.style.background='#1a2d4a'" onmouseout="this.style.background='#132744'">
+                    Plan Route
+                </a>
                 <a href="/buyer-collections/{{ collection.id }}/brochure"
                    style="padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: 500; background: white; border: 1px solid var(--border); color: var(--text-secondary); text-decoration: none;"
                    onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background='white'">

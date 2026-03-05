@@ -2293,6 +2293,133 @@ def buyer_collection_detail(collection_id):
     )
 
 
+@app.route('/buyer-collections/<collection_id>/route-planner')
+@requires_auth
+def collection_route_planner(collection_id):
+    """Route planner for a buyer collection."""
+    conn = get_db()
+
+    collection = conn.execute(
+        'SELECT * FROM property_packages WHERE id = ?', [collection_id]
+    ).fetchone()
+
+    if not collection:
+        return redirect('/buyer-activity')
+
+    collection = dict(collection)
+
+    # Get properties with full details for routing
+    properties = conn.execute('''
+        SELECT l.id, l.address, l.city, l.state, l.zip, l.county,
+               l.list_price, l.beds, l.baths, l.sqft, l.acreage,
+               l.primary_photo, l.mls_number, l.latitude, l.longitude,
+               l.status, l.property_type,
+               pkp.display_order, pkp.agent_notes
+        FROM package_properties pkp
+        JOIN listings l ON l.id = pkp.listing_id
+        WHERE pkp.package_id = ?
+        ORDER BY pkp.display_order, pkp.added_at
+    ''', [collection_id]).fetchall()
+
+    today = datetime.now(ET).strftime('%Y-%m-%d')
+    home_address = os.getenv('AGENT_HOME_ADDRESS', '')
+
+    return render_template('route_planner.html',
+        collection=collection,
+        properties=[dict(p) for p in properties],
+        google_maps_key=os.getenv('GOOGLE_MAPS_API_KEY', ''),
+        today=today,
+        home_address=home_address,
+    )
+
+
+@app.route('/buyer-collections/<collection_id>/save-showing', methods=['POST'])
+@requires_auth
+def collection_save_showing(collection_id):
+    """Save a route planner session as a showing record."""
+    import uuid
+
+    conn = sqlite3.connect(str(DB_PATH))
+    conn.row_factory = sqlite3.Row
+
+    collection = conn.execute(
+        'SELECT id, lead_id, name FROM property_packages WHERE id = ?', [collection_id]
+    ).fetchone()
+
+    if not collection:
+        conn.close()
+        return redirect('/buyer-activity')
+
+    showing_id = str(uuid.uuid4())
+    now = datetime.now(ET).isoformat()
+    name = request.form.get('name', collection['name'] or 'Showing Tour')
+    route_data = request.form.get('route_data', '{}')
+
+    # Parse total drive time from string like "2h 15m" or "45 min"
+    drive_time_str = request.form.get('total_drive_time', '')
+    total_drive_min = 0
+    if 'h' in drive_time_str:
+        parts = drive_time_str.replace('m', '').split('h')
+        total_drive_min = int(parts[0].strip()) * 60 + int(parts[1].strip() or 0)
+    elif 'min' in drive_time_str:
+        total_drive_min = int(drive_time_str.replace('min', '').strip() or 0)
+
+    total_distance = 0
+    try:
+        total_distance = float(request.form.get('total_distance', '0'))
+    except ValueError:
+        pass
+
+    conn.execute('''
+        INSERT INTO showings
+        (id, lead_id, package_id, name, status, scheduled_date, scheduled_time,
+         route_optimized, route_data, total_drive_time, total_distance,
+         created_at, updated_at)
+        VALUES (?, ?, ?, ?, 'scheduled', ?, ?, 1, ?, ?, ?, ?, ?)
+    ''', (
+        showing_id,
+        collection['lead_id'],
+        collection_id,
+        name,
+        request.form.get('scheduled_date', ''),
+        request.form.get('scheduled_time', ''),
+        route_data,
+        total_drive_min,
+        total_distance,
+        now, now,
+    ))
+
+    # Also save individual showing_properties
+    try:
+        route = json.loads(route_data)
+        stops = route.get('stops', [])
+        order = 0
+        for stop in stops:
+            if stop.get('isBreak'):
+                continue
+            order += 1
+            prop_id = stop.get('propertyId')
+            if prop_id:
+                conn.execute('''
+                    INSERT OR IGNORE INTO showing_properties
+                    (id, showing_id, property_id, stop_order, time_at_property)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (
+                    str(uuid.uuid4()),
+                    showing_id,
+                    prop_id,
+                    order,
+                    stop.get('duration', 30),
+                ))
+    except (json.JSONDecodeError, KeyError):
+        pass
+
+    conn.commit()
+    conn.close()
+
+    return redirect(f'/buyer-collections/{collection_id}')
+
+
 @app.route('/buyer-collections/<collection_id>/brochure')
 @requires_auth
 def buyer_collection_brochure(collection_id):
