@@ -288,9 +288,26 @@
     }
 
     // ===== MAP INIT =====
-    function initMap() {
-      var center = { lat: 35.5, lng: -83.0 };
-      // Try to center on first property with coordinates
+    var MAP_STYLES = [
+      { elementType: 'geometry', stylers: [{ color: '#1a2744' }] },
+      { elementType: 'labels.text.stroke', stylers: [{ color: '#0a1628' }] },
+      { elementType: 'labels.text.fill', stylers: [{ color: '#8899aa' }] },
+      { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#2a3f5f' }] },
+      { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#1e3a5f' }] },
+      { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0e1a2e' }] },
+      { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#152238' }] },
+    ];
+    var mapMarkers = [];
+
+    function ensureMap() {
+      // (Re)create map if the DOM element was cleared or map not yet initialized
+      var el = document.getElementById('map');
+      if (map && el && el.querySelector('.gm-style')) return;
+
+      // Clear any loading message
+      el.innerHTML = '';
+
+      var center = { lat: 35.1, lng: -84.0 };
       for (var i = 0; i < PROPERTIES.length; i++) {
         if (PROPERTIES[i].latitude && PROPERTIES[i].longitude) {
           center = { lat: PROPERTIES[i].latitude, lng: PROPERTIES[i].longitude };
@@ -298,33 +315,39 @@
         }
       }
 
-      map = new google.maps.Map(document.getElementById('map'), {
-        zoom: 10, center: center, mapTypeId: 'roadmap',
-        styles: [
-          { elementType: 'geometry', stylers: [{ color: '#1a2744' }] },
-          { elementType: 'labels.text.stroke', stylers: [{ color: '#0a1628' }] },
-          { elementType: 'labels.text.fill', stylers: [{ color: '#8899aa' }] },
-          { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#2a3f5f' }] },
-          { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#1e3a5f' }] },
-          { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0e1a2e' }] },
-          { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#152238' }] },
-        ],
+      map = new google.maps.Map(el, {
+        zoom: 10, center: center, mapTypeId: 'roadmap', styles: MAP_STYLES,
       });
       directionsRenderer = new google.maps.DirectionsRenderer({
         map: map, suppressMarkers: true,
         polylineOptions: { strokeColor: '#c8a84e', strokeWeight: 4, strokeOpacity: 0.8 },
       });
+    }
 
+    function showMapMessage(msg) {
+      // Show message overlaid on map area without destroying the map
+      var el = document.getElementById('map');
+      var existing = el.querySelector('.map-msg');
+      if (existing) existing.remove();
+      if (!msg) return;
+      var div = document.createElement('div');
+      div.className = 'map-msg';
+      div.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#8899aa;font-size:16px;z-index:5;pointer-events:none;background:rgba(10,22,40,0.7);';
+      div.textContent = msg;
+      el.style.position = 'relative';
+      el.appendChild(div);
+    }
+
+    function initMap() {
+      ensureMap();
       calculateRoute();
     }
 
     // ===== ROUTE CALCULATION =====
     function getRouteAddress(p) {
-      // Use lat/lng for precise routing when available
       if (p.latitude && p.longitude) {
         return { lat: p.latitude, lng: p.longitude };
       }
-      // Fallback to text address
       var addr = p._csv_address || p.address;
       var city = p._csv_city || p.city;
       var state = p.state || 'NC';
@@ -332,19 +355,25 @@
     }
 
     function calculateRoute() {
+      ensureMap();
+      showMapMessage(null);
+
+      // Clear previous markers
+      mapMarkers.forEach(function(m) { m.setMap(null); });
+      mapMarkers = [];
+
       var cfg = getConfig();
       DEFAULT_DURATION = cfg.duration;
 
-      // Route by lat/lng when available, fallback to address in standalone mode
       var routableProps = PROPERTIES.filter(function(p) {
         return (p.latitude && p.longitude) || (STANDALONE && (p.address || p._csv_address));
       });
       if (routableProps.length === 0) {
-        document.getElementById('map').innerHTML = '<div class="loading">No properties have location data for routing.</div>';
+        showMapMessage('No properties have location data for routing.');
         return;
       }
       if (!cfg.home) {
-        document.getElementById('map').innerHTML = '<div class="loading">Enter a home/starting address to calculate route.</div>';
+        showMapMessage('Enter a home/starting address to calculate route.');
         return;
       }
 
@@ -639,12 +668,13 @@
     function addMarkers(homeToFirstResult) {
       var bounds = new google.maps.LatLngBounds();
       var homePos = homeToFirstResult.routes[0].legs[0].start_location;
-      new google.maps.Marker({
+      var hm = new google.maps.Marker({
         position: homePos, map: map,
         label: { text: 'H', color: '#fff', fontWeight: '700', fontSize: '12px' },
         icon: { path: google.maps.SymbolPath.CIRCLE, scale: 16, fillColor: '#4a9eff', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 },
         title: 'Home',
       });
+      mapMarkers.push(hm);
       bounds.extend(homePos);
 
       var propNum = 0;
@@ -659,24 +689,25 @@
             ? { text: '\u2615', color: '#fff', fontWeight: '700', fontSize: '14px' }
             : { text: String(thisNum), color: '#0a1628', fontWeight: '700', fontSize: '12px' };
           var markerColor = isBreak ? '#e67e22' : '#c8a84e';
-          new google.maps.Marker({
+          var pm = new google.maps.Marker({
             position: pos, map: map, label: markerLabel,
             icon: { path: google.maps.SymbolPath.CIRCLE, scale: 16, fillColor: markerColor, fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 },
-            title: (isBreak ? stop.label : thisNum + '. ' + stop.address),
+            title: (isBreak ? stop.label : thisNum + '. ' + (stop._csv_address || stop.address)),
           });
+          mapMarkers.push(pm);
           bounds.extend(pos);
         } else if (isBreak && stop.address) {
-          // Geocode break stops
           var geocoder = new google.maps.Geocoder();
           geocoder.geocode({ address: stop.address }, function(results, status) {
             if (status === 'OK') {
               var pos = results[0].geometry.location;
-              new google.maps.Marker({
+              var bm = new google.maps.Marker({
                 position: pos, map: map,
                 label: { text: '\u2615', color: '#fff', fontWeight: '700', fontSize: '14px' },
                 icon: { path: google.maps.SymbolPath.CIRCLE, scale: 16, fillColor: '#e67e22', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 },
                 title: stop.label,
               });
+              mapMarkers.push(bm);
               bounds.extend(pos);
               map.fitBounds(bounds, { padding: 60 });
             }
