@@ -172,12 +172,116 @@ def generate_brochure_bytes(listing_id: str) -> bytes | None:
         return None
 
 
+def _generate_cover_pdf(collection: dict, properties: list[dict]) -> bytes | None:
+    """
+    Generate cover page + table of contents + optional map page as PDF bytes.
+    """
+    if not WEASYPRINT_AVAILABLE:
+        return None
+
+    branding = _get_agent_branding()
+
+    prices = [p['list_price'] for p in properties if p.get('list_price') and p['list_price'] > 0]
+    min_price = min(prices) if prices else None
+    max_price = max(prices) if prices else None
+
+    # Build Google Static Maps URL if properties have coordinates
+    map_url = None
+    google_key = config.get_db_setting('google_maps_api_key', '')
+    geo_props = [p for p in properties if p.get('latitude') and p.get('longitude')]
+    if geo_props and google_key:
+        markers = '|'.join(
+            f'label:{i+1}|{p["latitude"]},{p["longitude"]}'
+            for i, p in enumerate(geo_props[:15])  # max 15 markers
+        )
+        map_url = (
+            f'https://maps.googleapis.com/maps/api/staticmap?'
+            f'size=700x500&maptype=roadmap'
+            f'&markers=color:0xC5A55A|{markers}'
+            f'&key={google_key}'
+        )
+
+    # Get buyer name if available
+    buyer_name = None
+    if collection.get('lead_id'):
+        conn = _get_db()
+        lead = conn.execute(
+            'SELECT first_name, last_name FROM leads WHERE id = ?',
+            [collection['lead_id']]
+        ).fetchone()
+        conn.close()
+        if lead:
+            buyer_name = f"{lead['first_name'] or ''} {lead['last_name'] or ''}".strip()
+
+    context = {
+        **branding,
+        'collection_name': collection.get('name') or 'Property Collection',
+        'description': collection.get('description') or '',
+        'cover_image': collection.get('cover_image') or '',
+        'property_count': len(properties),
+        'min_price': min_price,
+        'max_price': max_price,
+        'prepared_date': datetime.now().strftime('%B %d, %Y'),
+        'buyer_name': buyer_name,
+        'properties': properties,
+        'map_url': map_url,
+    }
+
+    html_content = render_template('collection_cover.html', **context)
+    try:
+        html = HTML(string=html_content, base_url=str(config.PROJECT_ROOT))
+        return html.write_pdf()
+    except Exception as e:
+        logger.error(f"Failed to generate cover PDF: {e}")
+        return None
+
+
+def _generate_comparison_pdf(collection: dict, properties: list[dict]) -> bytes | None:
+    """
+    Generate side-by-side comparison table as PDF bytes.
+    Fits up to 6 properties per page (landscape).
+    """
+    if not WEASYPRINT_AVAILABLE:
+        return None
+
+    branding = _get_agent_branding()
+
+    # Split into pages of 6
+    max_per_page = 6
+    property_pages = []
+    for i in range(0, len(properties), max_per_page):
+        page = properties[i:i + max_per_page]
+        # Add 1-based index for display
+        for j, prop in enumerate(page):
+            prop['_index'] = i + j + 1
+        property_pages.append(page)
+
+    context = {
+        **branding,
+        'collection_name': collection.get('name') or 'Property Collection',
+        'prepared_date': datetime.now().strftime('%B %d, %Y'),
+        'property_pages': property_pages,
+    }
+
+    html_content = render_template('collection_comparison.html', **context)
+    try:
+        html = HTML(string=html_content, base_url=str(config.PROJECT_ROOT))
+        return html.write_pdf()
+    except Exception as e:
+        logger.error(f"Failed to generate comparison PDF: {e}")
+        return None
+
+
 def generate_collection_pdf(share_token: str) -> tuple[bytes | None, str]:
     """
     Generate combined PDF for all properties in a collection.
 
-    Each property gets its own full brochure treatment. The agent contact
-    page appears only once at the very end.
+    Structure:
+    1. Cover page with collection name, stats, agent branding
+    2. Table of contents
+    3. Map overview page (if properties have coordinates)
+    4. Individual property brochures
+    5. Comparison table (landscape)
 
     Returns (pdf_bytes, collection_name) or (None, '') on failure.
     """
@@ -189,63 +293,88 @@ def generate_collection_pdf(share_token: str) -> tuple[bytes | None, str]:
     try:
         # Get collection
         collection = conn.execute(
-            'SELECT id, name FROM property_packages WHERE share_token = ?',
+            'SELECT * FROM property_packages WHERE share_token = ?',
             [share_token]
         ).fetchone()
 
         if not collection:
             return None, ''
 
+        collection_dict = dict(collection)
         collection_name = collection['name'] or 'Collection'
 
-        # Get listing IDs in order
+        # Get full listing data in order
         rows = conn.execute(
-            '''SELECT l.id FROM package_properties pp
-               JOIN listings l ON l.id = pp.listing_id
-               WHERE pp.package_id = ? AND l.idx_opt_in = 1
-               ORDER BY pp.display_order, pp.added_at''',
+            '''SELECT l.*, pkp.display_order, pkp.agent_notes as pkg_agent_notes
+               FROM package_properties pkp
+               JOIN listings l ON l.id = pkp.listing_id
+               WHERE pkp.package_id = ? AND l.idx_opt_in = 1
+               ORDER BY pkp.display_order, pkp.added_at''',
             [collection['id']]
         ).fetchall()
 
         if not rows:
             return None, collection_name
 
+        properties = []
+        for r in rows:
+            p = dict(r)
+            # Use package agent_notes if set
+            if p.get('pkg_agent_notes'):
+                p['agent_notes'] = p['pkg_agent_notes']
+            properties.append(p)
+
     finally:
         conn.close()
 
-    listing_ids = [r['id'] for r in rows]
+    listing_ids = [p['id'] for p in properties]
 
-    # Generate individual PDFs and concatenate
-    all_pdfs = []
+    import io
+    try:
+        import pypdf
+    except ImportError:
+        logger.warning("pypdf not installed. Generating without cover/comparison pages.")
+        # Fallback: just concatenate brochures
+        all_pdfs = []
+        for lid in listing_ids:
+            pdf_bytes = generate_brochure_bytes(lid)
+            if pdf_bytes:
+                all_pdfs.append(pdf_bytes)
+        if not all_pdfs:
+            return None, collection_name
+        return all_pdfs[0] if len(all_pdfs) == 1 else all_pdfs[0], collection_name
+
+    merger = pypdf.PdfWriter()
+
+    # 1. Cover page + TOC + map
+    cover_pdf = _generate_cover_pdf(collection_dict, properties)
+    if cover_pdf:
+        reader = pypdf.PdfReader(io.BytesIO(cover_pdf))
+        for page in reader.pages:
+            merger.add_page(page)
+
+    # 2. Individual property brochures
     for lid in listing_ids:
         pdf_bytes = generate_brochure_bytes(lid)
         if pdf_bytes:
-            all_pdfs.append(pdf_bytes)
-
-    if not all_pdfs:
-        return None, collection_name
-
-    # If only one property, return it directly
-    if len(all_pdfs) == 1:
-        return all_pdfs[0], collection_name
-
-    # Merge multiple PDFs
-    try:
-        import pypdf
-        merger = pypdf.PdfWriter()
-        for pdf_data in all_pdfs:
-            reader = pypdf.PdfReader(pdf_data)
+            reader = pypdf.PdfReader(io.BytesIO(pdf_bytes))
             for page in reader.pages:
                 merger.add_page(page)
 
-        import io
-        output = io.BytesIO()
-        merger.write(output)
-        return output.getvalue(), collection_name
-    except ImportError:
-        # pypdf not available; return first PDF only
-        logger.warning("pypdf not installed. Returning first property only for collection PDF.")
-        return all_pdfs[0], collection_name
+    # 3. Comparison table at the end
+    if len(properties) >= 2:
+        comparison_pdf = _generate_comparison_pdf(collection_dict, properties)
+        if comparison_pdf:
+            reader = pypdf.PdfReader(io.BytesIO(comparison_pdf))
+            for page in reader.pages:
+                merger.add_page(page)
+
+    if len(merger.pages) == 0:
+        return None, collection_name
+
+    output = io.BytesIO()
+    merger.write(output)
+    return output.getvalue(), collection_name
 
 
 def get_brochure_filename(listing: dict) -> str:

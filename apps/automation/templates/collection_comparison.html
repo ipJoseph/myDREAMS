@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>{{ collection_name }} - Comparison</title>
+    <style>
+        @page {
+            size: letter landscape;
+            margin: 0.5in;
+        }
+
+        :root {
+            --primary: #1B2A4A;
+            --accent: #C5A55A;
+            --text: #2D3748;
+            --text-light: #718096;
+            --bg-warm: #FAF8F5;
+            --border: #E2DDD5;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+            color: var(--text);
+            font-size: 10px;
+            line-height: 1.4;
+        }
+
+        .comparison-page {
+            page-break-after: always;
+        }
+        .comparison-page:last-child {
+            page-break-after: auto;
+        }
+
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 12px;
+            margin-bottom: 16px;
+            border-bottom: 2px solid var(--primary);
+        }
+
+        .page-title {
+            font-family: 'Georgia', serif;
+            font-size: 18px;
+            color: var(--primary);
+            font-weight: 400;
+        }
+
+        .page-subtitle {
+            font-size: 11px;
+            color: var(--text-light);
+        }
+
+        .agent-info {
+            text-align: right;
+            font-size: 10px;
+            color: var(--text-light);
+        }
+        .agent-info .name { font-weight: 600; color: var(--primary); }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            text-align: left;
+            padding: 8px 10px;
+            background: var(--primary);
+            color: white;
+            font-size: 9px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+        }
+
+        th:first-child {
+            width: 120px;
+            background: var(--primary);
+        }
+
+        td {
+            padding: 6px 10px;
+            border-bottom: 1px solid var(--border);
+            vertical-align: top;
+        }
+
+        tr:nth-child(even) td { background: var(--bg-warm); }
+
+        .row-label {
+            font-weight: 600;
+            color: var(--primary);
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+        }
+
+        .prop-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            background: var(--accent);
+            color: var(--primary);
+            font-weight: 700;
+            font-size: 10px;
+            margin-right: 4px;
+        }
+
+        .price-cell {
+            font-family: 'Georgia', serif;
+            font-size: 14px;
+            font-weight: 400;
+            color: var(--primary);
+        }
+
+        .address-cell {
+            font-size: 10px;
+            line-height: 1.3;
+        }
+
+        .address-city { color: var(--text-light); font-size: 9px; }
+
+        .specs-cell { font-size: 10px; }
+
+        .status-active { color: #16a34a; font-weight: 600; }
+        .status-pending { color: #d97706; font-weight: 600; }
+        .status-sold { color: #dc2626; font-weight: 600; }
+
+        .notes-cell {
+            font-size: 9px;
+            color: var(--text-light);
+            font-style: italic;
+            max-width: 200px;
+        }
+
+        .photo-cell img {
+            width: 100%;
+            max-width: 140px;
+            height: 80px;
+            object-fit: cover;
+            border: 1px solid var(--border);
+        }
+
+        .footer {
+            margin-top: 16px;
+            padding-top: 8px;
+            border-top: 1px solid var(--border);
+            font-size: 9px;
+            color: var(--text-light);
+            display: flex;
+            justify-content: space-between;
+        }
+    </style>
+</head>
+<body>
+    {% for page_props in property_pages %}
+    <div class="comparison-page">
+        <div class="page-header">
+            <div>
+                <div class="page-title">{{ collection_name }}</div>
+                <div class="page-subtitle">
+                    Property Comparison
+                    {% if property_pages|length > 1 %}
+                    (Page {{ loop.index }} of {{ property_pages|length }})
+                    {% endif %}
+                </div>
+            </div>
+            <div class="agent-info">
+                <div class="name">{{ agent_name }}</div>
+                <div>{{ agent_phone }} | {{ agent_email }}</div>
+            </div>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th></th>
+                    {% for prop in page_props %}
+                    <th style="text-align: center;">
+                        <span class="prop-number">{{ prop._index }}</span>
+                        Property {{ prop._index }}
+                    </th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Photo row -->
+                <tr>
+                    <td class="row-label">Photo</td>
+                    {% for prop in page_props %}
+                    <td class="photo-cell">
+                        {% if prop.primary_photo %}
+                        <img src="{{ prop.primary_photo }}" alt="">
+                        {% else %}
+                        <div style="width:140px;height:80px;background:var(--bg-warm);display:flex;align-items:center;justify-content:center;color:var(--text-light);font-size:10px;">No Photo</div>
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+                <!-- Price -->
+                <tr>
+                    <td class="row-label">Price</td>
+                    {% for prop in page_props %}
+                    <td class="price-cell">
+                        {% if prop.list_price %}${{ "{:,.0f}".format(prop.list_price) }}{% else %}N/A{% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+                <!-- Address -->
+                <tr>
+                    <td class="row-label">Address</td>
+                    {% for prop in page_props %}
+                    <td class="address-cell">
+                        {{ prop.address or 'N/A' }}
+                        <div class="address-city">{{ prop.city or '' }}{% if prop.state %}, {{ prop.state }}{% endif %} {{ prop.zip or '' }}</div>
+                    </td>
+                    {% endfor %}
+                </tr>
+                <!-- Status -->
+                <tr>
+                    <td class="row-label">Status</td>
+                    {% for prop in page_props %}
+                    <td>
+                        {% set s = (prop.status or '')|upper %}
+                        <span class="{{ 'status-active' if s == 'ACTIVE' else ('status-pending' if s == 'PENDING' else ('status-sold' if s in ('SOLD','CLOSED') else '')) }}">
+                            {{ prop.status or 'N/A' }}
+                        </span>
+                    </td>
+                    {% endfor %}
+                </tr>
+                <!-- MLS -->
+                <tr>
+                    <td class="row-label">MLS #</td>
+                    {% for prop in page_props %}
+                    <td>{{ prop.mls_number or 'N/A' }}</td>
+                    {% endfor %}
+                </tr>
+                <!-- Beds -->
+                <tr>
+                    <td class="row-label">Bedrooms</td>
+                    {% for prop in page_props %}
+                    <td>{{ prop.beds if prop.beds is not none else 'N/A' }}</td>
+                    {% endfor %}
+                </tr>
+                <!-- Baths -->
+                <tr>
+                    <td class="row-label">Bathrooms</td>
+                    {% for prop in page_props %}
+                    <td>{{ prop.baths if prop.baths is not none else 'N/A' }}</td>
+                    {% endfor %}
+                </tr>
+                <!-- SqFt -->
+                <tr>
+                    <td class="row-label">Square Feet</td>
+                    {% for prop in page_props %}
+                    <td>{% if prop.sqft %}{{ "{:,.0f}".format(prop.sqft) }}{% else %}N/A{% endif %}</td>
+                    {% endfor %}
+                </tr>
+                <!-- Acreage -->
+                <tr>
+                    <td class="row-label">Acreage</td>
+                    {% for prop in page_props %}
+                    <td>{% if prop.acreage and prop.acreage > 0 %}{{ "%.2f"|format(prop.acreage) }}{% else %}N/A{% endif %}</td>
+                    {% endfor %}
+                </tr>
+                <!-- Price per SqFt -->
+                <tr>
+                    <td class="row-label">Price / SqFt</td>
+                    {% for prop in page_props %}
+                    <td>
+                        {% if prop.list_price and prop.sqft and prop.sqft > 0 %}
+                            ${{ "{:,.0f}".format(prop.list_price / prop.sqft) }}
+                        {% else %}N/A{% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+                <!-- DOM -->
+                <tr>
+                    <td class="row-label">Days on Market</td>
+                    {% for prop in page_props %}
+                    <td>{{ prop.days_on_market if prop.days_on_market is not none else 'N/A' }}</td>
+                    {% endfor %}
+                </tr>
+                <!-- Year Built -->
+                <tr>
+                    <td class="row-label">Year Built</td>
+                    {% for prop in page_props %}
+                    <td>{{ prop.year_built or 'N/A' }}</td>
+                    {% endfor %}
+                </tr>
+                <!-- Property Type -->
+                <tr>
+                    <td class="row-label">Type</td>
+                    {% for prop in page_props %}
+                    <td>{{ prop.property_type or 'N/A' }}</td>
+                    {% endfor %}
+                </tr>
+                <!-- County -->
+                <tr>
+                    <td class="row-label">County</td>
+                    {% for prop in page_props %}
+                    <td>{{ prop.county or 'N/A' }}</td>
+                    {% endfor %}
+                </tr>
+                <!-- Elevation -->
+                <tr>
+                    <td class="row-label">Elevation</td>
+                    {% for prop in page_props %}
+                    <td>{% if prop.elevation_feet %}{{ "{:,.0f}".format(prop.elevation_feet) }} ft{% else %}N/A{% endif %}</td>
+                    {% endfor %}
+                </tr>
+                <!-- Agent Notes -->
+                {% set has_notes = page_props | selectattr('agent_notes') | list | length > 0 %}
+                {% if has_notes %}
+                <tr>
+                    <td class="row-label">Agent Notes</td>
+                    {% for prop in page_props %}
+                    <td class="notes-cell">{{ prop.agent_notes or '' }}</td>
+                    {% endfor %}
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+
+        <div class="footer">
+            <span>{{ brokerage_name }}</span>
+            <span>Prepared {{ prepared_date }}</span>
+        </div>
+    </div>
+    {% endfor %}
+</body>
+</html>

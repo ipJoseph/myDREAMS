@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>{{ collection_name }} - Collection</title>
+    <style>
+        @page {
+            size: letter;
+            margin: 0;
+        }
+
+        :root {
+            --primary: #1B2A4A;
+            --accent: #C5A55A;
+            --text: #2D3748;
+            --text-light: #718096;
+            --bg-warm: #FAF8F5;
+            --border: #E2DDD5;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Georgia', 'Times New Roman', serif;
+            color: var(--text);
+            line-height: 1.5;
+            background: white;
+        }
+        .sans { font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif; }
+
+        /* Cover page */
+        .cover-page {
+            width: 8.5in;
+            height: 11in;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            background: var(--primary);
+            color: white;
+            page-break-after: always;
+        }
+
+        .cover-hero {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        {% if cover_image %}
+        .cover-hero-img {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0.3;
+        }
+        {% endif %}
+
+        .cover-content {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            height: 100%;
+            padding: 80px 60px;
+        }
+
+        .cover-accent-line {
+            width: 60px;
+            height: 3px;
+            background: var(--accent);
+            margin-bottom: 24px;
+        }
+
+        .cover-title {
+            font-size: 42px;
+            font-weight: 300;
+            line-height: 1.2;
+            margin-bottom: 16px;
+            letter-spacing: -0.5px;
+        }
+
+        .cover-description {
+            font-size: 16px;
+            color: rgba(255,255,255,0.7);
+            max-width: 500px;
+            margin-bottom: 40px;
+            line-height: 1.6;
+        }
+
+        .cover-stats {
+            display: flex;
+            gap: 40px;
+        }
+
+        .cover-stat {
+            text-align: left;
+        }
+
+        .cover-stat-value {
+            font-size: 28px;
+            font-weight: 300;
+            color: var(--accent);
+            font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        .cover-stat-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: rgba(255,255,255,0.5);
+            font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        .cover-footer {
+            padding: 30px 60px;
+            background: rgba(0,0,0,0.2);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .cover-agent {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .cover-agent-photo {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid var(--accent);
+        }
+
+        .cover-agent-name {
+            font-size: 14px;
+            font-weight: 600;
+            font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        .cover-agent-info {
+            font-size: 12px;
+            color: rgba(255,255,255,0.6);
+            font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        .cover-brokerage {
+            text-align: right;
+            font-size: 11px;
+            color: rgba(255,255,255,0.5);
+            font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        .cover-date {
+            font-size: 11px;
+            color: rgba(255,255,255,0.4);
+            font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+            margin-top: 4px;
+        }
+
+        /* Table of Contents */
+        .toc-page {
+            width: 8.5in;
+            min-height: 11in;
+            padding: 60px;
+            background: white;
+            page-break-after: always;
+        }
+
+        .toc-header {
+            margin-bottom: 40px;
+        }
+
+        .toc-accent {
+            width: 40px;
+            height: 2px;
+            background: var(--accent);
+            margin-bottom: 16px;
+        }
+
+        .toc-title {
+            font-size: 28px;
+            color: var(--primary);
+            font-weight: 300;
+        }
+
+        .toc-subtitle {
+            font-size: 13px;
+            color: var(--text-light);
+            margin-top: 8px;
+            font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        .toc-list {
+            list-style: none;
+        }
+
+        .toc-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+            padding: 16px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .toc-number {
+            width: 32px;
+            height: 32px;
+            background: var(--primary);
+            color: var(--accent);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: 700;
+            font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+            flex-shrink: 0;
+        }
+
+        .toc-property-info { flex: 1; }
+
+        .toc-property-price {
+            font-size: 18px;
+            color: var(--primary);
+            font-weight: 400;
+        }
+
+        .toc-property-address {
+            font-size: 13px;
+            color: var(--text-light);
+            font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        .toc-property-specs {
+            font-size: 11px;
+            color: var(--text-light);
+            font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+            margin-top: 4px;
+        }
+
+        /* Map overview page */
+        .map-page {
+            width: 8.5in;
+            height: 11in;
+            padding: 40px;
+            background: white;
+            page-break-after: always;
+        }
+
+        .map-header {
+            margin-bottom: 20px;
+        }
+
+        .map-title {
+            font-size: 20px;
+            color: var(--primary);
+            font-weight: 300;
+        }
+
+        .map-image {
+            width: 100%;
+            height: auto;
+            border: 1px solid var(--border);
+        }
+
+        .map-legend {
+            margin-top: 16px;
+            font-size: 11px;
+            color: var(--text-light);
+            font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <!-- Cover Page -->
+    <div class="cover-page">
+        <div class="cover-hero">
+            {% if cover_image %}
+            <img src="{{ cover_image }}" class="cover-hero-img" alt="">
+            {% endif %}
+            <div class="cover-content">
+                <div class="cover-accent-line"></div>
+                <h1 class="cover-title">{{ collection_name }}</h1>
+                {% if description %}
+                <p class="cover-description">{{ description }}</p>
+                {% endif %}
+                <div class="cover-stats">
+                    <div class="cover-stat">
+                        <div class="cover-stat-value">{{ property_count }}</div>
+                        <div class="cover-stat-label">{{ 'Property' if property_count == 1 else 'Properties' }}</div>
+                    </div>
+                    {% if min_price and max_price %}
+                    <div class="cover-stat">
+                        <div class="cover-stat-value">${{ "{:,.0f}".format(min_price) }}</div>
+                        <div class="cover-stat-label">Starting From</div>
+                    </div>
+                    <div class="cover-stat">
+                        <div class="cover-stat-value">${{ "{:,.0f}".format(max_price) }}</div>
+                        <div class="cover-stat-label">Up To</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="cover-footer">
+            <div class="cover-agent">
+                {% if agent_headshot %}
+                <img src="{{ agent_headshot }}" class="cover-agent-photo" alt="">
+                {% endif %}
+                <div>
+                    <div class="cover-agent-name">{{ agent_name }}</div>
+                    <div class="cover-agent-info">{{ agent_phone }}</div>
+                </div>
+            </div>
+            <div class="cover-brokerage">
+                {{ brokerage_name }}
+                <div class="cover-date">Prepared {{ prepared_date }}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Table of Contents -->
+    <div class="toc-page">
+        <div class="toc-header">
+            <div class="toc-accent"></div>
+            <h2 class="toc-title">Properties</h2>
+            {% if buyer_name %}
+            <div class="toc-subtitle">Curated for {{ buyer_name }}</div>
+            {% endif %}
+        </div>
+        <ul class="toc-list">
+            {% for prop in properties %}
+            <li class="toc-item">
+                <div class="toc-number">{{ loop.index }}</div>
+                <div class="toc-property-info">
+                    <div class="toc-property-price">
+                        {% if prop.list_price %}${{ "{:,.0f}".format(prop.list_price) }}{% else %}Price N/A{% endif %}
+                    </div>
+                    <div class="toc-property-address">
+                        {{ prop.address or '' }}{% if prop.city %}, {{ prop.city }}{% endif %}{% if prop.state %}, {{ prop.state }}{% endif %} {{ prop.zip or '' }}
+                    </div>
+                    <div class="toc-property-specs">
+                        {% if prop.beds %}{{ prop.beds }} bed{% endif %}
+                        {% if prop.baths %} &middot; {{ prop.baths }} bath{% endif %}
+                        {% if prop.sqft %} &middot; {{ "{:,.0f}".format(prop.sqft) }} sqft{% endif %}
+                        {% if prop.acreage and prop.acreage > 0 %} &middot; {{ "%.2f"|format(prop.acreage) }} acres{% endif %}
+                        {% if prop.mls_number %} &middot; MLS# {{ prop.mls_number }}{% endif %}
+                    </div>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <!-- Map overview page (only if we have a static map URL) -->
+    {% if map_url %}
+    <div class="map-page">
+        <div class="map-header">
+            <div class="toc-accent"></div>
+            <h2 class="map-title">Location Overview</h2>
+        </div>
+        <img src="{{ map_url }}" class="map-image" alt="Property locations">
+        <div class="map-legend">
+            {% for prop in properties %}
+            <strong>{{ loop.index }}</strong>: {{ prop.address or '' }}{% if prop.city %}, {{ prop.city }}{% endif %} &nbsp;
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</body>
+</html>
