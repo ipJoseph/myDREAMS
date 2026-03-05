@@ -792,3 +792,137 @@ def get_collection_brochure(share_token):
             'Content-Disposition': f'attachment; filename="{filename}"',
         },
     )
+
+
+# =============================================================================
+# FEATURED COLLECTIONS
+# =============================================================================
+
+@public_bp.route('/collections/featured', methods=['GET'])
+def list_featured_collections():
+    """
+    Get featured collections for the public website.
+
+    Returns collections marked as public/featured with cover images,
+    property counts, and price range summaries.
+    """
+    try:
+        db = get_db()
+
+        rows = db.execute('''
+            SELECT pp.id, pp.name, pp.description, pp.slug, pp.cover_image,
+                   pp.featured_order, pp.collection_type, pp.created_at,
+                   COUNT(pkp.id) as property_count,
+                   MIN(l.list_price) as min_price,
+                   MAX(l.list_price) as max_price,
+                   AVG(l.list_price) as avg_price
+            FROM property_packages pp
+            LEFT JOIN package_properties pkp ON pkp.package_id = pp.id
+            LEFT JOIN listings l ON l.id = pkp.listing_id AND l.idx_opt_in = 1
+            WHERE pp.is_public = 1
+            AND pp.collection_type IN ('template', 'featured')
+            AND pp.status != 'archived'
+            GROUP BY pp.id
+            HAVING property_count > 0
+            ORDER BY pp.featured_order ASC NULLS LAST, pp.updated_at DESC
+        ''').fetchall()
+
+        db.close()
+
+        collections = []
+        for row in rows:
+            d = dict(row)
+            d['avg_price'] = round(d['avg_price']) if d.get('avg_price') else None
+            collections.append(d)
+
+        return jsonify({
+            'success': True,
+            'data': collections,
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': {'code': 'SERVER_ERROR', 'message': 'Failed to retrieve featured collections'}
+        }), 500
+
+
+@public_bp.route('/collections/featured/<slug>', methods=['GET'])
+def get_featured_collection(slug):
+    """
+    Get a featured collection by its URL slug.
+
+    Returns full collection with listings, similar to the share token endpoint
+    but resolved by slug instead.
+    """
+    try:
+        db = get_db()
+
+        collection = db.execute(
+            '''SELECT id, name, description, slug, cover_image, featured_order,
+                      collection_type, created_at, derived_from_id, derived_from_type
+               FROM property_packages
+               WHERE slug = ? AND is_public = 1 AND status != 'archived' ''',
+            [slug]
+        ).fetchone()
+
+        if not collection:
+            db.close()
+            return jsonify({
+                'success': False,
+                'error': {'code': 'NOT_FOUND', 'message': 'Collection not found'}
+            }), 404
+
+        # Get listings
+        rows = db.execute(
+            '''SELECT l.id, l.mls_number, l.status, l.list_price, l.sold_price,
+                      l.address, l.city, l.state, l.zip, l.county,
+                      l.latitude, l.longitude,
+                      l.property_type, l.beds, l.baths, l.sqft, l.acreage,
+                      l.elevation_feet, l.primary_photo, l.photo_count,
+                      l.days_on_market, l.list_date,
+                      l.year_built, l.lot_sqft, l.stories,
+                      l.public_remarks,
+                      pp.display_order, pp.agent_notes
+               FROM package_properties pp
+               JOIN listings l ON l.id = pp.listing_id
+               WHERE pp.package_id = ? AND l.idx_opt_in = 1
+               ORDER BY pp.display_order, pp.added_at''',
+            [collection['id']]
+        ).fetchall()
+
+        listings = []
+        for row in rows:
+            d = dict(row)
+            d['days_on_market'] = _compute_dom(d)
+            listings.append(d)
+
+        # Increment view count
+        db.execute(
+            'UPDATE property_packages SET view_count = COALESCE(view_count, 0) + 1, '
+            'viewed_at = ? WHERE id = ?',
+            [datetime.now().isoformat(), collection['id']]
+        )
+        db.commit()
+        db.close()
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'id': collection['id'],
+                'name': collection['name'],
+                'description': collection['description'],
+                'slug': collection['slug'],
+                'cover_image': collection['cover_image'],
+                'collection_type': collection['collection_type'],
+                'created_at': collection['created_at'],
+                'listings': listings,
+                'listing_count': len(listings),
+            },
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': {'code': 'SERVER_ERROR', 'message': 'Failed to retrieve collection'}
+        }), 500

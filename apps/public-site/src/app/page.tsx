@@ -1,20 +1,22 @@
 import Link from "next/link";
 import Image from "next/image";
-import { searchListings, getStats, getAreas, formatPrice, formatNumber } from "@/lib/api";
+import { searchListings, getStats, getAreas, getFeaturedCollections, formatPrice, formatNumber } from "@/lib/api";
 import PropertyCard from "@/components/PropertyCard";
 import AreaCard from "@/components/AreaCard";
 
 export default async function HomePage() {
-  const [listingsResult, stats, areas] = await Promise.all([
+  const [listingsResult, stats, areas, collections] = await Promise.all([
     searchListings({ limit: 6, max_dom: 14, sort: "list_price", order: "desc" }).catch(
       () => ({ listings: [], pagination: { total: 0, page: 1, limit: 6, pages: 0 } })
     ),
     getStats().catch(() => null),
     getAreas("city").catch(() => []),
+    getFeaturedCollections().catch(() => []),
   ]);
 
   const { listings: featuredListings } = listingsResult;
   const topAreas = areas.slice(0, 8);
+  const topCollections = collections.slice(0, 4);
 
   return (
     <div>
@@ -189,6 +191,76 @@ export default async function HomePage() {
                 className="text-[var(--color-primary)] text-sm uppercase tracking-wider border-b border-[var(--color-primary)]/30 pb-1 hover:border-[var(--color-primary)] transition"
               >
                 See All Areas
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ============================================
+          CURATED COLLECTIONS
+          ============================================ */}
+      {topCollections.length > 0 && (
+        <section className="py-20 px-6 bg-white">
+          <div className="max-w-7xl mx-auto">
+            <div className="text-center mb-12">
+              <p className="text-[var(--color-accent)] text-xs uppercase tracking-[0.2em] mb-3">
+                Handpicked Selections
+              </p>
+              <h2
+                className="text-3xl md:text-4xl text-[var(--color-primary)]"
+                style={{ fontFamily: "Georgia, serif" }}
+              >
+                Curated Collections
+              </h2>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {topCollections.map((c) => (
+                <Link
+                  key={c.id}
+                  href={`/collections/${c.slug}`}
+                  className="group block overflow-hidden border border-gray-200/60 hover:border-[var(--color-accent)] shadow-sm hover:shadow-md transition-all"
+                >
+                  <div className="relative aspect-[16/10] bg-gray-100 overflow-hidden">
+                    {c.cover_image ? (
+                      <Image
+                        src={c.cover_image}
+                        alt={c.name}
+                        fill
+                        sizes="(max-width: 640px) 100vw, 25vw"
+                        className="object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-gray-300 text-4xl">
+                        &#128196;
+                      </div>
+                    )}
+                    <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1">
+                      {c.property_count} {c.property_count === 1 ? "property" : "properties"}
+                    </div>
+                  </div>
+                  <div className="p-4">
+                    <h3
+                      className="text-lg text-[var(--color-primary)] font-light"
+                      style={{ fontFamily: "Georgia, serif" }}
+                    >
+                      {c.name}
+                    </h3>
+                    {c.min_price && c.max_price && (
+                      <p className="text-xs text-[var(--color-text-light)] mt-1">
+                        {formatPrice(c.min_price)} &ndash; {formatPrice(c.max_price)}
+                      </p>
+                    )}
+                  </div>
+                </Link>
+              ))}
+            </div>
+            <div className="text-center mt-10">
+              <Link
+                href="/collections"
+                className="text-[var(--color-primary)] text-sm uppercase tracking-wider border-b border-[var(--color-primary)]/30 pb-1 hover:border-[var(--color-primary)] transition"
+              >
+                See All Collections
               </Link>
             </div>
           </div>

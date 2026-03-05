@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Templates - DREAMS</title>
+    <link rel="icon" type="image/svg+xml" href="{{ favicon }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='shared/css/dreams.css') }}">
+    <style>
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+        .header-btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            text-decoration: none;
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            background: white;
+            cursor: pointer;
+        }
+        .header-btn:hover { background: var(--bg-secondary); color: var(--text-primary); }
+        .header-btn.primary { background: var(--primary); color: white; border-color: var(--primary); }
+        .header-btn.primary:hover { opacity: 0.9; }
+
+        .templates-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+            gap: 16px;
+            margin: 0 20px 20px 20px;
+        }
+
+        .template-card {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            border: 1px solid var(--border);
+            transition: border-color 0.15s, box-shadow 0.15s;
+            text-decoration: none;
+            color: inherit;
+            display: block;
+        }
+        .template-card:hover {
+            border-color: var(--primary);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+        }
+
+        .template-cover {
+            height: 140px;
+            background: var(--bg-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        .template-cover img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .template-cover-placeholder {
+            font-size: 40px;
+            opacity: 0.3;
+        }
+
+        .template-card-body { padding: 16px; }
+        .template-card-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+        .template-card-desc {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .template-card-meta {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        .template-card-badge {
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .template-card-badge.template { background: #ede9fe; color: #7c3aed; }
+        .template-card-badge.featured { background: #fef3c7; color: #d97706; }
+        .template-card-badge.public { background: #dcfce7; color: #16a34a; }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+            margin: 0 20px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .empty-state-title { font-size: 18px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px; }
+        .empty-state-text { font-size: 14px; margin-bottom: 20px; }
+
+        /* Create modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.4);
+            z-index: 300;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-overlay.show { display: flex; }
+        .modal-box {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            width: 480px;
+            max-width: 90vw;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+        }
+        .modal-title { font-size: 18px; font-weight: 600; margin-bottom: 16px; }
+        .form-group { margin-bottom: 16px; }
+        .form-label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 4px; color: var(--text-secondary); }
+        .form-input, .form-textarea {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        .form-textarea { resize: vertical; min-height: 80px; font-family: inherit; }
+        .form-input:focus, .form-textarea:focus { border-color: var(--primary); outline: none; }
+        .form-checkbox { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-secondary); cursor: pointer; }
+        .form-checkbox input { width: 16px; height: 16px; cursor: pointer; }
+        .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+
+        .tab-bar {
+            display: flex;
+            gap: 4px;
+            margin: 0 20px 16px 20px;
+            border-bottom: 2px solid var(--bg-secondary);
+        }
+        .tab-btn {
+            padding: 8px 16px;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            background: none;
+            border: none;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+        }
+        .tab-btn:hover { color: var(--text-primary); }
+        .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
+    </style>
+    {% set active_nav = 'templates' %}
+</head>
+<body>
+    {% include 'partials/sidebar.html' %}
+    <div class="main-content">
+    <header class="dreams-header">
+        <div>
+            <h1>DREAMS Dashboard</h1>
+            <div class="dreams-header-subtitle">Templates &amp; Featured Collections</div>
+        </div>
+    </header>
+
+    <div class="page-header">
+        <div>
+            <h2 style="font-size: 22px; font-weight: 600; color: var(--text-primary); margin: 0;">
+                Templates
+            </h2>
+            <p style="font-size: 14px; color: var(--text-secondary); margin: 4px 0 0 0;">
+                Reusable property collections. Clone for buyers or mark as featured for the public website.
+            </p>
+        </div>
+        <button class="header-btn primary" onclick="showCreateModal()">+ New Template</button>
+    </div>
+
+    <!-- Filter tabs -->
+    <div class="tab-bar">
+        <a href="/templates" class="tab-btn {{ 'active' if not filter_type else '' }}">All ({{ templates|length }})</a>
+        <a href="/templates?type=template" class="tab-btn {{ 'active' if filter_type == 'template' else '' }}">Templates</a>
+        <a href="/templates?type=featured" class="tab-btn {{ 'active' if filter_type == 'featured' else '' }}">Featured</a>
+    </div>
+
+    {% if templates %}
+    <div class="templates-grid">
+        {% for t in templates %}
+        <a href="/templates/{{ t.id }}" class="template-card">
+            <div class="template-cover">
+                {% if t.cover_image %}
+                <img src="{{ t.cover_image }}" alt="{{ t.name }}">
+                {% else %}
+                <div class="template-cover-placeholder">&#128196;</div>
+                {% endif %}
+            </div>
+            <div class="template-card-body">
+                <div class="template-card-name">{{ t.name }}</div>
+                {% if t.description %}
+                <div class="template-card-desc">{{ t.description }}</div>
+                {% endif %}
+                <div class="template-card-meta">
+                    <span class="template-card-badge {{ t.collection_type }}">{{ t.collection_type }}</span>
+                    {% if t.is_public %}
+                    <span class="template-card-badge public">Public</span>
+                    {% endif %}
+                    <span>{{ t.property_count }} properties</span>
+                    {% if t.min_price and t.max_price %}
+                    <span>${{ "{:,.0f}".format(t.min_price / 1000) }}K - ${{ "{:,.0f}".format(t.max_price / 1000) }}K</span>
+                    {% endif %}
+                </div>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div style="font-size: 48px; opacity: 0.3; margin-bottom: 16px;">&#128196;</div>
+        <div class="empty-state-title">No Templates Yet</div>
+        <div class="empty-state-text">
+            Create templates to build reusable property collections.<br>
+            Clone them for specific buyers or mark them as featured for the public site.
+        </div>
+        <button class="header-btn primary" onclick="showCreateModal()">Create Your First Template</button>
+    </div>
+    {% endif %}
+
+    <footer class="dreams-footer">
+        DREAMS - Desktop Real Estate Agent Management System | Joseph "Eugy" Williams
+    </footer>
+    </div>
+
+    <!-- Create Template Modal -->
+    <div class="modal-overlay" id="createModal">
+        <div class="modal-box">
+            <div class="modal-title">New Template</div>
+            <form action="/templates/create" method="POST">
+                <div class="form-group">
+                    <label class="form-label">Name</label>
+                    <input type="text" name="name" class="form-input" placeholder="e.g. Mountain Cabins Near Franklin" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Description</label>
+                    <textarea name="description" class="form-textarea" placeholder="What kind of properties does this template feature?"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Type</label>
+                    <select name="collection_type" class="form-input">
+                        <option value="template">Template (cloneable, not public)</option>
+                        <option value="featured">Featured (visible on public website)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-checkbox">
+                        <input type="checkbox" name="is_public" value="1">
+                        Make visible on public website
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Cover Image URL (optional)</label>
+                    <input type="text" name="cover_image" class="form-input" placeholder="https://...">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="header-btn" onclick="hideCreateModal()">Cancel</button>
+                    <button type="submit" class="header-btn primary">Create Template</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function showCreateModal() {
+            document.getElementById('createModal').classList.add('show');
+        }
+        function hideCreateModal() {
+            document.getElementById('createModal').classList.remove('show');
+        }
+        document.getElementById('createModal').addEventListener('click', function(e) {
+            if (e.target === this) hideCreateModal();
+        });
+    </script>
+</body>
+</html>

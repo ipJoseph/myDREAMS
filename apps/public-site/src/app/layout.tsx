@@ -38,6 +38,9 @@ function Header() {
             <Link href="/listings" className="text-white/80 hover:text-[var(--color-accent)] transition">
               Properties
             </Link>
+            <Link href="/collections" className="text-white/80 hover:text-[var(--color-accent)] transition">
+              Collections
+            </Link>
             <Link href="/areas" className="text-white/80 hover:text-[var(--color-accent)] transition">
               Areas
             </Link>
@@ -62,6 +65,9 @@ function Header() {
             <div className="absolute right-0 top-full mt-2 w-60 bg-[var(--color-primary)] border border-white/10 shadow-2xl py-2 z-50">
               <Link href="/listings" className="block px-6 py-3 text-white/80 hover:text-[var(--color-accent)] text-sm uppercase tracking-wide">
                 Properties
+              </Link>
+              <Link href="/collections" className="block px-6 py-3 text-white/80 hover:text-[var(--color-accent)] text-sm uppercase tracking-wide">
+                Collections
               </Link>
               <Link href="/areas" className="block px-6 py-3 text-white/80 hover:text-[var(--color-accent)] text-sm uppercase tracking-wide">
                 Areas

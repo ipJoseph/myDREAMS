@@ -2380,6 +2380,290 @@ def pursuit_brochure(pursuit_id):
     )
 
 
+# =============================================================================
+# TEMPLATE MANAGEMENT ROUTES
+# =============================================================================
+
+@app.route('/templates')
+@requires_auth
+def templates_list():
+    """List all templates and featured collections."""
+    filter_type = request.args.get('type', '')
+    conn = sqlite3.connect(str(DB_PATH))
+    conn.row_factory = sqlite3.Row
+
+    query = '''
+        SELECT pp.id, pp.name, pp.description, pp.status, pp.collection_type,
+               pp.slug, pp.cover_image, pp.is_public, pp.featured_order,
+               pp.created_at, pp.updated_at,
+               COUNT(pkp.id) as property_count,
+               MIN(l.list_price) as min_price,
+               MAX(l.list_price) as max_price
+        FROM property_packages pp
+        LEFT JOIN package_properties pkp ON pkp.package_id = pp.id
+        LEFT JOIN listings l ON l.id = pkp.listing_id
+        WHERE pp.collection_type IN ('template', 'featured')
+    '''
+    params = []
+    if filter_type in ('template', 'featured'):
+        query = query.replace(
+            "IN ('template', 'featured')",
+            "= ?"
+        )
+        params.append(filter_type)
+
+    query += ' GROUP BY pp.id ORDER BY pp.updated_at DESC'
+    templates = [dict(r) for r in conn.execute(query, params).fetchall()]
+    conn.close()
+
+    return render_template('templates_list.html',
+        templates=templates,
+        filter_type=filter_type,
+    )
+
+
+@app.route('/templates/create', methods=['POST'])
+@requires_auth
+def template_create():
+    """Create a new template."""
+    import uuid, secrets
+    name = request.form.get('name', '').strip()
+    if not name:
+        return redirect('/templates')
+
+    template_id = str(uuid.uuid4())
+    collection_type = request.form.get('collection_type', 'template')
+    is_public = 1 if request.form.get('is_public') else 0
+    if collection_type == 'featured':
+        is_public = 1
+
+    # Generate slug
+    slug = re.sub(r'[^\w\s-]', '', name.lower().strip())
+    slug = re.sub(r'[\s_]+', '-', slug).strip('-')
+
+    conn = sqlite3.connect(str(DB_PATH))
+    conn.row_factory = sqlite3.Row
+    now = datetime.now(ET).isoformat()
+
+    # Ensure unique slug
+    existing = conn.execute('SELECT id FROM property_packages WHERE slug = ?', (slug,)).fetchone()
+    if existing:
+        slug = f"{slug}-{secrets.token_hex(3)}"
+
+    conn.execute('''
+        INSERT INTO property_packages
+        (id, name, description, status, collection_type, slug, cover_image,
+         is_public, created_by, created_at, updated_at)
+        VALUES (?, ?, ?, 'draft', ?, ?, ?, ?, 'agent', ?, ?)
+    ''', (
+        template_id,
+        name,
+        request.form.get('description', ''),
+        collection_type,
+        slug,
+        request.form.get('cover_image') or None,
+        is_public,
+        now, now,
+    ))
+    conn.commit()
+    conn.close()
+
+    return redirect(f'/templates/{template_id}')
+
+
+@app.route('/templates/<template_id>')
+@requires_auth
+def template_detail(template_id):
+    """Template detail with properties."""
+    conn = sqlite3.connect(str(DB_PATH))
+    conn.row_factory = sqlite3.Row
+
+    template = conn.execute('''
+        SELECT * FROM property_packages
+        WHERE id = ? AND collection_type IN ('template', 'featured')
+    ''', (template_id,)).fetchone()
+
+    if not template:
+        return redirect('/templates')
+
+    template = dict(template)
+
+    properties = conn.execute('''
+        SELECT l.id, l.address, l.city, l.county, l.state, l.zip,
+               l.list_price, l.beds, l.baths, l.sqft, l.acreage,
+               l.status, l.primary_photo, l.mls_number, l.latitude, l.longitude,
+               l.days_on_market, l.property_type,
+               pkp.display_order, pkp.agent_notes, pkp.added_at
+        FROM package_properties pkp
+        JOIN listings l ON l.id = pkp.listing_id
+        WHERE pkp.package_id = ?
+        ORDER BY pkp.display_order, pkp.added_at
+    ''', (template_id,)).fetchall()
+
+    # Get clone history
+    clones = conn.execute('''
+        SELECT pp.id, pp.name, pp.created_at, pp.lead_id,
+               COALESCE(l.first_name || ' ' || l.last_name, u.name, 'Unknown') as buyer_name
+        FROM property_packages pp
+        LEFT JOIN leads l ON l.id = pp.lead_id
+        LEFT JOIN users u ON u.id = pp.user_id
+        WHERE pp.derived_from_id = ?
+        ORDER BY pp.created_at DESC
+    ''', (template_id,)).fetchall()
+
+    # Get buyers list for clone modal
+    buyers = conn.execute('''
+        SELECT id, first_name, last_name, email
+        FROM leads
+        WHERE stage IN ('Prospect', 'Active Client', 'Active Buyer', 'Qualified', 'Hot Lead', 'lead')
+        AND contact_group = 'scored'
+        ORDER BY first_name, last_name
+        LIMIT 200
+    ''').fetchall()
+
+    conn.close()
+
+    return render_template('template_detail.html',
+        template=template,
+        properties=[dict(p) for p in properties],
+        clones=[dict(c) for c in clones],
+        buyers=[dict(b) for b in buyers],
+    )
+
+
+@app.route('/templates/<template_id>/add-property', methods=['POST'])
+@requires_auth
+def template_add_property(template_id):
+    """Add a property to a template by MLS#, address search, or listing ID."""
+    import uuid
+    search_term = request.form.get('search_term', '').strip()
+    if not search_term:
+        return redirect(f'/templates/{template_id}')
+
+    conn = sqlite3.connect(str(DB_PATH))
+    conn.row_factory = sqlite3.Row
+
+    # Try to find the listing by ID, MLS number, or address
+    listing = conn.execute(
+        'SELECT id FROM listings WHERE id = ? OR mls_number = ?',
+        (search_term, search_term)
+    ).fetchone()
+
+    if not listing:
+        listing = conn.execute(
+            'SELECT id FROM listings WHERE address LIKE ? LIMIT 1',
+            (f'%{search_term}%',)
+        ).fetchone()
+
+    if listing:
+        max_order = conn.execute(
+            'SELECT COALESCE(MAX(display_order), 0) FROM package_properties WHERE package_id = ?',
+            (template_id,)
+        ).fetchone()[0]
+
+        try:
+            conn.execute('''
+                INSERT OR IGNORE INTO package_properties
+                (id, package_id, listing_id, display_order, added_at)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (str(uuid.uuid4()), template_id, listing['id'], max_order + 1,
+                  datetime.now(ET).isoformat()))
+            conn.execute('UPDATE property_packages SET updated_at = ? WHERE id = ?',
+                         (datetime.now(ET).isoformat(), template_id))
+            conn.commit()
+        except Exception:
+            pass
+
+    conn.close()
+    return redirect(f'/templates/{template_id}')
+
+
+@app.route('/templates/<template_id>/remove-property', methods=['POST'])
+@requires_auth
+def template_remove_property(template_id):
+    """Remove a property from a template."""
+    listing_id = request.form.get('listing_id')
+    if not listing_id:
+        return redirect(f'/templates/{template_id}')
+
+    conn = sqlite3.connect(str(DB_PATH))
+    conn.execute('DELETE FROM package_properties WHERE package_id = ? AND listing_id = ?',
+                 (template_id, listing_id))
+    conn.execute('UPDATE property_packages SET updated_at = ? WHERE id = ?',
+                 (datetime.now(ET).isoformat(), template_id))
+    conn.commit()
+    conn.close()
+
+    return redirect(f'/templates/{template_id}')
+
+
+@app.route('/templates/<template_id>/clone', methods=['POST'])
+@requires_auth
+def template_clone(template_id):
+    """Clone a template for a specific buyer."""
+    import uuid, secrets
+    lead_id = request.form.get('lead_id')
+    custom_name = request.form.get('name', '').strip()
+
+    if not lead_id:
+        return redirect(f'/templates/{template_id}')
+
+    conn = sqlite3.connect(str(DB_PATH))
+    conn.row_factory = sqlite3.Row
+
+    template = conn.execute(
+        'SELECT id, name, description FROM property_packages WHERE id = ?',
+        (template_id,)
+    ).fetchone()
+
+    if not template:
+        conn.close()
+        return redirect('/templates')
+
+    properties = conn.execute(
+        'SELECT listing_id, display_order, agent_notes FROM package_properties WHERE package_id = ? ORDER BY display_order',
+        (template_id,)
+    ).fetchall()
+
+    new_id = str(uuid.uuid4())
+    share_token = secrets.token_urlsafe(16)
+    now = datetime.now(ET).isoformat()
+    name = custom_name or template['name']
+
+    conn.execute('''
+        INSERT INTO property_packages
+        (id, name, description, status, lead_id, collection_type,
+         share_token, derived_from_id, derived_from_type, created_by, created_at, updated_at)
+        VALUES (?, ?, ?, 'ready', ?, 'agent_package', ?, ?, 'template', 'agent', ?, ?)
+    ''', (new_id, name, template['description'], lead_id, share_token, template_id, now, now))
+
+    for prop in properties:
+        conn.execute('''
+            INSERT INTO package_properties (id, package_id, listing_id, display_order, agent_notes, added_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (str(uuid.uuid4()), new_id, prop['listing_id'], prop['display_order'], prop['agent_notes'], now))
+
+    conn.commit()
+    conn.close()
+
+    return redirect(f'/buyer-collections/{new_id}')
+
+
+@app.route('/templates/<template_id>/delete', methods=['POST'])
+@requires_auth
+def template_delete(template_id):
+    """Delete a template."""
+    conn = sqlite3.connect(str(DB_PATH))
+    conn.execute('DELETE FROM package_properties WHERE package_id = ?', (template_id,))
+    conn.execute(
+        'DELETE FROM property_packages WHERE id = ? AND collection_type IN (?, ?)',
+        (template_id, 'template', 'featured')
+    )
+    conn.commit()
+    conn.close()
+    return redirect('/templates')
+
+
 @app.route('/properties')
 @requires_auth
 def properties_list():

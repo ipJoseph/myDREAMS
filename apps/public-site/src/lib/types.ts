@@ -145,6 +145,63 @@ export interface AddressHistory {
   changes: PropertyChange[];
 }
 
+export interface FeaturedCollection {
+  id: string;
+  name: string;
+  description: string;
+  slug: string;
+  cover_image: string | null;
+  featured_order: number | null;
+  collection_type: string;
+  created_at: string;
+  property_count: number;
+  min_price: number | null;
+  max_price: number | null;
+  avg_price: number | null;
+}
+
+export interface CollectionDetail {
+  id: string;
+  name: string;
+  description: string;
+  slug: string;
+  cover_image: string | null;
+  collection_type: string;
+  created_at: string;
+  listings: CollectionListing[];
+  listing_count: number;
+}
+
+export interface CollectionListing {
+  id: string;
+  mls_number: string;
+  status: string;
+  list_price: number;
+  sold_price?: number;
+  address: string;
+  city: string;
+  state: string;
+  zip: string;
+  county: string;
+  latitude?: number;
+  longitude?: number;
+  property_type: string;
+  beds?: number;
+  baths?: number;
+  sqft?: number;
+  acreage?: number;
+  elevation_feet?: number;
+  primary_photo?: string;
+  photo_count?: number;
+  days_on_market?: number;
+  list_date?: string;
+  year_built?: number;
+  stories?: number;
+  public_remarks?: string;
+  display_order: number;
+  agent_notes?: string;
+}
+
 export interface ListingStats {
   total_listings: number;
   active_listings: number;

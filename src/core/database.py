@@ -168,6 +168,16 @@ class DREAMSDatabase:
         new_pkg_columns = [
             ("showing_requested", "INTEGER DEFAULT 0"),
             ("showing_requested_at", "TEXT"),
+            # Collections enhancement columns
+            ("derived_from_id", "TEXT"),
+            ("derived_from_type", "TEXT"),
+            ("is_public", "INTEGER DEFAULT 0"),
+            ("featured_order", "INTEGER"),
+            ("cover_image", "TEXT"),
+            ("criteria_json", "TEXT"),
+            ("auto_refresh", "INTEGER DEFAULT 0"),
+            ("last_refreshed_at", "TEXT"),
+            ("slug", "TEXT"),
         ]
 
         for col_name, col_type in new_pkg_columns:

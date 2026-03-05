@@ -83,7 +83,7 @@ CREATE INDEX IF NOT EXISTS idx_intake_need_type ON intake_forms(need_type);
 
 CREATE TABLE IF NOT EXISTS property_packages (
     id TEXT PRIMARY KEY,
-    lead_id TEXT NOT NULL,                    -- Which buyer this package is for
+    lead_id TEXT,                             -- Which buyer this package is for (NULL for templates/featured)
     intake_form_id TEXT,                      -- Which intake form drove this search (optional)
 
     -- Package info
@@ -105,6 +105,23 @@ CREATE TABLE IF NOT EXISTS property_packages (
     created_by TEXT,                          -- Agent who created
     notes TEXT,
 
+    -- User/collection fields
+    user_id TEXT,                             -- Website user who created (for buyer_collection type)
+    collection_type TEXT DEFAULT 'agent_package',  -- 'buyer_collection', 'agent_package', 'template', 'featured', 'smart'
+    showing_requested INTEGER DEFAULT 0,
+    showing_requested_at TEXT,
+
+    -- Collections enhancement fields
+    derived_from_id TEXT,                     -- FK to property_packages.id (tracks "cloned from Template X")
+    derived_from_type TEXT,                   -- 'template', 'smart', 'agent_curated', 'user_created'
+    is_public INTEGER DEFAULT 0,             -- Visible on public website
+    featured_order INTEGER,                   -- Display order on homepage/collections page (NULL = not featured)
+    cover_image TEXT,                         -- Hero image URL for featured display
+    criteria_json TEXT,                       -- JSON search criteria for smart/auto-refresh collections
+    auto_refresh INTEGER DEFAULT 0,          -- Whether collection auto-refreshes from criteria
+    last_refreshed_at TEXT,
+    slug TEXT,                               -- URL-friendly slug for featured: "cabins-on-the-river"
+
     -- Timestamps
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -116,6 +133,10 @@ CREATE TABLE IF NOT EXISTS property_packages (
 CREATE INDEX IF NOT EXISTS idx_package_lead ON property_packages(lead_id);
 CREATE INDEX IF NOT EXISTS idx_package_status ON property_packages(status);
 CREATE INDEX IF NOT EXISTS idx_package_token ON property_packages(share_token);
+CREATE INDEX IF NOT EXISTS idx_package_slug ON property_packages(slug);
+CREATE INDEX IF NOT EXISTS idx_package_collection_type ON property_packages(collection_type);
+CREATE INDEX IF NOT EXISTS idx_package_is_public ON property_packages(is_public);
+CREATE INDEX IF NOT EXISTS idx_package_featured ON property_packages(featured_order);
 
 -- =============================================================================
 -- PACKAGE PROPERTIES - Junction table linking properties to packages

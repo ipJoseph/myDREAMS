@@ -13,6 +13,8 @@ import type {
   Area,
   ListingStats,
   AddressHistory,
+  FeaturedCollection,
+  CollectionDetail,
 } from "./types";
 
 const API_BASE =
@@ -141,6 +143,34 @@ export async function getStats(): Promise<ListingStats> {
   const url = apiUrl("/stats");
   const data = await fetchApi<ApiResponse<ListingStats>>(url);
   return data.data;
+}
+
+/**
+ * Get featured collections for the public website.
+ */
+export async function getFeaturedCollections(): Promise<FeaturedCollection[]> {
+  try {
+    const url = apiUrl("/collections/featured");
+    const data = await fetchApi<ApiResponse<FeaturedCollection[]>>(url);
+    return data.data;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Get a featured collection by slug.
+ */
+export async function getFeaturedCollection(
+  slug: string
+): Promise<CollectionDetail | null> {
+  try {
+    const url = apiUrl(`/collections/featured/${slug}`);
+    const data = await fetchApi<ApiResponse<CollectionDetail>>(url);
+    return data.data;
+  } catch {
+    return null;
+  }
 }
 
 /**

@@ -23,6 +23,7 @@ from routes.health import health_bp
 from routes.contacts import contacts_bp
 from routes.public import public_bp
 from routes.user import user_bp
+from routes.admin import admin_bp
 from services.notion_sync_service import NotionSyncService
 from services.idx_validation_service import IDXValidationService
 
@@ -109,6 +110,7 @@ app.register_blueprint(properties_bp, url_prefix='/api/v1')
 app.register_blueprint(contacts_bp, url_prefix='/api/v1')
 app.register_blueprint(public_bp, url_prefix='/api/public')
 app.register_blueprint(user_bp, url_prefix='/api/user')
+app.register_blueprint(admin_bp, url_prefix='/api/v1/admin')
 
 # Initialize services
 notion_sync_service = None
