@@ -9,6 +9,39 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Collections Enhancement: Full 5-Phase Implementation** (2026-03-05)
+  - **Phase 1: Schema + Templates + Featured Collections**
+    - 9 new columns on `property_packages` (derived_from_id/type, is_public, featured_order, cover_image, criteria_json, auto_refresh, last_refreshed_at, slug)
+    - Template CRUD: create, edit, add/remove properties, clone for buyer (dashboard + API)
+    - Featured collection endpoints: `GET /api/public/collections/featured`, `GET /api/public/collections/:slug`
+    - Public website: collections landing page, featured collection detail with map toggle
+    - Homepage "Curated Collections" section, navigation link
+  - **Phase 2: Collection Map View**
+    - `CollectionMap.tsx`: numbered gold markers, auto-bounds, info windows with property details
+    - `CollectionViewToggle.tsx`: Grid/Map toggle for server-rendered pages
+    - Map view added to: user collections, shared collections, featured collections, dashboard buyer collections
+    - User collection API updated to return lat/lng, county, derivation info
+  - **Phase 3: Dynamic Route Planner**
+    - `route_planner.html`: parameterized from saturday-showings.html
+    - Configurable: meeting date/time, home address, per-stop duration, add/remove break stops
+    - Three-stage Google Directions API routing with waypoint optimization
+    - Save as showing record (creates `showings` + `showing_properties` rows)
+    - Export CSV, print itinerary, localStorage persistence
+    - "Plan Route" button on buyer collection detail page
+    - Buyer-facing read-only route map at `/shared/[token]/route`
+  - **Phase 4: Smart Collections**
+    - Pattern detection engine (`apps/automation/smart_collections.py`): analyzes contact browsing activity to detect clusters by city/price band
+    - Agent approval queue: dashboard page with accept/reject workflow, confidence scores, property previews
+    - `refresh_collections.py` cron wrapper for daily detection + auto-refresh
+    - User API: returns agent-assigned and accepted smart collections alongside buyer's own
+    - "Suggested for you" and "From your agent" badges on buyer collections page
+    - Tested with real data: detected 7 patterns across active contacts
+  - **Phase 5: Enhanced PDF Generation**
+    - Collection cover page: name, stats, price range, agent branding, cover image, buyer name
+    - Table of contents with numbered property list
+    - Map overview page via Google Static Maps API
+    - Comparison table: landscape layout, side-by-side with photo, price, specs, price/sqft, county, elevation; 6 properties per page
+    - PDF structure: cover -> TOC -> map -> individual brochures -> comparison table
 - **Collections Bridge, Buyer Activity, and Agent Notifications** (2026-02-26)
   - Rename Pursuits to Collections across all dashboard templates and routes (UI-only; database tables unchanged)
   - `buyer_activity` table for tracking buyer website actions (favorites, collections, showing requests, saved searches)
