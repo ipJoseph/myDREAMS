@@ -51,8 +51,25 @@
     .break-add-btn { background: transparent; border: 1px dashed #1e3a5f; color: #6b8aaa; padding: 6px 12px; border-radius: 4px; font-size: 11px; cursor: pointer; width: 100%; text-align: center; }
     .break-add-btn:hover { border-color: #e67e22; color: #e67e22; }
 
-    #map { flex: 1; }
+    #map { flex: 1; position: relative; }
     .loading { display: flex; align-items: center; justify-content: center; height: 100%; color: #8899aa; font-size: 16px; }
+
+    /* Custom expand button */
+    .map-expand-btn {
+      position: absolute; top: 10px; right: 10px; z-index: 10;
+      width: 40px; height: 40px; background: #132744; border: 2px solid #1e3a5f;
+      color: #c8a84e; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      border-radius: 4px; transition: all 0.2s;
+    }
+    .map-expand-btn:hover { background: #1e3a5f; border-color: #c8a84e; }
+    .map-expand-btn svg { width: 18px; height: 18px; }
+
+    /* Expanded map state */
+    .layout.map-expanded .top-row { position: fixed; inset: 16px; z-index: 200; background: #0a1628; border-radius: 8px; overflow: hidden; box-shadow: 0 8px 40px rgba(0,0,0,0.6); }
+    .layout.map-expanded .top-row .sidebar { display: none; }
+    .layout.map-expanded .top-row #map { flex: 1; }
+    .map-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 199; }
+    .layout.map-expanded .map-backdrop { display: block; }
 
     /* Property Details Grid */
     .grid-panel { border-top: 2px solid #1e3a5f; background: #0f1d32; overflow-x: auto; max-height: 320px; }
@@ -197,6 +214,7 @@
       </div>
       <div id="map"><div class="loading">Loading map and calculating route...</div></div>
     </div>
+    <div class="map-backdrop" id="mapBackdrop" onclick="toggleMapExpand()"></div>
 
     <!-- Property Details Grid -->
     <div class="grid-panel">
@@ -342,7 +360,18 @@
 
       map = new google.maps.Map(el, {
         zoom: 10, center: center, mapTypeId: 'roadmap', styles: MAP_STYLES,
+        fullscreenControl: false,
       });
+
+      // Add custom expand button
+      if (!el.querySelector('.map-expand-btn')) {
+        var btn = document.createElement('button');
+        btn.className = 'map-expand-btn';
+        btn.title = 'Expand map';
+        btn.innerHTML = '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/></svg>';
+        btn.onclick = function(e) { e.stopPropagation(); toggleMapExpand(); };
+        el.appendChild(btn);
+      }
       directionsRenderer = new google.maps.DirectionsRenderer({
         map: map, suppressMarkers: true,
         polylineOptions: { strokeColor: '#c8a84e', strokeWeight: 4, strokeOpacity: 0.8 },
@@ -361,6 +390,20 @@
       div.textContent = msg;
       el.style.position = 'relative';
       el.appendChild(div);
+    }
+
+    function toggleMapExpand() {
+      var layout = document.querySelector('.layout');
+      var expanded = layout.classList.toggle('map-expanded');
+      var btn = document.querySelector('.map-expand-btn');
+      if (btn) {
+        btn.title = expanded ? 'Collapse map' : 'Expand map';
+        btn.innerHTML = expanded
+          ? '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 9L4 4m0 0v4m0-4h4m6 6l5 5m0 0v-4m0 4h-4M9 15l-5 5m0 0h4m-4 0v-4m10-6l5-5m0 0h-4m4 0v4"/></svg>'
+          : '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/></svg>';
+      }
+      // Trigger map resize so tiles fill the new container
+      if (map) google.maps.event.trigger(map, 'resize');
     }
 
     function initMap() {
@@ -721,18 +764,22 @@
     }
 
     // ===== MARKERS =====
+    var markerZIndex = 100;
     function createMarker(pos, label, color, title) {
+      var textColor = (color === '#c8a84e') ? '#0a1628' : '#fff';
+      var z = markerZIndex++;
       var m = new google.maps.Marker({
         position: pos, map: map,
-        label: { text: String(label), color: color === '#c8a84e' ? '#0a1628' : '#fff', fontWeight: '700', fontSize: '12px' },
+        zIndex: z,
+        label: { text: String(label), color: textColor, fontWeight: '700', fontSize: '13px' },
         icon: {
-          path: 'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z',
+          path: 'M12 0C7.31 0 3.5 3.81 3.5 8.5c0 7.09 8.5 15.5 8.5 15.5s8.5-8.41 8.5-15.5C20.5 3.81 16.69 0 12 0z',
           fillColor: color,
           fillOpacity: 1,
           strokeColor: '#fff',
-          strokeWeight: 2,
-          scale: 1.8,
-          anchor: new google.maps.Point(12, 22),
+          strokeWeight: 2.5,
+          scale: 2.2,
+          anchor: new google.maps.Point(12, 24),
           labelOrigin: new google.maps.Point(12, 9),
         },
         title: title,
@@ -742,6 +789,7 @@
     }
 
     function addMarkers(startToFirstResult, startIsFirst, endIsLast) {
+      markerZIndex = 100;
       var bounds = new google.maps.LatLngBounds();
       var totalStops = fullStopList.filter(function(s) { return !s.isBreak; }).length;
 
