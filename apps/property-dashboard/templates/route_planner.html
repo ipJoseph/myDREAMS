@@ -765,22 +765,25 @@
 
     // ===== MARKERS =====
     var markerZIndex = 100;
+    function pinSvg(label, bgColor, textColor) {
+      var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="48" viewBox="0 0 36 48">'
+        + '<path d="M18 0C8.06 0 0 8.06 0 18c0 13.5 18 30 18 30s18-16.5 18-30C36 8.06 27.94 0 18 0z" fill="' + bgColor + '" stroke="#fff" stroke-width="2.5"/>'
+        + '<circle cx="18" cy="17" r="12" fill="' + bgColor + '"/>'
+        + '<text x="18" y="22" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" font-weight="700" fill="' + textColor + '">' + label + '</text>'
+        + '</svg>';
+      return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+    }
+
     function createMarker(pos, label, color, title) {
       var textColor = (color === '#c8a84e') ? '#0a1628' : '#fff';
       var z = markerZIndex++;
       var m = new google.maps.Marker({
         position: pos, map: map,
         zIndex: z,
-        label: { text: String(label), color: textColor, fontWeight: '700', fontSize: '13px' },
         icon: {
-          path: 'M12 0C7.31 0 3.5 3.81 3.5 8.5c0 7.09 8.5 15.5 8.5 15.5s8.5-8.41 8.5-15.5C20.5 3.81 16.69 0 12 0z',
-          fillColor: color,
-          fillOpacity: 1,
-          strokeColor: '#fff',
-          strokeWeight: 2.5,
-          scale: 2.2,
-          anchor: new google.maps.Point(12, 24),
-          labelOrigin: new google.maps.Point(12, 9),
+          url: pinSvg(label, color, textColor),
+          scaledSize: new google.maps.Size(36, 48),
+          anchor: new google.maps.Point(18, 48),
         },
         title: title,
       });
@@ -791,7 +794,17 @@
     function addMarkers(startToFirstResult, startIsFirst, endIsLast) {
       markerZIndex = 100;
       var bounds = new google.maps.LatLngBounds();
-      var totalStops = fullStopList.filter(function(s) { return !s.isBreak; }).length;
+
+      // Build a position lookup from routeLegs (Directions API geocoded positions)
+      // Leg i: start_location -> end_location. Leg 0 start = first waypoint origin,
+      // Leg 0 end = waypoint 1, Leg 1 end = waypoint 2, etc.
+      var legPositions = [];
+      if (routeLegs.length > 0) {
+        legPositions.push(routeLegs[0].start_location); // first routed stop
+        for (var li = 0; li < routeLegs.length; li++) {
+          legPositions.push(routeLegs[li].end_location);
+        }
+      }
 
       // Start marker (only if start is NOT the first property)
       if (!startIsFirst && startToFirstResult) {
@@ -801,36 +814,34 @@
       }
 
       var propNum = 0;
+      var legIdx = 0; // tracks position in legPositions for stops without coords
       fullStopList.forEach(function(stop) {
         var isBreak = !!stop.isBreak;
         if (!isBreak) propNum++;
 
+        // Determine position: prefer DB coords, fall back to Directions API positions
+        var pos = null;
         if (stop.latitude && stop.longitude) {
-          var pos = { lat: stop.latitude, lng: stop.longitude };
+          pos = { lat: stop.latitude, lng: stop.longitude };
+        } else if (legIdx < legPositions.length) {
+          pos = legPositions[legIdx];
+        }
+        legIdx++;
+
+        if (pos) {
           if (isBreak) {
             createMarker(pos, '\u2615', '#e67e22', stop.label);
           } else {
             createMarker(pos, propNum, '#c8a84e', propNum + '. ' + (stop._csv_address || stop.address));
           }
           bounds.extend(pos);
-        } else if (isBreak && stop.address) {
-          var geocoder = new google.maps.Geocoder();
-          geocoder.geocode({ address: stop.address }, function(results, status) {
-            if (status === 'OK') {
-              createMarker(results[0].geometry.location, '\u2615', '#e67e22', stop.label);
-              bounds.extend(results[0].geometry.location);
-              map.fitBounds(bounds, { padding: 60 });
-            }
-          });
         }
       });
 
       // End marker (only if end is NOT the last property and not roundtrip to start)
       if (!endIsLast) {
-        // Get end position from the last leg's end
         if (routeLegs.length > 0) {
           var endPos = routeLegs[routeLegs.length - 1].end_location;
-          // Don't add 'E' marker if it's the same as 'S' (roundtrip)
           var cfg = getConfig();
           if (!cfg.roundtrip || !startIsFirst) {
             createMarker(endPos, 'E', '#4a9eff', 'End');
