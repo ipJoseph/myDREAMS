@@ -234,6 +234,7 @@
             <th>Appt Start</th>
             <th>Duration</th>
             <th>Appt End</th>
+            <th>Travel</th>
             <th>MLS #</th>
             <th>List Price</th>
             <th>Beds</th>
@@ -770,6 +771,7 @@
           html += '<td class="time-cell">' + formatTime(stop.arrive) + '</td>';
           html += '<td><div class="duration-cell"><input type="number" class="duration-input" data-stop="' + key + '" data-field="duration" value="' + dur + '" min="5" max="180" onchange="onDurationChange()" style="border-color: #e67e22; color: #e67e22;"><span class="duration-suffix">min</span></div></td>';
           html += '<td class="time-cell">' + formatTime(stop.depart) + '</td>';
+          html += '<td class="time-cell" style="color: #6b8aaa;">' + (stop.driveToNext || '') + '</td>';
           html += '<td colspan="6" style="color: #6b8aaa; font-style: italic; text-align: center;">' + stop.address + '</td>';
           html += '<td><input type="text" data-stop="' + key + '" data-field="notes" value="' + (row.notes || '') + '" placeholder="Notes"></td>';
           html += '</tr>';
@@ -781,6 +783,7 @@
           html += '<td class="time-cell">' + formatTime(stop.arrive) + '</td>';
           html += '<td><div class="duration-cell"><input type="number" class="duration-input" data-stop="' + key + '" data-field="duration" value="' + dur + '" min="5" max="120" onchange="onDurationChange()"><span class="duration-suffix">min</span></div></td>';
           html += '<td class="time-cell">' + formatTime(stop.depart) + '</td>';
+          html += '<td class="time-cell" style="color: #6b8aaa;">' + (stop.driveToNext || '') + '</td>';
           html += '<td>' + (stop.mls || '') + '</td>';
           html += '<td>' + (stop.price ? '$' + stop.price.toLocaleString() : '') + '</td>';
           html += '<td>' + (stop.beds || '') + '</td>';
