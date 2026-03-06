@@ -634,7 +634,7 @@
 
         if (!isBreak) propNumber++;
 
-        var dur = isBreak ? (stop.duration || 45) : (stop._duration || getDuration(key, savedState));
+        var dur = isBreak ? (stop.duration || 45) : getDuration(key, savedState, stop._duration);
         totalStopMin += dur;
 
         var arriveTime = new Date(currentTime);
@@ -686,10 +686,10 @@
       renderGrid(itinerary);
     }
 
-    function getDuration(stopKey, saved) {
+    function getDuration(stopKey, saved, csvDefault) {
       var row = saved[stopKey];
       if (row && row.duration && parseInt(row.duration)) return parseInt(row.duration);
-      return DEFAULT_DURATION;
+      return csvDefault || DEFAULT_DURATION;
     }
 
     function onDurationChange() {
@@ -1113,7 +1113,7 @@
             city: s.city || '',
             label: s.label || s.address,
             isBreak: !!s.isBreak,
-            duration: s.isBreak ? (s.duration || 45) : (getDuration(s.address || s.label, savedState)),
+            duration: s.isBreak ? (s.duration || 45) : getDuration(s.address || s.label, savedState, s._duration),
             propertyId: s.id || null,
             notes: (gridData[s.address || s.label] || {}).notes || '',
           };
