@@ -126,15 +126,45 @@
     .modal input, .modal select { width: 100%; background: #132744; border: 1px solid #1e3a5f; color: #e0e6ed; padding: 8px 10px; border-radius: 4px; font-size: 13px; }
     .modal-actions { display: flex; gap: 10px; margin-top: 20px; }
 
+    /* Print header (hidden on screen) */
+    .print-header { display: none; }
+
     @media print {
-      .layout { height: auto; }
-      .top-bar, .config-section, .break-add, .modal-overlay { display: none; }
-      .top-row { flex-direction: column; }
-      .sidebar { width: 100%; border: none; }
-      #map { height: 400px; }
-      .grid-panel { max-height: none; }
-      .btn-row { display: none; }
-      .prop-table input { border: none; background: transparent; padding: 0; }
+      @page { size: landscape; margin: 0.4in; }
+      * { color: #000 !important; background: #fff !important; }
+      body { background: #fff !important; }
+
+      /* Hide everything except the grid */
+      .layout { height: auto; display: block; }
+      .top-bar, .top-row, .map-backdrop, .modal-overlay, .btn-row { display: none !important; }
+
+      /* Show print header */
+      .print-header {
+        display: flex; justify-content: space-between; align-items: baseline;
+        border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 8px;
+      }
+      .print-header h1 { font-size: 16px; font-weight: 700; }
+      .print-header .print-meta { font-size: 11px; color: #555 !important; }
+
+      /* Grid fills the page */
+      .grid-panel { max-height: none; overflow: visible; border: none; }
+      .grid-panel h2 { display: none; }
+      .prop-table { width: 100%; font-size: 9px; }
+      .prop-table th {
+        background: #e5e5e5 !important; color: #333 !important;
+        padding: 4px 5px; font-size: 8px; border-bottom: 1px solid #999;
+      }
+      .prop-table td { padding: 4px 5px; border-bottom: 1px solid #ddd; }
+      .prop-table .stop-badge {
+        background: #333 !important; color: #fff !important;
+        width: 18px; height: 18px; font-size: 9px;
+      }
+      .prop-table input {
+        border: none !important; background: transparent !important;
+        padding: 0; font-size: 9px; color: #000 !important;
+      }
+      .prop-table .time-cell { color: #000 !important; }
+      .prop-table .addr-cell { white-space: normal; }
     }
   </style>
 </head>
@@ -226,6 +256,12 @@
     </div>
     <div class="map-backdrop" id="mapBackdrop" onclick="toggleMapExpand()"></div>
 
+    <!-- Print header (visible only when printing) -->
+    <div class="print-header">
+      <h1 id="printTitle">{{ collection.name }}</h1>
+      <span class="print-meta" id="printMeta"></span>
+    </div>
+
     <!-- Property Details Grid -->
     <div class="grid-panel">
       <h2>Property Details &amp; Itinerary</h2>
@@ -253,7 +289,7 @@
       </table>
       <div class="btn-row">
         <button class="btn btn-gold" onclick="saveData()">Save Changes</button>
-        <button class="btn btn-outline" onclick="window.print()">Print Itinerary</button>
+        <button class="btn btn-outline" onclick="printDetails()">Print Details</button>
         <button class="btn btn-outline" onclick="exportCSV()">Export CSV</button>
       </div>
     </div>
@@ -1122,6 +1158,21 @@
           setTimeout(function() { btn.textContent = orig; }, 1500);
         }
       }
+    }
+
+    function printDetails() {
+      // Populate print header with tour name and summary stats
+      document.getElementById('printTitle').textContent = COLLECTION_NAME;
+      var cfg = getConfig();
+      var meta = cfg.date;
+      var miles = document.getElementById('total-distance').textContent;
+      var time = document.getElementById('total-time').textContent;
+      if (miles && miles !== '--') meta += '  |  ' + miles + ' mi  |  ' + time;
+      var depart = document.getElementById('depart-time').textContent;
+      var arrive = document.getElementById('return-time').textContent;
+      if (depart && depart !== '--') meta += '  |  Depart ' + depart + '  |  Return ' + arrive;
+      document.getElementById('printMeta').textContent = meta;
+      window.print();
     }
 
     function exportCSV() {
