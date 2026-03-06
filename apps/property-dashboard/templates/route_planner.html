@@ -441,7 +441,41 @@
 
     function initMap() {
       ensureMap();
+      renderPropertiesWithoutRoute(); // Always show property list immediately
       calculateRoute();
+    }
+
+    // Render itinerary and grid with property data only (no route/timing)
+    function renderPropertiesWithoutRoute() {
+      allStopsOrdered = PROPERTIES.slice();
+      fullStopList = allStopsOrdered.map(function(p) {
+        return Object.assign({}, p, { isBreak: false });
+      });
+
+      var itinerary = [];
+      var propNumber = 0;
+      for (var i = 0; i < fullStopList.length; i++) {
+        var stop = fullStopList[i];
+        propNumber++;
+        var key = stop._csv_address || stop.address || stop.label;
+        var dur = getDuration(key, savedState, stop._duration);
+        var displayAddr = stop._csv_address || stop.address || '';
+        var displayCity = stop._csv_city || stop.city || '';
+        itinerary.push({
+          label: displayAddr,
+          address: displayAddr + (displayCity ? ', ' + displayCity : ''),
+          arrive: null, depart: null, duration: dur,
+          driveToNext: null, driveSeconds: 0,
+          isHome: false, isBreak: false,
+          stopNumber: propNumber,
+          price: stop.list_price, beds: stop.beds, baths: stop.baths,
+          sqft: stop.sqft, acreage: stop.acreage, mls: stop.mls_number,
+          agent: stop.listing_agent_name || '', agentPhone: stop.listing_agent_phone || '',
+          propId: stop.id,
+        });
+      }
+      renderItinerary(itinerary);
+      renderGrid(itinerary);
     }
 
     // ===== ROUTE CALCULATION =====
@@ -471,10 +505,12 @@
       });
       if (routableProps.length === 0) {
         showMapMessage('No properties have location data for routing.');
+        renderPropertiesWithoutRoute();
         return;
       }
       if (!cfg.start) {
         showMapMessage('Enter a start address to calculate route.');
+        renderPropertiesWithoutRoute();
         return;
       }
 
