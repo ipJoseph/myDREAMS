@@ -231,9 +231,10 @@
       });
     }
 
-    // Renumber inputs before form submit to ensure sequential naming
+    // Before form submit: renumber inputs and clear file input so server uses manual entries
     document.getElementById('planForm').addEventListener('submit', function() {
       renumberRows();
+      document.getElementById('csvFile').value = '';
     });
 
     // CSV file handling
