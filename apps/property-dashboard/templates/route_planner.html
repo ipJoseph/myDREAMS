@@ -630,7 +630,7 @@
       for (var i = 0; i < fullStopList.length; i++) {
         var stop = fullStopList[i];
         var isBreak = !!stop.isBreak;
-        var key = stop.isBreak ? stop.label : (stop.address || stop.label);
+        var key = stop.isBreak ? stop.label : (stop._csv_address || stop.address || stop.label);
 
         if (!isBreak) propNumber++;
 
