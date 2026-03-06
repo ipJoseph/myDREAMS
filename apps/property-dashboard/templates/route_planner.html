@@ -152,7 +152,10 @@
         <span class="subtitle">{{ collection.name }} &middot; {{ properties|length }} properties</span>
       </div>
       <div style="display: flex; gap: 8px;">
-        {% if not standalone %}
+        {% if standalone %}
+        <button class="btn btn-outline" onclick="saveTourAs()">Save As...</button>
+        <button class="btn btn-gold" onclick="saveTour()">Save</button>
+        {% else %}
         <button class="btn btn-green" onclick="saveShowing()">Save as Showing</button>
         {% endif %}
       </div>
@@ -1061,16 +1064,28 @@
     }
 
     // ===== SAVE / EXPORT =====
-    function saveData() {
+    function saveData(showFlash) {
       var data = collectGridData();
       savedState = Object.assign(savedState, data);
       savedState._config = getConfig();
       savedState._breaks = extraStops;
       localStorage.setItem(STORAGE_KEY, JSON.stringify(savedState));
-      var btn = document.querySelector('.btn-gold');
-      var orig = btn.textContent;
-      btn.textContent = 'Saved!';
-      setTimeout(function() { btn.textContent = orig; }, 1500);
+
+      // Also update saved tours index if standalone
+      if (STANDALONE) {
+        var tourData = buildTourData(COLLECTION_NAME);
+        saveTourToIndex(tourData);
+      }
+
+      if (showFlash !== false) {
+        var btns = document.querySelectorAll('.btn-gold');
+        var btn = btns[btns.length - 1]; // grid Save Changes button
+        if (btn) {
+          var orig = btn.textContent;
+          btn.textContent = 'Saved!';
+          setTimeout(function() { btn.textContent = orig; }, 1500);
+        }
+      }
     }
 
     function exportCSV() {
@@ -1142,6 +1157,104 @@
       });
       document.body.appendChild(form);
       form.submit();
+    }
+
+    // ===== TOUR SAVE / LOAD =====
+    var TOURS_INDEX_KEY = 'dreams-saved-tours';
+
+    function buildTourData(tourName) {
+      var gridData = collectGridData();
+      return {
+        name: tourName,
+        storageKey: STORAGE_KEY,
+        savedAt: new Date().toISOString(),
+        stopCount: PROPERTIES.length,
+        stops: PROPERTIES.map(function(p) {
+          var key = p._csv_address || p.address || '';
+          var row = gridData[key] || {};
+          return {
+            address: p._csv_address || p.address,
+            city: p._csv_city || p.city || '',
+            state: p.state || 'NC',
+            duration: parseInt(row.duration) || p._duration || DEFAULT_DURATION,
+            mls: row.mls || p.mls_number || '',
+            price: row.price || (p.list_price ? '$' + p.list_price.toLocaleString() : ''),
+            beds: row.beds || (p.beds || ''),
+            baths: row.baths || (p.baths || ''),
+            sqft: row.sqft || (p.sqft ? p.sqft.toLocaleString() : ''),
+            acreage: row.acreage || (p.acreage ? p.acreage.toFixed(2) : ''),
+            agent: row.agent || p.listing_agent_name || '',
+            agentPhone: row.agentPhone || p.listing_agent_phone || '',
+            notes: row.notes || '',
+          };
+        }),
+        config: getConfig(),
+        breaks: extraStops,
+      };
+    }
+
+    function saveTourToIndex(tourData) {
+      var tours = [];
+      try { tours = JSON.parse(localStorage.getItem(TOURS_INDEX_KEY) || '[]'); } catch(e) {}
+
+      // Check if a tour with this name already exists, update it
+      var found = false;
+      for (var i = 0; i < tours.length; i++) {
+        if (tours[i].name === tourData.name) {
+          tours[i] = tourData;
+          found = true;
+          break;
+        }
+      }
+      if (!found) tours.unshift(tourData);
+
+      localStorage.setItem(TOURS_INDEX_KEY, JSON.stringify(tours));
+    }
+
+    function saveTour() {
+      // Save current state
+      saveData();
+
+      // Save to tours index
+      var tourData = buildTourData(COLLECTION_NAME);
+      saveTourToIndex(tourData);
+
+      // Flash confirmation
+      var btn = document.querySelector('.btn-gold');
+      var orig = btn.textContent;
+      btn.textContent = 'Saved!';
+      setTimeout(function() { btn.textContent = orig; }, 1500);
+    }
+
+    function saveTourAs() {
+      var newName = prompt('Save tour as:', COLLECTION_NAME + ' (copy)');
+      if (!newName || !newName.trim()) return;
+      newName = newName.trim();
+
+      // Save grid data first
+      saveData();
+
+      // Save under new name
+      var tourData = buildTourData(newName);
+      // Create a new storage key for the copy
+      var newKey = 'route-planner-standalone-' + newName;
+      tourData.storageKey = newKey;
+
+      // Copy current savedState to new key
+      var stateCopy = JSON.parse(JSON.stringify(savedState));
+      stateCopy._config = getConfig();
+      stateCopy._breaks = extraStops;
+      localStorage.setItem(newKey, JSON.stringify(stateCopy));
+
+      saveTourToIndex(tourData);
+
+      // Update the current page to use the new name
+      COLLECTION_NAME = newName;
+      STORAGE_KEY = newKey;
+      var subtitle = document.querySelector('.top-bar .subtitle');
+      if (subtitle) subtitle.textContent = newName + ' \u00b7 ' + PROPERTIES.length + ' properties';
+
+      alert('Saved as "' + newName + '"');
     }
 
     // ===== UTILITIES =====

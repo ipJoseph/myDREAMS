@@ -86,12 +86,6 @@
     }
     .csv-preview td { padding: 6px 8px; border-bottom: 1px solid #f1f5f9; }
 
-    .match-badge {
-      font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 600;
-    }
-    .match-badge.found { background: #dcfce7; color: #16a34a; }
-    .match-badge.notfound { background: #fef3c7; color: #d97706; }
-
     .plan-name-row { margin-bottom: 16px; }
     .plan-name-row label { font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 4px; }
     .plan-name-row input {
@@ -99,6 +93,29 @@
       font-size: 14px; font-family: inherit;
     }
     .plan-name-row input:focus { outline: none; border-color: #2563eb; }
+
+    /* Saved Tours Section */
+    .saved-tours { margin-bottom: 32px; }
+    .saved-tours h2 { font-size: 16px; font-weight: 600; margin-bottom: 12px; color: #1a365d; }
+    .saved-tour-card {
+      display: flex; align-items: center; gap: 16px; padding: 14px 18px;
+      background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;
+      margin-bottom: 8px; transition: border-color 0.2s;
+    }
+    .saved-tour-card:hover { border-color: #2563eb; }
+    .saved-tour-info { flex: 1; }
+    .saved-tour-name { font-weight: 600; font-size: 14px; color: #1a365d; }
+    .saved-tour-meta { font-size: 12px; color: #94a3b8; margin-top: 2px; }
+    .saved-tour-actions { display: flex; gap: 8px; }
+    .saved-tour-actions button {
+      padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 600;
+      cursor: pointer; border: 1px solid #e2e8f0; background: #fff; color: #64748b;
+    }
+    .saved-tour-actions button:hover { border-color: #2563eb; color: #2563eb; }
+    .saved-tour-actions button.load-btn { background: #1a365d; color: #fff; border-color: #1a365d; }
+    .saved-tour-actions button.load-btn:hover { background: #2d4a7c; }
+    .saved-tour-actions button.delete-btn:hover { border-color: #ef4444; color: #ef4444; }
+    .no-saved { color: #94a3b8; font-size: 13px; font-style: italic; padding: 12px 0; }
   </style>
 </head>
 <body>
@@ -110,6 +127,12 @@
       <div class="plan-header">
         <h1>Plan Showings</h1>
         <p>Upload a CSV or enter addresses manually to create a route-optimized showing tour.</p>
+      </div>
+
+      <!-- Saved Tours -->
+      <div class="saved-tours" id="savedToursSection">
+        <h2>Saved Tours</h2>
+        <div id="savedToursList"></div>
       </div>
 
       <form method="POST" action="/showings/plan" enctype="multipart/form-data" id="planForm">
@@ -195,9 +218,23 @@
     function renumberRows() {
       var rows = document.querySelectorAll('#stopsList .form-row');
       rows.forEach(function(row, i) {
-        row.querySelector('.stop-num').textContent = i + 1;
+        var num = i + 1;
+        row.querySelector('.stop-num').textContent = num;
+        row.dataset.row = num;
+        // Renumber all input name attributes so server gets sequential addr_1, addr_2, ...
+        var inputs = row.querySelectorAll('input');
+        inputs.forEach(function(inp) {
+          if (inp.name) {
+            inp.name = inp.name.replace(/_\d+$/, '_' + num);
+          }
+        });
       });
     }
+
+    // Renumber inputs before form submit to ensure sequential naming
+    document.getElementById('planForm').addEventListener('submit', function() {
+      renumberRows();
+    });
 
     // CSV file handling
     var csvFile = document.getElementById('csvFile');
@@ -234,43 +271,139 @@
       var lines = text.trim().split('\n');
       if (lines.length < 2) return;
 
-      // Parse header
       var header = lines[0].split(',').map(function(h) { return h.trim().toLowerCase(); });
       var addrIdx = header.indexOf('address');
+      var nameIdx = header.indexOf('name');
       var cityIdx = header.indexOf('city');
       var stateIdx = header.indexOf('state');
       var durIdx = header.indexOf('duration');
+      var wktIdx = header.indexOf('wkt');
 
-      if (addrIdx === -1) { alert('CSV must have an "Address" column'); return; }
+      // Support either "address" or "name" (WKT format) column
+      var useAddr = addrIdx >= 0 ? addrIdx : nameIdx;
+      if (useAddr === -1) { alert('CSV must have an "Address" or "Name" column'); return; }
 
       // Clear manual form and populate from CSV
       document.getElementById('stopsList').innerHTML = '';
       rowCount = 0;
       var previewBody = document.getElementById('csvPreviewBody');
       previewBody.innerHTML = '';
+      var stopCount = 0;
 
       for (var i = 1; i < lines.length; i++) {
         var cols = lines[i].split(',').map(function(c) { return c.trim(); });
-        if (!cols[addrIdx]) continue;
+        var addr = cols[useAddr] || '';
+        // WKT format: the address is in the name column, might have quotes
+        if (wktIdx >= 0) addr = addr.replace(/^"|"$/g, '');
+        if (!addr) continue;
 
-        var addr = cols[addrIdx] || '';
         var city = cityIdx >= 0 ? (cols[cityIdx] || '') : '';
         var state = stateIdx >= 0 ? (cols[stateIdx] || 'NC') : 'NC';
         var dur = durIdx >= 0 ? (parseInt(cols[durIdx]) || 30) : 30;
 
         addRow(addr, city, state, dur);
+        stopCount++;
 
-        // Preview
         var tr = document.createElement('tr');
-        tr.innerHTML = '<td>' + i + '</td><td>' + addr + '</td><td>' + city + '</td><td>' + state + '</td><td>' + dur + ' min</td>';
+        tr.innerHTML = '<td>' + stopCount + '</td><td>' + addr + '</td><td>' + city + '</td><td>' + state + '</td><td>' + dur + ' min</td>';
         previewBody.appendChild(tr);
       }
 
       document.getElementById('csvPreview').style.display = 'block';
-      uploadCard.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:#16a34a;"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>' +
-        '<h3 style="color:#16a34a;">File loaded: ' + lines.length - 1 + ' stops</h3>' +
-        '<p>Addresses populated below. Click "Plan Route" to continue.</p>';
+
+      // Show success state but keep file input for form submission
+      var successMsg = document.createElement('div');
+      successMsg.id = 'uploadSuccess';
+      successMsg.style.cssText = 'text-align:center; padding:12px; color:#16a34a; font-weight:600; font-size:14px;';
+      successMsg.textContent = stopCount + ' stops loaded from CSV. Edit below, then click Plan Route.';
+      uploadCard.parentNode.insertBefore(successMsg, uploadCard.nextSibling);
+      uploadCard.style.display = 'none';
     }
+
+    // ===== SAVED TOURS =====
+    var TOURS_INDEX_KEY = 'dreams-saved-tours';
+
+    function getSavedTours() {
+      try { return JSON.parse(localStorage.getItem(TOURS_INDEX_KEY) || '[]'); } catch(e) { return []; }
+    }
+
+    function saveTourIndex(tours) {
+      localStorage.setItem(TOURS_INDEX_KEY, JSON.stringify(tours));
+    }
+
+    function renderSavedTours() {
+      var tours = getSavedTours();
+      var container = document.getElementById('savedToursList');
+      var section = document.getElementById('savedToursSection');
+
+      if (tours.length === 0) {
+        section.style.display = 'none';
+        return;
+      }
+      section.style.display = '';
+
+      var html = '';
+      tours.forEach(function(tour, idx) {
+        var date = tour.savedAt ? new Date(tour.savedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+        html += '<div class="saved-tour-card">';
+        html += '<div class="saved-tour-info">';
+        html += '<div class="saved-tour-name">' + tour.name + '</div>';
+        html += '<div class="saved-tour-meta">' + tour.stopCount + ' stops' + (date ? ' &middot; Saved ' + date : '') + '</div>';
+        html += '</div>';
+        html += '<div class="saved-tour-actions">';
+        html += '<button class="load-btn" onclick="loadTour(' + idx + ')">Load</button>';
+        html += '<button class="delete-btn" onclick="deleteTour(' + idx + ')">Delete</button>';
+        html += '</div>';
+        html += '</div>';
+      });
+      container.innerHTML = html;
+    }
+
+    function loadTour(idx) {
+      var tours = getSavedTours();
+      var tour = tours[idx];
+      if (!tour) return;
+
+      // Populate the form with saved tour data
+      document.getElementById('tourName').value = tour.name;
+
+      document.getElementById('stopsList').innerHTML = '';
+      rowCount = 0;
+
+      tour.stops.forEach(function(stop) {
+        addRow(stop.address, stop.city, stop.state, stop.duration);
+      });
+
+      // Hide upload card, show editing state
+      uploadCard.style.display = 'none';
+      var existing = document.getElementById('uploadSuccess');
+      if (existing) existing.remove();
+      var msg = document.createElement('div');
+      msg.id = 'uploadSuccess';
+      msg.style.cssText = 'text-align:center; padding:12px; color:#2563eb; font-weight:600; font-size:14px;';
+      msg.textContent = 'Loaded "' + tour.name + '" with ' + tour.stops.length + ' stops. Edit and click Plan Route.';
+      uploadCard.parentNode.insertBefore(msg, uploadCard.nextSibling);
+
+      // Scroll to form
+      document.getElementById('planForm').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function deleteTour(idx) {
+      var tours = getSavedTours();
+      var name = tours[idx].name;
+      if (!confirm('Delete saved tour "' + name + '"?')) return;
+
+      // Remove route planner state for this tour
+      var stateKey = tours[idx].storageKey;
+      if (stateKey) localStorage.removeItem(stateKey);
+
+      tours.splice(idx, 1);
+      saveTourIndex(tours);
+      renderSavedTours();
+    }
+
+    // Init
+    renderSavedTours();
   </script>
 </body>
 </html>
