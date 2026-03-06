@@ -241,6 +241,8 @@
             <th>Baths</th>
             <th>SqFt</th>
             <th>Acreage</th>
+            <th>Agent</th>
+            <th>Agent Phone</th>
             <th>Notes</th>
           </tr>
         </thead>
@@ -656,6 +658,8 @@
           sqft: stop.sqft,
           acreage: stop.acreage,
           mls: stop.mls_number,
+          agent: stop.listing_agent_name || '',
+          agentPhone: stop.listing_agent_phone || '',
           propId: stop.id,
         });
 
@@ -772,7 +776,7 @@
           html += '<td><div class="duration-cell"><input type="number" class="duration-input" data-stop="' + key + '" data-field="duration" value="' + dur + '" min="5" max="180" onchange="onDurationChange()" style="border-color: #e67e22; color: #e67e22;"><span class="duration-suffix">min</span></div></td>';
           html += '<td class="time-cell">' + formatTime(stop.depart) + '</td>';
           html += '<td class="time-cell" style="color: #6b8aaa;">' + (stop.driveToNext || '') + '</td>';
-          html += '<td colspan="6" style="color: #6b8aaa; font-style: italic; text-align: center;">' + stop.address + '</td>';
+          html += '<td colspan="8" style="color: #6b8aaa; font-style: italic; text-align: center;">' + stop.address + '</td>';
           html += '<td><input type="text" data-stop="' + key + '" data-field="notes" value="' + (row.notes || '') + '" placeholder="Notes"></td>';
           html += '</tr>';
         } else {
@@ -784,12 +788,14 @@
           html += '<td><div class="duration-cell"><input type="number" class="duration-input" data-stop="' + key + '" data-field="duration" value="' + dur + '" min="5" max="120" onchange="onDurationChange()"><span class="duration-suffix">min</span></div></td>';
           html += '<td class="time-cell">' + formatTime(stop.depart) + '</td>';
           html += '<td class="time-cell" style="color: #6b8aaa;">' + (stop.driveToNext || '') + '</td>';
-          html += '<td>' + (stop.mls || '') + '</td>';
-          html += '<td>' + (stop.price ? '$' + stop.price.toLocaleString() : '') + '</td>';
-          html += '<td>' + (stop.beds || '') + '</td>';
-          html += '<td>' + (stop.baths || '') + '</td>';
-          html += '<td>' + (stop.sqft ? stop.sqft.toLocaleString() : '') + '</td>';
-          html += '<td>' + (stop.acreage ? stop.acreage.toFixed(2) : '') + '</td>';
+          html += '<td><input type="text" data-stop="' + key + '" data-field="mls" value="' + (row.mls || stop.mls || '') + '" placeholder="MLS #" style="width:90px;" onchange="onDurationChange()"></td>';
+          html += '<td><input type="text" data-stop="' + key + '" data-field="price" value="' + (row.price || (stop.price ? '$' + stop.price.toLocaleString() : '')) + '" placeholder="Price" style="width:100px;" onchange="onDurationChange()"></td>';
+          html += '<td><input type="text" data-stop="' + key + '" data-field="beds" value="' + (row.beds || stop.beds || '') + '" placeholder="-" style="width:40px; text-align:center;" onchange="onDurationChange()"></td>';
+          html += '<td><input type="text" data-stop="' + key + '" data-field="baths" value="' + (row.baths || stop.baths || '') + '" placeholder="-" style="width:40px; text-align:center;" onchange="onDurationChange()"></td>';
+          html += '<td><input type="text" data-stop="' + key + '" data-field="sqft" value="' + (row.sqft || (stop.sqft ? stop.sqft.toLocaleString() : '')) + '" placeholder="-" style="width:70px; text-align:center;" onchange="onDurationChange()"></td>';
+          html += '<td><input type="text" data-stop="' + key + '" data-field="acreage" value="' + (row.acreage || (stop.acreage ? stop.acreage.toFixed(2) : '')) + '" placeholder="-" style="width:60px; text-align:center;" onchange="onDurationChange()"></td>';
+          html += '<td><input type="text" data-stop="' + key + '" data-field="agent" value="' + (row.agent || stop.agent || '') + '" placeholder="Agent name" style="width:120px;" onchange="onDurationChange()"></td>';
+          html += '<td><input type="text" data-stop="' + key + '" data-field="agentPhone" value="' + (row.agentPhone || stop.agentPhone || '') + '" placeholder="Phone" style="width:110px;" onchange="onDurationChange()"></td>';
           html += '<td><input type="text" data-stop="' + key + '" data-field="notes" value="' + (row.notes || '') + '" placeholder="Notes"></td>';
           html += '</tr>';
         }
@@ -969,6 +975,7 @@
         list_price: null, beds: null, baths: null, sqft: null,
         acreage: null, mls_number: null, primary_photo: null,
         property_type: null, status: null, county: '', zip: '',
+        listing_agent_name: null, listing_agent_phone: null,
       };
 
       if (position === 'end') {
@@ -1067,18 +1074,19 @@
     }
 
     function exportCSV() {
-      var headers = ['#','Address','Appt Start','Duration (min)','Appt End','MLS #','List Price','Beds','Baths','SqFt','Acreage','Notes'];
+      var headers = ['#','Address','Appt Start','Duration (min)','Appt End','Travel','MLS #','List Price','Beds','Baths','SqFt','Acreage','Agent','Agent Phone','Notes'];
       var rows = [headers.join(',')];
       document.querySelectorAll('#grid-body tr').forEach(function(tr) {
         var cells = [];
         cells.push(tr.querySelector('.stop-badge') ? tr.querySelector('.stop-badge').textContent : '');
         cells.push('"' + (tr.querySelector('.addr-cell') ? tr.querySelector('.addr-cell').textContent : '') + '"');
         var timeCells = tr.querySelectorAll('.time-cell');
-        cells.push(timeCells[0] ? timeCells[0].textContent : '');
+        cells.push(timeCells[0] ? timeCells[0].textContent : '');  // Appt Start
         var durInput = tr.querySelector('.duration-input');
-        cells.push(durInput ? durInput.value : '');
-        cells.push(timeCells[1] ? timeCells[1].textContent : '');
-        // Remaining cells from non-duration inputs
+        cells.push(durInput ? durInput.value : '');                 // Duration
+        cells.push(timeCells[1] ? timeCells[1].textContent : '');  // Appt End
+        cells.push(timeCells[2] ? timeCells[2].textContent : '');  // Travel
+        // All editable fields (mls, price, beds, baths, sqft, acreage, agent, agentPhone, notes)
         tr.querySelectorAll('input:not(.duration-input)').forEach(function(input) {
           cells.push('"' + (input.value || '') + '"');
         });

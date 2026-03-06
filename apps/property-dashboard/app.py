@@ -2524,7 +2524,8 @@ def showings_plan_route():
                 SELECT id, address, city, state, zip, county,
                        list_price, beds, baths, sqft, acreage,
                        primary_photo, mls_number, latitude, longitude,
-                       status, property_type
+                       status, property_type,
+                       listing_agent_name, listing_agent_phone
                 FROM listings
                 WHERE address LIKE ? AND city LIKE ?
                 ORDER BY
@@ -2541,7 +2542,8 @@ def showings_plan_route():
                 SELECT id, address, city, state, zip, county,
                        list_price, beds, baths, sqft, acreage,
                        primary_photo, mls_number, latitude, longitude,
-                       status, property_type
+                       status, property_type,
+                       listing_agent_name, listing_agent_phone
                 FROM listings
                 WHERE address LIKE ?
                 ORDER BY
@@ -2581,6 +2583,8 @@ def showings_plan_route():
                 'longitude': stop.get('longitude'),
                 'status': None,
                 'property_type': None,
+                'listing_agent_name': None,
+                'listing_agent_phone': None,
                 '_csv_address': stop['address'],
                 '_csv_city': stop['city'],
                 '_matched': False,
