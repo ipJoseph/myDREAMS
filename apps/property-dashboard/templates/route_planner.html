@@ -552,109 +552,75 @@
 
       var startAddress = cfg.start;
       var endAddress = cfg.end;
-      var firstStop = routableProps[0];
-      var firstAddr = getRouteAddress(firstStop);
-      var remainingStops = routableProps.slice(1);
-
-      // Detect if start address matches first property (skip driving leg)
-      var startIsFirst = isAddressMatch(startAddress, firstStop);
-      // Detect if end address matches last property (set after optimization)
-      var endIsLast = false;
-
       var ds = new google.maps.DirectionsService();
 
-      // Stage 1: Start to first stop (may be 0 if start IS the first stop)
-      if (startIsFirst) {
-        homeToFirstSeconds = 0;
-        homeToFirstMeters = 0;
-        doOptimize(null);
-      } else {
-        ds.route({
-          origin: startAddress,
-          destination: firstAddr,
-          travelMode: google.maps.TravelMode.DRIVING,
-        }, function(startToFirst, s1) {
-          if (s1 !== 'OK') {
-            showMapMessage('Could not route from start address. Check the address and try again.');
-            return;
-          }
-          homeToFirstSeconds = startToFirst.routes[0].legs[0].duration.value;
-          homeToFirstMeters = startToFirst.routes[0].legs[0].distance.value;
-          doOptimize(startToFirst);
-        });
-      }
+      // Single route: START → all properties as waypoints (optimized) → END
+      var waypoints = routableProps.map(function(p) {
+        return { location: getRouteAddress(p), stopover: true };
+      });
 
-      function doOptimize(startToFirstResult) {
-        if (remainingStops.length === 0) {
-          // Only one property
-          ds.route({
-            origin: firstAddr,
-            destination: endAddress,
-            travelMode: google.maps.TravelMode.DRIVING,
-          }, function(returnRoute, s2) {
-            if (s2 !== 'OK') return;
-            allStopsOrdered = [firstStop];
-            endIsLast = isAddressMatch(endAddress, firstStop);
-            routeLegs = returnRoute.routes[0].legs;
-            buildFullStopList();
-            recalcTimes();
-            directionsRenderer.setDirections(returnRoute);
-            addMarkers(startToFirstResult, startIsFirst, endIsLast);
-          });
+      ds.route({
+        origin: startAddress,
+        destination: endAddress,
+        waypoints: waypoints,
+        optimizeWaypoints: true,
+        travelMode: google.maps.TravelMode.DRIVING,
+      }, function(result, status) {
+        if (status !== 'OK') {
+          showMapMessage('Route calculation failed: ' + status + '. Check your addresses.');
+          renderPropertiesWithoutRoute();
           return;
         }
 
-        // Stage 2: Optimize property route (first stop to end via remaining)
-        var waypoints = remainingStops.map(function(p) {
-          return { location: getRouteAddress(p), stopover: true };
-        });
+        // Reorder properties based on Google's optimization
+        var order = result.routes[0].waypoint_order;
+        allStopsOrdered = order.map(function(i) { return routableProps[i]; });
 
-        ds.route({
-          origin: firstAddr,
-          destination: endAddress,
-          waypoints: waypoints,
-          optimizeWaypoints: true,
-          travelMode: google.maps.TravelMode.DRIVING,
-        }, function(optimized, s2) {
-          if (s2 !== 'OK') {
-            showMapMessage('Route optimization failed: ' + s2);
-            return;
-          }
+        // All legs: start→first, first→second, ..., last→end
+        var legs = result.routes[0].legs;
+        // Leg 0 = start to first property, last leg = last property to end
+        homeToFirstSeconds = legs[0].duration.value;
+        homeToFirstMeters = legs[0].distance.value;
 
-          var order = optimized.routes[0].waypoint_order;
-          allStopsOrdered = [firstStop].concat(order.map(function(i) { return remainingStops[i]; }));
-          var lastStop = allStopsOrdered[allStopsOrdered.length - 1];
-          endIsLast = isAddressMatch(endAddress, lastStop);
+        // routeLegs for property-to-property timing (legs 1..N-1)
+        // plus last-property-to-end (last leg)
+        routeLegs = legs.slice(1);
 
-          buildFullStopList();
+        // Detect start/end matches
+        var startIsFirst = isAddressMatch(startAddress, allStopsOrdered[0]);
+        var lastStop = allStopsOrdered[allStopsOrdered.length - 1];
+        var endIsLast = isAddressMatch(endAddress, lastStop);
 
-          // Stage 3: Get directions with breaks included
-          if (extraStops.length === 0) {
-            routeLegs = optimized.routes[0].legs;
+        buildFullStopList();
+
+        // If there are break stops, re-route with breaks inserted (no optimization)
+        if (extraStops.length > 0) {
+          var breakWaypoints = fullStopList.map(function(s) {
+            var addr = s.isBreak ? s.address : getRouteAddress(s);
+            return { location: addr, stopover: true };
+          });
+          ds.route({
+            origin: startAddress,
+            destination: endAddress,
+            waypoints: breakWaypoints,
+            optimizeWaypoints: false,
+            travelMode: google.maps.TravelMode.DRIVING,
+          }, function(breakResult, s2) {
+            if (s2 !== 'OK') return;
+            var bLegs = breakResult.routes[0].legs;
+            homeToFirstSeconds = bLegs[0].duration.value;
+            homeToFirstMeters = bLegs[0].distance.value;
+            routeLegs = bLegs.slice(1);
             recalcTimes();
-            directionsRenderer.setDirections(optimized);
-            addMarkers(startToFirstResult, startIsFirst, endIsLast);
-          } else {
-            var allWaypoints = fullStopList.slice(1).map(function(s) {
-              var addr = s.isBreak ? s.address : getRouteAddress(s);
-              return { location: addr, stopover: true };
-            });
-            ds.route({
-              origin: firstAddr,
-              destination: endAddress,
-              waypoints: allWaypoints,
-              optimizeWaypoints: false,
-              travelMode: google.maps.TravelMode.DRIVING,
-            }, function(result, s3) {
-              if (s3 !== 'OK') return;
-              routeLegs = result.routes[0].legs;
-              recalcTimes();
-              directionsRenderer.setDirections(result);
-              addMarkers(startToFirstResult, startIsFirst, endIsLast);
-            });
-          }
-        });
-      }
+            directionsRenderer.setDirections(breakResult);
+            addMarkers(startIsFirst, endIsLast);
+          });
+        } else {
+          recalcTimes();
+          directionsRenderer.setDirections(result);
+          addMarkers(startIsFirst, endIsLast);
+        }
+      });
     }
 
     function isAddressMatch(typed, prop) {
@@ -907,42 +873,55 @@
       return m;
     }
 
-    function addMarkers(startToFirstResult, startIsFirst, endIsLast) {
+    function addMarkers(startIsFirst, endIsLast) {
       markerZIndex = 100;
       var bounds = new google.maps.LatLngBounds();
 
-      // Build a position lookup from routeLegs (Directions API geocoded positions)
-      // Leg i: start_location -> end_location. Leg 0 start = first waypoint origin,
-      // Leg 0 end = waypoint 1, Leg 1 end = waypoint 2, etc.
-      var legPositions = [];
+      // routeLegs = legs.slice(1) from full result, so:
+      // routeLegs[0].start_location = first property position
+      // routeLegs[i].end_location = next property position
+      // For property positions, build from routeLegs
+      var propPositions = [];
       if (routeLegs.length > 0) {
-        legPositions.push(routeLegs[0].start_location); // first routed stop
-        for (var li = 0; li < routeLegs.length; li++) {
-          legPositions.push(routeLegs[li].end_location);
+        propPositions.push(routeLegs[0].start_location);
+        for (var li = 0; li < routeLegs.length - 1; li++) {
+          propPositions.push(routeLegs[li].end_location);
+        }
+        // Last end_location is the END address, not a property
+      }
+
+      // S marker (start address, only if not matching first property)
+      if (!startIsFirst && routeLegs.length > 0) {
+        // Start position is one leg before routeLegs[0]
+        // We stored homeToFirst data, and the DirectionsRenderer draws the full line.
+        // Get start position from first property position minus one leg.
+        // Actually, we can compute it: the full result's leg[0].start_location
+        // But we sliced that off. Use a geocoder fallback or just skip the S marker
+        // if we have the position from the rendered route bounds.
+        // Simplest: routeLegs[0].start_location is the first PROPERTY, and the
+        // route line already shows the start. Let's get start from the renderer.
+        var renderedRoute = directionsRenderer.getDirections();
+        if (renderedRoute) {
+          var startPos = renderedRoute.routes[0].legs[0].start_location;
+          createMarker(startPos, 'S', '#4a9eff', 'Start');
+          bounds.extend(startPos);
         }
       }
 
-      // Start marker (only if start is NOT the first property)
-      if (!startIsFirst && startToFirstResult) {
-        var startPos = startToFirstResult.routes[0].legs[0].start_location;
-        createMarker(startPos, 'S', '#4a9eff', 'Start');
-        bounds.extend(startPos);
-      }
-
+      // Property markers
       var propNum = 0;
-      var legIdx = 0; // tracks position in legPositions for stops without coords
+      var posIdx = 0;
       fullStopList.forEach(function(stop) {
         var isBreak = !!stop.isBreak;
         if (!isBreak) propNum++;
 
-        // Determine position: prefer DB coords, fall back to Directions API positions
         var pos = null;
         if (stop.latitude && stop.longitude) {
           pos = { lat: stop.latitude, lng: stop.longitude };
-        } else if (legIdx < legPositions.length) {
-          pos = legPositions[legIdx];
+        } else if (posIdx < propPositions.length) {
+          pos = propPositions[posIdx];
         }
-        legIdx++;
+        posIdx++;
 
         if (pos) {
           if (isBreak) {
@@ -954,12 +933,14 @@
         }
       });
 
-      // End marker (only if end is NOT the last property and not roundtrip to start)
+      // E marker (end address, only if not matching last property)
       if (!endIsLast) {
-        if (routeLegs.length > 0) {
-          var endPos = routeLegs[routeLegs.length - 1].end_location;
+        var renderedRoute = directionsRenderer.getDirections();
+        if (renderedRoute) {
+          var allLegs = renderedRoute.routes[0].legs;
+          var endPos = allLegs[allLegs.length - 1].end_location;
           var cfg = getConfig();
-          if (!cfg.roundtrip || !startIsFirst) {
+          if (!cfg.roundtrip) {
             createMarker(endPos, 'E', '#4a9eff', 'End');
             bounds.extend(endPos);
           }
