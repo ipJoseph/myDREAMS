@@ -34,14 +34,17 @@
     .route-summary .stat-value { font-size: 20px; font-weight: 700; color: #c8a84e; }
     .route-summary .stat-label { font-size: 11px; color: #8899aa; text-transform: uppercase; letter-spacing: 0.5px; }
 
-    .stop { padding: 14px 20px; border-bottom: 1px solid #1a2d4a; cursor: pointer; transition: background 0.2s; }
+    .stop { padding: 14px 20px; border-bottom: 1px solid #1a2d4a; cursor: pointer; transition: background 0.2s; position: relative; }
     .stop:hover { background: #1a2d4a; }
     .stop.active { background: #1e3a5f; border-left: 3px solid #c8a84e; }
     .stop-header { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
     .stop-number { width: 28px; height: 28px; border-radius: 50%; background: #c8a84e; color: #0a1628; font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
     .stop-number.home { background: #4a9eff; }
     .stop-number.break { background: #e67e22; color: #fff; font-size: 15px; }
-    .stop-name { font-weight: 600; font-size: 14px; }
+    .stop-name { font-weight: 600; font-size: 14px; flex: 1; }
+    .stop-delete { width: 24px; height: 24px; border: none; background: transparent; color: #4a5f7a; cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 4px; flex-shrink: 0; opacity: 0; transition: all 0.15s; }
+    .stop:hover .stop-delete { opacity: 1; }
+    .stop-delete:hover { background: #3a1520; color: #ef4444; }
     .stop-details { margin-left: 40px; font-size: 12px; color: #8899aa; line-height: 1.6; }
     .stop-details .time { color: #4a9eff; font-weight: 600; }
     .stop-details .drive { color: #6b8aaa; }
@@ -211,6 +214,10 @@
 
         <!-- Itinerary -->
         <div id="itinerary"></div>
+        <div style="padding: 10px 20px; border-bottom: 1px solid #1a2d4a; display: flex; gap: 8px;">
+          <button class="break-add-btn" onclick="showAddStopModal()" style="border-color: #c8a84e; color: #c8a84e;">+ Add Stop</button>
+          <button class="break-add-btn" onclick="showBreakModal()">+ Add Break</button>
+        </div>
       </div>
       <div id="map"><div class="loading">Loading map and calculating route...</div></div>
     </div>
@@ -242,7 +249,6 @@
         <button class="btn btn-gold" onclick="saveData()">Save Changes</button>
         <button class="btn btn-outline" onclick="window.print()">Print Itinerary</button>
         <button class="btn btn-outline" onclick="exportCSV()">Export CSV</button>
-        <button class="btn btn-outline" onclick="showBreakModal(-1)">Add Break Stop</button>
       </div>
     </div>
   </div>
@@ -262,6 +268,27 @@
       <div class="modal-actions">
         <button class="btn btn-gold" onclick="addBreak()">Add Break</button>
         <button class="btn btn-outline" onclick="closeBreakModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Stop modal -->
+  <div class="modal-overlay" id="addStopModal">
+    <div class="modal">
+      <h3>Add Showing Stop</h3>
+      <label>Address</label>
+      <input type="text" id="addStopAddress" placeholder="e.g. 123 Main Street">
+      <label>City</label>
+      <input type="text" id="addStopCity" placeholder="e.g. Murphy" value="Murphy">
+      <label>State</label>
+      <input type="text" id="addStopState" value="NC" style="width: 80px;">
+      <label>Duration (minutes)</label>
+      <input type="number" id="addStopDuration" value="20" min="5" max="180">
+      <label>Insert Position</label>
+      <select id="addStopPosition"></select>
+      <div class="modal-actions">
+        <button class="btn btn-gold" onclick="addStop()">Add Stop</button>
+        <button class="btn btn-outline" onclick="closeAddStopModal()">Cancel</button>
       </div>
     </div>
   </div>
@@ -696,6 +723,11 @@
         html += '<div class="stop-header">';
         html += '<div class="stop-number ' + numberClass + '">' + numberText + '</div>';
         html += '<div class="stop-name">' + stop.label + '</div>';
+        if (!stop.isHome) {
+          html += '<button class="stop-delete" onclick="event.stopPropagation(); removeStop(' + idx + ', ' + (isBreak ? 'true' : 'false') + ')" title="Remove stop">';
+          html += '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>';
+          html += '</button>';
+        }
         html += '</div>';
         html += '<div class="stop-details">';
 
@@ -853,14 +885,14 @@
       map.fitBounds(bounds, { padding: 60 });
     }
 
-    // ===== BREAK STOPS =====
+    // ===== ADD / REMOVE STOPS =====
     function showBreakModal() {
       var select = document.getElementById('breakAfterStop');
       select.innerHTML = '';
       for (var i = 1; i <= allStopsOrdered.length; i++) {
         var opt = document.createElement('option');
         opt.value = i;
-        opt.textContent = '#' + i + ' - ' + (allStopsOrdered[i-1].address || '');
+        opt.textContent = '#' + i + ' - ' + (allStopsOrdered[i-1]._csv_address || allStopsOrdered[i-1].address || '');
         select.appendChild(opt);
       }
       document.getElementById('breakModal').classList.add('active');
@@ -885,7 +917,134 @@
       });
 
       closeBreakModal();
-      // Save and recalculate
+      savedState._breaks = extraStops;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(savedState));
+      calculateRoute();
+    }
+
+    function showAddStopModal() {
+      var select = document.getElementById('addStopPosition');
+      select.innerHTML = '';
+      // "At the end" option
+      var optEnd = document.createElement('option');
+      optEnd.value = 'end';
+      optEnd.textContent = 'At the end';
+      select.appendChild(optEnd);
+      // After each existing stop
+      for (var i = 0; i < PROPERTIES.length; i++) {
+        var opt = document.createElement('option');
+        opt.value = i;
+        opt.textContent = 'After #' + (i + 1) + ' - ' + (PROPERTIES[i]._csv_address || PROPERTIES[i].address || '');
+        select.appendChild(opt);
+      }
+      document.getElementById('addStopAddress').value = '';
+      document.getElementById('addStopModal').classList.add('active');
+      document.getElementById('addStopAddress').focus();
+    }
+    function closeAddStopModal() {
+      document.getElementById('addStopModal').classList.remove('active');
+    }
+    function addStop() {
+      var address = document.getElementById('addStopAddress').value.trim();
+      var city = document.getElementById('addStopCity').value.trim();
+      var state = document.getElementById('addStopState').value.trim() || 'NC';
+      var duration = parseInt(document.getElementById('addStopDuration').value) || 20;
+      var position = document.getElementById('addStopPosition').value;
+
+      if (!address) { alert('Please enter an address.'); return; }
+
+      var newProp = {
+        _csv_address: address,
+        _csv_city: city,
+        _duration: duration,
+        _matched: false,
+        _added: true,
+        address: address,
+        city: city,
+        state: state,
+        id: null, latitude: null, longitude: null,
+        list_price: null, beds: null, baths: null, sqft: null,
+        acreage: null, mls_number: null, primary_photo: null,
+        property_type: null, status: null, county: '', zip: '',
+      };
+
+      if (position === 'end') {
+        PROPERTIES.push(newProp);
+      } else {
+        var idx = parseInt(position) + 1;
+        PROPERTIES.splice(idx, 0, newProp);
+      }
+
+      closeAddStopModal();
+      // Update subtitle count
+      var subtitle = document.querySelector('.top-bar .subtitle');
+      if (subtitle) {
+        subtitle.textContent = COLLECTION_NAME + ' \u00b7 ' + PROPERTIES.length + ' properties';
+      }
+      calculateRoute();
+    }
+
+    function removeStop(itineraryIdx, isBreak) {
+      if (isBreak) {
+        // Find which break this is and remove it
+        var breakCount = 0;
+        for (var i = 0; i < fullStopList.length; i++) {
+          if (fullStopList[i].isBreak) {
+            // Count breaks seen so far to map back to extraStops index
+            if (i === itineraryIdx - 1) { // itinerary idx includes the Start row at 0
+              extraStops.splice(breakCount, 1);
+              break;
+            }
+            breakCount++;
+          }
+        }
+        savedState._breaks = extraStops;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(savedState));
+        calculateRoute();
+        return;
+      }
+
+      // Map itinerary index back to PROPERTIES index
+      // itinerary: [Start, stop1, stop2, ...break..., stop3, ..., End]
+      // We need to find which property (in allStopsOrdered) this itinerary row refers to
+      var propNumber = 0;
+      var targetPropNum = -1;
+      for (var j = 0; j < fullStopList.length; j++) {
+        if (!fullStopList[j].isBreak) propNumber++;
+        if (j === itineraryIdx - 1) { // -1 because itinerary[0] is Start
+          targetPropNum = propNumber;
+          break;
+        }
+      }
+
+      if (targetPropNum < 1) return;
+
+      // Find this property in PROPERTIES by matching address
+      var targetStop = allStopsOrdered[targetPropNum - 1];
+      if (!targetStop) return;
+
+      var targetAddr = (targetStop._csv_address || targetStop.address || '').toLowerCase();
+      for (var k = 0; k < PROPERTIES.length; k++) {
+        var pAddr = (PROPERTIES[k]._csv_address || PROPERTIES[k].address || '').toLowerCase();
+        if (pAddr === targetAddr) {
+          PROPERTIES.splice(k, 1);
+          break;
+        }
+      }
+
+      // Adjust break afterStop references
+      extraStops.forEach(function(es) {
+        if (es.afterStop >= targetPropNum) {
+          es.afterStop = Math.max(1, es.afterStop - 1);
+        }
+      });
+
+      // Update subtitle count
+      var subtitle = document.querySelector('.top-bar .subtitle');
+      if (subtitle) {
+        subtitle.textContent = COLLECTION_NAME + ' \u00b7 ' + PROPERTIES.length + ' properties';
+      }
+
       savedState._breaks = extraStops;
       localStorage.setItem(STORAGE_KEY, JSON.stringify(savedState));
       calculateRoute();
