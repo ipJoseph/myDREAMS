@@ -101,6 +101,10 @@
     .prop-table input.prefilled { color: #4a9eff; }
     .prop-table .addr-cell { color: #e0e6ed; font-weight: 500; white-space: nowrap; line-height: 1.5; }
     .prop-table .addr-city { color: #8899aa; font-size: 11px; font-weight: 400; }
+    .prop-table .notes-row td { padding: 0 12px 6px; border-bottom: 1px solid #1e3a5f; }
+    .prop-table .notes-row input { font-size: 11px; color: #8899aa; background: transparent; border: 1px solid transparent; }
+    .prop-table .notes-row input:focus { border-color: #c8a84e; background: #1a2d4a; }
+    .prop-table .notes-row input::placeholder { color: #3a4f6a; }
     .prop-table .time-cell { color: #4a9eff; font-weight: 600; font-size: 11px; white-space: nowrap; }
     .prop-table .duration-input {
       width: 50px; text-align: center; font-weight: 600; color: #c8a84e;
@@ -170,6 +174,8 @@
       .prop-table .time-cell { color: #000 !important; font-size: 11px; font-weight: 600; }
       .prop-table .addr-cell { white-space: normal; font-weight: 600; font-size: 11px; min-width: 140px; line-height: 1.5; }
       .prop-table .addr-city { font-size: 10px; font-weight: 400; color: #555 !important; }
+      .prop-table .notes-row td { padding: 0 6px 4px; border-bottom: 1px solid #aaa; }
+      .prop-table .notes-row input { font-size: 10px; font-style: italic; color: #333 !important; }
       .prop-table .duration-input { font-weight: 700 !important; }
       .prop-table .duration-suffix { font-size: 10px; color: #555 !important; }
     }
@@ -290,7 +296,6 @@
             <th>Acreage</th>
             <th>Agent</th>
             <th>Agent Phone</th>
-            <th>Notes</th>
           </tr>
         </thead>
         <tbody id="grid-body"></tbody>
@@ -882,8 +887,8 @@
           html += '<td class="time-cell">' + formatTime(stop.depart) + '</td>';
           html += '<td class="time-cell" style="color: #6b8aaa;">' + (stop.driveToNext || '') + '</td>';
           html += '<td colspan="9" style="color: #6b8aaa; font-style: italic; text-align: center;">' + stop.address + '</td>';
-          html += '<td><input type="text" data-stop="' + key + '" data-field="notes" value="' + (row.notes || '') + '" placeholder="Notes" onchange="onFieldChange()"></td>';
           html += '</tr>';
+          html += '<tr class="notes-row" style="background: #1a2d4a;"><td></td><td colspan="14"><input type="text" data-stop="' + key + '" data-field="notes" value="' + (row.notes || '') + '" placeholder="Notes..." style="width:100%; font-style:italic;" onchange="onFieldChange()"></td></tr>';
         } else {
           var n = stop.stopNumber;
           var cityState = stop.city || '';
@@ -904,8 +909,8 @@
           html += '<td><input type="text" data-stop="' + key + '" data-field="acreage" value="' + (row.acreage || (stop.acreage ? stop.acreage.toFixed(2) : '')) + '" placeholder="-" style="width:60px; text-align:center;" onchange="onFieldChange()"></td>';
           html += '<td><input type="text" data-stop="' + key + '" data-field="agent" value="' + (row.agent || stop.agent || '') + '" placeholder="Agent name" style="width:120px;" onchange="onFieldChange()"></td>';
           html += '<td><input type="text" data-stop="' + key + '" data-field="agentPhone" value="' + (row.agentPhone || stop.agentPhone || '') + '" placeholder="Phone" style="width:110px;" onchange="onFieldChange()"></td>';
-          html += '<td><input type="text" data-stop="' + key + '" data-field="notes" value="' + (row.notes || '') + '" placeholder="Notes" onchange="onFieldChange()"></td>';
           html += '</tr>';
+          html += '<tr class="notes-row"><td></td><td colspan="14"><input type="text" data-stop="' + key + '" data-field="notes" value="' + (row.notes || '') + '" placeholder="Notes..." style="width:100%;" onchange="onFieldChange()"></td></tr>';
         }
       });
 
@@ -1225,22 +1230,34 @@
     function exportCSV() {
       var headers = ['#','Address','Appt Start','Duration (min)','Appt End','Travel','MLS #','Parcel ID','List Price','Beds','Baths','SqFt','Acreage','Agent','Agent Phone','Notes'];
       var rows = [headers.join(',')];
-      document.querySelectorAll('#grid-body tr').forEach(function(tr) {
+      var allTrs = document.querySelectorAll('#grid-body tr');
+      for (var ti = 0; ti < allTrs.length; ti++) {
+        var tr = allTrs[ti];
+        if (tr.classList.contains('notes-row')) continue; // notes captured from next sibling
         var cells = [];
         cells.push(tr.querySelector('.stop-badge') ? tr.querySelector('.stop-badge').textContent : '');
-        cells.push('"' + (tr.querySelector('.addr-cell') ? tr.querySelector('.addr-cell').textContent : '') + '"');
+        var addrCell = tr.querySelector('.addr-cell');
+        cells.push('"' + (addrCell ? addrCell.textContent.replace(/\n/g, ' ') : '') + '"');
         var timeCells = tr.querySelectorAll('.time-cell');
         cells.push(timeCells[0] ? timeCells[0].textContent : '');  // Appt Start
         var durInput = tr.querySelector('.duration-input');
         cells.push(durInput ? durInput.value : '');                 // Duration
         cells.push(timeCells[1] ? timeCells[1].textContent : '');  // Appt End
         cells.push(timeCells[2] ? timeCells[2].textContent : '');  // Travel
-        // All editable fields (mls, price, beds, baths, sqft, acreage, agent, agentPhone, notes)
+        // Editable fields (mls, parcelId, price, beds, baths, sqft, acreage, agent, agentPhone)
         tr.querySelectorAll('input:not(.duration-input)').forEach(function(input) {
           cells.push('"' + (input.value || '') + '"');
         });
+        // Notes from the following notes-row
+        var notesRow = allTrs[ti + 1];
+        var notesVal = '';
+        if (notesRow && notesRow.classList.contains('notes-row')) {
+          var notesInput = notesRow.querySelector('input[data-field="notes"]');
+          if (notesInput) notesVal = notesInput.value || '';
+        }
+        cells.push('"' + notesVal + '"');
         rows.push(cells.join(','));
-      });
+      }
       var blob = new Blob([rows.join('\n')], { type: 'text/csv' });
       var a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
