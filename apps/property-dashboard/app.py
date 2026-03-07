@@ -2525,7 +2525,8 @@ def showings_plan_route():
                        list_price, beds, baths, sqft, acreage,
                        primary_photo, mls_number, latitude, longitude,
                        status, property_type,
-                       listing_agent_name, listing_agent_phone
+                       listing_agent_name, listing_agent_phone,
+                       parcel_number
                 FROM listings
                 WHERE address LIKE ? AND city LIKE ?
                 ORDER BY
@@ -2543,7 +2544,8 @@ def showings_plan_route():
                        list_price, beds, baths, sqft, acreage,
                        primary_photo, mls_number, latitude, longitude,
                        status, property_type,
-                       listing_agent_name, listing_agent_phone
+                       listing_agent_name, listing_agent_phone,
+                       parcel_number
                 FROM listings
                 WHERE address LIKE ?
                 ORDER BY
@@ -2585,6 +2587,7 @@ def showings_plan_route():
                 'property_type': None,
                 'listing_agent_name': None,
                 'listing_agent_phone': None,
+                'parcel_number': None,
                 '_csv_address': stop['address'],
                 '_csv_city': stop['city'],
                 '_matched': False,

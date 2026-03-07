@@ -99,7 +99,8 @@
     .prop-table input:focus { outline: none; border-color: #c8a84e; background: #1a2d4a; }
     .prop-table input::placeholder { color: #4a5f7a; }
     .prop-table input.prefilled { color: #4a9eff; }
-    .prop-table .addr-cell { color: #e0e6ed; font-weight: 500; white-space: nowrap; }
+    .prop-table .addr-cell { color: #e0e6ed; font-weight: 500; white-space: nowrap; line-height: 1.5; }
+    .prop-table .addr-city { color: #8899aa; font-size: 11px; font-weight: 400; }
     .prop-table .time-cell { color: #4a9eff; font-weight: 600; font-size: 11px; white-space: nowrap; }
     .prop-table .duration-input {
       width: 50px; text-align: center; font-weight: 600; color: #c8a84e;
@@ -131,7 +132,7 @@
 
     @media print {
       @page { size: landscape; margin: 0.4in; }
-      * { color: #000 !important; background: #fff !important; }
+      * { color: #000 !important; background: #fff !important; font-family: 'Segoe UI', Arial, sans-serif !important; }
       body { background: #fff !important; }
 
       /* Hide everything except the grid */
@@ -140,31 +141,37 @@
 
       /* Show print header */
       .print-header {
-        display: flex; justify-content: space-between; align-items: baseline;
-        border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 8px;
+        display: block; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 10px;
       }
-      .print-header h1 { font-size: 16px; font-weight: 700; }
-      .print-header .print-meta { font-size: 11px; color: #555 !important; }
+      .print-header h1 { font-size: 18px; font-weight: 700; margin-bottom: 2px; }
+      .print-header .print-meta { font-size: 11px; color: #444 !important; }
 
       /* Grid fills the page */
       .grid-panel { max-height: none; overflow: visible; border: none; }
       .grid-panel h2 { display: none; }
-      .prop-table { width: 100%; font-size: 9px; }
+      .prop-table { width: 100%; font-size: 11px; border-collapse: collapse; }
       .prop-table th {
-        background: #e5e5e5 !important; color: #333 !important;
-        padding: 4px 5px; font-size: 8px; border-bottom: 1px solid #999;
+        background: #e0e0e0 !important; color: #222 !important;
+        padding: 5px 6px; font-size: 10px; font-weight: 700; border-bottom: 2px solid #666;
+        text-align: left;
       }
-      .prop-table td { padding: 4px 5px; border-bottom: 1px solid #ddd; }
+      .prop-table td {
+        padding: 6px 6px; border-bottom: 1px solid #ccc; vertical-align: top;
+      }
+      .prop-table tr { page-break-inside: avoid; }
       .prop-table .stop-badge {
         background: #333 !important; color: #fff !important;
-        width: 18px; height: 18px; font-size: 9px;
+        width: 20px; height: 20px; font-size: 11px; font-weight: 700;
       }
       .prop-table input {
         border: none !important; background: transparent !important;
-        padding: 0; font-size: 9px; color: #000 !important;
+        padding: 0; font-size: 11px; color: #000 !important; font-weight: 400;
       }
-      .prop-table .time-cell { color: #000 !important; }
-      .prop-table .addr-cell { white-space: normal; }
+      .prop-table .time-cell { color: #000 !important; font-size: 11px; font-weight: 600; }
+      .prop-table .addr-cell { white-space: normal; font-weight: 600; font-size: 11px; min-width: 140px; line-height: 1.5; }
+      .prop-table .addr-city { font-size: 10px; font-weight: 400; color: #555 !important; }
+      .prop-table .duration-input { font-weight: 700 !important; }
+      .prop-table .duration-suffix { font-size: 10px; color: #555 !important; }
     }
   </style>
 </head>
@@ -275,6 +282,7 @@
             <th>Appt End</th>
             <th>Travel</th>
             <th>MLS #</th>
+            <th>Parcel ID</th>
             <th>List Price</th>
             <th>Beds</th>
             <th>Baths</th>
@@ -291,6 +299,7 @@
         <button class="btn btn-gold" onclick="saveData()">Save Changes</button>
         <button class="btn btn-outline" onclick="printDetails()">Print Details</button>
         <button class="btn btn-outline" onclick="exportCSV()">Export CSV</button>
+        <button class="btn btn-outline" onclick="exportKML()">Export to Google My Maps</button>
       </div>
     </div>
   </div>
@@ -501,12 +510,15 @@
         itinerary.push({
           label: displayAddr,
           address: displayAddr + (displayCity ? ', ' + displayCity : ''),
+          city: displayCity,
+          state: stop.state || '',
           arrive: null, depart: null, duration: dur,
           driveToNext: null, driveSeconds: 0,
           isHome: false, isBreak: false,
           stopNumber: propNumber,
           price: stop.list_price, beds: stop.beds, baths: stop.baths,
           sqft: stop.sqft, acreage: stop.acreage, mls: stop.mls_number,
+          parcelNumber: stop.parcel_number || '',
           agent: stop.listing_agent_name || '', agentPhone: stop.listing_agent_phone || '',
           propId: stop.id,
         });
@@ -722,9 +734,12 @@
 
         var displayAddr = isBreak ? stop.label : (stop._csv_address || stop.address || '');
         var displayCity = stop._csv_city || stop.city || '';
+        var displayState = stop.state || '';
         itinerary.push({
           label: displayAddr,
           address: isBreak ? stop.address : (displayAddr + (displayCity ? ', ' + displayCity : '')),
+          city: displayCity,
+          state: displayState,
           fullAddress: isBreak ? stop.address : getRouteAddress(stop),
           arrive: arriveTime, depart: departAfter, duration: dur,
           driveToNext: leg ? formatDuration(leg.duration.value) : null,
@@ -737,6 +752,7 @@
           sqft: stop.sqft,
           acreage: stop.acreage,
           mls: stop.mls_number,
+          parcelNumber: stop.parcel_number || '',
           agent: stop.listing_agent_name || '',
           agentPhone: stop.listing_agent_phone || '',
           propId: stop.id,
@@ -781,6 +797,13 @@
       savedState._breaks = extraStops;
       localStorage.setItem(STORAGE_KEY, JSON.stringify(savedState));
       recalcTimes();
+    }
+
+    function onFieldChange() {
+      // Save without rebuilding the grid (preserves focus for Tab navigation)
+      var data = collectGridData();
+      savedState = Object.assign(savedState, data);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(savedState));
     }
 
     function collectGridData() {
@@ -858,27 +881,30 @@
           html += '<td><div class="duration-cell"><input type="number" class="duration-input" data-stop="' + key + '" data-field="duration" value="' + dur + '" min="5" max="180" onchange="onDurationChange()" style="border-color: #e67e22; color: #e67e22;"><span class="duration-suffix">min</span></div></td>';
           html += '<td class="time-cell">' + formatTime(stop.depart) + '</td>';
           html += '<td class="time-cell" style="color: #6b8aaa;">' + (stop.driveToNext || '') + '</td>';
-          html += '<td colspan="8" style="color: #6b8aaa; font-style: italic; text-align: center;">' + stop.address + '</td>';
-          html += '<td><input type="text" data-stop="' + key + '" data-field="notes" value="' + (row.notes || '') + '" placeholder="Notes"></td>';
+          html += '<td colspan="9" style="color: #6b8aaa; font-style: italic; text-align: center;">' + stop.address + '</td>';
+          html += '<td><input type="text" data-stop="' + key + '" data-field="notes" value="' + (row.notes || '') + '" placeholder="Notes" onchange="onFieldChange()"></td>';
           html += '</tr>';
         } else {
           var n = stop.stopNumber;
+          var cityState = stop.city || '';
+          if (stop.state && stop.state !== cityState) cityState += (cityState ? ', ' : '') + stop.state;
           html += '<tr>';
           html += '<td><span class="stop-badge">' + n + '</span></td>';
-          html += '<td class="addr-cell">' + stop.label + '</td>';
+          html += '<td class="addr-cell">' + stop.label + (cityState ? '<br><span class="addr-city">' + cityState + '</span>' : '') + '</td>';
           html += '<td class="time-cell">' + formatTime(stop.arrive) + '</td>';
           html += '<td><div class="duration-cell"><input type="number" class="duration-input" data-stop="' + key + '" data-field="duration" value="' + dur + '" min="5" max="120" onchange="onDurationChange()"><span class="duration-suffix">min</span></div></td>';
           html += '<td class="time-cell">' + formatTime(stop.depart) + '</td>';
           html += '<td class="time-cell" style="color: #6b8aaa;">' + (stop.driveToNext || '') + '</td>';
-          html += '<td><input type="text" data-stop="' + key + '" data-field="mls" value="' + (row.mls || stop.mls || '') + '" placeholder="MLS #" style="width:90px;" onchange="onDurationChange()"></td>';
-          html += '<td><input type="text" data-stop="' + key + '" data-field="price" value="' + (row.price || (stop.price ? '$' + stop.price.toLocaleString() : '')) + '" placeholder="Price" style="width:100px;" onchange="onDurationChange()"></td>';
-          html += '<td><input type="text" data-stop="' + key + '" data-field="beds" value="' + (row.beds || stop.beds || '') + '" placeholder="-" style="width:40px; text-align:center;" onchange="onDurationChange()"></td>';
-          html += '<td><input type="text" data-stop="' + key + '" data-field="baths" value="' + (row.baths || stop.baths || '') + '" placeholder="-" style="width:40px; text-align:center;" onchange="onDurationChange()"></td>';
-          html += '<td><input type="text" data-stop="' + key + '" data-field="sqft" value="' + (row.sqft || (stop.sqft ? stop.sqft.toLocaleString() : '')) + '" placeholder="-" style="width:70px; text-align:center;" onchange="onDurationChange()"></td>';
-          html += '<td><input type="text" data-stop="' + key + '" data-field="acreage" value="' + (row.acreage || (stop.acreage ? stop.acreage.toFixed(2) : '')) + '" placeholder="-" style="width:60px; text-align:center;" onchange="onDurationChange()"></td>';
-          html += '<td><input type="text" data-stop="' + key + '" data-field="agent" value="' + (row.agent || stop.agent || '') + '" placeholder="Agent name" style="width:120px;" onchange="onDurationChange()"></td>';
-          html += '<td><input type="text" data-stop="' + key + '" data-field="agentPhone" value="' + (row.agentPhone || stop.agentPhone || '') + '" placeholder="Phone" style="width:110px;" onchange="onDurationChange()"></td>';
-          html += '<td><input type="text" data-stop="' + key + '" data-field="notes" value="' + (row.notes || '') + '" placeholder="Notes"></td>';
+          html += '<td><input type="text" data-stop="' + key + '" data-field="mls" value="' + (row.mls || stop.mls || '') + '" placeholder="MLS #" style="width:90px;" onchange="onFieldChange()"></td>';
+          html += '<td><input type="text" data-stop="' + key + '" data-field="parcelId" value="' + (row.parcelId || stop.parcelNumber || '') + '" placeholder="Parcel ID" style="width:110px;" onchange="onFieldChange()"></td>';
+          html += '<td><input type="text" data-stop="' + key + '" data-field="price" value="' + (row.price || (stop.price ? '$' + stop.price.toLocaleString() : '')) + '" placeholder="Price" style="width:100px;" onchange="onFieldChange()"></td>';
+          html += '<td><input type="text" data-stop="' + key + '" data-field="beds" value="' + (row.beds || stop.beds || '') + '" placeholder="-" style="width:40px; text-align:center;" onchange="onFieldChange()"></td>';
+          html += '<td><input type="text" data-stop="' + key + '" data-field="baths" value="' + (row.baths || stop.baths || '') + '" placeholder="-" style="width:40px; text-align:center;" onchange="onFieldChange()"></td>';
+          html += '<td><input type="text" data-stop="' + key + '" data-field="sqft" value="' + (row.sqft || (stop.sqft ? stop.sqft.toLocaleString() : '')) + '" placeholder="-" style="width:70px; text-align:center;" onchange="onFieldChange()"></td>';
+          html += '<td><input type="text" data-stop="' + key + '" data-field="acreage" value="' + (row.acreage || (stop.acreage ? stop.acreage.toFixed(2) : '')) + '" placeholder="-" style="width:60px; text-align:center;" onchange="onFieldChange()"></td>';
+          html += '<td><input type="text" data-stop="' + key + '" data-field="agent" value="' + (row.agent || stop.agent || '') + '" placeholder="Agent name" style="width:120px;" onchange="onFieldChange()"></td>';
+          html += '<td><input type="text" data-stop="' + key + '" data-field="agentPhone" value="' + (row.agentPhone || stop.agentPhone || '') + '" placeholder="Phone" style="width:110px;" onchange="onFieldChange()"></td>';
+          html += '<td><input type="text" data-stop="' + key + '" data-field="notes" value="' + (row.notes || '') + '" placeholder="Notes" onchange="onFieldChange()"></td>';
           html += '</tr>';
         }
       });
@@ -1197,7 +1223,7 @@
     }
 
     function exportCSV() {
-      var headers = ['#','Address','Appt Start','Duration (min)','Appt End','Travel','MLS #','List Price','Beds','Baths','SqFt','Acreage','Agent','Agent Phone','Notes'];
+      var headers = ['#','Address','Appt Start','Duration (min)','Appt End','Travel','MLS #','Parcel ID','List Price','Beds','Baths','SqFt','Acreage','Agent','Agent Phone','Notes'];
       var rows = [headers.join(',')];
       document.querySelectorAll('#grid-body tr').forEach(function(tr) {
         var cells = [];
@@ -1221,6 +1247,84 @@
       var cfg = getConfig();
       a.download = 'route-' + cfg.date + '.csv';
       a.click();
+    }
+
+    function exportKML() {
+      var cfg = getConfig();
+      var gridData = collectGridData();
+      var placemarks = '';
+      var propNum = 0;
+
+      fullStopList.forEach(function(stop) {
+        if (stop.isBreak) return;
+        propNum++;
+        var addr = stop._csv_address || stop.address || '';
+        var city = stop._csv_city || stop.city || '';
+        var state = stop.state || 'NC';
+        var key = addr || stop.label;
+        var row = gridData[key] || {};
+
+        var price = row.price || (stop.list_price ? '$' + stop.list_price.toLocaleString() : '');
+        var beds = row.beds || stop.beds || '';
+        var baths = row.baths || stop.baths || '';
+        var sqft = row.sqft || (stop.sqft ? stop.sqft.toLocaleString() : '');
+        var acreage = row.acreage || (stop.acreage ? stop.acreage.toFixed(2) : '');
+        var mls = row.mls || stop.mls_number || '';
+        var agent = row.agent || stop.listing_agent_name || '';
+        var notes = row.notes || '';
+
+        var desc = '';
+        if (price) desc += 'Price: ' + price + '\n';
+        if (beds || baths) desc += beds + ' bd / ' + baths + ' ba\n';
+        if (sqft) desc += sqft + ' sqft\n';
+        if (acreage) desc += acreage + ' acres\n';
+        if (mls) desc += 'MLS: ' + mls + '\n';
+        if (agent) desc += 'Agent: ' + agent + '\n';
+        if (notes) desc += 'Notes: ' + notes + '\n';
+
+        // Use coordinates if available, otherwise geocode address
+        var coordEl = '';
+        if (stop.latitude && stop.longitude) {
+          coordEl = '<Point><coordinates>' + stop.longitude + ',' + stop.latitude + ',0</coordinates></Point>';
+        } else {
+          // For address-only stops, My Maps will geocode from the address in the name
+          coordEl = '<Point><coordinates>0,0,0</coordinates></Point>';
+        }
+
+        placemarks += '<Placemark>\n';
+        placemarks += '  <name>' + escXml(propNum + '. ' + addr) + '</name>\n';
+        placemarks += '  <description>' + escXml(desc.trim()) + '</description>\n';
+        placemarks += '  <address>' + escXml(addr + ', ' + city + ', ' + state) + '</address>\n';
+        placemarks += '  <styleUrl>#showingPin</styleUrl>\n';
+        placemarks += '  ' + coordEl + '\n';
+        placemarks += '</Placemark>\n';
+      });
+
+      var kml = '<?xml version="1.0" encoding="UTF-8"?>\n'
+        + '<kml xmlns="http://www.opengis.net/kml/2.2">\n'
+        + '<Document>\n'
+        + '  <name>' + escXml(COLLECTION_NAME + ' - ' + cfg.date) + '</name>\n'
+        + '  <description>Showing tour exported from DREAMS</description>\n'
+        + '  <Style id="showingPin">\n'
+        + '    <IconStyle>\n'
+        + '      <color>ff00a5c8</color>\n'  // gold in KML AABBGGRR format
+        + '      <scale>1.2</scale>\n'
+        + '      <Icon><href>http://maps.google.com/mapfiles/kml/paddle/ylw-circle.png</href></Icon>\n'
+        + '    </IconStyle>\n'
+        + '  </Style>\n'
+        + placemarks
+        + '</Document>\n'
+        + '</kml>';
+
+      var blob = new Blob([kml], { type: 'application/vnd.google-earth.kml+xml' });
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = COLLECTION_NAME.replace(/[^a-zA-Z0-9]/g, '-') + '-' + cfg.date + '.kml';
+      a.click();
+    }
+
+    function escXml(s) {
+      return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
     function saveShowing() {
