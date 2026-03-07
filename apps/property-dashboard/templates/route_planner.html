@@ -205,7 +205,7 @@
           </div>
           <div class="config-row">
             <label>Start Address</label>
-            <input type="text" id="cfgStart" value="{{ home_address }}" placeholder="Starting address">
+            <input type="text" id="cfgStart" value="{{ home_address }}" placeholder="Optional: starting address">
           </div>
           <div class="config-row">
             <label style="width: auto; flex: none;">
@@ -353,6 +353,7 @@
     var allStopsOrdered = [];
     var fullStopList = [];
     var extraStops = [];
+    var isPropsOnly = false;
 
     // Load saved state
     var savedState = {};
@@ -544,20 +545,39 @@
         renderPropertiesWithoutRoute();
         return;
       }
-      if (!cfg.start) {
-        showMapMessage('Enter a start address to calculate route.');
+      if (routableProps.length < 2 && !cfg.start) {
+        showMapMessage('Enter a start address or add more properties to calculate route.');
         renderPropertiesWithoutRoute();
         return;
       }
 
-      var startAddress = cfg.start;
-      var endAddress = cfg.end;
       var ds = new google.maps.DirectionsService();
+      var startAddress, endAddress, waypoints;
 
-      // Single route: START → all properties as waypoints (optimized) → END
-      var waypoints = routableProps.map(function(p) {
-        return { location: getRouteAddress(p), stopover: true };
-      });
+      if (cfg.start) {
+        // Start/End provided: all properties are waypoints
+        startAddress = cfg.start;
+        endAddress = cfg.end;
+        isPropsOnly = false;
+        waypoints = routableProps.map(function(p) {
+          return { location: getRouteAddress(p), stopover: true };
+        });
+      } else {
+        // No start/end: use first property as origin, last as destination
+        // (Google will optimize the middle waypoints)
+        isPropsOnly = true;
+        startAddress = getRouteAddress(routableProps[0]);
+        endAddress = cfg.roundtrip ? startAddress : getRouteAddress(routableProps[routableProps.length - 1]);
+        waypoints = routableProps.slice(1, cfg.roundtrip ? routableProps.length : -1).map(function(p) {
+          return { location: getRouteAddress(p), stopover: true };
+        });
+        // If roundtrip with no start, all props except first are waypoints
+        if (cfg.roundtrip) {
+          waypoints = routableProps.slice(1).map(function(p) {
+            return { location: getRouteAddress(p), stopover: true };
+          });
+        }
+      }
 
       ds.route({
         origin: startAddress,
@@ -574,28 +594,38 @@
 
         // Reorder properties based on Google's optimization
         var order = result.routes[0].waypoint_order;
-        allStopsOrdered = order.map(function(i) { return routableProps[i]; });
-
-        // All legs: start→first, first→second, ..., last→end
         var legs = result.routes[0].legs;
-        // Leg 0 = start to first property, last leg = last property to end
-        homeToFirstSeconds = legs[0].duration.value;
-        homeToFirstMeters = legs[0].distance.value;
 
-        // routeLegs for property-to-property timing (legs 1..N-1)
-        // plus last-property-to-end (last leg)
-        routeLegs = legs.slice(1);
+        if (isPropsOnly) {
+          // Origin and destination are properties, not separate addresses
+          // Origin = routableProps[0], waypoints = reordered middle, dest = last (or first if roundtrip)
+          var middleProps = cfg.roundtrip ? routableProps.slice(1) : routableProps.slice(1, -1);
+          var reorderedMiddle = order.map(function(i) { return middleProps[i]; });
+          allStopsOrdered = [routableProps[0]].concat(reorderedMiddle);
+          if (!cfg.roundtrip) allStopsOrdered.push(routableProps[routableProps.length - 1]);
+          homeToFirstSeconds = 0;
+          homeToFirstMeters = 0;
+          routeLegs = legs; // All legs are property-to-property
+        } else {
+          // Origin/destination are separate addresses
+          allStopsOrdered = order.map(function(i) { return routableProps[i]; });
+          homeToFirstSeconds = legs[0].duration.value;
+          homeToFirstMeters = legs[0].distance.value;
+          routeLegs = legs.slice(1);
+        }
 
         // Detect start/end matches
-        var startIsFirst = isAddressMatch(startAddress, allStopsOrdered[0]);
+        var startIsFirst = isPropsOnly || isAddressMatch(cfg.start, allStopsOrdered[0]);
         var lastStop = allStopsOrdered[allStopsOrdered.length - 1];
-        var endIsLast = isAddressMatch(endAddress, lastStop);
+        var endIsLast = isPropsOnly || isAddressMatch(cfg.end, lastStop);
 
         buildFullStopList();
 
         // If there are break stops, re-route with breaks inserted (no optimization)
         if (extraStops.length > 0) {
-          var breakWaypoints = fullStopList.map(function(s) {
+          // In propsOnly mode, skip first item (it's already the origin)
+          var breakList = isPropsOnly ? fullStopList.slice(1) : fullStopList;
+          var breakWaypoints = breakList.map(function(s) {
             var addr = s.isBreak ? s.address : getRouteAddress(s);
             return { location: addr, stopover: true };
           });
@@ -608,9 +638,15 @@
           }, function(breakResult, s2) {
             if (s2 !== 'OK') return;
             var bLegs = breakResult.routes[0].legs;
-            homeToFirstSeconds = bLegs[0].duration.value;
-            homeToFirstMeters = bLegs[0].distance.value;
-            routeLegs = bLegs.slice(1);
+            if (isPropsOnly) {
+              homeToFirstSeconds = 0;
+              homeToFirstMeters = 0;
+              routeLegs = bLegs;
+            } else {
+              homeToFirstSeconds = bLegs[0].duration.value;
+              homeToFirstMeters = bLegs[0].distance.value;
+              routeLegs = bLegs.slice(1);
+            }
             recalcTimes();
             directionsRenderer.setDirections(breakResult);
             addMarkers(startIsFirst, endIsLast);
@@ -656,14 +692,16 @@
 
       var cfg = getConfig();
 
-      // Start departure
-      var startLabel = cfg.roundtrip ? 'Start / End' : 'Start';
-      itinerary.push({
-        label: startLabel, address: cfg.start, arrive: null,
-        depart: new Date(currentTime), driveToNext: formatDuration(homeToFirstSeconds),
-        driveSeconds: homeToFirstSeconds, isStart: true, isHome: true, isBreak: false,
-      });
-      currentTime = new Date(currentTime.getTime() + homeToFirstSeconds * 1000);
+      // Start departure (skip if no start address provided)
+      if (!isPropsOnly) {
+        var startLabel = cfg.roundtrip ? 'Start / End' : 'Start';
+        itinerary.push({
+          label: startLabel, address: cfg.start, arrive: null,
+          depart: new Date(currentTime), driveToNext: formatDuration(homeToFirstSeconds),
+          driveSeconds: homeToFirstSeconds, isStart: true, isHome: true, isBreak: false,
+        });
+        currentTime = new Date(currentTime.getTime() + homeToFirstSeconds * 1000);
+      }
 
       var totalStopMin = 0;
       var propNumber = 0;
@@ -707,12 +745,15 @@
         currentTime = new Date(departAfter.getTime() + (leg ? leg.duration.value * 1000 : 0));
       }
 
+      // End entry (skip if no end address provided)
       var returnTime = new Date(currentTime);
-      var endLabel = cfg.roundtrip ? 'Return to Start' : 'End';
-      itinerary.push({
-        label: endLabel, address: cfg.end,
-        arrive: returnTime, depart: null, isEnd: true, isHome: true, isBreak: false,
-      });
+      if (!isPropsOnly) {
+        var endLabel = cfg.roundtrip ? 'Return to Start' : 'End';
+        itinerary.push({
+          label: endLabel, address: cfg.end,
+          arrive: returnTime, depart: null, isEnd: true, isHome: true, isBreak: false,
+        });
+      }
 
       var totalDriveSeconds = homeToFirstSeconds + routeLegs.reduce(function(s, l) { return s + l.duration.value; }, 0);
       var totalSeconds = totalDriveSeconds + totalStopMin * 60;
@@ -877,17 +918,16 @@
       markerZIndex = 100;
       var bounds = new google.maps.LatLngBounds();
 
-      // routeLegs = legs.slice(1) from full result, so:
-      // routeLegs[0].start_location = first property position
-      // routeLegs[i].end_location = next property position
-      // For property positions, build from routeLegs
+      // Build property positions from routeLegs.
+      // In normal mode, routeLegs = legs.slice(1), so last end_location is the END address (not a property).
+      // In propsOnly mode, routeLegs = legs, so last end_location IS the last property.
       var propPositions = [];
       if (routeLegs.length > 0) {
         propPositions.push(routeLegs[0].start_location);
-        for (var li = 0; li < routeLegs.length - 1; li++) {
+        var posLimit = isPropsOnly ? routeLegs.length : (routeLegs.length - 1);
+        for (var li = 0; li < posLimit; li++) {
           propPositions.push(routeLegs[li].end_location);
         }
-        // Last end_location is the END address, not a property
       }
 
       // S marker (start address, only if not matching first property)
