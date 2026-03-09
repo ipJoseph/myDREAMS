@@ -749,6 +749,31 @@ class DREAMSDatabase:
             agent_notified INTEGER DEFAULT 0,
             FOREIGN KEY (user_id) REFERENCES users(id)
         );
+
+        -- TMO (Total Market Overview) report data
+        CREATE TABLE IF NOT EXISTS tmo_market_data (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            region TEXT NOT NULL,
+            property_type TEXT NOT NULL,
+            report_date TEXT NOT NULL,
+            price_range TEXT NOT NULL,
+            price_range_min INTEGER,
+            price_range_max INTEGER,
+            active_listings INTEGER,
+            pending_listings INTEGER,
+            pending_ratio REAL,
+            months_inventory REAL,
+            expired_listings_6mo INTEGER,
+            closed_listings_6mo INTEGER,
+            avg_original_list_price REAL,
+            avg_final_list_price REAL,
+            avg_sale_price REAL,
+            list_to_sale_ratio REAL,
+            avg_dom_sold INTEGER,
+            avg_dom_active INTEGER,
+            source_file TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
         '''
 
     def _get_indexes_schema(self) -> str:
@@ -831,6 +856,9 @@ class DREAMSDatabase:
         CREATE INDEX IF NOT EXISTS idx_buyer_activity_user ON buyer_activity(user_id, occurred_at DESC);
         CREATE INDEX IF NOT EXISTS idx_buyer_activity_notified ON buyer_activity(agent_notified, occurred_at DESC);
         CREATE INDEX IF NOT EXISTS idx_buyer_activity_lead ON buyer_activity(lead_id);
+        -- TMO market data indexes
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_tmo_region_date_range
+            ON tmo_market_data(region, report_date, price_range);
         '''
 
     def _seed_default_settings(self, conn) -> None:
