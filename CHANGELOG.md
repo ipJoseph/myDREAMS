@@ -9,6 +9,19 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **TMO Weekly Pipeline: Automated Download, Parse, Generate, Notify** (2026-03-10)
+  - `scripts/tmo_weekly_pipeline.py`: orchestrator that chains download, parse, generate, and email steps
+  - `scripts/market_insights_engine.py`: two-tier fresh insights system
+    - Tier 1: automated anomaly detection (market type shifts, streaks, period highs/lows, big swings)
+    - Tier 2: curated seasonal WNC-specific content as fallback
+  - `data/market_insights.json`: month-keyed seasonal tips with date override support
+  - `apps/automation/templates/tmo_reports_ready.html`: email template with summary table and insights
+  - `scripts/run_tmo_pipeline.sh`: cron wrapper with logging
+  - Modified `download_tmo_reports.py`: added `download_new_reports()` importable function
+  - Modified `parse_tmo_reports.py`: added `parse_new_reports()` importable function
+  - Modified `generate_market_report.py`: integrated fresh insights, increased display cap from 4 to 5
+  - Pipeline state tracking (`data/tmo_pipeline_state.json`) prevents duplicate processing
+  - Cron entry: daily 8 AM check for new reports
 - **Collections Enhancement: Full 5-Phase Implementation** (2026-03-05)
   - **Phase 1: Schema + Templates + Featured Collections**
     - 9 new columns on `property_packages` (derived_from_id/type, is_public, featured_order, cover_image, criteria_json, auto_refresh, last_refreshed_at, slug)

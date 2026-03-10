@@ -17,6 +17,11 @@ import sqlite3
 from datetime import datetime
 from pathlib import Path
 
+try:
+    from scripts.market_insights_engine import generate_fresh_insights
+except ImportError:
+    from market_insights_engine import generate_fresh_insights
+
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -552,12 +557,22 @@ def generate_report(region, report_date=None, output_path=None):
     c.setFillColorRGB(*hex_to_rgb(DARK_TEXT))
     c.drawString(margin, insights_y + 8, "MARKET INSIGHTS")
 
-    # Draw insight cards
-    insights = build_insights(latest, prev, trend, hot_segs, region)
+    # Draw insight cards: fresh insights first, then data-driven fallbacks
+    fresh = generate_fresh_insights(region, report_date, conn)
+    data_insights = build_insights(latest, prev, trend, hot_segs, region)
+
+    # Fresh insights take priority, fill remaining slots with data insights
+    insights = fresh[:]
+    for di in data_insights:
+        if len(insights) >= 5:
+            break
+        # Avoid near-duplicates by checking for shared key phrases
+        if not any(di[:40] in existing for existing in insights):
+            insights.append(di)
 
     c.setFont("Helvetica", 7.5)
     bullet_y = insights_y - 8
-    for insight in insights[:4]:
+    for insight in insights[:5]:
         # Bullet point
         c.setFillColorRGB(*hex_to_rgb(TEAL))
         c.circle(margin + 4, bullet_y + 2.5, 2, fill=1, stroke=0)

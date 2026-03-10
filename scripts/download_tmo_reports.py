@@ -118,7 +118,14 @@ def decode_base64url(data):
     return base64.b64decode(raw)
 
 
-def main():
+def download_new_reports():
+    """Download new TMO report PDFs from Gmail.
+
+    Importable function for use by the pipeline orchestrator.
+
+    Returns:
+        Number of new PDFs downloaded.
+    """
     print('Searching Gmail for TMO reports...')
     ids = get_all_tmo_message_ids()
     print(f'Found {len(ids)} emails with TMO attachments')
@@ -127,7 +134,12 @@ def main():
     for msg_id in ids:
         total += download_attachments(msg_id)
 
-    print(f'\nDone! Downloaded {total} new PDFs to {os.path.abspath(OUTPUT_DIR)}')
+    print(f'Downloaded {total} new PDFs to {os.path.abspath(OUTPUT_DIR)}')
+    return total
+
+
+def main():
+    total = download_new_reports()
     existing = len([f for f in os.listdir(OUTPUT_DIR) if f.endswith('.pdf')])
     print(f'Total PDFs in folder: {existing}')
 

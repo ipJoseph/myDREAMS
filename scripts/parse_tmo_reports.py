@@ -269,17 +269,67 @@ def insert_rows(conn: sqlite3.Connection, rows: list[dict]) -> int:
     return count
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Parse TMO report PDFs into database")
-    parser.add_argument("--dry-run", action="store_true", help="Parse but don't write to DB or move files")
-    args = parser.parse_args()
+def _ensure_table(conn):
+    """Create tmo_market_data table if it doesn't exist."""
+    conn.execute("PRAGMA journal_mode = WAL")
+    conn.execute("PRAGMA busy_timeout = 10000")
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS tmo_market_data (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            region TEXT NOT NULL,
+            property_type TEXT NOT NULL,
+            report_date TEXT NOT NULL,
+            price_range TEXT NOT NULL,
+            price_range_min INTEGER,
+            price_range_max INTEGER,
+            active_listings INTEGER,
+            pending_listings INTEGER,
+            pending_ratio REAL,
+            months_inventory REAL,
+            expired_listings_6mo INTEGER,
+            closed_listings_6mo INTEGER,
+            avg_original_list_price REAL,
+            avg_final_list_price REAL,
+            avg_sale_price REAL,
+            list_to_sale_ratio REAL,
+            avg_dom_sold INTEGER,
+            avg_dom_active INTEGER,
+            source_file TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    conn.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_tmo_region_date_range
+            ON tmo_market_data(region, report_date, price_range)
+    """)
+    conn.commit()
 
-    # Find all PDFs in the top-level tmo-reports directory (not in subfolders)
+
+def parse_new_reports(dry_run=False):
+    """Parse any new TMO PDFs in the tmo-reports directory.
+
+    Importable function for use by the pipeline orchestrator.
+
+    Args:
+        dry_run: If True, parse PDFs but don't write to DB or move files.
+
+    Returns:
+        dict with keys: processed (int), total_rows (int), errors (list),
+                        report_dates (set of date strings), regions (set of region names)
+    """
     pdf_files = sorted(TMO_DIR.glob("TMO-*.pdf"))
+
+    result = {
+        "processed": 0,
+        "total_rows": 0,
+        "errors": [],
+        "report_dates": set(),
+        "regions": set(),
+    }
 
     if not pdf_files:
         print("No TMO PDF files found to process.")
-        return
+        return result
 
     print(f"Found {len(pdf_files)} TMO PDFs to process")
 
@@ -287,59 +337,29 @@ def main():
     for _, folder_name in REGION_MAP.values():
         (TMO_DIR / folder_name).mkdir(exist_ok=True)
 
-    # Connect to database and ensure table exists
-    if not args.dry_run:
+    conn = None
+    if not dry_run:
         conn = sqlite3.connect(DB_PATH, timeout=30)
-        conn.execute("PRAGMA journal_mode = WAL")
-        conn.execute("PRAGMA busy_timeout = 10000")
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS tmo_market_data (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                region TEXT NOT NULL,
-                property_type TEXT NOT NULL,
-                report_date TEXT NOT NULL,
-                price_range TEXT NOT NULL,
-                price_range_min INTEGER,
-                price_range_max INTEGER,
-                active_listings INTEGER,
-                pending_listings INTEGER,
-                pending_ratio REAL,
-                months_inventory REAL,
-                expired_listings_6mo INTEGER,
-                closed_listings_6mo INTEGER,
-                avg_original_list_price REAL,
-                avg_final_list_price REAL,
-                avg_sale_price REAL,
-                list_to_sale_ratio REAL,
-                avg_dom_sold INTEGER,
-                avg_dom_active INTEGER,
-                source_file TEXT,
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-        conn.execute("""
-            CREATE UNIQUE INDEX IF NOT EXISTS idx_tmo_region_date_range
-                ON tmo_market_data(region, report_date, price_range)
-        """)
-        conn.commit()
-
-    total_rows = 0
-    processed = 0
-    errors = []
+        _ensure_table(conn)
 
     for pdf_path in pdf_files:
         try:
             rows = parse_pdf(pdf_path)
 
-            if not args.dry_run:
+            if not dry_run and conn:
                 count = insert_rows(conn, rows)
-                total_rows += count
+                result["total_rows"] += count
 
-            processed += 1
+            result["processed"] += 1
+
+            # Track which dates and regions we processed
+            for row in rows:
+                result["report_dates"].add(row["region"] and row["report_date"])
+                result["regions"].add(row["region"])
 
             # Move file into region subfolder
             folder = region_folder_for_file(pdf_path.name)
-            if folder and not args.dry_run:
+            if folder and not dry_run:
                 dest = TMO_DIR / folder / pdf_path.name
                 shutil.move(str(pdf_path), str(dest))
 
@@ -347,21 +367,28 @@ def main():
             print(f"  OK: {pdf_path.name} ({status})")
 
         except Exception as e:
-            errors.append((pdf_path.name, str(e)))
+            result["errors"].append((pdf_path.name, str(e)))
             print(f"  ERROR: {pdf_path.name}: {e}")
 
-    if not args.dry_run and processed > 0:
+    if not dry_run and conn and result["processed"] > 0:
         conn.commit()
         conn.close()
 
-    # Summary
-    print(f"\nSummary:")
-    print(f"  Processed: {processed}/{len(pdf_files)} files")
-    print(f"  Rows loaded: {total_rows}")
-    if errors:
-        print(f"  Errors: {len(errors)}")
-        for name, err in errors:
-            print(f"    {name}: {err}")
+    print(f"Summary: {result['processed']}/{len(pdf_files)} files, {result['total_rows']} rows")
+    return result
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Parse TMO report PDFs into database")
+    parser.add_argument("--dry-run", action="store_true", help="Parse but don't write to DB or move files")
+    args = parser.parse_args()
+
+    result = parse_new_reports(dry_run=args.dry_run)
+
+    if result["errors"]:
+        print(f"\nErrors ({len(result['errors'])}):")
+        for name, err in result["errors"]:
+            print(f"  {name}: {err}")
 
 
 if __name__ == "__main__":
