@@ -143,31 +143,34 @@ def enrich_listing_view(lat: float, lon: float, listing_elev: float) -> int | No
     return calculate_view_potential(listing_elev, surrounding)
 
 
-def enrich_listings(all_listings: bool = False, test_mode: bool = False):
-    """Fetch view potential for listings that have elevation but no view score."""
+def enrich_listings(all_listings: bool = False, test_mode: bool = False, include_inactive: bool = False):
+    """Fetch view potential for listings that have elevation but no view score.
+
+    By default, only enriches ACTIVE and PENDING listings. Use --include-inactive
+    to also process SOLD, EXPIRED, etc. (this will take a long time).
+    """
     conn = sqlite3.connect(str(DB_PATH))
     conn.execute("PRAGMA busy_timeout = 30000")
     conn.row_factory = sqlite3.Row
 
+    # Base conditions for valid coordinates and elevation
+    base_where = """
+        latitude IS NOT NULL AND longitude IS NOT NULL
+        AND latitude != 0 AND longitude != 0
+        AND elevation_feet IS NOT NULL AND elevation_feet > 0
+    """
+
+    # Status filter: only active/pending unless explicitly including inactive
+    if not include_inactive:
+        base_where += " AND status IN ('ACTIVE', 'PENDING')"
+
     if all_listings:
-        query = """
-            SELECT id, latitude, longitude, elevation_feet, address, city
-            FROM listings
-            WHERE latitude IS NOT NULL AND longitude IS NOT NULL
-                  AND latitude != 0 AND longitude != 0
-                  AND elevation_feet IS NOT NULL AND elevation_feet > 0
-        """
+        query = f"SELECT id, latitude, longitude, elevation_feet, address, city FROM listings WHERE {base_where}"
     else:
-        query = """
-            SELECT id, latitude, longitude, elevation_feet, address, city
-            FROM listings
-            WHERE latitude IS NOT NULL AND longitude IS NOT NULL
-                  AND latitude != 0 AND longitude != 0
-                  AND elevation_feet IS NOT NULL AND elevation_feet > 0
-                  AND view_potential IS NULL
-        """
+        query = f"SELECT id, latitude, longitude, elevation_feet, address, city FROM listings WHERE {base_where} AND view_potential IS NULL"
 
     rows = conn.execute(query).fetchall()
+    conn.close()  # Release the connection while doing API calls
 
     if test_mode:
         rows = rows[:5]
@@ -176,11 +179,11 @@ def enrich_listings(all_listings: bool = False, test_mode: bool = False):
     print(f"Found {total} listings to enrich with view potential data")
 
     if total == 0:
-        conn.close()
         return
 
     success = 0
     errors = 0
+    batch = []  # Collect updates, write in batches
 
     for i, row in enumerate(rows, 1):
         lat, lon = row["latitude"], row["longitude"]
@@ -190,30 +193,41 @@ def enrich_listings(all_listings: bool = False, test_mode: bool = False):
         score = enrich_listing_view(lat, lon, float(elev))
 
         if score is not None:
-            conn.execute(
-                "UPDATE listings SET view_potential = ? WHERE id = ?",
-                (score, row["id"]),
-            )
+            batch.append((score, row["id"]))
             success += 1
             print(f"  [{i}/{total}] {label}: elev={elev}ft, view={score}/10")
         else:
             errors += 1
             print(f"  [{i}/{total}] {label}: FAILED (not enough surrounding data)")
 
-        # Commit every 50 records
-        if i % 50 == 0:
-            conn.commit()
+        # Write batch every 50 records (short-lived connection)
+        if len(batch) >= 50:
+            _flush_batch(batch)
+            batch = []
 
-    conn.commit()
-    conn.close()
+    # Final flush
+    if batch:
+        _flush_batch(batch)
 
     print(f"\nDone: {success} enriched, {errors} failed out of {total}")
 
 
+def _flush_batch(batch: list[tuple]):
+    """Write a batch of view_potential updates with a short-lived DB connection."""
+    conn = sqlite3.connect(str(DB_PATH))
+    conn.execute("PRAGMA busy_timeout = 30000")
+    for score, listing_id in batch:
+        conn.execute("UPDATE listings SET view_potential = ? WHERE id = ?", (score, listing_id))
+    conn.commit()
+    conn.close()
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Enrich listings with view potential scores")
-    parser.add_argument("--all", action="store_true", help="Re-enrich all listings")
+    parser.add_argument("--all", action="store_true", help="Re-enrich all listings (resets existing scores)")
     parser.add_argument("--test", action="store_true", help="Test with 5 listings only")
+    parser.add_argument("--include-inactive", action="store_true",
+                        help="Include SOLD/EXPIRED/WITHDRAWN listings (default: ACTIVE/PENDING only)")
     args = parser.parse_args()
 
-    enrich_listings(all_listings=args.all, test_mode=args.test)
+    enrich_listings(all_listings=args.all, test_mode=args.test, include_inactive=args.include_inactive)
