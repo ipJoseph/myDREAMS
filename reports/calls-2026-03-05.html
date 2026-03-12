@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Call Activity Report | Mar 5, 2026</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8fafc;
+            color: #1a1a1a;
+            padding: 32px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        h1 {
+            font-size: 26px;
+            font-weight: 800;
+            margin-bottom: 4px;
+        }
+        .subtitle {
+            font-size: 14px;
+            color: #64748b;
+            margin-bottom: 32px;
+        }
+        .section-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 14px;
+            margin-top: 36px;
+        }
+
+        /* Summary Cards */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 14px;
+            margin-bottom: 12px;
+        }
+        .summary-card {
+            background: white;
+            border-radius: 10px;
+            padding: 18px 16px;
+            text-align: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        }
+        .summary-card .value {
+            font-size: 32px;
+            font-weight: 800;
+            line-height: 1;
+            margin-bottom: 4px;
+        }
+        .summary-card .label {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #64748b;
+        }
+        .total .value { color: #1e3a5f; }
+        .outbound .value { color: #2563eb; }
+        .inbound .value { color: #16a34a; }
+        .connected .value { color: #7c3aed; }
+        .duration .value { color: #ea580c; font-size: 24px; }
+
+        /* Summary Table */
+        .summary-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+            margin-bottom: 32px;
+        }
+        .summary-table th {
+            background: #f8fafc;
+            padding: 10px 14px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #64748b;
+            text-align: center;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        .summary-table th:first-child { text-align: left; }
+        .summary-table td {
+            padding: 10px 14px;
+            font-size: 14px;
+            text-align: center;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .summary-table td:first-child {
+            text-align: left;
+            font-weight: 600;
+        }
+        .summary-table tr:last-child td {
+            border-bottom: none;
+        }
+        .summary-table .total-row {
+            background: #f0f9ff;
+            font-weight: 700;
+        }
+        .summary-table .total-row td { border-top: 2px solid #bfdbfe; }
+        .summary-table .weekend td { color: #94a3b8; }
+
+        /* Detail Table */
+        .detail-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+            font-size: 13px;
+        }
+        .detail-table th {
+            background: #f8fafc;
+            padding: 9px 12px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #64748b;
+            text-align: left;
+            border-bottom: 2px solid #e2e8f0;
+            position: sticky;
+            top: 0;
+        }
+        .detail-table td {
+            padding: 8px 12px;
+            border-bottom: 1px solid #f1f5f9;
+            vertical-align: middle;
+        }
+        .detail-table tr:hover { background: #f8fafc; }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+        .badge.outbound { background: #eff6ff; color: #2563eb; }
+        .badge.inbound { background: #f0fdf4; color: #16a34a; }
+        .badge.no-answer { color: #d97706; }
+        .badge.bad-number { color: #dc2626; }
+        .badge.left-message { color: #7c3aed; }
+
+        .day-divider td {
+            background: #f1f5f9;
+            font-weight: 700;
+            font-size: 12px;
+            color: #475569;
+            padding: 6px 12px;
+        }
+
+        .duration-bar {
+            display: inline-block;
+            height: 6px;
+            background: #3b82f6;
+            border-radius: 3px;
+            margin-left: 6px;
+            vertical-align: middle;
+            opacity: 0.5;
+        }
+
+        .footer {
+            text-align: center;
+            font-size: 12px;
+            color: #94a3b8;
+            margin-top: 32px;
+            padding-top: 16px;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        @media print {
+            body { padding: 16px; }
+            .detail-table th { position: static; }
+        }
+    </style>
+</head>
+<body>
+
+<h1>Call Activity Report</h1>
+<p class="subtitle">Joseph Williams | Thursday, March 5, 2026 | All times EST (UTC&minus;5) | Source: FUB via DREAMS</p>
+
+<!-- Summary Cards -->
+<div class="summary-grid">
+    <div class="summary-card total">
+        <div class="value">82</div>
+        <div class="label">Total Calls</div>
+    </div>
+    <div class="summary-card outbound">
+        <div class="value">79</div>
+        <div class="label">Made</div>
+    </div>
+    <div class="summary-card inbound">
+        <div class="value">3</div>
+        <div class="label">Received</div>
+    </div>
+    <div class="summary-card connected">
+        <div class="value">60</div>
+        <div class="label">Connected</div>
+    </div>
+    <div class="summary-card duration">
+        <div class="value">1h 9m</div>
+        <div class="label">Total Talk Time</div>
+    </div>
+</div>
+
+<!-- Detail Table -->
+<h2 class="section-title">Call Detail Log</h2>
+<table class="detail-table">
+    <thead>
+        <tr>
+            <th>Date</th>
+            <th>Time (EST)</th>
+            <th>Direction</th>
+            <th>Contact</th>
+            <th>Status</th>
+            <th>Duration</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr class="day-divider"><td colspan="6">Thursday, March 5</td></tr>
+        <tr><td>3/5</td><td>8:56 AM</td><td><span class="badge outbound">Made</span></td><td>Faith Gallaher</td><td>completed</td><td>0:26</td></tr>
+        <tr><td>3/5</td><td>8:57 AM</td><td><span class="badge outbound">Made</span></td><td>Karen Dunn</td><td><span class="badge left-message">Left VM</span></td><td>&#8212;</td></tr>
+        <tr><td>3/5</td><td>8:57 AM</td><td><span class="badge outbound">Made</span></td><td>Karen Dunn</td><td>completed</td><td>0:49</td></tr>
+        <tr><td>3/5</td><td>8:59 AM</td><td><span class="badge outbound">Made</span></td><td>David Donohoe</td><td><span class="badge no-answer">No Answer</span></td><td>&#8212;</td></tr>
+        <tr><td>3/5</td><td>8:59 AM</td><td><span class="badge outbound">Made</span></td><td>David Donohoe</td><td><span class="badge no-answer">No Answer</span></td><td>&#8212;</td></tr>
+        <tr><td>3/5</td><td>8:59 AM</td><td><span class="badge outbound">Made</span></td><td>Thomas Steiner</td><td><span class="badge no-answer">No Answer</span></td><td>&#8212;</td></tr>
+        <tr><td>3/5</td><td>9:00 AM</td><td><span class="badge outbound">Made</span></td><td>Joan Rv</td><td><span class="badge no-answer">No Answer</span></td><td>&#8212;</td></tr>
+        <tr><td>3/5</td><td>9:03 AM</td><td><span class="badge outbound">Made</span></td><td>Julio Garcia</td><td>completed</td><td>2:47</td></tr>
+        <tr><td>3/5</td><td>9:04 AM</td><td><span class="badge outbound">Made</span></td><td>Vanesa Filippelli</td><td><span class="badge bad-number">Bad Number</span></td><td>&#8212;</td></tr>
+        <tr><td>3/5</td><td>9:06 AM</td><td><span class="badge outbound">Made</span></td><td>Cathy Hamilton</td><td>completed</td><td>0:37</td></tr>
+        <tr><td>3/5</td><td>9:06 AM</td><td><span class="badge outbound">Made</span></td><td>Mirian Torres</td><td><span class="badge no-answer">No Answer</span></td><td>&#8212;</td></tr>
+        <tr><td>3/5</td><td>9:23 AM</td><td><span class="badge outbound">Made</span></td><td>Deborah Stiansen</td><td><span class="badge no-answer">No Answer</span></td><td>&#8212;</td></tr>
+        <tr><td>3/5</td><td>9:24 AM</td><td><span class="badge outbound">Made</span></td><td>Beth Graham</td><td>completed</td><td>0:32</td></tr>
+        <tr><td>3/5</td><td>9:33 AM</td><td><span class="badge outbound">Made</span></td><td>Scott Loper</td><td>completed</td><td>5:34</td></tr>
+        <tr><td>3/5</td><td>9:38 AM</td><td><span class="badge outbound">Made</span></td><td>John Casimer</td><td>completed</td><td>0:36</td></tr>
+        <tr><td>3/5</td><td>9:39 AM</td><td><span class="badge outbound">Made</span></td><td>Nicholas Vincent</td><td>completed</td><td>0:21</td></tr>
+        <tr><td>3/5</td><td>9:39 AM</td><td><span class="badge outbound">Made</span></td><td>Donna Smith</td><td><span class="badge bad-number">Bad Number</span></td><td>&#8212;</td></tr>
+        <tr><td>3/5</td><td>9:41 AM</td><td><span class="badge outbound">Made</span></td><td>Fred Wilson</td><td>completed</td><td>0:36</td></tr>
+        <tr><td>3/5</td><td>9:42 AM</td><td><span class="badge outbound">Made</span></td><td>Rob Gillespie</td><td><span class="badge no-answer">No Answer</span></td><td>&#8212;</td></tr>
+        <tr><td>3/5</td><td>9:43 AM</td><td><span class="badge outbound">Made</span></td><td>Barbara OHara</td><td>completed</td><td>0:46</td></tr>
+        <tr><td>3/5</td><td>9:45 AM</td><td><span class="badge outbound">Made</span></td><td>Michael Calovich</td><td><span class="badge no-answer">No Answer</span></td><td>&#8212;</td></tr>
+        <tr><td>3/5</td><td>9:46 AM</td><td><span class="badge outbound">Made</span></td><td>Jackie Braxton</td><td><span class="badge no-answer">No Answer</span></td><td>&#8212;</td></tr>
+        <tr><td>3/5</td><td>9:48 AM</td><td><span class="badge outbound">Made</span></td><td>Julius Graham</td><td><span class="badge no-answer">No Answer</span></td><td>&#8212;</td></tr>
+        <tr><td>3/5</td><td>9:49 AM</td><td><span class="badge outbound">Made</span></td><td>Hram Carter</td><td>completed</td><td>0:38</td></tr>
+        <tr><td>3/5</td><td>9:50 AM</td><td><span class="badge outbound">Made</span></td><td>Weston Jordan</td><td>completed</td><td>0:21</td></tr>
+        <tr><td>3/5</td><td>10:00 AM</td><td><span class="badge outbound">Made</span></td><td>Kim Speck</td><td>completed</td><td>0:31</td></tr>
+        <tr><td>3/5</td><td>10:01 AM</td><td><span class="badge outbound">Made</span></td><td>Matthew Murawski</td><td>completed</td><td>0:21</td></tr>
+        <tr><td>3/5</td><td>10:02 AM</td><td><span class="badge outbound">Made</span></td><td>Wayne Smith</td><td>completed</td><td>0:20</td></tr>
+        <tr><td>3/5</td><td>10:03 AM</td><td><span class="badge outbound">Made</span></td><td>Edana Davis</td><td>completed</td><td>0:34</td></tr>
+        <tr><td>3/5</td><td>10:03 AM</td><td><span class="badge outbound">Made</span></td><td>Mizael Echevarria</td><td><span class="badge no-answer">No Answer</span></td><td>&#8212;</td></tr>
+        <tr><td>3/5</td><td>10:03 AM</td><td><span class="badge outbound">Made</span></td><td>Mizael Echevarria</td><td>completed</td><td>0:08</td></tr>
+        <tr><td>3/5</td><td>10:11 AM</td><td><span class="badge outbound">Made</span></td><td>Alon Asefovitz</td><td>completed</td><td>0:07</td></tr>
+        <tr><td>3/5</td><td>10:12 AM</td><td><span class="badge outbound">Made</span></td><td>Bob Rip</td><td>completed</td><td>0:08</td></tr>
+        <tr><td>3/5</td><td>10:21 AM</td><td><span class="badge outbound">Made</span></td><td>Kim Speck</td><td>completed</td><td>&#8212;</td></tr>
+        <tr><td>3/5</td><td>10:21 AM</td><td><span class="badge outbound">Made</span></td><td>Darrell Young</td><td>completed</td><td>0:10</td></tr>
+        <tr><td>3/5</td><td>10:23 AM</td><td><span class="badge outbound">Made</span></td><td>Liam Sheridan</td><td>completed</td><td>1:05</td></tr>
+        <tr><td>3/5</td><td>10:28 AM</td><td><span class="badge outbound">Made</span></td><td>Alicia Hamilton</td><td>completed</td><td>1:08</td></tr>
+        <tr><td>3/5</td><td>10:28 AM</td><td><span class="badge outbound">Made</span></td><td>Nina Nicholson</td><td><span class="badge left-message">Left VM</span></td><td>&#8212;</td></tr>
+        <tr><td>3/5</td><td>10:29 AM</td><td><span class="badge outbound">Made</span></td><td>Nina Nicholson</td><td>completed</td><td>0:20</td></tr>
+        <tr><td>3/5</td><td>10:29 AM</td><td><span class="badge outbound">Made</span></td><td>Sean Hennington</td><td>completed</td><td>0:36</td></tr>
+        <tr><td>3/5</td><td>10:30 AM</td><td><span class="badge outbound">Made</span></td><td>Mclinden </td><td><span class="badge left-message">Left VM</span></td><td>&#8212;</td></tr>
+        <tr><td>3/5</td><td>10:31 AM</td><td><span class="badge outbound">Made</span></td><td>Mclinden </td><td>completed</td><td>1:00</td></tr>
+        <tr><td>3/5</td><td>10:31 AM</td><td><span class="badge outbound">Made</span></td><td>Lisa Averett</td><td>completed</td><td>0:13</td></tr>
+        <tr><td>3/5</td><td>10:32 AM</td><td><span class="badge outbound">Made</span></td><td>Kim Speck</td><td>completed</td><td>&#8212;</td></tr>
+        <tr><td>3/5</td><td>10:32 AM</td><td><span class="badge outbound">Made</span></td><td>[FUB #12955]</td><td>completed</td><td>0:01</td></tr>
+        <tr><td>3/5</td><td>10:33 AM</td><td><span class="badge outbound">Made</span></td><td>Jodi Spangler</td><td>completed</td><td>0:36</td></tr>
+        <tr><td>3/5</td><td>10:33 AM</td><td><span class="badge outbound">Made</span></td><td>Bobbie McGee</td><td>completed</td><td>0:14</td></tr>
+        <tr><td>3/5</td><td>10:34 AM</td><td><span class="badge outbound">Made</span></td><td>Tamara Price</td><td>completed</td><td>0:13</td></tr>
+        <tr><td>3/5</td><td>10:35 AM</td><td><span class="badge outbound">Made</span></td><td>Travis Mehaffey</td><td>completed</td><td>0:19</td></tr>
+        <tr><td>3/5</td><td>10:36 AM</td><td><span class="badge outbound">Made</span></td><td>Norman Hancock</td><td>completed</td><td>1:18</td></tr>
+        <tr><td>3/5</td><td>10:37 AM</td><td><span class="badge outbound">Made</span></td><td>Ivan Fanton</td><td>completed</td><td>0:31</td></tr>
+        <tr><td>3/5</td><td>10:41 AM</td><td><span class="badge outbound">Made</span></td><td>Nicole Haley</td><td>completed</td><td>0:22</td></tr>
+        <tr><td>3/5</td><td>10:41 AM</td><td><span class="badge outbound">Made</span></td><td>Robert Woods</td><td><span class="badge no-answer">No Answer</span></td><td>&#8212;</td></tr>
+        <tr><td>3/5</td><td>10:45 AM</td><td><span class="badge outbound">Made</span></td><td>Zadah Lusky</td><td>completed</td><td>0:58</td></tr>
+        <tr><td>3/5</td><td>10:46 AM</td><td><span class="badge outbound">Made</span></td><td>Sheree Blevins</td><td>completed</td><td>0:17</td></tr>
+        <tr><td>3/5</td><td>10:46 AM</td><td><span class="badge outbound">Made</span></td><td>Chad Thomas</td><td>completed</td><td>0:16</td></tr>
+        <tr><td>3/5</td><td>10:55 AM</td><td><span class="badge outbound">Made</span></td><td>Peggy Carver</td><td>completed</td><td>0:17</td></tr>
+        <tr><td>3/5</td><td>10:55 AM</td><td><span class="badge outbound">Made</span></td><td>Justin Sparks</td><td>completed</td><td>0:18</td></tr>
+        <tr><td>3/5</td><td>10:58 AM</td><td><span class="badge outbound">Made</span></td><td>Aaron Groover</td><td>completed</td><td>0:22</td></tr>
+        <tr><td>3/5</td><td>10:59 AM</td><td><span class="badge outbound">Made</span></td><td>Denise Moore</td><td>completed</td><td>0:20</td></tr>
+        <tr><td>3/5</td><td>11:00 AM</td><td><span class="badge outbound">Made</span></td><td>Mark Maxwell</td><td>completed</td><td>0:37</td></tr>
+        <tr><td>3/5</td><td>11:00 AM</td><td><span class="badge outbound">Made</span></td><td>Ashley Nock</td><td>completed</td><td>0:19</td></tr>
+        <tr><td>3/5</td><td>11:04 AM</td><td><span class="badge outbound">Made</span></td><td>James Bando</td><td>completed</td><td>0:25</td></tr>
+        <tr><td>3/5</td><td>11:04 AM</td><td><span class="badge outbound">Made</span></td><td>Terry Idol</td><td>completed</td><td>0:25</td></tr>
+        <tr><td>3/5</td><td>11:07 AM</td><td><span class="badge outbound">Made</span></td><td>Paige Albrecht</td><td>completed</td><td>0:19</td></tr>
+        <tr><td>3/5</td><td>11:07 AM</td><td><span class="badge outbound">Made</span></td><td>Marchetta Sponaas</td><td>completed</td><td>0:20</td></tr>
+        <tr><td>3/5</td><td>11:08 AM</td><td><span class="badge outbound">Made</span></td><td>Bill Habich</td><td><span class="badge no-answer">No Answer</span></td><td>&#8212;</td></tr>
+        <tr><td>3/5</td><td>11:12 AM</td><td><span class="badge outbound">Made</span></td><td>Val Ruff</td><td><span class="badge no-answer">No Answer</span></td><td>&#8212;</td></tr>
+        <tr><td>3/5</td><td>11:13 AM</td><td><span class="badge outbound">Made</span></td><td>Val Ruff</td><td>completed</td><td>0:43</td></tr>
+        <tr><td>3/5</td><td>11:14 AM</td><td><span class="badge outbound">Made</span></td><td>Jim Lathren</td><td><span class="badge left-message">Left VM</span></td><td>&#8212;</td></tr>
+        <tr><td>3/5</td><td>11:14 AM</td><td><span class="badge outbound">Made</span></td><td>Jim Lathren</td><td>completed</td><td>0:27</td></tr>
+        <tr><td>3/5</td><td>11:16 AM</td><td><span class="badge outbound">Made</span></td><td>Kevin Lewis</td><td>completed</td><td>0:45</td></tr>
+        <tr><td>3/5</td><td>11:16 AM</td><td><span class="badge inbound">Received</span></td><td>Kevin Lewis</td><td><span class="badge no-answer">No Answer</span></td><td>&#8212;</td></tr>
+        <tr><td>3/5</td><td>11:17 AM</td><td><span class="badge inbound">Received</span></td><td>Kevin Lewis</td><td><span class="badge no-answer">No Answer</span></td><td>&#8212;</td></tr>
+        <tr><td>3/5</td><td>11:28 AM</td><td><span class="badge outbound">Made</span></td><td>Kevin Lewis</td><td>completed</td><td>11:51 <span class="duration-bar" style="width:60px;"></span></td></tr>
+        <tr><td>3/5</td><td>11:30 AM</td><td><span class="badge outbound">Made</span></td><td>Emily Olinger</td><td>completed</td><td>0:34</td></tr>
+        <tr><td>3/5</td><td>12:09 PM</td><td><span class="badge outbound">Made</span></td><td>Todd Jensen</td><td>completed</td><td>0:41</td></tr>
+        <tr><td>3/5</td><td>1:37 PM</td><td><span class="badge outbound">Made</span></td><td>Thomas Yarborough</td><td>completed</td><td>2:52</td></tr>
+        <tr><td>3/5</td><td>1:46 PM</td><td><span class="badge outbound">Made</span></td><td>Allen McClure</td><td>completed</td><td>4:44</td></tr>
+        <tr><td>3/5</td><td>2:13 PM</td><td><span class="badge inbound">Received</span></td><td>Allen McClure</td><td>completed</td><td>6:31</td></tr>
+        <tr><td>3/5</td><td>2:45 PM</td><td><span class="badge outbound">Made</span></td><td>[FUB #26168]</td><td>completed</td><td>6:06</td></tr>
+        <tr><td>3/5</td><td>3:00 PM</td><td><span class="badge outbound">Made</span></td><td>Allen McClure</td><td>completed</td><td>4:30</td></tr>
+    </tbody>
+</table>
+
+<div class="footer">
+    Generated by DREAMS on March 05, 2026 at 3:23 PM | All times EST (UTC&minus;5)<br>
+    Data source: Follow Up Boss call log synced to DREAMS database
+</div>
+
+</body>
+</html>
