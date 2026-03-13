@@ -912,6 +912,25 @@ def home():
             # Pre-serialize contacts for Power Hour JS
             contacts_json = json.dumps(contacts, default=str)
 
+            # Expiring listings for Briefing panel
+            expiring_listings = []
+            try:
+                with db._get_connection() as conn2:
+                    expiring_listings = [dict(r) for r in conn2.execute('''
+                        SELECT id, mls_number, mls_source, address, city, list_price,
+                               expiration_date, listing_agent_name,
+                               CAST(julianday(expiration_date) - julianday('now') AS INTEGER) as days_left
+                        FROM listings
+                        WHERE status = 'ACTIVE'
+                        AND expiration_date IS NOT NULL
+                        AND expiration_date <= date('now', '+14 days')
+                        AND expiration_date >= date('now', '-7 days')
+                        ORDER BY expiration_date ASC, list_price DESC
+                        LIMIT 20
+                    ''').fetchall()]
+            except Exception:
+                pass
+
             return render_template('home_v3.html',
                                  contacts=contacts,
                                  contacts_json=contacts_json,
@@ -927,6 +946,7 @@ def home():
                                  new_leads_detail=new_leads_detail,
                                  active_pursuits=active_pursuits,
                                  buyer_activity_recent=buyer_activity_recent,
+                                 expiring_listings=expiring_listings,
                                  current_user_id=CURRENT_USER_ID,
                                  refresh_time=datetime.now(tz=ET).strftime('%B %d, %Y %I:%M %p'))
         except Exception as e:

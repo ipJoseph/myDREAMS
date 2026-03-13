@@ -1763,7 +1763,50 @@
                 </div>
             </div>
 
-            <!-- Section 7: Power Hour CTA -->
+            <!-- Section 7: Expiring Listings -->
+            {% if expiring_listings %}
+            <div class="briefing-card full-width" style="margin-top: 16px;">
+                <div class="briefing-card-header">
+                    <div class="briefing-card-title" style="color: #d97706;">Expiring Soon ({{ expiring_listings|length }})</div>
+                    <a href="/properties?status=Active&sort=expiration_date&order=asc" class="briefing-card-action">All Listings &rarr;</a>
+                </div>
+                <div class="briefing-card-body" style="padding: 0;">
+                    <table style="width: 100%; font-size: 13px; border-collapse: collapse;">
+                        <thead>
+                            <tr style="background: #fffbeb; border-bottom: 1px solid #fde68a;">
+                                <th style="padding: 6px 10px; text-align: left; font-weight: 600; color: #92400e; font-size: 11px;">Address</th>
+                                <th style="padding: 6px 10px; text-align: left; font-weight: 600; color: #92400e; font-size: 11px;">City</th>
+                                <th style="padding: 6px 10px; text-align: right; font-weight: 600; color: #92400e; font-size: 11px;">Price</th>
+                                <th style="padding: 6px 10px; text-align: center; font-weight: 600; color: #92400e; font-size: 11px;">Expires</th>
+                                <th style="padding: 6px 10px; text-align: center; font-weight: 600; color: #92400e; font-size: 11px;">Days</th>
+                                <th style="padding: 6px 10px; text-align: left; font-weight: 600; color: #92400e; font-size: 11px;">Agent</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for l in expiring_listings[:10] %}
+                            <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);{% if l.days_left < 0 %} background: rgba(220,38,38,0.08);{% elif l.days_left <= 3 %} background: rgba(217,119,6,0.08);{% endif %}">
+                                <td style="padding: 6px 10px;">
+                                    <a href="/properties/{{ l.id }}" style="color: #93c5fd; text-decoration: none; font-weight: 500;">{{ (l.address or 'N/A')[:35] }}</a>
+                                </td>
+                                <td style="padding: 6px 10px; color: #cbd5e1;">{{ l.city or '' }}</td>
+                                <td style="padding: 6px 10px; text-align: right; font-weight: 600; color: #e2e8f0;">
+                                    {% if l.list_price %}${{ "{:,.0f}".format(l.list_price) }}{% else %}-{% endif %}
+                                </td>
+                                <td style="padding: 6px 10px; text-align: center; color: #cbd5e1;">{{ l.expiration_date }}</td>
+                                <td style="padding: 6px 10px; text-align: center; font-weight: 700;
+                                    {% if l.days_left < 0 %}color: #f87171;{% elif l.days_left <= 3 %}color: #fbbf24;{% elif l.days_left <= 7 %}color: #d97706;{% else %}color: #94a3b8;{% endif %}">
+                                    {{ l.days_left }}d
+                                </td>
+                                <td style="padding: 6px 10px; font-size: 11px; color: #94a3b8;">{{ (l.listing_agent_name or '-')[:25] }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Section 8: Power Hour CTA -->
             <div class="power-hour-cta" onclick="switchMode('power-hour')">
                 <div class="power-hour-cta-text">
                     <h2>Start Power Hour</h2>
