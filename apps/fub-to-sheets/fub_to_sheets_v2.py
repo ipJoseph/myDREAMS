@@ -1661,6 +1661,53 @@ def get_property_changes_for_email() -> Dict[str, Any]:
         }
 
 
+def get_silent_buyers_and_gaps() -> Dict[str, List[Dict]]:
+    """Query Silent Buyers and Communication Gap contacts for the daily report.
+
+    Silent Buyers: 20+ properties viewed, zero phone calls.
+    Communication Gaps: Heat >= 40, 0-2 total calls.
+    Both exclude Trash, Closed, Agents/Vendors/Lendors.
+    """
+    import sqlite3 as _sqlite3
+    result = {'silent_buyers': [], 'communication_gaps': []}
+    try:
+        conn = _sqlite3.connect(Config.DREAMS_DB_PATH)
+        conn.row_factory = _sqlite3.Row
+
+        silent = conn.execute('''
+            SELECT id, first_name, last_name, stage, heat_score, phone,
+                   properties_viewed, properties_favorited, website_visits,
+                   calls_outbound, calls_inbound, avg_price_viewed
+            FROM leads
+            WHERE contact_group = 'scored'
+            AND stage NOT IN ('Trash', 'Closed', 'Past Client', 'DNC', 'Agents/Vendors/Lendors')
+            AND properties_viewed >= 20
+            AND (calls_outbound + calls_inbound) = 0
+            ORDER BY avg_price_viewed DESC, heat_score DESC
+            LIMIT 15
+        ''').fetchall()
+        result['silent_buyers'] = [dict(r) for r in silent]
+
+        gaps = conn.execute('''
+            SELECT id, first_name, last_name, stage, heat_score, phone,
+                   properties_viewed, properties_favorited, website_visits,
+                   calls_outbound, calls_inbound, avg_price_viewed
+            FROM leads
+            WHERE contact_group = 'scored'
+            AND stage NOT IN ('Trash', 'Closed', 'Past Client', 'DNC', 'Agents/Vendors/Lendors')
+            AND heat_score >= 40
+            AND (calls_outbound + calls_inbound) <= 2
+            ORDER BY avg_price_viewed DESC, heat_score DESC
+            LIMIT 10
+        ''').fetchall()
+        result['communication_gaps'] = [dict(r) for r in gaps]
+
+        conn.close()
+    except Exception as e:
+        logger.error(f"Error querying silent buyers/gaps: {e}")
+    return result
+
+
 def send_top_priority_email(
     contact_rows: List[List],
     top_priority_rows: List[List],
@@ -1822,6 +1869,72 @@ def send_top_priority_email(
             time_sep = f" &mdash; {time_str}" if time_str else ""
             body_lines.append(f"<li style='padding: 4px 0; color: #dc2626;'>{name}{time_sep}{reason_str}</li>")
         body_lines.append("</ul>")
+
+    # Silent Buyers & Communication Gaps
+    try:
+        sb_data = get_silent_buyers_and_gaps()
+
+        if sb_data['silent_buyers']:
+            body_lines.extend([
+                f"<h3>🔇 Silent Buyers ({len(sb_data['silent_buyers'])})</h3>",
+                "<p style='color: #666; font-size: 13px; margin-bottom: 8px;'>High digital activity, zero phone contact. These contacts are actively searching your site but have never been called.</p>",
+                "<table border='1' cellpadding='5' cellspacing='0' style='border-collapse: collapse; width: 100%; font-size: 13px;'>",
+                "<tr style='background-color: #7c3aed; color: white;'>",
+                "<th>Name</th><th>Stage</th><th>Props Viewed</th><th>Favorites</th><th>Visits</th><th>Heat</th><th>Avg Price</th><th>Phone</th>",
+                "</tr>",
+            ])
+            for sb in sb_data['silent_buyers']:
+                name = f"{sb.get('first_name', '')} {sb.get('last_name', '')}".strip()
+                avg_price = sb.get('avg_price_viewed') or 0
+                price_str = f"${avg_price:,.0f}" if avg_price else "-"
+                phone = format_phone_display(sb.get('phone') or "")
+                heat = sb.get('heat_score') or 0
+                heat_color = '#ef4444' if heat >= 70 else '#f59e0b' if heat >= 40 else '#6b7280'
+                body_lines.append(
+                    f"<tr>"
+                    f"<td><strong>{name}</strong></td>"
+                    f"<td>{sb.get('stage', '')}</td>"
+                    f"<td style='text-align: center;'>{sb.get('properties_viewed', 0)}</td>"
+                    f"<td style='text-align: center;'>{sb.get('properties_favorited', 0)}</td>"
+                    f"<td style='text-align: center;'>{sb.get('website_visits', 0)}</td>"
+                    f"<td style='text-align: center; color: {heat_color};'><strong>{heat:.0f}</strong></td>"
+                    f"<td style='text-align: right;'>{price_str}</td>"
+                    f"<td>{phone}</td>"
+                    f"</tr>"
+                )
+            body_lines.append("</table>")
+
+        if sb_data['communication_gaps']:
+            body_lines.extend([
+                f"<h3>📵 Communication Gaps ({len(sb_data['communication_gaps'])})</h3>",
+                "<p style='color: #666; font-size: 13px; margin-bottom: 8px;'>Heat score 40+ but only 0-2 calls logged. These hot contacts need more outreach.</p>",
+                "<table border='1' cellpadding='5' cellspacing='0' style='border-collapse: collapse; width: 100%; font-size: 13px;'>",
+                "<tr style='background-color: #dc2626; color: white;'>",
+                "<th>Name</th><th>Stage</th><th>Heat</th><th>Props Viewed</th><th>Calls</th><th>Avg Price</th><th>Phone</th>",
+                "</tr>",
+            ])
+            for gap in sb_data['communication_gaps']:
+                name = f"{gap.get('first_name', '')} {gap.get('last_name', '')}".strip()
+                avg_price = gap.get('avg_price_viewed') or 0
+                price_str = f"${avg_price:,.0f}" if avg_price else "-"
+                phone = format_phone_display(gap.get('phone') or "")
+                total_calls = (gap.get('calls_outbound') or 0) + (gap.get('calls_inbound') or 0)
+                heat = gap.get('heat_score') or 0
+                body_lines.append(
+                    f"<tr>"
+                    f"<td><strong>{name}</strong></td>"
+                    f"<td>{gap.get('stage', '')}</td>"
+                    f"<td style='text-align: center; color: #ef4444;'><strong>{heat:.0f}</strong></td>"
+                    f"<td style='text-align: center;'>{gap.get('properties_viewed', 0)}</td>"
+                    f"<td style='text-align: center;'>{total_calls}</td>"
+                    f"<td style='text-align: right;'>{price_str}</td>"
+                    f"<td>{phone}</td>"
+                    f"</tr>"
+                )
+            body_lines.append("</table>")
+
+    except Exception as e:
+        logger.error(f"Error building silent buyer/gap section: {e}")
 
     # Top priority contacts
     idx = {name: i for i, name in enumerate(CONTACTS_HEADER)}

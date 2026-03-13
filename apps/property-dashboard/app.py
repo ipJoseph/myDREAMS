@@ -978,7 +978,7 @@ def home():
     # ===== CALL LIST DATA (for v2 embedded call list) =====
     call_list_data = {}
     call_list_counts = {}
-    for list_type in ('priority', 'new_leads', 'hot', 'follow_up', 'going_cold'):
+    for list_type in ('priority', 'new_leads', 'hot', 'follow_up', 'going_cold', 'silent_buyers', 'communication_gap'):
         call_list_counts[list_type] = db.count_call_list_contacts(list_type, user_id=CURRENT_USER_ID)
         call_list_data[list_type] = db.get_call_list_contacts(list_type, user_id=CURRENT_USER_ID, limit=25)
 
@@ -1865,6 +1865,8 @@ def call_list():
         'hot': db.count_call_list_contacts('hot', user_id=CURRENT_USER_ID),
         'follow_up': db.count_call_list_contacts('follow_up', user_id=CURRENT_USER_ID),
         'going_cold': db.count_call_list_contacts('going_cold', user_id=CURRENT_USER_ID),
+        'silent_buyers': db.count_call_list_contacts('silent_buyers', user_id=CURRENT_USER_ID),
+        'communication_gap': db.count_call_list_contacts('communication_gap', user_id=CURRENT_USER_ID),
     }
 
     # Get contacts for current list

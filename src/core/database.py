@@ -3940,6 +3940,80 @@ class DREAMSDatabase:
                 '''
                 params = user_params + [limit]
 
+            elif list_type == 'silent_buyers':
+                # High digital activity but zero or minimal phone contact
+                query = '''
+                    SELECT
+                        l.id,
+                        l.first_name,
+                        l.last_name,
+                        l.email,
+                        l.phone,
+                        l.stage,
+                        l.source,
+                        l.heat_score,
+                        l.priority_score,
+                        l.fub_id,
+                        l.created_at,
+                        l.days_since_activity,
+                        l.properties_viewed,
+                        l.properties_favorited,
+                        l.website_visits,
+                        l.calls_outbound,
+                        l.calls_inbound,
+                        l.avg_price_viewed,
+                        CASE WHEN EXISTS (
+                            SELECT 1 FROM intake_forms i WHERE i.lead_id = l.id AND i.status = 'active'
+                        ) THEN 1 ELSE 0 END as has_intake
+                    FROM leads l
+                    WHERE l.contact_group = 'scored'
+                    AND l.stage NOT IN ('Trash', 'Closed', 'Past Client', 'DNC', 'Agents/Vendors/Lendors')
+                    AND l.properties_viewed >= 20
+                    AND (l.calls_outbound + l.calls_inbound) = 0
+                ''' + f'''
+                    {user_filter}
+                    ORDER BY l.avg_price_viewed DESC, l.heat_score DESC
+                    LIMIT ?
+                '''
+                params = user_params + [limit]
+
+            elif list_type == 'communication_gap':
+                # Hot contacts (heat >= 40) with minimal outreach (0-2 calls)
+                query = '''
+                    SELECT
+                        l.id,
+                        l.first_name,
+                        l.last_name,
+                        l.email,
+                        l.phone,
+                        l.stage,
+                        l.source,
+                        l.heat_score,
+                        l.priority_score,
+                        l.fub_id,
+                        l.created_at,
+                        l.days_since_activity,
+                        l.properties_viewed,
+                        l.properties_favorited,
+                        l.website_visits,
+                        l.calls_outbound,
+                        l.calls_inbound,
+                        l.avg_price_viewed,
+                        CASE WHEN EXISTS (
+                            SELECT 1 FROM intake_forms i WHERE i.lead_id = l.id AND i.status = 'active'
+                        ) THEN 1 ELSE 0 END as has_intake
+                    FROM leads l
+                    WHERE l.contact_group = 'scored'
+                    AND l.stage NOT IN ('Trash', 'Closed', 'Past Client', 'DNC', 'Agents/Vendors/Lendors')
+                    AND l.heat_score >= 40
+                    AND (l.calls_outbound + l.calls_inbound) <= 2
+                ''' + f'''
+                    {user_filter}
+                    ORDER BY l.avg_price_viewed DESC, l.heat_score DESC
+                    LIMIT ?
+                '''
+                params = user_params + [limit]
+
             else:
                 # Default to priority
                 query = base_select + f'''
@@ -4009,6 +4083,28 @@ class DREAMSDatabase:
                     AND l.days_since_activity >= 14
                     AND l.days_since_activity < 60
                     AND l.stage IN ('Lead', 'Prospect', 'Active Buyer', 'Nurture')
+                    {user_filter}
+                '''
+                params = user_params
+
+            elif list_type == 'silent_buyers':
+                query = f'''
+                    SELECT COUNT(*) FROM leads l
+                    WHERE {base_where}
+                    AND l.stage NOT IN ('Agents/Vendors/Lendors')
+                    AND l.properties_viewed >= 20
+                    AND (l.calls_outbound + l.calls_inbound) = 0
+                    {user_filter}
+                '''
+                params = user_params
+
+            elif list_type == 'communication_gap':
+                query = f'''
+                    SELECT COUNT(*) FROM leads l
+                    WHERE {base_where}
+                    AND l.stage NOT IN ('Agents/Vendors/Lendors')
+                    AND l.heat_score >= 40
+                    AND (l.calls_outbound + l.calls_inbound) <= 2
                     {user_filter}
                 '''
                 params = user_params
