@@ -2238,6 +2238,131 @@ def sync_scoring_history_to_sqlite(
     return scores_recorded
 
 
+# Mapping from CONTACTS_HEADER (camelCase) to contact_snapshots columns (snake_case)
+_HEADER_TO_SNAPSHOT_COL = {
+    "id": "contact_id",
+    "firstName": "first_name",
+    "lastName": "last_name",
+    "stage": "stage",
+    "source": "source",
+    "leadTypeTags": "lead_type_tags",
+    "created": "created",
+    "updated": "updated",
+    "ownerId": "owner_id",
+    "primaryEmail": "primary_email",
+    "primaryPhone": "primary_phone",
+    "company": "company",
+    "website": "website",
+    "lastActivity": "last_activity",
+    "last_website_visit": "last_website_visit",
+    "avg_price_viewed": "avg_price_viewed",
+    "website_visits": "website_visits",
+    "properties_viewed": "properties_viewed",
+    "properties_favorited": "properties_favorited",
+    "properties_shared": "properties_shared",
+    "calls_outbound": "calls_outbound",
+    "calls_inbound": "calls_inbound",
+    "texts_total": "texts_total",
+    "texts_inbound": "texts_inbound",
+    "emails_received": "emails_received",
+    "emails_sent": "emails_sent",
+    "heat_score": "heat_score",
+    "value_score": "value_score",
+    "relationship_score": "relationship_score",
+    "priority_score": "priority_score",
+    "intent_repeat_views": "intent_repeat_views",
+    "intent_high_favorites": "intent_high_favorites",
+    "intent_activity_burst": "intent_activity_burst",
+    "intent_sharing": "intent_sharing",
+    "next_action": "next_action",
+    "next_action_date": "next_action_date",
+    "contact_group": "contact_group",
+    "timeframeId": "timeframe_id",
+}
+
+# Integer columns that need type coercion
+_SNAPSHOT_INT_COLS = {
+    "website_visits", "properties_viewed", "properties_favorited", "properties_shared",
+    "calls_outbound", "calls_inbound", "texts_total", "texts_inbound",
+    "emails_received", "emails_sent",
+    "intent_repeat_views", "intent_high_favorites", "intent_activity_burst", "intent_sharing",
+}
+
+# Float columns that need type coercion
+_SNAPSHOT_FLOAT_COLS = {
+    "avg_price_viewed", "heat_score", "value_score", "relationship_score", "priority_score",
+}
+
+
+def sync_snapshots_to_sqlite(
+    contact_rows: List[List],
+    db,
+    sync_id: Optional[int] = None,
+    snapshot_at: Optional[str] = None,
+) -> int:
+    """
+    Insert full contact state as snapshots into SQLite.
+
+    Args:
+        contact_rows: List of contact rows (same format as Google Sheets)
+        db: DREAMSDatabase instance
+        sync_id: Optional sync log ID
+        snapshot_at: ISO timestamp for the snapshot (defaults to now)
+
+    Returns:
+        Number of snapshot rows inserted
+    """
+    if not contact_rows:
+        return 0
+
+    if snapshot_at is None:
+        snapshot_at = datetime.now(timezone.utc).isoformat()
+
+    idx = {name: i for i, name in enumerate(CONTACTS_HEADER)}
+    snapshots = []
+
+    for row in contact_rows:
+        contact_id = str(row[idx["id"]]) if row[idx["id"]] else None
+        if not contact_id:
+            continue
+
+        snap = {"contact_id": contact_id, "snapshot_at": snapshot_at, "sync_id": sync_id}
+
+        for header_name, db_col in _HEADER_TO_SNAPSHOT_COL.items():
+            if db_col == "contact_id":
+                continue  # already set
+            if header_name not in idx:
+                continue
+            val = row[idx[header_name]]
+
+            # Convert checkmark intent signals to 0/1
+            if db_col in _SNAPSHOT_INT_COLS:
+                if val == "✓":
+                    val = 1
+                else:
+                    try:
+                        val = int(val) if val else 0
+                    except (ValueError, TypeError):
+                        val = 0
+
+            elif db_col in _SNAPSHOT_FLOAT_COLS:
+                try:
+                    val = float(val) if val else 0.0
+                except (ValueError, TypeError):
+                    val = 0.0
+
+            elif val == "":
+                val = None
+
+            snap[db_col] = val
+
+        snapshots.append(snap)
+
+    count = db.insert_contact_snapshots_batch(snapshots)
+    logger.info(f"✓ Contact snapshots: {count} rows inserted")
+    return count
+
+
 def sync_to_sqlite(contact_rows: List[List], person_stats: Dict[str, Dict], user_lookup: Dict[int, str] = None):
     """
     Sync contacts to SQLite database for unified DREAMS dashboard.
@@ -2828,28 +2953,39 @@ def main():
         # Build contact rows
         contact_rows = build_contact_rows(people, person_stats, persisted_actions)
 
-        # Create backup with timestamp in separate backup sheet (or main sheet as fallback)
-        if Config.GOOGLE_BACKUP_SHEET_ID:
-            backup_sh = gc.open_by_key(Config.GOOGLE_BACKUP_SHEET_ID)
-            logger.info(f"Using backup sheet: {backup_sh.title}")
-        else:
-            backup_sh = sh
-            logger.info("No GOOGLE_BACKUP_SHEET_ID set, backing up to main sheet")
-        backup_name = datetime.now().strftime("%y%m%d.%H%M")
-        existing_titles = {ws.title for ws in backup_sh.worksheets()}
-        if backup_name in existing_titles:
-            for suffix in range(2, 100):
-                candidate = f"{backup_name}.{suffix}"
-                if candidate not in existing_titles:
-                    backup_name = candidate
-                    break
-        logger.info(f"Creating backup: {backup_name}")
-        backup_ws = backup_sh.add_worksheet(
-            title=backup_name,
-            rows=len(contact_rows) + 1,
-            cols=len(CONTACTS_HEADER)
-        )
-        write_table_to_worksheet(backup_ws, CONTACTS_HEADER, contact_rows)
+        # Snapshot contacts to SQLite (replaces Google Sheets backup tabs)
+        if Config.SQLITE_SYNC_ENABLED:
+            try:
+                if db is None:
+                    from src.core.database import DREAMSDatabase
+                    db = DREAMSDatabase(Config.DREAMS_DB_PATH)
+                sync_snapshots_to_sqlite(contact_rows, db)
+            except Exception as e:
+                logger.error(f"Failed to write contact snapshots to SQLite: {e}")
+
+        # Legacy Sheets backup (opt-in during transition: ENABLE_SHEETS_BACKUP=true)
+        if os.getenv("ENABLE_SHEETS_BACKUP", "false").lower() == "true":
+            if Config.GOOGLE_BACKUP_SHEET_ID:
+                backup_sh = gc.open_by_key(Config.GOOGLE_BACKUP_SHEET_ID)
+                logger.info(f"Using backup sheet: {backup_sh.title}")
+            else:
+                backup_sh = sh
+                logger.info("No GOOGLE_BACKUP_SHEET_ID set, backing up to main sheet")
+            backup_name = datetime.now().strftime("%y%m%d.%H%M")
+            existing_titles = {ws.title for ws in backup_sh.worksheets()}
+            if backup_name in existing_titles:
+                for suffix in range(2, 100):
+                    candidate = f"{backup_name}.{suffix}"
+                    if candidate not in existing_titles:
+                        backup_name = candidate
+                        break
+            logger.info(f"Creating Sheets backup: {backup_name}")
+            backup_ws = backup_sh.add_worksheet(
+                title=backup_name,
+                rows=len(contact_rows) + 1,
+                cols=len(CONTACTS_HEADER)
+            )
+            write_table_to_worksheet(backup_ws, CONTACTS_HEADER, contact_rows)
 
         # Update main Contacts sheet
         contacts_ws = get_or_create_worksheet(sh, "Contacts")

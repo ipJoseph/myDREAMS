@@ -774,6 +774,51 @@ class DREAMSDatabase:
             source_file TEXT,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
         );
+
+        -- Contact snapshots (full 38-column state at every sync run)
+        CREATE TABLE IF NOT EXISTS contact_snapshots (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            contact_id TEXT NOT NULL,
+            snapshot_at TEXT NOT NULL,
+            sync_id INTEGER,
+            first_name TEXT,
+            last_name TEXT,
+            stage TEXT,
+            source TEXT,
+            lead_type_tags TEXT,
+            created TEXT,
+            updated TEXT,
+            owner_id TEXT,
+            primary_email TEXT,
+            primary_phone TEXT,
+            company TEXT,
+            website TEXT,
+            last_activity TEXT,
+            last_website_visit TEXT,
+            avg_price_viewed REAL,
+            website_visits INTEGER DEFAULT 0,
+            properties_viewed INTEGER DEFAULT 0,
+            properties_favorited INTEGER DEFAULT 0,
+            properties_shared INTEGER DEFAULT 0,
+            calls_outbound INTEGER DEFAULT 0,
+            calls_inbound INTEGER DEFAULT 0,
+            texts_total INTEGER DEFAULT 0,
+            texts_inbound INTEGER DEFAULT 0,
+            emails_received INTEGER DEFAULT 0,
+            emails_sent INTEGER DEFAULT 0,
+            heat_score REAL DEFAULT 0,
+            value_score REAL DEFAULT 0,
+            relationship_score REAL DEFAULT 0,
+            priority_score REAL DEFAULT 0,
+            intent_repeat_views INTEGER DEFAULT 0,
+            intent_high_favorites INTEGER DEFAULT 0,
+            intent_activity_burst INTEGER DEFAULT 0,
+            intent_sharing INTEGER DEFAULT 0,
+            next_action TEXT,
+            next_action_date TEXT,
+            contact_group TEXT,
+            timeframe_id TEXT
+        );
         '''
 
     def _get_indexes_schema(self) -> str:
@@ -859,6 +904,11 @@ class DREAMSDatabase:
         -- TMO market data indexes
         CREATE UNIQUE INDEX IF NOT EXISTS idx_tmo_region_date_range
             ON tmo_market_data(region, report_date, price_range);
+        -- Contact snapshots indexes
+        CREATE INDEX IF NOT EXISTS idx_snapshots_contact_at ON contact_snapshots(contact_id, snapshot_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_snapshots_at ON contact_snapshots(snapshot_at);
+        CREATE INDEX IF NOT EXISTS idx_snapshots_contact_stage ON contact_snapshots(contact_id, stage, snapshot_at);
+        CREATE INDEX IF NOT EXISTS idx_snapshots_sync ON contact_snapshots(sync_id);
         '''
 
     def _seed_default_settings(self, conn) -> None:
@@ -1173,6 +1223,59 @@ class DREAMSDatabase:
         # Reassignment suspect tracking
         'reassignment_suspect_at',
     }
+
+    # Whitelist of valid column names for the contact_snapshots table
+    SNAPSHOT_COLUMNS = {
+        'contact_id', 'snapshot_at', 'sync_id',
+        'first_name', 'last_name', 'stage', 'source', 'lead_type_tags',
+        'created', 'updated', 'owner_id', 'primary_email', 'primary_phone',
+        'company', 'website', 'last_activity', 'last_website_visit',
+        'avg_price_viewed', 'website_visits', 'properties_viewed',
+        'properties_favorited', 'properties_shared',
+        'calls_outbound', 'calls_inbound', 'texts_total', 'texts_inbound',
+        'emails_received', 'emails_sent',
+        'heat_score', 'value_score', 'relationship_score', 'priority_score',
+        'intent_repeat_views', 'intent_high_favorites',
+        'intent_activity_burst', 'intent_sharing',
+        'next_action', 'next_action_date', 'contact_group', 'timeframe_id',
+    }
+
+    def insert_contact_snapshots_batch(self, snapshots: List[Dict[str, Any]]) -> int:
+        """
+        Batch insert contact snapshots in a single transaction.
+
+        Args:
+            snapshots: List of dicts, each with keys from SNAPSHOT_COLUMNS
+
+        Returns:
+            Number of rows inserted
+        """
+        if not snapshots:
+            return 0
+
+        # Validate and filter columns
+        columns = sorted(self.SNAPSHOT_COLUMNS)
+        placeholders = ', '.join(['?' for _ in columns])
+        col_names = ', '.join(columns)
+
+        rows = []
+        for snap in snapshots:
+            # Filter to valid columns only
+            invalid = set(snap.keys()) - self.SNAPSHOT_COLUMNS
+            if invalid:
+                logger.warning(f"Rejected invalid snapshot columns: {invalid}")
+            values = tuple(snap.get(col) for col in columns)
+            rows.append(values)
+
+        with self._get_connection() as conn:
+            conn.executemany(
+                f'INSERT INTO contact_snapshots ({col_names}) VALUES ({placeholders})',
+                rows
+            )
+            conn.commit()
+
+        logger.info(f"Inserted {len(rows)} contact snapshots")
+        return len(rows)
 
     def upsert_contact_dict(self, data: Dict[str, Any]) -> bool:
         """Insert or update a contact/lead from a dictionary (FUB sync)."""
