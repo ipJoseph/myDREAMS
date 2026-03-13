@@ -115,6 +115,7 @@ class Config:
         str(SCRIPT_DIR / "service_account.json"),
     )
     GOOGLE_SHEET_ID = os.getenv("GOOGLE_SHEET_ID")
+    GOOGLE_BACKUP_SHEET_ID = os.getenv("GOOGLE_BACKUP_SHEET_ID")
 
     # SMTP Email
     SMTP_ENABLED = os.getenv("SMTP_ENABLED", "true").lower() == "true"
@@ -2827,9 +2828,15 @@ def main():
         # Build contact rows
         contact_rows = build_contact_rows(people, person_stats, persisted_actions)
 
-        # Create backup with timestamp (handle duplicate names)
+        # Create backup with timestamp in separate backup sheet (or main sheet as fallback)
+        if Config.GOOGLE_BACKUP_SHEET_ID:
+            backup_sh = gc.open_by_key(Config.GOOGLE_BACKUP_SHEET_ID)
+            logger.info(f"Using backup sheet: {backup_sh.title}")
+        else:
+            backup_sh = sh
+            logger.info("No GOOGLE_BACKUP_SHEET_ID set, backing up to main sheet")
         backup_name = datetime.now().strftime("%y%m%d.%H%M")
-        existing_titles = {ws.title for ws in sh.worksheets()}
+        existing_titles = {ws.title for ws in backup_sh.worksheets()}
         if backup_name in existing_titles:
             for suffix in range(2, 100):
                 candidate = f"{backup_name}.{suffix}"
@@ -2837,7 +2844,7 @@ def main():
                     backup_name = candidate
                     break
         logger.info(f"Creating backup: {backup_name}")
-        backup_ws = sh.add_worksheet(
+        backup_ws = backup_sh.add_worksheet(
             title=backup_name,
             rows=len(contact_rows) + 1,
             cols=len(CONTACTS_HEADER)
