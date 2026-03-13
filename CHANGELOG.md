@@ -8,6 +8,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Changed
+- **PRD is now canonical database** (2026-03-13)
+  - Removed 9 redundant DEV cron jobs (5 Navica sync, 3 enrichment, 1 stale one-time)
+  - DEV crontab now only has: rclone backup to Google Drive + TMO pipeline
+  - All sync, enrichment, and automation runs exclusively on PRD
+  - New `scripts/sync-from-prd.sh` to pull canonical DB to DEV on demand
+  - Updated CLAUDE.md sync instructions to reflect PRD-first workflow
+
 ### Added
 - **Contact Snapshots: Replace Google Sheets Backups with SQLite** (2026-03-13)
   - New `contact_snapshots` table stores full 38-column contact state at every sync run

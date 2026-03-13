@@ -158,9 +158,11 @@ ssh root@178.156.221.10 'git -C /opt/mydreams pull && systemctl restart mydreams
 ssh root@178.156.221.10 'systemctl status mydreams-dashboard'
 ```
 
-### Sync Database (DEV to PRD)
+### Sync Database
+PRD is the canonical database. DEV pulls from PRD on demand:
 ```bash
-scp /home/bigeug/myDREAMS/data/dreams.db root@178.156.221.10:/opt/mydreams/data/dreams.db
+# Pull PRD DB to DEV (normal workflow)
+scripts/sync-from-prd.sh
 ```
 
 ## Production Server (PRD)
