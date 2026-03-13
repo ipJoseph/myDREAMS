@@ -498,9 +498,6 @@
                             <span class="metric-chip visits" title="Website Visits">{{ contact.website_visits or 0 }} visits</span>
                             {% set total_calls = (contact.calls_outbound or 0) + (contact.calls_inbound or 0) %}
                             <span class="metric-chip calls" title="Total Calls">{{ total_calls }} calls</span>
-                            {% if contact.avg_price_viewed %}
-                            <span class="metric-chip price" title="Average Price Viewed">${{ "{:,.0f}".format(contact.avg_price_viewed) }}</span>
-                            {% endif %}
                             {% if current_list == 'silent_buyers' and contact.last_website_visit %}
                             <span class="metric-chip" style="background: #fef3c7; color: #92400e;" title="Last Website Visit">Last: {{ contact.last_website_visit[:10] }}</span>
                             {% endif %}
