@@ -1129,6 +1129,16 @@
                                 <div class="fact-label">MLS Source</div>
                                 <div class="fact-value">{{ property.mls_source or '-' }}</div>
                             </div>
+                            {% if cross_listing %}
+                            <div class="fact-item" style="background: #fffbeb; border-radius: 6px; padding: 8px 12px;">
+                                <div class="fact-label" style="color: #92400e;">Also Listed In</div>
+                                <div class="fact-value">
+                                    <a href="/properties/{{ cross_listing.id }}" style="color: #b45309; font-weight: 600; text-decoration: underline;">
+                                        {{ cross_listing.display_name }} ({{ cross_listing.mls_number }})
+                                    </a>
+                                </div>
+                            </div>
+                            {% endif %}
                             <div class="fact-item">
                                 <div class="fact-label">Status</div>
                                 <div class="fact-value">{{ property.status or '-' }}</div>

@@ -106,14 +106,14 @@ def main():
     if args.status == 'ALL':
         query = """
             SELECT mls_number, primary_photo FROM listings
-            WHERE mls_source = 'NavicaMLS' AND primary_photo IS NOT NULL
+            WHERE mls_source IN ('NavicaMLS', 'MountainLakesMLS') AND primary_photo IS NOT NULL
             ORDER BY status, list_price DESC
         """
         rows = conn.execute(query).fetchall()
     else:
         query = """
             SELECT mls_number, primary_photo FROM listings
-            WHERE mls_source = 'NavicaMLS' AND primary_photo IS NOT NULL AND status = ?
+            WHERE mls_source IN ('NavicaMLS', 'MountainLakesMLS') AND primary_photo IS NOT NULL AND status = ?
             ORDER BY list_price DESC
         """
         rows = conn.execute(query, [args.status]).fetchall()

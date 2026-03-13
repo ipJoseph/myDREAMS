@@ -151,12 +151,13 @@ class NavicaClient:
         logger.info(f"Navica API client initialized (feed={feed_type}, dataset={self.dataset_code}, url={self.api_url})")
 
     @classmethod
-    def from_env(cls, feed: str = 'idx', **kwargs) -> 'NavicaClient':
+    def from_env(cls, feed: str = 'idx', dataset_code: str = None, **kwargs) -> 'NavicaClient':
         """
         Create client from environment variables.
 
         Args:
             feed: 'idx' or 'bbo' (selects which token to use)
+            dataset_code: Override dataset (e.g. 'nav26', 'nav27'). Falls back to env/default.
             **kwargs: Additional arguments passed to constructor
 
         Raises:
@@ -165,7 +166,7 @@ class NavicaClient:
         load_env()
 
         api_url = os.environ.get('NAVICA_API_URL', cls.DEFAULT_API_URL)
-        dataset_code = os.environ.get('NAVICA_DATASET_CODE', cls.DEFAULT_DATASET_CODE)
+        dataset_code = dataset_code or os.environ.get('NAVICA_DATASET_CODE', cls.DEFAULT_DATASET_CODE)
 
         if feed == 'bbo':
             token = os.environ.get('NAVICA_BBO_TOKEN')

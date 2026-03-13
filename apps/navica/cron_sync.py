@@ -2,22 +2,22 @@
 """
 Navica MLS Automated Sync (Cron Job)
 
-Designed to be run via crontab for automated MLS data syncing.
+Syncs both Carolina Smokies (nav27) and Mountain Lakes (nav26) datasets.
 Performs incremental sync by default, with full sync options for
-nightly rebuilds.
+nightly rebuilds. Runs cross-listing detection after each sync.
 
 Recommended crontab entries:
     # Incremental sync every 15 minutes during business hours
-    */15 8-20 * * * cd /home/bigeug/myDREAMS && python3 -m apps.navica.cron_sync
+    */15 8-20 * * * cd /opt/mydreams && /opt/mydreams/venv/bin/python -m apps.navica.cron_sync
 
     # Full active listings sync nightly at 2 AM
-    0 2 * * * cd /home/bigeug/myDREAMS && python3 -m apps.navica.cron_sync --nightly
+    0 2 * * * cd /opt/mydreams && /opt/mydreams/venv/bin/python -m apps.navica.cron_sync --nightly
 
     # Sync sold data weekly (Sunday 3 AM) via BBO feed
-    0 3 * * 0 cd /home/bigeug/myDREAMS && python3 -m apps.navica.cron_sync --weekly-sold
+    0 3 * * 0 cd /opt/mydreams && /opt/mydreams/venv/bin/python -m apps.navica.cron_sync --weekly-sold
 
     # Sync agents and open houses daily at 6 AM
-    0 6 * * * cd /home/bigeug/myDREAMS && python3 -m apps.navica.cron_sync --daily-extras
+    0 6 * * * cd /opt/mydreams && /opt/mydreams/venv/bin/python -m apps.navica.cron_sync --daily-extras
 """
 
 import argparse
@@ -30,7 +30,13 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from apps.navica.sync_engine import NavicaSyncEngine, print_stats
+from apps.navica.sync_engine import NavicaSyncEngine, detect_cross_listings, print_stats
+
+# All Navica datasets to sync
+NAVICA_DATASETS = [
+    {'dataset_code': 'nav27', 'mls_source': 'NavicaMLS'},
+    {'dataset_code': 'nav26', 'mls_source': 'MountainLakesMLS'},
+]
 
 
 def setup_logging(log_dir: Path = None):
@@ -65,98 +71,102 @@ def load_env():
 
 
 def run_incremental():
-    """Standard incremental sync (every 15 min)."""
+    """Standard incremental sync (every 15 min) for all datasets."""
     logger = logging.getLogger('navica.cron')
-    logger.info("Starting incremental sync...")
 
-    engine = NavicaSyncEngine(feed='idx')
-    stats = engine.run_incremental_sync()
+    for ds in NAVICA_DATASETS:
+        label = ds['mls_source']
+        logger.info(f"Starting incremental sync for {label} ({ds['dataset_code']})...")
 
-    logger.info(
-        f"Incremental sync complete: "
-        f"{stats['fetched']} fetched, "
-        f"{stats['created']} created, "
-        f"{stats['updated']} updated, "
-        f"{stats['errors']} errors"
-    )
-    return stats
+        engine = NavicaSyncEngine(feed='idx', **ds)
+        stats = engine.run_incremental_sync()
+
+        logger.info(
+            f"{label} incremental: "
+            f"{stats['fetched']} fetched, "
+            f"{stats['created']} created, "
+            f"{stats['updated']} updated, "
+            f"{stats['errors']} errors"
+        )
+
+    # Cross-listing detection after all datasets are synced
+    pairs = detect_cross_listings()
+    if pairs:
+        logger.info(f"Cross-listing: {pairs} properties found in both MLSs")
 
 
 def run_nightly():
-    """
-    Nightly full sync of active and pending listings.
-    Catches any listings missed by incremental sync.
-    """
+    """Nightly full sync of active and pending listings for all datasets."""
     logger = logging.getLogger('navica.cron')
-    logger.info("Starting nightly full sync...")
 
-    engine = NavicaSyncEngine(feed='idx')
+    for ds in NAVICA_DATASETS:
+        label = ds['mls_source']
+        logger.info(f"Starting nightly full sync for {label} ({ds['dataset_code']})...")
 
-    # Sync active listings
-    logger.info("Phase 1: Active listings")
-    active_stats = engine.run_full_sync(status='Active')
+        engine = NavicaSyncEngine(feed='idx', **ds)
 
-    # Sync pending listings
-    logger.info("Phase 2: Pending listings")
-    engine.client.reset_stats()
-    pending_stats = engine.run_full_sync(status='Pending')
+        logger.info(f"{label} Phase 1: Active listings")
+        active_stats = engine.run_full_sync(status='Active')
 
-    total = {
-        'fetched': active_stats['fetched'] + pending_stats['fetched'],
-        'created': active_stats['created'] + pending_stats['created'],
-        'updated': active_stats['updated'] + pending_stats['updated'],
-        'errors': active_stats['errors'] + pending_stats['errors'],
-    }
+        logger.info(f"{label} Phase 2: Pending listings")
+        engine.client.reset_stats()
+        pending_stats = engine.run_full_sync(status='Pending')
 
-    logger.info(
-        f"Nightly sync complete: "
-        f"{total['fetched']} fetched, "
-        f"{total['created']} created, "
-        f"{total['updated']} updated"
-    )
-    return total
+        total_fetched = active_stats['fetched'] + pending_stats['fetched']
+        total_created = active_stats['created'] + pending_stats['created']
+        total_updated = active_stats['updated'] + pending_stats['updated']
+
+        logger.info(
+            f"{label} nightly complete: "
+            f"{total_fetched} fetched, "
+            f"{total_created} created, "
+            f"{total_updated} updated"
+        )
+
+    # Cross-listing detection after all datasets are synced
+    pairs = detect_cross_listings()
+    if pairs:
+        logger.info(f"Cross-listing: {pairs} properties found in both MLSs")
 
 
 def run_weekly_sold():
-    """
-    Weekly sync of sold listings via BBO feed.
-    Pulls closed transactions for CMA and market analysis.
-    """
+    """Weekly sync of sold listings via BBO feed for all datasets."""
     logger = logging.getLogger('navica.cron')
-    logger.info("Starting weekly sold data sync (BBO feed)...")
 
-    engine = NavicaSyncEngine(feed='bbo')
-    stats = engine.run_full_sync(status='Closed')
+    for ds in NAVICA_DATASETS:
+        label = ds['mls_source']
+        logger.info(f"Starting weekly sold sync for {label} ({ds['dataset_code']}) (BBO feed)...")
 
-    logger.info(
-        f"Weekly sold sync complete: "
-        f"{stats['fetched']} fetched, "
-        f"{stats['created']} created, "
-        f"{stats['updated']} updated"
-    )
-    return stats
+        engine = NavicaSyncEngine(feed='bbo', **ds)
+        stats = engine.run_full_sync(status='Closed')
+
+        logger.info(
+            f"{label} sold sync: "
+            f"{stats['fetched']} fetched, "
+            f"{stats['created']} created, "
+            f"{stats['updated']} updated"
+        )
 
 
 def run_daily_extras():
-    """
-    Daily sync of agents and open houses.
-    """
+    """Daily sync of agents and open houses for all datasets."""
     logger = logging.getLogger('navica.cron')
-    logger.info("Starting daily extras sync (agents + open houses)...")
 
-    engine = NavicaSyncEngine(feed='idx')
+    for ds in NAVICA_DATASETS:
+        label = ds['mls_source']
+        logger.info(f"Starting daily extras for {label} ({ds['dataset_code']})...")
 
-    member_stats = engine.sync_members()
-    logger.info(f"Members synced: {member_stats['fetched']} fetched")
+        engine = NavicaSyncEngine(feed='idx', **ds)
 
-    oh_stats = engine.sync_open_houses()
-    logger.info(f"Open houses synced: {oh_stats['fetched']} fetched")
+        member_stats = engine.sync_members()
+        logger.info(f"{label} members: {member_stats['fetched']} fetched")
 
-    return {'members': member_stats, 'open_houses': oh_stats}
+        oh_stats = engine.sync_open_houses()
+        logger.info(f"{label} open houses: {oh_stats['fetched']} fetched")
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Navica MLS cron sync")
+    parser = argparse.ArgumentParser(description="Navica MLS cron sync (all datasets)")
     parser.add_argument('--nightly', action='store_true',
                         help='Run nightly full sync')
     parser.add_argument('--weekly-sold', action='store_true',

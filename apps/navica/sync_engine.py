@@ -81,11 +81,24 @@ class NavicaSyncEngine:
     while `properties` is the older hand-curated property table.
     """
 
+    # Dataset-to-source mapping for multi-MLS support
+    DATASET_MLS_MAP = {
+        'nav27': 'NavicaMLS',         # Carolina Smokies
+        'nav26': 'MountainLakesMLS',  # Mountain Lakes
+    }
+
+    MLS_DISPLAY_NAMES = {
+        'NavicaMLS': 'Carolina Smokies MLS',
+        'MountainLakesMLS': 'Mountain Lakes MLS',
+        'CanopyMLS': 'Canopy MLS',
+    }
+
     def __init__(
         self,
         db_path: str = None,
         feed: str = 'idx',
-        mls_source: str = 'NavicaMLS',
+        mls_source: str = None,
+        dataset_code: str = None,
     ):
         """
         Initialize sync engine.
@@ -93,11 +106,13 @@ class NavicaSyncEngine:
         Args:
             db_path: Path to SQLite database
             feed: 'idx' or 'bbo' feed type
-            mls_source: MLS source identifier for records
+            mls_source: MLS source identifier for records (auto-detected from dataset if None)
+            dataset_code: Navica dataset code (e.g. 'nav26', 'nav27'). Default: nav27.
         """
         self.db_path = Path(db_path) if db_path else DB_PATH
         self.feed = feed
-        self.mls_source = mls_source
+        self.dataset_code = dataset_code or 'nav27'
+        self.mls_source = mls_source or self.DATASET_MLS_MAP.get(self.dataset_code, 'NavicaMLS')
         self.client = None
 
         # Ensure database tables exist
@@ -208,6 +223,19 @@ class NavicaSyncEngine:
                 ON listings(listing_key)
             ''')
 
+            # Cross-listing columns for multi-MLS detection
+            for col_name, col_type in [
+                ('cross_listed_id', 'INTEGER'),
+                ('cross_listed_source', 'TEXT'),
+            ]:
+                if col_name not in self._known_listing_columns:
+                    try:
+                        conn.execute(f"ALTER TABLE listings ADD COLUMN {col_name} {col_type}")
+                        self._known_listing_columns.add(col_name)
+                        logger.info(f"Added column {col_name} to listings table")
+                    except sqlite3.OperationalError:
+                        pass
+
             conn.commit()
         finally:
             conn.close()
@@ -215,24 +243,39 @@ class NavicaSyncEngine:
     def _init_client(self):
         """Initialize the Navica API client if not already done."""
         if self.client is None:
-            self.client = NavicaClient.from_env(feed=self.feed)
+            self.client = NavicaClient.from_env(feed=self.feed, dataset_code=self.dataset_code)
 
     # ---------------------------------------------------------------
     # Sync state management
     # ---------------------------------------------------------------
 
     def _load_sync_state(self) -> Dict:
-        """Load last sync state for incremental sync."""
+        """Load last sync state for this dataset's incremental sync."""
         if STATE_FILE.exists():
             with open(STATE_FILE) as f:
-                return json.load(f)
+                all_state = json.load(f)
+            # Migration: if old flat format (no dataset keys), treat as nav27
+            if 'last_sync' in all_state or 'last_full_sync' in all_state:
+                if self.dataset_code == 'nav27':
+                    return all_state
+                return {}
+            return all_state.get(self.dataset_code, {})
         return {}
 
     def _save_sync_state(self, state: Dict):
-        """Save sync state after successful sync."""
+        """Save sync state for this dataset."""
         STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+        # Load existing state for all datasets
+        all_state = {}
+        if STATE_FILE.exists():
+            with open(STATE_FILE) as f:
+                all_state = json.load(f)
+            # Migration: if old flat format, wrap it under nav27
+            if 'last_sync' in all_state or 'last_full_sync' in all_state:
+                all_state = {'nav27': all_state}
+        all_state[self.dataset_code] = state
         with open(STATE_FILE, 'w') as f:
-            json.dump(state, f, indent=2)
+            json.dump(all_state, f, indent=2)
 
     # ---------------------------------------------------------------
     # Change detection
@@ -844,6 +887,60 @@ class NavicaSyncEngine:
         return self.client.test_connection()
 
 
+def detect_cross_listings(db_path: Path = None) -> int:
+    """
+    Detect properties listed in both NavicaMLS and MountainLakesMLS.
+
+    Matches by normalized address + city, both active status.
+    Updates cross_listed_id and cross_listed_source columns.
+
+    Returns number of cross-listed pairs found.
+    """
+    db = db_path or DB_PATH
+    conn = sqlite3.connect(str(db))
+    conn.row_factory = sqlite3.Row
+
+    # Clear existing cross-listing data for Navica sources
+    conn.execute("""
+        UPDATE listings SET cross_listed_id = NULL, cross_listed_source = NULL
+        WHERE mls_source IN ('NavicaMLS', 'MountainLakesMLS')
+        AND (cross_listed_id IS NOT NULL OR cross_listed_source IS NOT NULL)
+    """)
+
+    # Match: normalized address + city, both active, different mls_source
+    matches = conn.execute("""
+        SELECT a.id as id_a, a.mls_source as source_a,
+               b.id as id_b, b.mls_source as source_b
+        FROM listings a
+        JOIN listings b ON
+            LOWER(TRIM(REPLACE(REPLACE(REPLACE(a.address, '.', ''), ',', ''), '  ', ' ')))
+            = LOWER(TRIM(REPLACE(REPLACE(REPLACE(b.address, '.', ''), ',', ''), '  ', ' ')))
+            AND LOWER(TRIM(a.city)) = LOWER(TRIM(b.city))
+            AND a.mls_source != b.mls_source
+            AND a.status = 'ACTIVE'
+            AND b.status = 'ACTIVE'
+        WHERE a.mls_source IN ('NavicaMLS', 'MountainLakesMLS')
+          AND b.mls_source IN ('NavicaMLS', 'MountainLakesMLS')
+          AND a.address IS NOT NULL AND a.address != ''
+          AND b.address IS NOT NULL AND b.address != ''
+    """).fetchall()
+
+    count = 0
+    for m in matches:
+        conn.execute(
+            "UPDATE listings SET cross_listed_id = ?, cross_listed_source = ? WHERE id = ?",
+            [m['id_b'], m['source_b'], m['id_a']]
+        )
+        count += 1
+
+    conn.commit()
+    conn.close()
+
+    pairs = count // 2  # Each pair generates 2 rows
+    logger.info(f"Cross-listing detection: {pairs} properties found in both MLSs")
+    return pairs
+
+
 def print_stats(stats: Dict):
     """Print sync statistics."""
     print("\n" + "=" * 55)
@@ -921,12 +1018,18 @@ Examples:
                         choices=['Residential', 'Land', 'Farm', 'Commercial Sale',
                                  'Residential Income', 'Manufactured In Park'],
                         help='Filter by property types')
+    parser.add_argument('--dataset', default=None,
+                        help='Navica dataset code (e.g. nav26, nav27). Default: nav27')
+    parser.add_argument('--mls-source', default=None,
+                        help='MLS source label (auto-detected from dataset if omitted)')
     parser.add_argument('--feed', choices=['idx', 'bbo'], default='idx',
                         help='API feed to use (default: idx)')
     parser.add_argument('--dry-run', action='store_true',
                         help='Preview without database changes')
     parser.add_argument('--max-records', type=int,
                         help='Maximum records to fetch (safety limit)')
+    parser.add_argument('--cross-listings', action='store_true',
+                        help='Run cross-listing detection only')
     parser.add_argument('--verbose', '-v', action='store_true',
                         help='Verbose logging')
 
@@ -942,15 +1045,25 @@ Examples:
 
     # Validate args
     has_action = any([args.test, args.full, args.incremental,
-                      args.sync_members, args.sync_open_houses])
+                      args.sync_members, args.sync_open_houses, args.cross_listings])
     if not has_action:
         parser.print_help()
-        print("\nError: Must specify an action (--test, --full, --incremental, --sync-members, --sync-open-houses)")
+        print("\nError: Must specify an action (--test, --full, --incremental, --sync-members, --sync-open-houses, --cross-listings)")
         return 1
 
     load_env()
 
-    engine = NavicaSyncEngine(feed=args.feed)
+    # Cross-listing detection only (no engine needed)
+    if args.cross_listings:
+        pairs = detect_cross_listings()
+        print(f"Cross-listing detection complete: {pairs} properties found in both MLSs")
+        return 0
+
+    engine = NavicaSyncEngine(
+        feed=args.feed,
+        dataset_code=args.dataset,
+        mls_source=args.mls_source,
+    )
 
     # Test mode
     if args.test:

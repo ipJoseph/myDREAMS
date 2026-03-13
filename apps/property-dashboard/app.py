@@ -3519,6 +3519,24 @@ def property_detail(property_id):
         # Get active pursuits for "Add to Pursuit" dropdown
         active_pursuits = db.get_active_pursuits(limit=20)
 
+        # Cross-listing detection (same property in another MLS)
+        cross_listing = None
+        MLS_DISPLAY = {
+            'NavicaMLS': 'Carolina Smokies MLS',
+            'MountainLakesMLS': 'Mountain Lakes MLS',
+            'CanopyMLS': 'Canopy MLS',
+        }
+        if prop_dict.get('cross_listed_id'):
+            cross_row = conn.execute(
+                'SELECT id, mls_number, mls_source, list_price, status FROM listings WHERE id = ?',
+                [prop_dict['cross_listed_id']]
+            ).fetchone()
+            if cross_row:
+                cross_listing = dict(cross_row)
+                cross_listing['display_name'] = MLS_DISPLAY.get(
+                    cross_row['mls_source'], cross_row['mls_source']
+                )
+
         return render_template('property_detail.html',
                              property=prop_dict,
                              agent_info=agent_info,
@@ -3531,7 +3549,8 @@ def property_detail(property_id):
                              price_history=price_history,
                              changes=changes,
                              interested_contacts=interested,
-                             active_pursuits=active_pursuits)
+                             active_pursuits=active_pursuits,
+                             cross_listing=cross_listing)
 
 
 @app.route('/api/properties/<property_id>/price-history')
