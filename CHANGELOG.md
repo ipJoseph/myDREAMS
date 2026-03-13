@@ -9,6 +9,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Contact Snapshots: Replace Google Sheets Backups with SQLite** (2026-03-13)
+  - New `contact_snapshots` table stores full 38-column contact state at every sync run
+  - 4 indexes for efficient queries by contact, timestamp, stage, and sync_id
+  - `insert_contact_snapshots_batch()` method with column whitelist for SQL injection safety
+  - `sync_snapshots_to_sqlite()` maps camelCase Sheets headers to snake_case DB columns
+  - Sheets backup tabs disabled by default; opt back in with `ENABLE_SHEETS_BACKUP=true`
+  - `scripts/migrate_sheets_backups.py` for one-time import of 206 historical backup tabs
+  - Eliminates Google Sheets ~200 tab limit; enables proper historical analytics
 - **TMO Weekly Pipeline: Automated Download, Parse, Generate, Notify** (2026-03-10)
   - `scripts/tmo_weekly_pipeline.py`: orchestrator that chains download, parse, generate, and email steps
   - `scripts/market_insights_engine.py`: two-tier fresh insights system
