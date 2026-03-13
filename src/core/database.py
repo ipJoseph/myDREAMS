@@ -3941,7 +3941,7 @@ class DREAMSDatabase:
                 params = user_params + [limit]
 
             elif list_type == 'silent_buyers':
-                # High digital activity but zero or minimal phone contact
+                # 10+ properties viewed, 0-1 calls (not truly contacted yet)
                 query = '''
                     SELECT
                         l.id,
@@ -3968,8 +3968,8 @@ class DREAMSDatabase:
                     FROM leads l
                     WHERE l.contact_group = 'scored'
                     AND l.stage NOT IN ('Trash', 'Closed', 'Past Client', 'DNC', 'Agents/Vendors/Lendors')
-                    AND l.properties_viewed >= 20
-                    AND (l.calls_outbound + l.calls_inbound) = 0
+                    AND l.properties_viewed >= 10
+                    AND (l.calls_outbound + l.calls_inbound) <= 1
                 ''' + f'''
                     {user_filter}
                     ORDER BY l.avg_price_viewed DESC, l.heat_score DESC
@@ -3978,7 +3978,7 @@ class DREAMSDatabase:
                 params = user_params + [limit]
 
             elif list_type == 'communication_gap':
-                # Hot contacts (heat >= 40) with minimal outreach (0-2 calls)
+                # Heat >= 30, 0-2 calls, 5+ views, excluding anyone already on silent_buyers
                 query = '''
                     SELECT
                         l.id,
@@ -4005,8 +4005,10 @@ class DREAMSDatabase:
                     FROM leads l
                     WHERE l.contact_group = 'scored'
                     AND l.stage NOT IN ('Trash', 'Closed', 'Past Client', 'DNC', 'Agents/Vendors/Lendors')
-                    AND l.heat_score >= 40
+                    AND l.heat_score >= 30
                     AND (l.calls_outbound + l.calls_inbound) <= 2
+                    AND l.properties_viewed >= 5
+                    AND NOT (l.properties_viewed >= 10 AND (l.calls_outbound + l.calls_inbound) <= 1)
                 ''' + f'''
                     {user_filter}
                     ORDER BY l.avg_price_viewed DESC, l.heat_score DESC
@@ -4092,8 +4094,8 @@ class DREAMSDatabase:
                     SELECT COUNT(*) FROM leads l
                     WHERE {base_where}
                     AND l.stage NOT IN ('Agents/Vendors/Lendors')
-                    AND l.properties_viewed >= 20
-                    AND (l.calls_outbound + l.calls_inbound) = 0
+                    AND l.properties_viewed >= 10
+                    AND (l.calls_outbound + l.calls_inbound) <= 1
                     {user_filter}
                 '''
                 params = user_params
@@ -4103,8 +4105,10 @@ class DREAMSDatabase:
                     SELECT COUNT(*) FROM leads l
                     WHERE {base_where}
                     AND l.stage NOT IN ('Agents/Vendors/Lendors')
-                    AND l.heat_score >= 40
+                    AND l.heat_score >= 30
                     AND (l.calls_outbound + l.calls_inbound) <= 2
+                    AND l.properties_viewed >= 5
+                    AND NOT (l.properties_viewed >= 10 AND (l.calls_outbound + l.calls_inbound) <= 1)
                     {user_filter}
                 '''
                 params = user_params

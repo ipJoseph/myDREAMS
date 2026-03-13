@@ -1681,12 +1681,13 @@ def get_silent_buyers_and_gaps() -> Dict[str, List[Dict]]:
             FROM leads
             WHERE contact_group = 'scored'
             AND stage NOT IN ('Trash', 'Closed', 'Past Client', 'DNC', 'Agents/Vendors/Lendors')
-            AND properties_viewed >= 20
-            AND (calls_outbound + calls_inbound) = 0
+            AND properties_viewed >= 10
+            AND (calls_outbound + calls_inbound) <= 1
             ORDER BY avg_price_viewed DESC, heat_score DESC
-            LIMIT 15
+            LIMIT 25
         ''').fetchall()
         result['silent_buyers'] = [dict(r) for r in silent]
+        silent_ids = {r['id'] for r in result['silent_buyers']}
 
         gaps = conn.execute('''
             SELECT id, first_name, last_name, stage, heat_score, phone,
@@ -1695,12 +1696,15 @@ def get_silent_buyers_and_gaps() -> Dict[str, List[Dict]]:
             FROM leads
             WHERE contact_group = 'scored'
             AND stage NOT IN ('Trash', 'Closed', 'Past Client', 'DNC', 'Agents/Vendors/Lendors')
-            AND heat_score >= 40
+            AND heat_score >= 30
             AND (calls_outbound + calls_inbound) <= 2
+            AND properties_viewed >= 5
             ORDER BY avg_price_viewed DESC, heat_score DESC
-            LIMIT 10
+            LIMIT 20
         ''').fetchall()
-        result['communication_gaps'] = [dict(r) for r in gaps]
+        # Deduplicate: exclude contacts already in silent_buyers
+        gaps = [dict(r) for r in gaps if r['id'] not in silent_ids]
+        result['communication_gaps'] = gaps
 
         conn.close()
     except Exception as e:
