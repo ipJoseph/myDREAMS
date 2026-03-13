@@ -1065,6 +1065,12 @@
                 {% if property.days_on_market %}
                 <span class="prop-badge badge-dom">{{ property.days_on_market }} DOM</span>
                 {% endif %}
+                {% if property.expiration_date and property.status == 'ACTIVE' %}
+                {% set days_to_exp = ((property.expiration_date|string)[:10] | replace('-','') | int - now_iso | int) if false else none %}
+                <span class="prop-badge" style="{% if property.expiration_date <= today_str %}background: #fecaca; color: #991b1b;{% elif property.expiration_date <= soon_str %}background: #fef3c7; color: #92400e;{% else %}background: #f3f4f6; color: #6b7280;{% endif %}">
+                    Expires {{ property.expiration_date[:10] }}
+                </span>
+                {% endif %}
                 {% if property.flood_zone and property.flood_zone != 'X' %}
                 <span class="prop-badge badge-flood {% if property.flood_factor and property.flood_factor >= 6 %}high{% endif %}">
                     Flood: {{ property.flood_zone }}

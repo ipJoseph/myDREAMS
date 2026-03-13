@@ -1661,6 +1661,37 @@ def get_property_changes_for_email() -> Dict[str, Any]:
         }
 
 
+def get_expiring_listings(days: int = 14) -> List[Dict]:
+    """Query active listings expiring within the given number of days."""
+    import sqlite3 as _sqlite3
+    try:
+        conn = _sqlite3.connect(Config.DREAMS_DB_PATH)
+        conn.row_factory = _sqlite3.Row
+        rows = conn.execute('''
+            SELECT id, mls_number, mls_source, address, city, county,
+                   list_price, expiration_date, list_date,
+                   listing_agent_name, listing_office_name,
+                   CASE mls_source
+                       WHEN 'NavicaMLS' THEN 'Carolina Smokies'
+                       WHEN 'MountainLakesMLS' THEN 'Mountain Lakes'
+                       ELSE mls_source
+                   END as mls_display,
+                   CAST(julianday(expiration_date) - julianday('now') AS INTEGER) as days_until_expiry
+            FROM listings
+            WHERE status = 'ACTIVE'
+            AND expiration_date IS NOT NULL
+            AND expiration_date <= date('now', ?)
+            AND expiration_date >= date('now', '-7 days')
+            ORDER BY expiration_date ASC, list_price DESC
+        ''', [f'+{days} days']).fetchall()
+        result = [dict(r) for r in rows]
+        conn.close()
+        return result
+    except Exception as e:
+        logger.error(f"Error querying expiring listings: {e}")
+        return []
+
+
 def get_silent_buyers_and_gaps() -> Dict[str, List[Dict]]:
     """Query Silent Buyers and Communication Gap contacts for the daily report.
 
@@ -1939,6 +1970,50 @@ def send_top_priority_email(
 
     except Exception as e:
         logger.error(f"Error building silent buyer/gap section: {e}")
+
+    # Expiring Listings
+    try:
+        expiring = get_expiring_listings(days=14)
+        if expiring:
+            # Split into already expired and expiring soon
+            expired = [l for l in expiring if (l.get('days_until_expiry') or 0) < 0]
+            expiring_soon = [l for l in expiring if (l.get('days_until_expiry') or 0) >= 0]
+
+            body_lines.extend([
+                f"<h3>Expiring Listings ({len(expiring)})</h3>",
+                "<p style='color: #666; font-size: 13px; margin-bottom: 8px;'>Active listings with contracts expiring within 14 days. Potential listing opportunities or renewal conversations.</p>",
+                "<table border='1' cellpadding='5' cellspacing='0' style='border-collapse: collapse; width: 100%; font-size: 13px;'>",
+                "<tr style='background-color: #d97706; color: white;'>",
+                "<th>Address</th><th>City</th><th>Price</th><th>Expires</th><th>Days</th><th>MLS</th><th>Agent</th>",
+                "</tr>",
+            ])
+            for listing in expiring:
+                price = listing.get('list_price') or 0
+                price_str = f"${price:,.0f}" if price else "-"
+                days_left = listing.get('days_until_expiry') or 0
+                if days_left < 0:
+                    days_str = f"<span style='color: #dc2626; font-weight: bold;'>{days_left}d (expired)</span>"
+                elif days_left <= 3:
+                    days_str = f"<span style='color: #dc2626; font-weight: bold;'>{days_left}d</span>"
+                elif days_left <= 7:
+                    days_str = f"<span style='color: #d97706; font-weight: bold;'>{days_left}d</span>"
+                else:
+                    days_str = f"{days_left}d"
+                agent = listing.get('listing_agent_name') or '-'
+                body_lines.append(
+                    f"<tr>"
+                    f"<td>{listing.get('address', '')}</td>"
+                    f"<td>{listing.get('city', '')}</td>"
+                    f"<td style='text-align: right;'>{price_str}</td>"
+                    f"<td style='text-align: center;'>{listing.get('expiration_date', '')}</td>"
+                    f"<td style='text-align: center;'>{days_str}</td>"
+                    f"<td>{listing.get('mls_display', '')}</td>"
+                    f"<td style='font-size: 11px;'>{agent[:25]}</td>"
+                    f"</tr>"
+                )
+            body_lines.append("</table>")
+    except Exception as e:
+        logger.error(f"Error building expiring listings section: {e}")
 
     # Top priority contacts
     idx = {name: i for i, name in enumerate(CONTACTS_HEADER)}

@@ -982,6 +982,25 @@ def home():
         call_list_counts[list_type] = db.count_call_list_contacts(list_type, user_id=CURRENT_USER_ID)
         call_list_data[list_type] = db.get_call_list_contacts(list_type, user_id=CURRENT_USER_ID, limit=25)
 
+    # ===== EXPIRING LISTINGS =====
+    expiring_listings = []
+    try:
+        with db._get_connection() as conn:
+            expiring_listings = [dict(r) for r in conn.execute('''
+                SELECT id, mls_number, mls_source, address, city, list_price,
+                       expiration_date, listing_agent_name,
+                       CAST(julianday(expiration_date) - julianday('now') AS INTEGER) as days_left
+                FROM listings
+                WHERE status = 'ACTIVE'
+                AND expiration_date IS NOT NULL
+                AND expiration_date <= date('now', '+14 days')
+                AND expiration_date >= date('now', '-7 days')
+                ORDER BY expiration_date ASC, list_price DESC
+                LIMIT 20
+            ''').fetchall()]
+    except Exception as e:
+        logger.warning(f"Expiring listings query failed: {e}")
+
     # ===== V2 DASHBOARD =====
     return render_template('home_v2.html',
                          todays_actions=todays_actions,
@@ -994,6 +1013,7 @@ def home():
                          buyers_needing_work=buyers_needing_work,
                          call_list_data=call_list_data,
                          call_list_counts=call_list_counts,
+                         expiring_listings=expiring_listings,
                          refresh_time=datetime.now(tz=ET).strftime('%B %d, %Y %I:%M %p'))
 
 
@@ -3537,6 +3557,11 @@ def property_detail(property_id):
                     cross_row['mls_source'], cross_row['mls_source']
                 )
 
+        # Date strings for expiration badge coloring
+        from datetime import timedelta
+        today_str = datetime.now().strftime('%Y-%m-%d')
+        soon_str = (datetime.now() + timedelta(days=14)).strftime('%Y-%m-%d')
+
         return render_template('property_detail.html',
                              property=prop_dict,
                              agent_info=agent_info,
@@ -3550,7 +3575,9 @@ def property_detail(property_id):
                              changes=changes,
                              interested_contacts=interested,
                              active_pursuits=active_pursuits,
-                             cross_listing=cross_listing)
+                             cross_listing=cross_listing,
+                             today_str=today_str,
+                             soon_str=soon_str)
 
 
 @app.route('/api/properties/<property_id>/price-history')

@@ -896,6 +896,49 @@
                 </div>
             </div>
 
+            <!-- ZONE G: EXPIRING LISTINGS -->
+            {% if expiring_listings %}
+            <div class="panel" style="grid-column: 1 / -1;">
+                <div class="panel-head">
+                    <span class="panel-title" style="color: #d97706;">Expiring Soon ({{ expiring_listings|length }})</span>
+                    <a href="/properties?status=Active&sort=expiration_date&order=asc" class="panel-link">All Listings &rarr;</a>
+                </div>
+                <div class="panel-body" style="padding: 0;">
+                    <table style="width: 100%; font-size: 13px; border-collapse: collapse;">
+                        <thead>
+                            <tr style="background: #fffbeb; border-bottom: 1px solid #fde68a;">
+                                <th style="padding: 8px 12px; text-align: left; font-weight: 600; color: #92400e;">Address</th>
+                                <th style="padding: 8px 12px; text-align: left; font-weight: 600; color: #92400e;">City</th>
+                                <th style="padding: 8px 12px; text-align: right; font-weight: 600; color: #92400e;">Price</th>
+                                <th style="padding: 8px 12px; text-align: center; font-weight: 600; color: #92400e;">Expires</th>
+                                <th style="padding: 8px 12px; text-align: center; font-weight: 600; color: #92400e;">Days</th>
+                                <th style="padding: 8px 12px; text-align: left; font-weight: 600; color: #92400e;">Agent</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for l in expiring_listings %}
+                            <tr style="border-bottom: 1px solid #f3f4f6;{% if l.days_left < 0 %} background: #fef2f2;{% elif l.days_left <= 3 %} background: #fffbeb;{% endif %}">
+                                <td style="padding: 8px 12px;">
+                                    <a href="/properties/{{ l.id }}" style="color: #1d4ed8; text-decoration: none; font-weight: 500;">{{ l.address or 'N/A' }}</a>
+                                </td>
+                                <td style="padding: 8px 12px;">{{ l.city or '' }}</td>
+                                <td style="padding: 8px 12px; text-align: right; font-weight: 600;">
+                                    {% if l.list_price %}${{ "{:,.0f}".format(l.list_price) }}{% else %}-{% endif %}
+                                </td>
+                                <td style="padding: 8px 12px; text-align: center;">{{ l.expiration_date }}</td>
+                                <td style="padding: 8px 12px; text-align: center; font-weight: 700;
+                                    {% if l.days_left < 0 %}color: #dc2626;{% elif l.days_left <= 3 %}color: #dc2626;{% elif l.days_left <= 7 %}color: #d97706;{% else %}color: #6b7280;{% endif %}">
+                                    {% if l.days_left < 0 %}{{ l.days_left }}d{% else %}{{ l.days_left }}d{% endif %}
+                                </td>
+                                <td style="padding: 8px 12px; font-size: 12px; color: #6b7280;">{{ (l.listing_agent_name or '-')[:30] }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+
         </div>
 
     </div><!-- /page-content -->
