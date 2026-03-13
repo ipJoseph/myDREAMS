@@ -2827,8 +2827,15 @@ def main():
         # Build contact rows
         contact_rows = build_contact_rows(people, person_stats, persisted_actions)
 
-        # Create backup with timestamp
+        # Create backup with timestamp (handle duplicate names)
         backup_name = datetime.now().strftime("%y%m%d.%H%M")
+        existing_titles = {ws.title for ws in sh.worksheets()}
+        if backup_name in existing_titles:
+            for suffix in range(2, 100):
+                candidate = f"{backup_name}.{suffix}"
+                if candidate not in existing_titles:
+                    backup_name = candidate
+                    break
         logger.info(f"Creating backup: {backup_name}")
         backup_ws = sh.add_worksheet(
             title=backup_name,
