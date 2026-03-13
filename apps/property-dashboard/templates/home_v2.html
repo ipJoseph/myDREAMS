@@ -149,13 +149,16 @@
         /* ========== CALL LIST (ZONE B) ========== */
         .cl-tabs {
             display: flex;
-            gap: 4px;
-            padding: 12px 20px 0;
+            gap: 2px;
+            padding: 12px 12px 0;
             border-bottom: 1px solid #f1f5f9;
+            overflow-x: auto;
+            scrollbar-width: none;
         }
+        .cl-tabs::-webkit-scrollbar { display: none; }
         .cl-tab {
-            padding: 10px 16px;
-            font-size: 13px;
+            padding: 8px 10px;
+            font-size: 12px;
             font-weight: 600;
             color: var(--text-secondary);
             background: none;
@@ -171,9 +174,9 @@
             display: inline-block;
             background: #e2e8f0;
             color: var(--text-secondary);
-            font-size: 11px;
+            font-size: 10px;
             font-weight: 700;
-            padding: 2px 7px;
+            padding: 1px 6px;
             border-radius: 10px;
             margin-left: 5px;
         }
@@ -622,16 +625,16 @@
                         Hot <span class="badge">{{ call_list_counts.get('hot', 0) }}</span>
                     </button>
                     <button class="cl-tab" data-tab="follow_up" title="Press 4">
-                        Follow-Up <span class="badge">{{ call_list_counts.get('follow_up', 0) }}</span>
+                        Follow Up <span class="badge">{{ call_list_counts.get('follow_up', 0) }}</span>
                     </button>
                     <button class="cl-tab" data-tab="going_cold" title="Press 5">
-                        Going Cold <span class="badge">{{ call_list_counts.get('going_cold', 0) }}</span>
+                        Cold <span class="badge">{{ call_list_counts.get('going_cold', 0) }}</span>
                     </button>
-                    <button class="cl-tab" data-tab="silent_buyers" title="Press 6" style="border-color: #7c3aed;">
-                        Silent Buyers <span class="badge" style="background: #7c3aed; color: white;">{{ call_list_counts.get('silent_buyers', 0) }}</span>
+                    <button class="cl-tab" data-tab="silent_buyers" title="Press 6" style="color: #7c3aed;">
+                        Silent <span class="badge" style="background: #7c3aed; color: white;">{{ call_list_counts.get('silent_buyers', 0) }}</span>
                     </button>
-                    <button class="cl-tab" data-tab="communication_gap" title="Press 7" style="border-color: #dc2626;">
-                        Comm Gaps <span class="badge" style="background: #dc2626; color: white;">{{ call_list_counts.get('communication_gap', 0) }}</span>
+                    <button class="cl-tab" data-tab="communication_gap" title="Press 7" style="color: #dc2626;">
+                        Gaps <span class="badge" style="background: #dc2626; color: white;">{{ call_list_counts.get('communication_gap', 0) }}</span>
                     </button>
                 </div>
 
@@ -653,6 +656,7 @@
                                         {% if list_type in ('silent_buyers', 'communication_gap') %}
                                             <span style="color: #92400e;">{{ c.properties_viewed or 0 }} viewed</span>
                                             {% if c.avg_price_viewed %}<span style="color: #065f46;">${{ "{:,.0f}".format(c.avg_price_viewed) }}</span>{% endif %}
+                                            {% if list_type == 'silent_buyers' and c.last_website_visit %}<span style="color: #6b7280;" title="Last Visit">{{ c.last_website_visit[:10] }}</span>{% endif %}
                                         {% elif c.source %}
                                             <span>{{ c.source[:18] }}</span>
                                         {% endif %}

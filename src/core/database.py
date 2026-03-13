@@ -3962,6 +3962,7 @@ class DREAMSDatabase:
                         l.calls_outbound,
                         l.calls_inbound,
                         l.avg_price_viewed,
+                        l.last_website_visit,
                         CASE WHEN EXISTS (
                             SELECT 1 FROM intake_forms i WHERE i.lead_id = l.id AND i.status = 'active'
                         ) THEN 1 ELSE 0 END as has_intake

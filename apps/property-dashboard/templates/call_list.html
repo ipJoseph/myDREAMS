@@ -35,18 +35,21 @@
         /* Filter tabs */
         .filter-tabs {
             display: flex;
-            gap: 8px;
-            padding: 16px 24px;
+            gap: 4px;
+            padding: 12px 16px;
             background: var(--bg-secondary);
             border-bottom: 1px solid var(--border);
-            flex-wrap: wrap;
+            overflow-x: auto;
+            scrollbar-width: none;
         }
+        .filter-tabs::-webkit-scrollbar { display: none; }
 
         .filter-tab {
-            padding: 8px 16px;
+            padding: 6px 12px;
             border-radius: 20px;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 500;
+            white-space: nowrap;
             text-decoration: none;
             color: var(--text-secondary);
             background: white;
@@ -433,10 +436,10 @@
             New Leads <span class="count">{{ counts.new_leads or 0 }}</span>
         </a>
         <a href="?list=hot" class="filter-tab {{ 'active' if current_list == 'hot' else '' }}">
-            Hot (Active) <span class="count">{{ counts.hot or 0 }}</span>
+            Hot <span class="count">{{ counts.hot or 0 }}</span>
         </a>
         <a href="?list=follow_up" class="filter-tab {{ 'active' if current_list == 'follow_up' else '' }}">
-            Follow Up Due <span class="count">{{ counts.follow_up or 0 }}</span>
+            Follow Up <span class="count">{{ counts.follow_up or 0 }}</span>
         </a>
         <a href="?list=going_cold" class="filter-tab {{ 'active' if current_list == 'going_cold' else '' }}">
             Going Cold <span class="count">{{ counts.going_cold or 0 }}</span>
@@ -497,6 +500,9 @@
                             <span class="metric-chip calls" title="Total Calls">{{ total_calls }} calls</span>
                             {% if contact.avg_price_viewed %}
                             <span class="metric-chip price" title="Average Price Viewed">${{ "{:,.0f}".format(contact.avg_price_viewed) }}</span>
+                            {% endif %}
+                            {% if current_list == 'silent_buyers' and contact.last_website_visit %}
+                            <span class="metric-chip" style="background: #fef3c7; color: #92400e;" title="Last Website Visit">Last: {{ contact.last_website_visit[:10] }}</span>
                             {% endif %}
                         </div>
                         {% endif %}
