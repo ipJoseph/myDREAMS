@@ -47,6 +47,7 @@ from apps.navica.field_mapper import (
     map_reso_to_office,
     map_reso_to_open_house,
     generate_listing_id,
+    ensure_listing_columns,
     parse_timestamp,
 )
 
@@ -109,6 +110,10 @@ class MLSGridSyncEngine:
         """Ensure required tables and indexes exist."""
         conn = self._get_connection()
         try:
+            # Cache known listing columns for dynamic schema expansion
+            cursor = conn.execute("PRAGMA table_info(listings)")
+            self._known_listing_columns = {row[1] for row in cursor.fetchall()}
+
             # The Navica sync engine already creates the listings table schema.
             # We just need to make sure our indexes exist.
             conn.execute('''
@@ -466,6 +471,14 @@ class MLSGridSyncEngine:
             for i, prop in enumerate(properties):
                 try:
                     listing = map_reso_to_listing(prop, self.mls_source)
+
+                    # Ensure schema has all columns this listing needs
+                    if set(listing.keys()) - self._known_listing_columns:
+                        self._known_listing_columns = ensure_listing_columns(
+                            conn, listing, self._known_listing_columns
+                        )
+                        conn.commit()
+
                     result = self._upsert_listing(conn, listing, dry_run=dry_run)
 
                     if result == 'created':
@@ -582,6 +595,14 @@ class MLSGridSyncEngine:
             for i, prop in enumerate(properties):
                 try:
                     listing = map_reso_to_listing(prop, self.mls_source)
+
+                    # Ensure schema has all columns this listing needs
+                    if set(listing.keys()) - self._known_listing_columns:
+                        self._known_listing_columns = ensure_listing_columns(
+                            conn, listing, self._known_listing_columns
+                        )
+                        conn.commit()
+
                     result = self._upsert_listing(conn, listing, dry_run=dry_run)
 
                     if result == 'created':

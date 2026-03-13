@@ -47,6 +47,7 @@ from apps.navica.field_mapper import (
     map_reso_to_office,
     map_reso_to_open_house,
     generate_listing_id,
+    ensure_listing_columns,
     parse_timestamp,
 )
 
@@ -114,61 +115,9 @@ class NavicaSyncEngine:
         """Create required tables if they don't exist."""
         conn = self._get_connection()
         try:
-            # Extend listings table with Navica-specific columns if missing
+            # Cache known listing columns for dynamic schema expansion
             cursor = conn.execute("PRAGMA table_info(listings)")
-            existing_cols = {row[1] for row in cursor.fetchall()}
-
-            new_columns = [
-                ('listing_key', 'TEXT'),
-                ('property_subtype', 'TEXT'),
-                ('original_list_price', 'INTEGER'),
-                ('sold_price', 'INTEGER'),
-                ('sold_date', 'TEXT'),
-                ('lot_sqft', 'INTEGER'),
-                ('garage_spaces', 'INTEGER'),
-                ('appliances', 'TEXT'),
-                ('interior_features', 'TEXT'),
-                ('exterior_features', 'TEXT'),
-                ('water_source', 'TEXT'),
-                ('construction_materials', 'TEXT'),
-                ('foundation', 'TEXT'),
-                ('flooring', 'TEXT'),
-                ('fireplace_features', 'TEXT'),
-                ('parking_features', 'TEXT'),
-                ('hoa_frequency', 'TEXT'),
-                ('tax_annual_amount', 'INTEGER'),
-                ('tax_assessed_value', 'INTEGER'),
-                ('tax_year', 'INTEGER'),
-                ('buyer_agent_id', 'TEXT'),
-                ('buyer_agent_name', 'TEXT'),
-                ('buyer_office_id', 'TEXT'),
-                ('buyer_office_name', 'TEXT'),
-                ('public_remarks', 'TEXT'),
-                ('private_remarks', 'TEXT'),
-                ('showing_instructions', 'TEXT'),
-                ('parcel_number', 'TEXT'),
-                ('subdivision', 'TEXT'),
-                ('directions', 'TEXT'),
-                ('expiration_date', 'TEXT'),
-                ('modification_timestamp', 'TEXT'),
-                ('idx_opt_in', 'INTEGER DEFAULT 1'),
-                ('idx_address_display', 'INTEGER DEFAULT 1'),
-                ('roof', 'TEXT'),
-                ('sewer', 'TEXT'),
-                ('stories', 'INTEGER'),
-                ('vow_opt_in', 'INTEGER'),
-                ('documents_count', 'INTEGER'),
-                ('documents_available', 'TEXT'),
-                ('documents_change_timestamp', 'TEXT'),
-            ]
-
-            for col_name, col_type in new_columns:
-                if col_name not in existing_cols:
-                    try:
-                        conn.execute(f"ALTER TABLE listings ADD COLUMN {col_name} {col_type}")
-                        logger.info(f"Added column {col_name} to listings table")
-                    except sqlite3.OperationalError:
-                        pass
+            self._known_listing_columns = {row[1] for row in cursor.fetchall()}
 
             # Create agents table for member data (or add missing columns)
             conn.execute('''
@@ -616,6 +565,14 @@ class NavicaSyncEngine:
             for i, prop in enumerate(properties):
                 try:
                     listing = map_reso_to_listing(prop, self.mls_source)
+
+                    # Ensure schema has all columns this listing needs
+                    if set(listing.keys()) - self._known_listing_columns:
+                        self._known_listing_columns = ensure_listing_columns(
+                            conn, listing, self._known_listing_columns
+                        )
+                        conn.commit()
+
                     result = self._upsert_listing(conn, listing, dry_run=dry_run)
 
                     if result == 'created':
@@ -735,6 +692,14 @@ class NavicaSyncEngine:
             for i, prop in enumerate(properties):
                 try:
                     listing = map_reso_to_listing(prop, self.mls_source)
+
+                    # Ensure schema has all columns this listing needs
+                    if set(listing.keys()) - self._known_listing_columns:
+                        self._known_listing_columns = ensure_listing_columns(
+                            conn, listing, self._known_listing_columns
+                        )
+                        conn.commit()
+
                     result = self._upsert_listing(conn, listing, dry_run=dry_run)
 
                     if result == 'created':

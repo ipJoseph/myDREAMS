@@ -12,12 +12,155 @@ RESO Data Dictionary reference: https://ddwiki.reso.org/
 import hashlib
 import json
 import re
+import sqlite3
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------
+# RESO field name conversion
+# ---------------------------------------------------------------
+
+def reso_to_snake(field_name: str) -> str:
+    """
+    Convert RESO CamelCase field name to snake_case column name.
+
+    Examples:
+        BedroomsTotal -> bedrooms_total
+        NAV27_AdditionalOwnrNm -> nav27_additional_ownr_nm
+        IDXParticipationYN -> idx_participation_yn
+        ListAgentMlsId -> list_agent_mls_id
+    """
+    name = field_name
+
+    # Handle NAV27_ prefix: lowercase it and process the rest
+    custom_match = re.match(r'^([A-Z0-9]+_)(.*)', name)
+    if custom_match:
+        prefix = custom_match.group(1).lower()
+        rest = custom_match.group(2)
+        # Insert underscores in the rest if it's CamelCase
+        rest = re.sub(r'([A-Z]+)([A-Z][a-z])', r'\1_\2', rest)
+        rest = re.sub(r'([a-z0-9])([A-Z])', r'\1_\2', rest)
+        return prefix + rest.lower()
+
+    # Standard CamelCase conversion
+    # Handle sequences like "MLSAreaMajor" -> "mls_area_major"
+    name = re.sub(r'([A-Z]+)([A-Z][a-z])', r'\1_\2', name)
+    name = re.sub(r'([a-z0-9])([A-Z])', r'\1_\2', name)
+    return name.lower()
+
+
+# Fields explicitly mapped in map_reso_to_listing() that should NOT be
+# passed through again. Includes the raw RESO names.
+EXPLICITLY_MAPPED_FIELDS = {
+    # Identifiers
+    'ListingId', 'ListingKey',
+    # Status/dates
+    'StandardStatus', 'ListingContractDate', 'OnMarketDate',
+    'OriginalEntryTimestamp', 'CloseDate', 'DaysOnMarket', 'ExpirationDate',
+    # Pricing
+    'ListPrice', 'OriginalListPrice', 'ClosePrice',
+    # Location
+    'City', 'StateOrProvince', 'PostalCode', 'CountyOrParish',
+    'Latitude', 'Longitude', 'SubdivisionName', 'Directions',
+    'StreetNumber', 'StreetDirPrefix', 'StreetName', 'StreetSuffix',
+    'StreetDirSuffix', 'UnitNumber', 'UnitDesignation', 'UnparsedAddress',
+    # Property details
+    'PropertyType', 'PropertySubType', 'BedroomsTotal',
+    'BathroomsTotalDecimal', 'BathroomsFull', 'BathroomsHalf',
+    'LivingArea', 'LotSizeAcres', 'LotSizeSquareFeet',
+    'YearBuilt', 'StoriesTotal', 'GarageSpaces',
+    # Features
+    'Heating', 'Cooling', 'Appliances', 'InteriorFeatures',
+    'ExteriorFeatures', 'AssociationAmenities', 'View',
+    'ArchitecturalStyle', 'Roof', 'Sewer', 'WaterSource',
+    'ConstructionMaterials', 'FoundationDetails', 'Flooring',
+    'FireplaceFeatures', 'ParkingFeatures',
+    # Financial
+    'AssociationFee', 'AssociationFeeFrequency',
+    'TaxAnnualAmount', 'TaxAssessedValue', 'TaxYear',
+    # Agents
+    'ListAgentMlsId', 'ListAgentKey', 'ListAgentFullName',
+    'ListAgentPreferredPhone', 'ListAgentDirectPhone', 'ListAgentHomePhone',
+    'ListAgentEmail', 'ListOfficeMlsId', 'ListOfficeKey', 'ListOfficeName',
+    'BuyerAgentMlsId', 'BuyerAgentFullName',
+    'BuyerOfficeMlsId', 'BuyerOfficeKey', 'BuyerOfficeName',
+    # Media (handled separately via extract_photos/extract_virtual_tour)
+    'Media',
+    # Parcel
+    'ParcelNumber',
+    # Descriptions
+    'PublicRemarks', 'PrivateRemarks', 'ShowingInstructions',
+    # IDX rules
+    'InternetEntireListingDisplayYN', 'InternetAddressDisplayYN',
+    'VirtualTourURLUnbranded',
+    # Documents
+    'DocumentsCount', 'DocumentsAvailable', 'DocumentsChangeTimestamp',
+    # Sync
+    'ModificationTimestamp',
+}
+
+# Fields to skip entirely (metadata, computed, or handled differently)
+SKIP_FIELDS = {
+    '@odata.context', '@odata.id', '@odata.etag',
+    'url',  # API self-link
+    'Coordinates',  # Redundant with Latitude/Longitude
+}
+
+# Valid column name pattern (prevents SQL injection)
+VALID_COLUMN_RE = re.compile(r'^[a-z][a-z0-9_]*$')
+
+
+def ensure_listing_columns(conn: sqlite3.Connection, listing_dict: Dict[str, Any],
+                           known_columns: Set[str] = None) -> Set[str]:
+    """
+    Ensure all keys in listing_dict exist as columns in the listings table.
+    Adds missing columns via ALTER TABLE. Returns the updated set of known columns.
+
+    Args:
+        conn: SQLite connection
+        listing_dict: Dict of column_name -> value from the field mapper
+        known_columns: Cached set of known column names (avoids repeated PRAGMA calls)
+
+    Returns:
+        Updated set of known column names
+    """
+    if known_columns is None:
+        cursor = conn.execute("PRAGMA table_info(listings)")
+        known_columns = {row[1] for row in cursor.fetchall()}
+
+    new_cols = set(listing_dict.keys()) - known_columns
+    if not new_cols:
+        return known_columns
+
+    for col_name in sorted(new_cols):
+        # Safety: validate column name format
+        if not VALID_COLUMN_RE.match(col_name):
+            logger.warning(f"Skipping invalid column name: {col_name!r}")
+            continue
+
+        # Infer SQLite type from value
+        value = listing_dict[col_name]
+        if isinstance(value, bool) or isinstance(value, int):
+            col_type = 'INTEGER'
+        elif isinstance(value, float):
+            col_type = 'REAL'
+        else:
+            col_type = 'TEXT'
+
+        try:
+            conn.execute(f"ALTER TABLE listings ADD COLUMN {col_name} {col_type}")
+            known_columns.add(col_name)
+            logger.info(f"Added column {col_name} ({col_type}) to listings table")
+        except sqlite3.OperationalError:
+            # Column already exists (race condition or cache miss)
+            known_columns.add(col_name)
+
+    return known_columns
 
 
 # ---------------------------------------------------------------
@@ -389,6 +532,38 @@ def map_reso_to_listing(prop: Dict, mls_source: str = 'NavicaMLS') -> Dict[str, 
         'captured_at': now,
         'updated_at': now,
     }
+
+    # ---------------------------------------------------------------
+    # Passthrough: store all remaining RESO fields we don't explicitly map
+    # ---------------------------------------------------------------
+    for field_name, value in prop.items():
+        if field_name in EXPLICITLY_MAPPED_FIELDS or field_name in SKIP_FIELDS:
+            continue
+
+        # Convert to snake_case column name
+        col_name = reso_to_snake(field_name)
+
+        # Skip if this column was already set by explicit mapping
+        if col_name in listing:
+            continue
+
+        # Skip invalid column names
+        if not VALID_COLUMN_RE.match(col_name):
+            continue
+
+        # Handle value types
+        if value is None:
+            continue  # Don't store NULLs (saves space, handled by default)
+        elif isinstance(value, list):
+            if not value:
+                continue  # Skip empty lists
+            listing[col_name] = json.dumps(value)
+        elif isinstance(value, dict):
+            continue  # Skip complex nested objects
+        elif isinstance(value, bool):
+            listing[col_name] = 1 if value else 0
+        else:
+            listing[col_name] = value
 
     return listing
 

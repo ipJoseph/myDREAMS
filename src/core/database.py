@@ -1863,70 +1863,37 @@ class DREAMSDatabase:
         else:
             return 0.4
 
-    # Whitelist of valid column names for the listings table (canonical property source)
-    # Must match the actual schema. When adding columns to the table, update this too.
-    LISTINGS_COLUMNS = {
-        # Identifiers
-        'id', 'listing_key', 'mls_source', 'mls_number', 'parcel_id', 'parcel_number',
+    # Dynamic whitelist: populated from actual schema at runtime
+    _listings_columns_cache = None
 
-        # Status and dates
-        'status', 'list_date', 'sold_date', 'days_on_market', 'expiration_date',
-        'modification_timestamp',
+    def _get_listings_columns(self, conn=None) -> set:
+        """Get valid column names from the actual listings table schema."""
+        if self._listings_columns_cache is not None:
+            return self._listings_columns_cache
 
-        # Pricing
-        'list_price', 'original_list_price', 'sold_price',
+        close_conn = False
+        if conn is None:
+            conn = self._get_connection()
+            close_conn = True
 
-        # Location
-        'address', 'city', 'state', 'zip', 'county',
-        'latitude', 'longitude', 'elevation_feet', 'subdivision', 'directions',
+        try:
+            cursor = conn.execute("PRAGMA table_info(listings)")
+            self._listings_columns_cache = {row[1] for row in cursor.fetchall()}
+        finally:
+            if close_conn:
+                conn.close()
 
-        # Property details
-        'property_type', 'property_subtype', 'beds', 'baths', 'sqft',
-        'acreage', 'lot_sqft', 'year_built', 'stories', 'garage', 'garage_spaces',
-        'is_residential',
+        return self._listings_columns_cache
 
-        # Features (JSON arrays)
-        'style', 'views', 'amenities', 'heating', 'cooling', 'appliances',
-        'interior_features', 'exterior_features', 'fireplace_features',
-        'flooring', 'roof', 'sewer', 'water_source', 'construction_materials',
-        'foundation', 'parking_features',
-
-        # Financial
-        'hoa_fee', 'hoa_frequency',
-        'tax_annual_amount', 'tax_assessed_value', 'tax_year',
-
-        # Listing agent
-        'listing_agent_id', 'listing_agent_name', 'listing_agent_phone',
-        'listing_agent_email', 'listing_office_id', 'listing_office_name',
-
-        # Buyer agent (BBO/closed listings)
-        'buyer_agent_id', 'buyer_agent_name', 'buyer_office_id', 'buyer_office_name',
-
-        # Photos
-        'photos', 'primary_photo', 'photo_count', 'photo_source',
-        'photo_confidence', 'photo_verified_at', 'photo_verified_by',
-        'photo_review_status', 'photo_local_path',
-
-        # Links
-        'virtual_tour_url', 'mls_url', 'idx_url',
-        'redfin_url', 'redfin_id', 'zillow_url', 'zillow_id',
-
-        # Descriptions
-        'public_remarks', 'private_remarks', 'showing_instructions',
-
-        # IDX display rules
-        'idx_opt_in', 'idx_address_display', 'vow_opt_in',
-
-        # Documents
-        'documents_count', 'documents_available', 'documents_change_timestamp',
-
-        # Metadata
-        'added_for', 'added_by', 'notes', 'source',
-        'captured_at', 'updated_at',
-    }
+    @property
+    def LISTINGS_COLUMNS(self):
+        """Dynamic whitelist of valid listings columns (queries schema on first access)."""
+        return self._get_listings_columns()
 
     # Keep legacy alias for backward compatibility
-    PROPERTIES_COLUMNS = LISTINGS_COLUMNS
+    @property
+    def PROPERTIES_COLUMNS(self):
+        return self.LISTINGS_COLUMNS
 
     def upsert_listing_dict(self, data: Dict[str, Any]) -> bool:
         """Insert or update a listing from a dictionary."""
@@ -1937,11 +1904,12 @@ class DREAMSDatabase:
             if 'id' not in data:
                 return False
 
-            # Validate column names against whitelist to prevent SQL injection
-            invalid_cols = set(data.keys()) - self.LISTINGS_COLUMNS
+            # Validate column names against schema to prevent SQL injection
+            valid_cols = self._get_listings_columns(conn)
+            invalid_cols = set(data.keys()) - valid_cols
             if invalid_cols:
                 logging.getLogger(__name__).warning(f"Rejected invalid listing columns: {invalid_cols}")
-                data = {k: v for k, v in data.items() if k in self.LISTINGS_COLUMNS}
+                data = {k: v for k, v in data.items() if k in valid_cols}
 
             # Build upsert query
             columns = list(data.keys())
