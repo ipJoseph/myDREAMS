@@ -627,9 +627,15 @@
                     <button class="cl-tab" data-tab="going_cold" title="Press 5">
                         Going Cold <span class="badge">{{ call_list_counts.get('going_cold', 0) }}</span>
                     </button>
+                    <button class="cl-tab" data-tab="silent_buyers" title="Press 6" style="border-color: #7c3aed;">
+                        Silent Buyers <span class="badge" style="background: #7c3aed; color: white;">{{ call_list_counts.get('silent_buyers', 0) }}</span>
+                    </button>
+                    <button class="cl-tab" data-tab="communication_gap" title="Press 7" style="border-color: #dc2626;">
+                        Comm Gaps <span class="badge" style="background: #dc2626; color: white;">{{ call_list_counts.get('communication_gap', 0) }}</span>
+                    </button>
                 </div>
 
-                {% for list_type in ['priority', 'new_leads', 'hot', 'follow_up', 'going_cold'] %}
+                {% for list_type in ['priority', 'new_leads', 'hot', 'follow_up', 'going_cold', 'silent_buyers', 'communication_gap'] %}
                 <div class="cl-pane {{ 'active' if list_type == 'priority' else '' }}" data-pane="{{ list_type }}">
                     <div class="cl-body">
                         {% set contacts = call_list_data.get(list_type, []) %}
@@ -644,11 +650,20 @@
                                     <div class="cl-meta">
                                         {% if c.phone %}<span>{{ c.phone|phone }}</span>{% endif %}
                                         <span>{{ c.stage or 'Lead' }}</span>
-                                        {% if c.source %}<span>{{ c.source[:18] }}</span>{% endif %}
+                                        {% if list_type in ('silent_buyers', 'communication_gap') %}
+                                            <span style="color: #92400e;">{{ c.properties_viewed or 0 }} viewed</span>
+                                            {% if c.avg_price_viewed %}<span style="color: #065f46;">${{ "{:,.0f}".format(c.avg_price_viewed) }}</span>{% endif %}
+                                        {% elif c.source %}
+                                            <span>{{ c.source[:18] }}</span>
+                                        {% endif %}
                                     </div>
                                 </div>
                                 <div class="cl-scores">
+                                    {% if list_type in ('silent_buyers', 'communication_gap') and c.avg_price_viewed %}
+                                    <span class="pill" style="background: #fef3c7; color: #92400e;" title="Avg Price">${{ "{:,.0f}".format(c.avg_price_viewed) }}</span>
+                                    {% else %}
                                     <span class="pill pill-p" title="Priority">P{{ "%.0f"|format(c.priority_score or 0) }}</span>
+                                    {% endif %}
                                     <span class="pill pill-h" title="Heat">H{{ "%.0f"|format(c.heat_score or 0) }}</span>
                                 </div>
                                 <div class="cl-action">
@@ -674,7 +689,7 @@
                 {% endfor %}
 
                 <div class="kb-hint">
-                    <kbd>1</kbd>-<kbd>5</kbd> switch tabs
+                    <kbd>1</kbd>-<kbd>7</kbd> switch tabs
                 </div>
             </div>
 
@@ -899,7 +914,7 @@
     });
 
     // ===== KEYBOARD SHORTCUTS =====
-    const tabOrder = ['priority', 'new_leads', 'hot', 'follow_up', 'going_cold'];
+    const tabOrder = ['priority', 'new_leads', 'hot', 'follow_up', 'going_cold', 'silent_buyers', 'communication_gap'];
     document.addEventListener('keydown', (e) => {
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
         const num = parseInt(e.key);

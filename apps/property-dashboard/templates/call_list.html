@@ -96,6 +96,10 @@
             transition: all 0.2s;
         }
 
+        .contact-row.insight-row {
+            grid-template-columns: 1fr 220px 150px 200px;
+        }
+
         .contact-row:hover {
             box-shadow: 0 4px 12px rgba(0,0,0,0.12);
             transform: translateY(-1px);
@@ -193,8 +197,59 @@
 
         .stage-badge.lead { background: #dbeafe; color: #1e40af; }
         .stage-badge.prospect { background: #fef3c7; color: #92400e; }
-        .stage-badge.active-buyer { background: #d1fae5; color: #065f46; }
+        .stage-badge.active-buyer, .stage-badge.active-client { background: #d1fae5; color: #065f46; }
         .stage-badge.nurture { background: #f3e8ff; color: #7c3aed; }
+        .stage-badge.hot-prospect { background: #fee2e2; color: #dc2626; }
+
+        /* Insight tab colors */
+        .filter-tab.silent-buyers { border-color: #7c3aed; }
+        .filter-tab.silent-buyers.active { background: #7c3aed; border-color: #7c3aed; }
+        .filter-tab.comm-gap { border-color: #dc2626; }
+        .filter-tab.comm-gap.active { background: #dc2626; border-color: #dc2626; }
+
+        /* Insight metrics row */
+        .insight-metrics {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .metric-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .metric-chip.views { background: #dbeafe; color: #1e40af; }
+        .metric-chip.favs { background: #fce7f3; color: #be185d; }
+        .metric-chip.visits { background: #d1fae5; color: #065f46; }
+        .metric-chip.price { background: #fef3c7; color: #92400e; }
+        .metric-chip.calls { background: #fee2e2; color: #dc2626; }
+
+        /* Section divider for insight lists */
+        .insight-header {
+            padding: 16px 0 8px;
+            margin-bottom: 8px;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .insight-header h3 {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .insight-header p {
+            font-size: 13px;
+            color: var(--text-tertiary);
+            margin-top: 4px;
+        }
 
         /* Intake status */
         .intake-status {
@@ -386,13 +441,32 @@
         <a href="?list=going_cold" class="filter-tab {{ 'active' if current_list == 'going_cold' else '' }}">
             Going Cold <span class="count">{{ counts.going_cold or 0 }}</span>
         </a>
+        <a href="?list=silent_buyers" class="filter-tab silent-buyers {{ 'active' if current_list == 'silent_buyers' else '' }}">
+            Silent Buyers <span class="count">{{ counts.silent_buyers or 0 }}</span>
+        </a>
+        <a href="?list=communication_gap" class="filter-tab comm-gap {{ 'active' if current_list == 'communication_gap' else '' }}">
+            Comm Gaps <span class="count">{{ counts.communication_gap or 0 }}</span>
+        </a>
     </div>
 
     <!-- Contact List -->
     <div class="call-list-container">
+        {% if current_list == 'silent_buyers' %}
+        <div class="insight-header">
+            <h3>Silent Buyers: 10+ properties viewed, 0-1 calls</h3>
+            <p>These contacts are actively browsing your IDX site but have never had a real conversation. Sorted by avg price viewed.</p>
+        </div>
+        {% elif current_list == 'communication_gap' %}
+        <div class="insight-header">
+            <h3>Communication Gaps: Heat 30+, only 0-2 calls, 5+ views</h3>
+            <p>Hot contacts who need more outreach. Their engagement is high but phone contact is minimal. Sorted by avg price viewed.</p>
+        </div>
+        {% endif %}
+
         {% if contacts %}
             {% for contact in contacts %}
-            <div class="contact-row" id="contact-{{ contact.id }}">
+            {% set is_insight = current_list in ('silent_buyers', 'communication_gap') %}
+            <div class="contact-row {{ 'insight-row' if is_insight else '' }}" id="contact-{{ contact.id }}">
                 <div class="contact-info">
                     <div class="contact-avatar">
                         {{ (contact.first_name or '?')[0] }}{{ (contact.last_name or '')[0] }}
@@ -408,17 +482,37 @@
                             <span class="stage-badge {{ (contact.stage or '')|lower|replace(' ', '-') }}">
                                 {{ contact.stage or 'Unknown' }}
                             </span>
-                            {% if contact.source %}
+                            {% if not is_insight and contact.source %}
                             <span>via {{ contact.source[:20] }}</span>
                             {% endif %}
                         </div>
+                        {% if is_insight %}
+                        <div class="insight-metrics" style="margin-top: 6px;">
+                            <span class="metric-chip views" title="Properties Viewed">{{ contact.properties_viewed or 0 }} viewed</span>
+                            {% if contact.properties_favorited %}
+                            <span class="metric-chip favs" title="Properties Favorited">{{ contact.properties_favorited }} favs</span>
+                            {% endif %}
+                            <span class="metric-chip visits" title="Website Visits">{{ contact.website_visits or 0 }} visits</span>
+                            {% set total_calls = (contact.calls_outbound or 0) + (contact.calls_inbound or 0) %}
+                            <span class="metric-chip calls" title="Total Calls">{{ total_calls }} calls</span>
+                            {% if contact.avg_price_viewed %}
+                            <span class="metric-chip price" title="Average Price Viewed">${{ "{:,.0f}".format(contact.avg_price_viewed) }}</span>
+                            {% endif %}
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
 
                 <div class="contact-score">
+                    {% if is_insight and contact.avg_price_viewed %}
+                    <span class="score-badge priority" title="Avg Price Viewed" style="background: #fef3c7; color: #92400e;">
+                        ${{ "{:,.0f}".format(contact.avg_price_viewed) }}
+                    </span>
+                    {% else %}
                     <span class="score-badge priority" title="Priority Score">
                         P {{ "%.0f"|format(contact.priority_score or 0) }}
                     </span>
+                    {% endif %}
                     <span class="score-badge heat" title="Heat Score">
                         H {{ "%.0f"|format(contact.heat_score or 0) }}
                     </span>
@@ -489,8 +583,8 @@
 
         // Keyboard shortcuts
         document.addEventListener('keydown', function(e) {
-            // Press 1-5 to switch tabs
-            if (e.key >= '1' && e.key <= '5' && !e.ctrlKey && !e.metaKey) {
+            // Press 1-7 to switch tabs
+            if (e.key >= '1' && e.key <= '7' && !e.ctrlKey && !e.metaKey) {
                 const tabs = document.querySelectorAll('.filter-tab');
                 const idx = parseInt(e.key) - 1;
                 if (tabs[idx]) {
