@@ -352,6 +352,8 @@
                     {% for s in statuses %}
                     <option value="{{ s }}" {% if s == selected_status %}selected{% endif %}>{{ s }}</option>
                     {% endfor %}
+                    <option disabled>──────────</option>
+                    <option value="BBO" {% if selected_status == 'BBO' %}selected{% endif %}>BBO Only (Not on IDX)</option>
                 </select>
             </div>
 

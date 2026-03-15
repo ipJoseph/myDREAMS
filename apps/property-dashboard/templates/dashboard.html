@@ -717,6 +717,8 @@
                 {% for s in statuses %}
                 <option value="{{ s }}" {% if selected_status == s %}selected{% endif %}>{{ s }}</option>
                 {% endfor %}
+                <option disabled>──────────</option>
+                <option value="BBO" {% if selected_status == 'BBO' %}selected{% endif %} style="font-weight: 600;">BBO Only (Not on IDX)</option>
             </select>
 
             {% set selected_counties = selected_county.split(',') if selected_county else [] %}
@@ -898,9 +900,13 @@
                 {% endif %}
             </div>
 
-            {% set has_badges = prop.document_count or prop.showing_instructions or idx_status %}
+            {% set is_bbo = prop.feed_types == '["BBO"]' %}
+            {% set has_badges = prop.document_count or prop.showing_instructions or idx_status or is_bbo %}
             {% if has_badges %}
             <div class="dash-card-badges">
+                {% if is_bbo %}
+                <span class="dash-mini-badge" style="background: #fef3c7; color: #92400e; font-weight: 700;">BBO</span>
+                {% endif %}
                 {% if prop.document_count %}
                 <span class="dash-mini-badge docs">{{ prop.document_count }} docs</span>
                 {% endif %}

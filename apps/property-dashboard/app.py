@@ -653,7 +653,8 @@ def parse_mls_list(q: str) -> list | None:
 def count_properties(added_for: Optional[str] = None, status: Optional[str] = None,
                      city: Optional[str] = None, county: Optional[str] = None,
                      q: Optional[str] = None, min_price: Optional[int] = None,
-                     max_price: Optional[int] = None, min_beds: Optional[int] = None) -> int:
+                     max_price: Optional[int] = None, min_beds: Optional[int] = None,
+                     bbo_only: bool = False) -> int:
     """Count properties matching filters (for pagination)"""
     with db._get_connection() as conn:
         table = 'listings'
@@ -661,10 +662,12 @@ def count_properties(added_for: Optional[str] = None, status: Optional[str] = No
         query = f'SELECT COUNT(*) FROM {table} WHERE 1=1'
         params = []
 
-        if added_for:
+        if bbo_only:
+            query += " AND feed_types = '[\"BBO\"]' AND LOWER(status) = 'active'"
+        elif added_for:
             query += ' AND added_for LIKE ?'
             params.append(f'%{added_for}%')
-        if status:
+        if status and not bbo_only:
             query += ' AND LOWER(status) = LOWER(?)'
             params.append(status)
         query = _build_multi_where(query, params, 'city', city)
@@ -696,7 +699,8 @@ def fetch_properties(added_for: Optional[str] = None, status: Optional[str] = No
                       sort_by: str = 'price', sort_order: str = 'desc',
                       limit: Optional[int] = None, offset: int = 0,
                       q: Optional[str] = None, min_price: Optional[int] = None,
-                      max_price: Optional[int] = None, min_beds: Optional[int] = None) -> List[Dict[str, Any]]:
+                      max_price: Optional[int] = None, min_beds: Optional[int] = None,
+                      bbo_only: bool = False) -> List[Dict[str, Any]]:
     """Fetch properties from listings table with optional filters, sorting, and pagination"""
     # Whitelist of allowed sort columns (prevents SQL injection)
     ALLOWED_SORTS = {
@@ -715,11 +719,13 @@ def fetch_properties(added_for: Optional[str] = None, status: Optional[str] = No
         query = f'SELECT * FROM {table} WHERE 1=1'
         params = []
 
-        if added_for:
+        if bbo_only:
+            query += " AND feed_types = '[\"BBO\"]' AND LOWER(status) = 'active'"
+        elif added_for:
             query += ' AND added_for LIKE ?'
             params.append(f'%{added_for}%')
 
-        if status:
+        if status and not bbo_only:
             query += ' AND LOWER(status) = LOWER(?)'
             params.append(status)
 
@@ -3199,16 +3205,20 @@ def properties_list():
     statuses = filter_options['statuses']
     county_cities = filter_options['county_cities']
 
+    # BBO-only filter (active listings not on IDX)
+    bbo_only = (status == 'BBO')
+
     # Common filter kwargs
     filter_kwargs = dict(
         added_for=added_for if added_for else None,
-        status=status if status else None,
+        status=status if status and not bbo_only else None,
         city=city if city else None,
         county=county if county else None,
         q=q if q else None,
         min_price=min_price,
         max_price=max_price,
         min_beds=min_beds,
+        bbo_only=bbo_only,
     )
 
     # Get total count for pagination
@@ -6175,7 +6185,9 @@ def listings_gallery():
         if photos_only == '1':
             query += ' AND l.primary_photo IS NOT NULL'
 
-        if status:
+        if status == 'BBO':
+            query += " AND l.feed_types = '[\"BBO\"]' AND LOWER(l.status) = 'active'"
+        elif status:
             query += ' AND l.status = ?'
             params.append(status)
 
