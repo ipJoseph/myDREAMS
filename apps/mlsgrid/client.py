@@ -115,10 +115,12 @@ class MLSGridClient:
         self.timeout = timeout
 
         # Session with persistent auth headers
+        # Best Practices: All responses are compressed; must send Accept-Encoding
         self.session = requests.Session()
         self.session.headers.update({
             'Authorization': f'Bearer {token}',
             'Accept': 'application/json',
+            'Accept-Encoding': 'gzip,deflate',
         })
 
         # Rate limiting state
@@ -427,7 +429,8 @@ class MLSGridClient:
         params = {"$filter": filter_str}
 
         if expand_media:
-            params["$expand"] = "Media"
+            # Best Practices: $expand=Media,Rooms,UnitTypes for full property data
+            params["$expand"] = "Media,Rooms,UnitTypes"
 
         logger.info(f"Fetching properties from Canopy MLS...")
         logger.info(f"  Filter: {filter_str}")
