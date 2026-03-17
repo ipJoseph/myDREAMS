@@ -13,6 +13,10 @@ const nextConfig: NextConfig = {
         hostname: "api.wncmountain.homes",
       },
       {
+        protocol: "https",
+        hostname: "media.mlsgrid.com",
+      },
+      {
         protocol: "http",
         hostname: "localhost",
       },
