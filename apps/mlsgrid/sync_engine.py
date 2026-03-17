@@ -741,7 +741,7 @@ Examples:
     parser.add_argument('--sync-members', action='store_true',
                         help='Sync agent/member records')
     parser.add_argument('--status',
-                        choices=['Active', 'Pending', 'Closed', 'Expired', 'Withdrawn'],
+                        choices=['Active', 'Pending', 'Closed', 'Expired', 'Withdrawn', 'ActiveUnderContract', 'ComingSoon', 'Canceled'],
                         help='Filter by listing status')
     parser.add_argument('--types', nargs='+',
                         choices=['Residential', 'Land', 'Farm', 'Commercial Sale',
