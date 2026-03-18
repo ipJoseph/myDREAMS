@@ -20,7 +20,7 @@ import sqlite3
 import sys
 from datetime import datetime
 from pathlib import Path
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, send_from_directory
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
@@ -28,6 +28,13 @@ sys.path.insert(0, str(PROJECT_ROOT))
 public_bp = Blueprint('public', __name__)
 
 DB_PATH = os.getenv('DREAMS_DB_PATH', str(PROJECT_ROOT / 'data' / 'dreams.db'))
+
+# Photo directories by source
+PHOTOS_DIRS = {
+    'mlsgrid': PROJECT_ROOT / 'data' / 'photos' / 'mlsgrid',
+    'canopy': PROJECT_ROOT / 'data' / 'photos' / 'mlsgrid',
+    'navica': PROJECT_ROOT / 'data' / 'photos' / 'navica',
+}
 
 # Fields safe to expose publicly (no private remarks, showing instructions, etc.)
 PUBLIC_LISTING_FIELDS = [
@@ -99,6 +106,29 @@ def row_to_dict(row, fields=None):
     return d
 
 
+def _localize_photo(listing: dict) -> None:
+    """Rewrite primary_photo to local URL if we have the file downloaded."""
+    mls = listing.get('mls_number')
+    if not mls:
+        return
+    source = (listing.get('photo_source') or listing.get('mls_source', '')).lower()
+    if 'canopy' in source or 'mlsgrid' in source:
+        photos_dir = PHOTOS_DIRS.get('mlsgrid')
+    elif 'navica' in source or 'mountain' in source:
+        photos_dir = PHOTOS_DIRS.get('navica')
+    else:
+        return
+
+    if not photos_dir:
+        return
+
+    for ext in ('.jpg', '.jpeg', '.png', '.webp'):
+        filepath = photos_dir / f"{mls}{ext}"
+        if filepath.exists() and filepath.stat().st_size > 0:
+            listing['primary_photo'] = f"/api/public/photos/{photos_dir.name}/{mls}{ext}"
+            return
+
+
 def _compute_dom(listing: dict) -> int | None:
     """Compute Days on Market dynamically from list_date for active listings."""
     status = (listing.get('status') or '').lower()
@@ -140,7 +170,7 @@ def build_listing_filters():
     Returns (conditions: list[str], params: list) shared by both
     the paginated listings endpoint and the map markers endpoint.
     """
-    conditions = ["idx_opt_in = 1"]
+    conditions = ["idx_opt_in = 1", "state = 'NC'"]
     params = []
 
     status = request.args.get('status', 'ACTIVE').upper()
@@ -288,6 +318,7 @@ def search_listings():
                 listing['longitude'] = None
             listing.pop('idx_address_display', None)
             listing['days_on_market'] = _compute_dom(listing)
+            _localize_photo(listing)
 
         db.close()
 
@@ -344,6 +375,7 @@ def map_listings():
             if not d.get('idx_address_display'):
                 continue  # Skip entirely for map view (no coords = no marker)
             d.pop('idx_address_display', None)
+            _localize_photo(d)
             listings.append(d)
 
         db.close()
@@ -395,6 +427,8 @@ def get_listing(listing_id):
             listing['address'] = 'Address Withheld'
             listing['latitude'] = None
             listing['longitude'] = None
+
+        _localize_photo(listing)
 
         # Parse photos JSON if present
         if listing.get('photos') and isinstance(listing['photos'], str):
@@ -606,7 +640,8 @@ def list_areas():
             f"MIN(list_price) as min_price, MAX(list_price) as max_price, "
             f"AVG(list_price) as avg_price "
             f"FROM listings "
-            f"WHERE idx_opt_in = 1 AND UPPER(status) = ? AND {area_type} IS NOT NULL "
+            f"WHERE idx_opt_in = 1 AND state = 'NC' AND UPPER(status) = ? "
+            f"AND {area_type} IS NOT NULL AND {area_type} != 'Other' "
             f"GROUP BY {area_type} "
             f"ORDER BY listing_count DESC"
         )
@@ -648,7 +683,7 @@ def listing_stats():
     try:
         db = get_db()
 
-        # Overall stats for active listings
+        # Overall stats for active NC listings only
         overall = db.execute("""
             SELECT
                 COUNT(*) as total_listings,
@@ -657,17 +692,19 @@ def listing_stats():
                 MIN(CASE WHEN UPPER(status) = 'ACTIVE' THEN list_price END) as min_price,
                 MAX(CASE WHEN UPPER(status) = 'ACTIVE' THEN list_price END) as max_price,
                 AVG(CASE WHEN UPPER(status) = 'ACTIVE' THEN list_price END) as avg_price,
-                COUNT(DISTINCT city) as cities_served,
-                COUNT(DISTINCT county) as counties_served
+                COUNT(DISTINCT CASE WHEN UPPER(status) = 'ACTIVE'
+                    AND city IS NOT NULL AND city != 'Other' THEN city END) as cities_served,
+                COUNT(DISTINCT CASE WHEN UPPER(status) = 'ACTIVE'
+                    AND county IS NOT NULL AND county != 'Other' THEN county END) as counties_served
             FROM listings
-            WHERE idx_opt_in = 1
+            WHERE idx_opt_in = 1 AND state = 'NC'
         """).fetchone()
 
         # Breakdown by property type
         by_type = db.execute("""
             SELECT property_type, COUNT(*) as count
             FROM listings
-            WHERE idx_opt_in = 1 AND UPPER(status) = 'ACTIVE'
+            WHERE idx_opt_in = 1 AND state = 'NC' AND UPPER(status) = 'ACTIVE'
             GROUP BY property_type
             ORDER BY count DESC
         """).fetchall()
@@ -676,7 +713,7 @@ def listing_stats():
         by_source = db.execute("""
             SELECT mls_source, COUNT(*) as count
             FROM listings
-            WHERE idx_opt_in = 1 AND UPPER(status) = 'ACTIVE'
+            WHERE idx_opt_in = 1 AND state = 'NC' AND UPPER(status) = 'ACTIVE'
             GROUP BY mls_source
             ORDER BY count DESC
         """).fetchall()
@@ -926,3 +963,33 @@ def get_featured_collection(slug):
             'success': False,
             'error': {'code': 'SERVER_ERROR', 'message': 'Failed to retrieve collection'}
         }), 500
+
+
+# =============================================================================
+# LOCAL PHOTO SERVING
+# =============================================================================
+
+@public_bp.route('/photos/<source>/<filename>')
+def serve_photo(source, filename):
+    """
+    Serve locally-downloaded MLS photos.
+
+    URL pattern: /api/public/photos/{source}/{mls_number}.jpg
+    Sources: mlsgrid (Canopy), navica (Carolina Smokies / Mountain Lakes)
+    """
+    photos_dir = PHOTOS_DIRS.get(source)
+    if not photos_dir or not photos_dir.is_dir():
+        return jsonify({'error': 'Not found'}), 404
+
+    safe_name = Path(filename).name
+    if safe_name != filename or '..' in filename:
+        return jsonify({'error': 'Not found'}), 404
+
+    filepath = photos_dir / safe_name
+    if not filepath.exists():
+        return jsonify({'error': 'Not found'}), 404
+
+    return send_from_directory(
+        str(photos_dir), safe_name,
+        max_age=86400,
+    )
