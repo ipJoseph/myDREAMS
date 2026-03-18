@@ -5,7 +5,14 @@
 #
 # Read-only operations (like sync-from-prd.sh pulling DB to DEV) are allowed.
 # Write operations (ssh deploy, scp TO prd, systemctl, git pull on PRD) are blocked
-# with a message telling Claude to ask permission first.
+# unless a time-limited authorization token exists.
+#
+# Authorization flow:
+#   1. Claude asks Eugy for deploy permission
+#   2. Eugy grants permission
+#   3. Claude creates /tmp/mydreams-prd-deploy-auth (valid for 10 minutes)
+#   4. Hook sees the token and allows PRD write commands
+#   5. Token auto-expires after 10 minutes
 #
 # PRD_HOST is read from .env so changing VPS vendors only requires
 # updating one place.
@@ -48,6 +55,19 @@ fi
 # Allow read-only SSH commands (status checks, log viewing, git log)
 if echo "$COMMAND" | grep -qE "ssh\s+root@${PRD_HOST}\s+.*(systemctl status|systemctl is-active|journalctl|cat |head |tail |ls |git.*log|git.*status|git.*diff|python3 -c)"; then
     exit 0
+fi
+
+# Check for time-limited authorization token (valid for 10 minutes)
+AUTH_TOKEN="/tmp/mydreams-prd-deploy-auth"
+if [ -f "$AUTH_TOKEN" ]; then
+    TOKEN_AGE=$(( $(date +%s) - $(stat -c %Y "$AUTH_TOKEN" 2>/dev/null || echo 0) ))
+    if [ "$TOKEN_AGE" -lt 600 ]; then
+        # Token is fresh (under 10 minutes), allow the deploy
+        exit 0
+    else
+        # Token expired, remove it
+        rm -f "$AUTH_TOKEN"
+    fi
 fi
 
 # Block everything else to PRD (deploys, restarts, scp TO prd, git pull on prd)
