@@ -252,6 +252,38 @@ export default async function ListingDetailPage({ params }: PageProps) {
                   }
                 />
               </div>
+
+              {/* Cross-MLS notice */}
+              {listing.also_listed_on && listing.also_listed_on.length > 0 && (
+                <div className="mt-5 p-4 bg-[var(--color-accent)]/10 border border-[var(--color-accent)]/30 text-sm">
+                  <p className="text-[var(--color-primary)]">
+                    This listing is also available on{" "}
+                    {listing.also_listed_on.map((alt, i) => (
+                      <span key={alt.id}>
+                        {i > 0 && " and "}
+                        <Link
+                          href={`/listings/${alt.id}`}
+                          className="text-[var(--color-accent)] font-semibold hover:underline"
+                        >
+                          {alt.mls_source === "NavicaMLS"
+                            ? "Carolina Smokies MLS"
+                            : alt.mls_source === "CanopyMLS"
+                              ? "Canopy MLS"
+                              : alt.mls_source === "MountainLakesMLS"
+                                ? "Mountain Lakes MLS"
+                                : alt.mls_source}{" "}
+                          #{alt.mls_number}
+                        </Link>
+                        {alt.list_price !== listing.list_price && (
+                          <span className="text-[var(--color-text-light)]">
+                            {" "}({formatPrice(alt.list_price)})
+                          </span>
+                        )}
+                      </span>
+                    ))}
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Features */}

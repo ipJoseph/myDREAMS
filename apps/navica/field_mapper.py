@@ -406,6 +406,25 @@ def normalize_city(city: Optional[str]) -> Optional[str]:
     return city
 
 
+def generate_address_key(address: Optional[str], city: Optional[str],
+                         state: Optional[str] = 'NC') -> Optional[str]:
+    """
+    Generate a canonical address key for cross-MLS deduplication.
+
+    Normalizes address + city + state into a stable hash so the same
+    physical property listed on multiple MLSs can be grouped.
+    Returns None if address or city is missing.
+    """
+    if not address or not city:
+        return None
+    # Normalize: lowercase, strip whitespace, collapse multiple spaces
+    norm_addr = re.sub(r'\s+', ' ', address.strip().lower())
+    norm_city = re.sub(r'\s+', ' ', city.strip().lower())
+    norm_state = (state or 'NC').strip().upper()
+    raw = f"{norm_addr}|{norm_city}|{norm_state}"
+    return hashlib.md5(raw.encode()).hexdigest()[:16]
+
+
 def json_encode_list(value) -> Optional[str]:
     """Encode a list or comma-separated string as JSON. Returns None if empty."""
     if not value:
@@ -482,6 +501,11 @@ def map_reso_to_listing(prop: Dict, mls_source: str = 'NavicaMLS') -> Dict[str, 
         'state': prop.get('StateOrProvince', 'NC'),
         'zip': prop.get('PostalCode'),
         'county': normalize_county(prop.get('CountyOrParish')),
+        'address_key': generate_address_key(
+            address,
+            normalize_city(prop.get('City')),
+            prop.get('StateOrProvince', 'NC'),
+        ),
         'latitude': prop.get('Latitude'),
         'longitude': prop.get('Longitude'),
         'subdivision': prop.get('SubdivisionName'),

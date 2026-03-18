@@ -64,6 +64,15 @@ export interface Listing {
   sold_price?: number;
   sold_date?: string;
   updated_at?: string;
+  also_listed_on?: AlsoListedOn[];
+}
+
+export interface AlsoListedOn {
+  id: string;
+  mls_number: string;
+  mls_source: string;
+  list_price: number;
+  updated_at?: string;
 }
 
 export interface MapListing {

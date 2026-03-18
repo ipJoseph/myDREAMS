@@ -291,11 +291,28 @@ def search_listings():
         offset = (page - 1) * limit
 
         # Build query (include idx_address_display for address suppression check)
+        # Deduplicate by address_key: pick most recently updated listing per address
         where_clause = " AND ".join(conditions)
         query_fields = PUBLIC_LIST_FIELDS + ['idx_address_display']
         fields_str = ", ".join(query_fields)
 
-        # Get total count
+        # Cross-MLS dedup: if the same address+city exists on multiple MLSs,
+        # keep only the most recently updated one. Same-MLS entries at the
+        # same address (e.g., multiple land parcels) are kept as-is.
+        dedup_condition = (
+            "(address_key IS NULL OR NOT EXISTS ("
+            "SELECT 1 FROM listings dup "
+            "WHERE dup.address_key = listings.address_key "
+            "AND dup.mls_source != listings.mls_source "
+            "AND dup.id != listings.id "
+            "AND dup.idx_opt_in = 1 AND dup.state = 'NC' "
+            "AND UPPER(dup.status) = UPPER(listings.status) "
+            "AND dup.updated_at > listings.updated_at))"
+        )
+        conditions.append(dedup_condition)
+        where_clause = " AND ".join(conditions)
+
+        # Get total count (deduplicated)
         count_sql = f"SELECT COUNT(*) FROM listings WHERE {where_clause}"
         total = db.execute(count_sql, params).fetchone()[0]
 
@@ -357,6 +374,20 @@ def map_listings():
         conditions.append("latitude IS NOT NULL")
         conditions.append("longitude IS NOT NULL")
 
+        # Deduplicate by address_key (same as search endpoint)
+        # Cross-MLS dedup (same as search endpoint)
+        dedup_condition = (
+            "(address_key IS NULL OR NOT EXISTS ("
+            "SELECT 1 FROM listings dup "
+            "WHERE dup.address_key = listings.address_key "
+            "AND dup.mls_source != listings.mls_source "
+            "AND dup.id != listings.id "
+            "AND dup.idx_opt_in = 1 AND dup.state = 'NC' "
+            "AND UPPER(dup.status) = UPPER(listings.status) "
+            "AND dup.updated_at > listings.updated_at))"
+        )
+        conditions.append(dedup_condition)
+
         where_clause = " AND ".join(conditions)
         fields_str = ", ".join(MAP_MARKER_FIELDS + ['idx_address_display'])
 
@@ -405,19 +436,19 @@ def get_listing(listing_id):
 
         fields_str = ", ".join(PUBLIC_LISTING_FIELDS)
         row = db.execute(
-            f"SELECT {fields_str} FROM listings WHERE id = ? AND idx_opt_in = 1",
+            f"SELECT {fields_str}, address_key FROM listings WHERE id = ? AND idx_opt_in = 1",
             [listing_id]
         ).fetchone()
 
-        db.close()
-
         if not row:
+            db.close()
             return jsonify({
                 'success': False,
                 'error': {'code': 'NOT_FOUND', 'message': 'Listing not found'}
             }), 404
 
         listing = row_to_dict(row)
+        address_key = listing.pop('address_key', None)
 
         # Compute DOM dynamically
         listing['days_on_market'] = _compute_dom(listing)
@@ -436,6 +467,30 @@ def get_listing(listing_id):
                 listing['photos'] = json.loads(listing['photos'])
             except json.JSONDecodeError:
                 listing['photos'] = []
+
+        # Find cross-MLS siblings at the same address
+        also_listed_on = []
+        if address_key:
+            siblings = db.execute(
+                "SELECT id, mls_number, mls_source, list_price, updated_at "
+                "FROM listings "
+                "WHERE address_key = ? AND mls_source != ? AND idx_opt_in = 1 "
+                "AND UPPER(status) = 'ACTIVE' "
+                "ORDER BY updated_at DESC",
+                [address_key, listing.get('mls_source')]
+            ).fetchall()
+            for sib in siblings:
+                also_listed_on.append({
+                    'id': sib['id'],
+                    'mls_number': sib['mls_number'],
+                    'mls_source': sib['mls_source'],
+                    'list_price': sib['list_price'],
+                    'updated_at': sib['updated_at'],
+                })
+
+        listing['also_listed_on'] = also_listed_on
+
+        db.close()
 
         return jsonify({
             'success': True,
