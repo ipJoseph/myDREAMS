@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WNC Mountain Homes Brand Guide</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&family=Inter:wght@400;500;600&family=Raleway:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', sans-serif; color: #1a1a2e; background: #f9fafb; padding: 40px; }
+
+  .container { max-width: 900px; margin: 0 auto; }
+
+  h1 { font-family: 'Montserrat', sans-serif; font-size: 28px; font-weight: 700;
+       letter-spacing: 2px; color: #1a56db; margin-bottom: 8px; }
+  h2 { font-family: 'Montserrat', sans-serif; font-size: 20px; font-weight: 600;
+       color: #15803d; margin: 40px 0 16px; border-bottom: 2px solid #a3bbf1; padding-bottom: 8px; }
+  h3 { font-family: 'Montserrat', sans-serif; font-size: 16px; font-weight: 600;
+       color: #1a1a2e; margin: 24px 0 12px; }
+
+  .subtitle { font-family: 'Raleway', sans-serif; font-size: 14px; color: #6b7280;
+              letter-spacing: 1px; margin-bottom: 40px; }
+
+  .logo-section { text-align: center; padding: 40px; background: white;
+                  border-radius: 12px; margin-bottom: 40px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+  .logo-section img { max-width: 400px; }
+  .logo-dark { background: #1a1a2e; }
+
+  /* Color Swatches */
+  .swatch-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; }
+  .swatch { border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); background: white; }
+  .swatch-color { height: 100px; display: flex; align-items: flex-end; padding: 8px 12px; }
+  .swatch-color span { font-size: 12px; font-weight: 600; padding: 2px 6px; border-radius: 4px; }
+  .swatch-info { padding: 12px; }
+  .swatch-name { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+  .swatch-hex { font-family: 'Courier New', monospace; font-size: 13px; color: #6b7280; }
+  .swatch-use { font-size: 12px; color: #6b7280; margin-top: 4px; }
+
+  /* Font Specimens */
+  .font-specimen { background: white; border-radius: 12px; padding: 24px; margin-bottom: 16px;
+                   box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+  .font-label { font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+  .font-sample-heading { font-family: 'Montserrat', sans-serif; }
+  .font-sample-body { font-family: 'Inter', sans-serif; }
+  .font-sample-accent { font-family: 'Raleway', sans-serif; }
+
+  .font-weights { display: flex; gap: 24px; flex-wrap: wrap; margin-top: 12px; }
+  .font-weight { font-size: 14px; color: #6b7280; }
+  .font-weight span { display: block; font-size: 24px; color: #1a1a2e; margin-bottom: 4px; }
+
+  /* Brand Tiers */
+  .tier-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .tier-card { background: white; border-radius: 12px; padding: 20px;
+               box-shadow: 0 1px 3px rgba(0,0,0,0.1); text-align: center; }
+  .tier-card.active { border: 2px solid #1a56db; }
+  .tier-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px;
+                color: #6b7280; margin-bottom: 8px; }
+  .tier-name { font-family: 'Montserrat', sans-serif; font-weight: 600; font-size: 16px; margin-bottom: 4px; }
+  .tier-badge { display: inline-block; font-size: 10px; padding: 2px 8px; border-radius: 12px;
+                background: #1a56db; color: white; margin-bottom: 8px; }
+
+  /* Palette Row */
+  .palette-row { display: flex; border-radius: 12px; overflow: hidden; height: 60px; margin: 16px 0;
+                 box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+  .palette-row > div { flex: 1; display: flex; align-items: center; justify-content: center;
+                       font-size: 11px; font-weight: 600; }
+
+  /* Contact Info */
+  .contact-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .contact-item { background: white; border-radius: 8px; padding: 12px 16px;
+                  box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+  .contact-label { font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; }
+  .contact-value { font-size: 16px; font-weight: 500; margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <h1>WNC MOUNTAIN HOMES</h1>
+  <p class="subtitle">BRAND GUIDE &amp; DESIGN SYSTEM</p>
+
+  <!-- Logo -->
+  <h2>Logo</h2>
+  <div class="logo-section">
+    <img src="wnc-mountain-homes-logo.png" alt="WNC Mountain Homes Logo">
+  </div>
+  <div class="logo-section logo-dark">
+    <img src="wnc-mountain-homes-logo.png" alt="WNC Mountain Homes Logo on Dark">
+  </div>
+
+  <!-- Color Palette -->
+  <h2>Color Palette</h2>
+
+  <div class="palette-row">
+    <div style="background: #1a56db; color: white;">Blue</div>
+    <div style="background: #19a84e; color: white;">Green</div>
+    <div style="background: #15803d; color: white;">Dark Green</div>
+    <div style="background: #a3bbf1; color: #1a1a2e;">Light Blue</div>
+    <div style="background: #1a1a2e; color: white;">Text</div>
+    <div style="background: #6b7280; color: white;">Muted</div>
+  </div>
+
+  <h3>Primary Colors (from logo)</h3>
+  <div class="swatch-grid">
+    <div class="swatch">
+      <div class="swatch-color" style="background: #1a56db;">
+        <span style="background: rgba(255,255,255,0.9); color: #1a56db;">#1a56db</span>
+      </div>
+      <div class="swatch-info">
+        <div class="swatch-name">Mountain Blue</div>
+        <div class="swatch-hex">RGB(26, 86, 219)</div>
+        <div class="swatch-use">Headings, buttons, CTAs, links</div>
+      </div>
+    </div>
+
+    <div class="swatch">
+      <div class="swatch-color" style="background: #19a84e;">
+        <span style="background: rgba(255,255,255,0.9); color: #19a84e;">#19a84e</span>
+      </div>
+      <div class="swatch-info">
+        <div class="swatch-name">Forest Green</div>
+        <div class="swatch-hex">RGB(25, 168, 78)</div>
+        <div class="swatch-use">Accents, success states, secondary buttons</div>
+      </div>
+    </div>
+
+    <div class="swatch">
+      <div class="swatch-color" style="background: #15803d;">
+        <span style="background: rgba(255,255,255,0.9); color: #15803d;">#15803d</span>
+      </div>
+      <div class="swatch-info">
+        <div class="swatch-name">Deep Forest</div>
+        <div class="swatch-hex">RGB(21, 128, 61)</div>
+        <div class="swatch-use">Subtitles, secondary text, emphasis</div>
+      </div>
+    </div>
+
+    <div class="swatch">
+      <div class="swatch-color" style="background: #a3bbf1;">
+        <span style="background: rgba(0,0,0,0.6); color: white;">#a3bbf1</span>
+      </div>
+      <div class="swatch-info">
+        <div class="swatch-name">Sky Blue</div>
+        <div class="swatch-hex">RGB(163, 187, 241)</div>
+        <div class="swatch-use">Dividers, borders, backgrounds</div>
+      </div>
+    </div>
+  </div>
+
+  <h3>Neutral &amp; Text Colors</h3>
+  <div class="swatch-grid">
+    <div class="swatch">
+      <div class="swatch-color" style="background: #1a1a2e;">
+        <span style="background: rgba(255,255,255,0.9); color: #1a1a2e;">#1a1a2e</span>
+      </div>
+      <div class="swatch-info">
+        <div class="swatch-name">Night</div>
+        <div class="swatch-hex">RGB(26, 26, 46)</div>
+        <div class="swatch-use">Primary body text</div>
+      </div>
+    </div>
+
+    <div class="swatch">
+      <div class="swatch-color" style="background: #6b7280;">
+        <span style="background: rgba(255,255,255,0.9); color: #6b7280;">#6b7280</span>
+      </div>
+      <div class="swatch-info">
+        <div class="swatch-name">Slate</div>
+        <div class="swatch-hex">RGB(107, 114, 128)</div>
+        <div class="swatch-use">Muted text, labels, captions</div>
+      </div>
+    </div>
+
+    <div class="swatch">
+      <div class="swatch-color" style="background: #ffffff; border: 1px solid #e5e7eb;">
+        <span style="background: rgba(0,0,0,0.6); color: white;">#ffffff</span>
+      </div>
+      <div class="swatch-info">
+        <div class="swatch-name">White</div>
+        <div class="swatch-hex">RGB(255, 255, 255)</div>
+        <div class="swatch-use">Backgrounds, cards</div>
+      </div>
+    </div>
+
+    <div class="swatch">
+      <div class="swatch-color" style="background: #f9fafb; border: 1px solid #e5e7eb;">
+        <span style="background: rgba(0,0,0,0.6); color: white;">#f9fafb</span>
+      </div>
+      <div class="swatch-info">
+        <div class="swatch-name">Cloud</div>
+        <div class="swatch-hex">RGB(249, 250, 251)</div>
+        <div class="swatch-use">Page background, alternating rows</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Typography -->
+  <h2>Typography</h2>
+
+  <div class="font-specimen">
+    <div class="font-label">Heading Font: Montserrat</div>
+    <div class="font-sample-heading" style="font-size: 32px; font-weight: 700; letter-spacing: 2px; color: #1a56db;">
+      WNC MOUNTAIN HOMES
+    </div>
+    <div class="font-sample-heading" style="font-size: 24px; font-weight: 600; color: #15803d; margin-top: 8px;">
+      Find Your Mountain Dream
+    </div>
+    <div class="font-weights">
+      <div class="font-weight"><span class="font-sample-heading" style="font-weight: 400;">Regular 400</span></div>
+      <div class="font-weight"><span class="font-sample-heading" style="font-weight: 600;">Semibold 600</span></div>
+      <div class="font-weight"><span class="font-sample-heading" style="font-weight: 700;">Bold 700</span></div>
+    </div>
+    <p style="margin-top: 12px; font-size: 13px; color: #6b7280;">
+      Used for: page titles, section headings, navigation, logo text.
+      Wide letter-spacing matches the logo letterforms.
+    </p>
+  </div>
+
+  <div class="font-specimen">
+    <div class="font-label">Body Font: Inter</div>
+    <div class="font-sample-body" style="font-size: 16px; line-height: 1.6;">
+      Western North Carolina offers some of the most breathtaking mountain properties
+      in the Southeast. From luxury estates with panoramic views to cozy cabins tucked
+      into quiet hollows, every home tells a story of mountain living at its finest.
+    </div>
+    <div class="font-weights">
+      <div class="font-weight"><span class="font-sample-body" style="font-weight: 400;">Regular 400</span></div>
+      <div class="font-weight"><span class="font-sample-body" style="font-weight: 500;">Medium 500</span></div>
+      <div class="font-weight"><span class="font-sample-body" style="font-weight: 600;">Semibold 600</span></div>
+    </div>
+    <p style="margin-top: 12px; font-size: 13px; color: #6b7280;">
+      Used for: body text, descriptions, form labels, table content.
+      Highly readable at all sizes; modern and professional.
+    </p>
+  </div>
+
+  <div class="font-specimen">
+    <div class="font-label">Accent Font: Raleway</div>
+    <div class="font-sample-accent" style="font-size: 20px; font-weight: 500; letter-spacing: 1px; color: #15803d;">
+      Your Mountain Home Awaits
+    </div>
+    <div class="font-sample-accent" style="font-size: 14px; font-weight: 400; letter-spacing: 0.5px; color: #6b7280; margin-top: 8px;">
+      SERVING WESTERN NORTH CAROLINA SINCE 2024
+    </div>
+    <p style="margin-top: 12px; font-size: 13px; color: #6b7280;">
+      Used for: taglines, pull quotes, special callouts, marketing headlines.
+      Elegant and distinctive without competing with Montserrat.
+    </p>
+  </div>
+
+  <!-- Brand Tiers -->
+  <h2>Brand Hierarchy</h2>
+  <div class="tier-grid">
+    <div class="tier-card active">
+      <div class="tier-label">Primary (Default)</div>
+      <div class="tier-badge">ACTIVE</div>
+      <div class="tier-name">WNC Mountain Homes</div>
+      <p style="font-size: 13px; color: #6b7280; margin-top: 8px;">
+        Joseph &amp; Dolores Williams LLC.<br>
+        Used on all materials unless MLS compliance requires otherwise.
+      </p>
+    </div>
+    <div class="tier-card">
+      <div class="tier-label">Secondary</div>
+      <div class="tier-name">Jon Tharp Homes</div>
+      <p style="font-size: 13px; color: #6b7280; margin-top: 8px;">
+        Team affiliation.<br>
+        Displayed when MLS guidelines require team attribution.
+      </p>
+    </div>
+    <div class="tier-card">
+      <div class="tier-label">Tertiary</div>
+      <div class="tier-name">Keller Williams</div>
+      <p style="font-size: 13px; color: #6b7280; margin-top: 8px;">
+        Brokerage.<br>
+        Required on all MLS-facing marketing and disclosures.
+      </p>
+    </div>
+  </div>
+
+  <!-- Contact -->
+  <h2>Contact Information</h2>
+  <div class="contact-grid">
+    <div class="contact-item">
+      <div class="contact-label">Agent</div>
+      <div class="contact-value">Joseph Williams</div>
+    </div>
+    <div class="contact-item">
+      <div class="contact-label">Mobile</div>
+      <div class="contact-value">(828) 283-9003</div>
+    </div>
+    <div class="contact-item">
+      <div class="contact-label">Office</div>
+      <div class="contact-value">(828) 347-9363</div>
+    </div>
+    <div class="contact-item">
+      <div class="contact-label">Website</div>
+      <div class="contact-value">wncmountain.homes</div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
