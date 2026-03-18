@@ -9,6 +9,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Geographic Zone System** (2026-03-18)
+  - 5-zone system: West (1), Central (2), East WNC (3), Rest of NC (4), Outside NC (5)
+  - Default view scoped to zones 1+2 (~8K active listings vs 28K total)
+  - `zone` column added to listings table with index, backfilled on all 110K listings
+  - Zone auto-computed on every MLS sync via field_mapper
+  - Public API: `?zone=1,2,3` for expanded WNC, `?zone=all` for everything
+  - Stats, areas, map endpoints all respect zone filtering
+  - Public site: "Expanded WNC" toggle button on search filters
+  - Dashboard: zone dropdown on listings gallery (agents can access all zones)
+  - Collections are NOT zone-filtered (can contain any property)
 - **Canopy MLS (MLS Grid) Initial Data Load** (2026-03-18)
   - Synced 26K+ Active, 3.7K Pending, 6K ActiveUnderContract, 460 ComingSoon listings
   - Added ActiveUnderContract, ComingSoon, Canceled to sync CLI status choices

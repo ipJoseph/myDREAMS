@@ -326,6 +326,20 @@
         <!-- Filters -->
         <form class="filters-bar" method="get">
             <div class="filter-group">
+                <label>Zone</label>
+                <select name="zone" onchange="this.form.submit()">
+                    <option value="1,2" {% if selected_zone == '1,2' %}selected{% endif %}>WNC (Default)</option>
+                    <option value="1" {% if selected_zone == '1' %}selected{% endif %}>West</option>
+                    <option value="2" {% if selected_zone == '2' %}selected{% endif %}>Central</option>
+                    <option value="1,2,3" {% if selected_zone == '1,2,3' %}selected{% endif %}>Expanded WNC</option>
+                    <option value="3" {% if selected_zone == '3' %}selected{% endif %}>East WNC</option>
+                    <option value="4" {% if selected_zone == '4' %}selected{% endif %}>Rest of NC</option>
+                    <option value="5" {% if selected_zone == '5' %}selected{% endif %}>Outside NC</option>
+                    <option value="all" {% if selected_zone == 'all' %}selected{% endif %}>All Zones</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
                 <label>County</label>
                 <select name="county" onchange="this.form.submit()">
                     <option value="">All Counties</option>
@@ -449,21 +463,21 @@
         {% if total_pages > 1 %}
         <div class="pagination">
             {% if page > 1 %}
-            <a href="?page={{ page - 1 }}&county={{ selected_county }}&city={{ selected_city }}&status={{ selected_status }}&min_price={{ min_price }}&max_price={{ max_price }}&photos_only={{ photos_only }}">Previous</a>
+            <a href="?page={{ page - 1 }}&county={{ selected_county }}&city={{ selected_city }}&status={{ selected_status }}&min_price={{ min_price }}&max_price={{ max_price }}&photos_only={{ photos_only }}&zone={{ selected_zone }}">Previous</a>
             {% endif %}
 
             {% for p in range(1, total_pages + 1) %}
                 {% if p == page %}
                 <span class="current">{{ p }}</span>
                 {% elif p <= 3 or p > total_pages - 3 or (p >= page - 2 and p <= page + 2) %}
-                <a href="?page={{ p }}&county={{ selected_county }}&city={{ selected_city }}&status={{ selected_status }}&min_price={{ min_price }}&max_price={{ max_price }}&photos_only={{ photos_only }}">{{ p }}</a>
+                <a href="?page={{ p }}&county={{ selected_county }}&city={{ selected_city }}&status={{ selected_status }}&min_price={{ min_price }}&max_price={{ max_price }}&photos_only={{ photos_only }}&zone={{ selected_zone }}">{{ p }}</a>
                 {% elif p == 4 or p == total_pages - 3 %}
                 <span>...</span>
                 {% endif %}
             {% endfor %}
 
             {% if page < total_pages %}
-            <a href="?page={{ page + 1 }}&county={{ selected_county }}&city={{ selected_city }}&status={{ selected_status }}&min_price={{ min_price }}&max_price={{ max_price }}&photos_only={{ photos_only }}">Next</a>
+            <a href="?page={{ page + 1 }}&county={{ selected_county }}&city={{ selected_city }}&status={{ selected_status }}&min_price={{ min_price }}&max_price={{ max_price }}&photos_only={{ photos_only }}&zone={{ selected_zone }}">Next</a>
             {% endif %}
         </div>
         {% endif %}

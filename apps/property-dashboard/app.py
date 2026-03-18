@@ -6153,6 +6153,7 @@ def listings_gallery():
     min_price = request.args.get('min_price', '')
     max_price = request.args.get('max_price', '')
     photos_only = request.args.get('photos_only', '1')  # Default to photos only
+    zone = request.args.get('zone', '1,2')  # Default to WNC zones
 
     # Pagination
     page = max(1, int(request.args.get('page', 1)))
@@ -6206,6 +6207,15 @@ def listings_gallery():
             WHERE 1=1
         '''
         params = []
+
+        # Zone filtering (default: zones 1+2 = WNC)
+        if zone and zone.lower() != 'all':
+            zone_values = [int(z.strip()) for z in zone.split(',')
+                          if z.strip().isdigit() and 1 <= int(z.strip()) <= 5]
+            if zone_values:
+                placeholders = ','.join(['?'] * len(zone_values))
+                query += f' AND l.zone IN ({placeholders})'
+                params.extend(zone_values)
 
         if photos_only == '1':
             query += ' AND l.primary_photo IS NOT NULL'
@@ -6274,6 +6284,7 @@ def listings_gallery():
                          min_price=min_price,
                          max_price=max_price,
                          photos_only=photos_only,
+                         selected_zone=zone,
                          page=page,
                          total_pages=total_pages,
                          total_count=total_count,

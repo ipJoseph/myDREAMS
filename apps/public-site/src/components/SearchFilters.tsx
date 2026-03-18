@@ -233,6 +233,25 @@ export default function SearchFilters() {
             </>
           )}
 
+          {/* Expanded WNC toggle: adds zone 3 (East WNC) to the default zones 1+2 */}
+          <button
+            onClick={() => {
+              const current = searchParams.get("zone");
+              if (current === "1,2,3") {
+                updateFilters("zone", "");
+              } else {
+                updateFilters("zone", "1,2,3");
+              }
+            }}
+            className={`px-3 py-2 text-sm border transition whitespace-nowrap ${
+              searchParams.get("zone") === "1,2,3"
+                ? "bg-[var(--color-accent)] text-[var(--color-primary)] border-[var(--color-accent)] font-semibold"
+                : "bg-white/10 border-white/20 text-white hover:border-[var(--color-accent)]"
+            }`}
+          >
+            Expanded WNC
+          </button>
+
           <ViewToggle />
 
           <select

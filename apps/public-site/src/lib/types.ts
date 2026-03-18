@@ -107,6 +107,7 @@ export interface ListingSearchParams {
   property_type?: string;
   mls_source?: string;
   q?: string;
+  zone?: string;
   sort?: string;
   order?: "asc" | "desc";
   page?: number;

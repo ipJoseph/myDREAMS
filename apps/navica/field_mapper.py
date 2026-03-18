@@ -393,6 +393,42 @@ def normalize_county(county: Optional[str]) -> Optional[str]:
     return COUNTY_NORMALIZATION.get(county, county)
 
 
+# ---------------------------------------------------------------
+# Geographic zone mapping: county -> zone number
+# ---------------------------------------------------------------
+# Zone 1 (West): far-western NC counties
+# Zone 2 (Central): central WNC counties (Asheville area)
+# Zone 3 (East WNC): eastern mountain counties
+# Zone 4 (Rest of NC): all other NC counties (assigned dynamically)
+# Zone 5 (Outside NC): non-NC states (assigned dynamically)
+
+ZONE_MAP = {
+    # Zone 1 - West
+    'Cherokee': 1, 'Clay': 1, 'Graham': 1, 'Macon': 1, 'Jackson': 1, 'Swain': 1,
+    # Zone 2 - Central
+    'Haywood': 2, 'Transylvania': 2, 'Henderson': 2, 'Buncombe': 2, 'Madison': 2,
+    # Zone 3 - East WNC
+    'Yancey': 3, 'Mitchell': 3, 'Avery': 3, 'McDowell': 3, 'Burke': 3,
+    'Rutherford': 3, 'Polk': 3,
+}
+
+
+def compute_zone(county: Optional[str], state: Optional[str] = 'NC') -> int:
+    """
+    Compute the geographic zone for a listing based on county and state.
+
+    Returns:
+        1 = West WNC, 2 = Central WNC, 3 = East WNC,
+        4 = Rest of NC, 5 = Outside NC
+    """
+    if not state or state.upper() != 'NC':
+        return 5
+    if not county:
+        return 4  # NC but unknown county
+    normalized = normalize_county(county)
+    return ZONE_MAP.get(normalized, 4)
+
+
 def normalize_city(city: Optional[str]) -> Optional[str]:
     """Normalize city name by fixing known variants and formatting issues."""
     if not city:
@@ -595,6 +631,12 @@ def map_reso_to_listing(prop: Dict, mls_source: str = 'NavicaMLS') -> Dict[str, 
         'documents_count': prop.get('DocumentsCount'),
         'documents_available': json_encode_list(prop.get('DocumentsAvailable')),
         'documents_change_timestamp': prop.get('DocumentsChangeTimestamp'),
+
+        # Geographic zone
+        'zone': compute_zone(
+            normalize_county(prop.get('CountyOrParish')),
+            prop.get('StateOrProvince', 'NC'),
+        ),
 
         # Sync metadata
         'source': mls_source.lower().replace('mls', ''),

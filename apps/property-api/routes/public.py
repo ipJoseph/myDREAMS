@@ -170,8 +170,31 @@ def build_listing_filters():
     Returns (conditions: list[str], params: list) shared by both
     the paginated listings endpoint and the map markers endpoint.
     """
-    conditions = ["idx_opt_in = 1", "state = 'NC'"]
+    conditions = ["idx_opt_in = 1"]
     params = []
+
+    # Zone filtering: default to zones 1+2 (WNC) unless explicitly specified
+    zone_param = request.args.get('zone')
+    if zone_param and zone_param.lower() == 'all':
+        # No zone filter; also keep the state='NC' filter only if no zone param
+        conditions.append("state = 'NC'")
+    elif zone_param:
+        # Parse comma-separated zone numbers (e.g., zone=1,2,3)
+        zone_values = []
+        for z in zone_param.split(','):
+            z = z.strip()
+            if z.isdigit() and 1 <= int(z) <= 5:
+                zone_values.append(int(z))
+        if zone_values:
+            placeholders = ','.join(['?'] * len(zone_values))
+            conditions.append(f"zone IN ({placeholders})")
+            params.extend(zone_values)
+        else:
+            # Invalid zone param; fall back to default WNC
+            conditions.append("zone IN (1, 2)")
+    else:
+        # Default: zones 1+2 (WNC service area)
+        conditions.append("zone IN (1, 2)")
 
     status = request.args.get('status', 'ACTIVE').upper()
     if status:
@@ -691,18 +714,39 @@ def list_areas():
 
         status = request.args.get('status', 'ACTIVE').upper()
 
+        # Zone filtering (same logic as listings)
+        zone_param = request.args.get('zone')
+        zone_conditions = []
+        zone_params = []
+        if zone_param and zone_param.lower() == 'all':
+            zone_conditions.append("state = 'NC'")
+        elif zone_param:
+            zone_values = [int(z.strip()) for z in zone_param.split(',')
+                          if z.strip().isdigit() and 1 <= int(z.strip()) <= 5]
+            if zone_values:
+                placeholders = ','.join(['?'] * len(zone_values))
+                zone_conditions.append(f"zone IN ({placeholders})")
+                zone_params.extend(zone_values)
+            else:
+                zone_conditions.append("zone IN (1, 2)")
+        else:
+            zone_conditions.append("zone IN (1, 2)")
+
+        zone_where = (" AND " + " AND ".join(zone_conditions)) if zone_conditions else ""
+
         query = (
             f"SELECT {area_type} as name, COUNT(*) as listing_count, "
             f"MIN(list_price) as min_price, MAX(list_price) as max_price, "
             f"AVG(list_price) as avg_price "
             f"FROM listings "
-            f"WHERE idx_opt_in = 1 AND state = 'NC' AND UPPER(status) = ? "
-            f"AND {area_type} IS NOT NULL AND {area_type} != 'Other' "
+            f"WHERE idx_opt_in = 1 AND UPPER(status) = ? "
+            f"AND {area_type} IS NOT NULL AND {area_type} != 'Other'"
+            f"{zone_where} "
             f"GROUP BY {area_type} "
             f"ORDER BY listing_count DESC"
         )
 
-        rows = db.execute(query, [status]).fetchall()
+        rows = db.execute(query, [status] + zone_params).fetchall()
         db.close()
 
         areas = []
@@ -739,8 +783,26 @@ def listing_stats():
     try:
         db = get_db()
 
-        # Overall stats for active NC listings only
-        overall = db.execute("""
+        # Zone filtering (same logic as listings)
+        zone_param = request.args.get('zone')
+        zone_where = ""
+        zone_params = []
+        if zone_param and zone_param.lower() == 'all':
+            zone_where = "AND state = 'NC'"
+        elif zone_param:
+            zone_values = [int(z.strip()) for z in zone_param.split(',')
+                          if z.strip().isdigit() and 1 <= int(z.strip()) <= 5]
+            if zone_values:
+                placeholders = ','.join(['?'] * len(zone_values))
+                zone_where = f"AND zone IN ({placeholders})"
+                zone_params = list(zone_values)
+            else:
+                zone_where = "AND zone IN (1, 2)"
+        else:
+            zone_where = "AND zone IN (1, 2)"
+
+        # Overall stats for WNC listings (zone-scoped)
+        overall = db.execute(f"""
             SELECT
                 COUNT(*) as total_listings,
                 COUNT(CASE WHEN UPPER(status) = 'ACTIVE' THEN 1 END) as active_listings,
@@ -753,26 +815,26 @@ def listing_stats():
                 COUNT(DISTINCT CASE WHEN UPPER(status) = 'ACTIVE'
                     AND county IS NOT NULL AND county != 'Other' THEN county END) as counties_served
             FROM listings
-            WHERE idx_opt_in = 1 AND state = 'NC'
-        """).fetchone()
+            WHERE idx_opt_in = 1 {zone_where}
+        """, zone_params).fetchone()
 
         # Breakdown by property type
-        by_type = db.execute("""
+        by_type = db.execute(f"""
             SELECT property_type, COUNT(*) as count
             FROM listings
-            WHERE idx_opt_in = 1 AND state = 'NC' AND UPPER(status) = 'ACTIVE'
+            WHERE idx_opt_in = 1 AND UPPER(status) = 'ACTIVE' {zone_where}
             GROUP BY property_type
             ORDER BY count DESC
-        """).fetchall()
+        """, zone_params).fetchall()
 
         # Breakdown by MLS source
-        by_source = db.execute("""
+        by_source = db.execute(f"""
             SELECT mls_source, COUNT(*) as count
             FROM listings
-            WHERE idx_opt_in = 1 AND state = 'NC' AND UPPER(status) = 'ACTIVE'
+            WHERE idx_opt_in = 1 AND UPPER(status) = 'ACTIVE' {zone_where}
             GROUP BY mls_source
             ORDER BY count DESC
-        """).fetchall()
+        """, zone_params).fetchall()
 
         db.close()
 
