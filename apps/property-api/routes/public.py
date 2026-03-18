@@ -220,8 +220,9 @@ def build_listing_filters():
 
     max_dom = request.args.get('max_dom', type=int)
     if max_dom is not None:
-        conditions.append("days_on_market <= ?")
-        params.append(max_dom)
+        # Use list_date for accurate filtering (stored days_on_market can be stale)
+        conditions.append("list_date >= date('now', ? || ' days')")
+        params.append(str(-max_dom))
 
     property_type = request.args.get('property_type')
     if property_type:
@@ -296,16 +297,17 @@ def search_listings():
         query_fields = PUBLIC_LIST_FIELDS + ['idx_address_display']
         fields_str = ", ".join(query_fields)
 
-        # Cross-MLS dedup: if the same address+city exists on multiple MLSs,
-        # keep only the most recently updated one. Same-MLS entries at the
-        # same address (e.g., multiple land parcels) are kept as-is.
+        # Dedup: for listings sharing the same address_key AND property_type,
+        # keep only the most recently updated one. This handles both cross-MLS
+        # duplicates and same-MLS re-listings. Different property types at the
+        # same address (e.g., land + commercial on one parcel) are kept.
         dedup_condition = (
             "(address_key IS NULL OR NOT EXISTS ("
             "SELECT 1 FROM listings dup "
             "WHERE dup.address_key = listings.address_key "
-            "AND dup.mls_source != listings.mls_source "
+            "AND dup.property_type = listings.property_type "
             "AND dup.id != listings.id "
-            "AND dup.idx_opt_in = 1 AND dup.state = 'NC' "
+            "AND dup.idx_opt_in = 1 "
             "AND UPPER(dup.status) = UPPER(listings.status) "
             "AND dup.updated_at > listings.updated_at))"
         )
@@ -374,15 +376,14 @@ def map_listings():
         conditions.append("latitude IS NOT NULL")
         conditions.append("longitude IS NOT NULL")
 
-        # Deduplicate by address_key (same as search endpoint)
-        # Cross-MLS dedup (same as search endpoint)
+        # Dedup by address_key + property_type (same as search endpoint)
         dedup_condition = (
             "(address_key IS NULL OR NOT EXISTS ("
             "SELECT 1 FROM listings dup "
             "WHERE dup.address_key = listings.address_key "
-            "AND dup.mls_source != listings.mls_source "
+            "AND dup.property_type = listings.property_type "
             "AND dup.id != listings.id "
-            "AND dup.idx_opt_in = 1 AND dup.state = 'NC' "
+            "AND dup.idx_opt_in = 1 "
             "AND UPPER(dup.status) = UPPER(listings.status) "
             "AND dup.updated_at > listings.updated_at))"
         )

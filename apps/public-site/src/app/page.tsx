@@ -3,10 +3,11 @@ import Image from "next/image";
 import { searchListings, getStats, getAreas, getFeaturedCollections, formatPrice, formatNumber } from "@/lib/api";
 import PropertyCard from "@/components/PropertyCard";
 import AreaCard from "@/components/AreaCard";
+import NewOnMarket from "@/components/NewOnMarket";
 
 export default async function HomePage() {
   const [listingsResult, stats, areas, collections] = await Promise.all([
-    searchListings({ limit: 6, max_dom: 14, sort: "list_price", order: "desc" }).catch(
+    searchListings({ limit: 6, max_dom: 14, sort: "list_date", order: "desc", property_type: "Residential" }).catch(
       () => ({ listings: [], pagination: { total: 0, page: 1, limit: 6, pages: 0 } })
     ),
     getStats().catch(() => null),
@@ -123,41 +124,7 @@ export default async function HomePage() {
       {/* ============================================
           FEATURED LISTINGS: Dark background
           ============================================ */}
-      {featuredListings.length > 0 && (
-        <section className="bg-[var(--color-dark)] py-24">
-          <div className="max-w-7xl mx-auto px-6 lg:px-8">
-            <div className="flex items-end justify-between mb-12">
-              <div>
-                <p className="text-[var(--color-accent)] text-xs uppercase tracking-[0.2em] mb-3">
-                  Just Listed
-                </p>
-                <h2 className="text-3xl md:text-4xl text-white">
-                  New on the Market
-                </h2>
-              </div>
-              <Link
-                href="/listings"
-                className="hidden md:inline-block text-[var(--color-accent)] text-sm uppercase tracking-wider border-b border-[var(--color-accent)]/30 pb-1 hover:border-[var(--color-accent)] transition"
-              >
-                View All Properties
-              </Link>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {featuredListings.map((listing) => (
-                <PropertyCard key={listing.id} listing={listing} variant="dark" />
-              ))}
-            </div>
-            <div className="md:hidden text-center mt-10">
-              <Link
-                href="/listings"
-                className="text-[var(--color-accent)] text-sm uppercase tracking-wider border-b border-[var(--color-accent)]/30 pb-1"
-              >
-                View All Properties
-              </Link>
-            </div>
-          </div>
-        </section>
-      )}
+      <NewOnMarket initialListings={featuredListings} />
 
       {/* ============================================
           AREAS: Eggshell background
