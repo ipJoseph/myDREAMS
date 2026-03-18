@@ -360,6 +360,52 @@ def build_address(prop: Dict) -> str:
     return address.strip()
 
 
+# ---------------------------------------------------------------
+# County normalization: strip state suffixes added by some MLSs
+# ---------------------------------------------------------------
+
+COUNTY_NORMALIZATION = {
+    'BeaufortNC': 'Beaufort',
+    'BeaufortSC': 'Beaufort',
+    'CherokeeNC': 'Cherokee',
+    'CherokeeSC': 'Cherokee',
+    'ChathamNC': 'Chatham',
+    'UnionSC': 'Union',
+    'Rabun County Ga': 'Rabun',
+}
+
+# City normalization: fix variant spellings and suffixes
+CITY_NORMALIZATION = {
+    'Canton, Nc': 'Canton',
+    'Cherokee (Jackson Co.)': 'Cherokee',
+    'Clayton, Ga': 'Clayton',
+    'Franklin City Limits': 'Franklin',
+    'Mt Croghan': 'Mount Croghan',
+    'Mt Ulla': 'Mount Ulla',
+    'Robbinsville (Graham)': 'Robbinsville',
+}
+
+
+def normalize_county(county: Optional[str]) -> Optional[str]:
+    """Normalize county name by stripping state suffixes and fixing known variants."""
+    if not county:
+        return county
+    return COUNTY_NORMALIZATION.get(county, county)
+
+
+def normalize_city(city: Optional[str]) -> Optional[str]:
+    """Normalize city name by fixing known variants and formatting issues."""
+    if not city:
+        return city
+    normalized = CITY_NORMALIZATION.get(city)
+    if normalized:
+        return normalized
+    # Normalize "Mt " prefix to "Mount "
+    if city.startswith('Mt '):
+        return 'Mount ' + city[3:]
+    return city
+
+
 def json_encode_list(value) -> Optional[str]:
     """Encode a list or comma-separated string as JSON. Returns None if empty."""
     if not value:
@@ -430,12 +476,12 @@ def map_reso_to_listing(prop: Dict, mls_source: str = 'NavicaMLS') -> Dict[str, 
         'original_list_price': prop.get('OriginalListPrice'),
         'sold_price': prop.get('ClosePrice'),
 
-        # Location
+        # Location (normalized to fix MLS variant spellings)
         'address': address,
-        'city': prop.get('City'),
+        'city': normalize_city(prop.get('City')),
         'state': prop.get('StateOrProvince', 'NC'),
         'zip': prop.get('PostalCode'),
-        'county': prop.get('CountyOrParish'),
+        'county': normalize_county(prop.get('CountyOrParish')),
         'latitude': prop.get('Latitude'),
         'longitude': prop.get('Longitude'),
         'subdivision': prop.get('SubdivisionName'),
