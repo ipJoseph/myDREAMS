@@ -8,6 +8,23 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+- **Canopy MLS (MLS Grid) Initial Data Load** (2026-03-18)
+  - Synced 26K+ Active, 3.7K Pending, 6K ActiveUnderContract, 460 ComingSoon listings
+  - Added ActiveUnderContract, ComingSoon, Canceled to sync CLI status choices
+  - Downloaded 36K primary photos locally (18 GB) to `data/photos/mlsgrid/`
+  - New `apps/mlsgrid/download_photos.py`: concurrent photo downloader with batch DB updates
+  - Public API now serves photos locally via `/api/public/photos/{source}/{file}`
+  - Listing responses rewrite `primary_photo` to local URLs (no more expiring CDN tokens)
+  - Added `media.mlsgrid.com` to Next.js allowed image hostnames
+- **DEV API Auto-Start Service** (2026-03-18)
+  - systemd user service keeps property-api running on localhost:5000
+  - Health check timer pings every 30s, auto-restarts on failure
+  - Linger enabled so services survive logout
+- **Location Normalization** (2026-03-18)
+  - County normalization strips state suffixes (e.g., "BeaufortNC" to "Beaufort")
+  - City normalization fixes variant spellings (e.g., "Franklin City Limits" to "Franklin")
+
 ### Changed
 - **PRD is now canonical database** (2026-03-13)
   - Removed 9 redundant DEV cron jobs (5 Navica sync, 3 enrichment, 1 stale one-time)
