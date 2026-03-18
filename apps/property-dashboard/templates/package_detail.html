@@ -321,7 +321,7 @@
 
                 <div class="package-property-body">
                     <div class="package-property-price">
-                        {% if prop.price %}${{ "{:,.0f}".format(prop.price) }}{% else %}Price N/A{% endif %}
+                        {% if prop.list_price %}${{ "{:,.0f}".format(prop.list_price) }}{% elif prop.price %}${{ "{:,.0f}".format(prop.price) }}{% else %}Price N/A{% endif %}
                     </div>
                     <div class="package-property-address">
                         {{ prop.address or 'Address N/A' }}

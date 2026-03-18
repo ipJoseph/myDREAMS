@@ -5130,6 +5130,7 @@ def contact_package_detail(contact_id, package_id):
                 SELECT l.id, l.mls_number, l.address, l.city, l.state, l.zip,
                        l.list_price, l.beds, l.baths, l.sqft, l.acreage,
                        l.property_type, l.status, l.primary_photo, l.days_on_market,
+                       l.mls_source, l.photo_local_path,
                        pp.display_order, pp.agent_notes
                 FROM package_properties pp
                 JOIN listings l ON l.id = pp.listing_id
@@ -5137,6 +5138,22 @@ def contact_package_detail(contact_id, package_id):
                 ORDER BY pp.display_order, pp.added_at
             ''', (package_id,)).fetchall()
             properties = [dict(r) for r in prop_rows]
+
+            # Rewrite photo URLs to local paths when available
+            for prop in properties:
+                mls = prop.get('mls_number', '')
+                source = (prop.get('mls_source') or '').lower()
+                if 'canopy' in source:
+                    photo_dir = PROJECT_ROOT / 'data' / 'photos' / 'mlsgrid'
+                elif 'navica' in source or 'mountain' in source:
+                    photo_dir = PROJECT_ROOT / 'data' / 'photos' / 'navica'
+                else:
+                    continue
+                for ext in ('.jpg', '.jpeg', '.png', '.webp'):
+                    fpath = photo_dir / f"{mls}{ext}"
+                    if fpath.exists() and fpath.stat().st_size > 0:
+                        prop['primary_photo'] = f"/photos/{photo_dir.name}/{mls}{ext}"
+                        break
 
     except Exception as e:
         logger.error(f"Error fetching package: {e}")
