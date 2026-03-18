@@ -1978,29 +1978,37 @@ def pursuits_list():
     for p in pursuits:
         p['collection_source'] = 'pursuit'
 
-    # Get buyer-created collections from property_packages
+    # Get collections from property_packages (buyer-created + agent-created)
     conn = sqlite3.connect(str(DB_PATH))
     conn.row_factory = sqlite3.Row
-    buyer_collections = conn.execute('''
+    package_collections = conn.execute('''
         SELECT pp.id, pp.name, pp.status, pp.user_id, pp.share_token,
+               pp.lead_id, pp.collection_type, pp.description,
                pp.showing_requested, pp.showing_requested_at,
                pp.created_at, pp.updated_at,
-               u.name as buyer_name, u.email as buyer_email, u.lead_id,
+               u.name as user_name, u.email as user_email,
+               l.first_name || ' ' || l.last_name as lead_name,
+               l.email as lead_email,
                COUNT(pkp.listing_id) as property_count
         FROM property_packages pp
         LEFT JOIN users u ON u.id = pp.user_id
+        LEFT JOIN leads l ON l.id = pp.lead_id
         LEFT JOIN package_properties pkp ON pkp.package_id = pp.id
-        WHERE pp.collection_type = 'buyer_collection'
+        WHERE pp.collection_type IN ('buyer_collection', 'agent_package')
         GROUP BY pp.id
         ORDER BY pp.updated_at DESC
     ''').fetchall()
     conn.close()
 
-    for bc in buyer_collections:
-        bc = dict(bc)
-        bc['collection_source'] = 'buyer_package'
-        bc['buyer_name'] = bc.get('buyer_name') or bc.get('buyer_email') or 'Unknown'
-        pursuits.append(bc)
+    for pc in package_collections:
+        pc = dict(pc)
+        if pc.get('collection_type') == 'agent_package':
+            pc['collection_source'] = 'agent_package'
+            pc['buyer_name'] = pc.get('lead_name') or 'Unassigned'
+        else:
+            pc['collection_source'] = 'buyer_package'
+            pc['buyer_name'] = pc.get('user_name') or pc.get('user_email') or 'Unknown'
+        pursuits.append(pc)
 
     # Sort combined list by updated_at descending
     def sort_key(item):

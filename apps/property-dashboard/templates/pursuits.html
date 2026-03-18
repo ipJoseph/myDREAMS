@@ -390,6 +390,7 @@
             <h2 class="page-title">Active Collections</h2>
             <p class="page-subtitle">Buyer + Property portfolios in progress</p>
         </div>
+        <button class="pursuit-btn primary" style="padding: 10px 20px; font-size: 14px;" onclick="alert('Coming soon: Create a new collection from here.')">+ Start A New Collection</button>
     </div>
 
     <!-- Content Grid -->
@@ -407,6 +408,8 @@
                         <div class="pursuit-name">
                             {{ pursuit.name or pursuit.buyer_name }}
                             {% if pursuit.collection_source == 'pursuit' %}
+                            <span class="source-badge agent">Pursuit</span>
+                            {% elif pursuit.collection_source == 'agent_package' %}
                             <span class="source-badge agent">Agent</span>
                             {% else %}
                             <span class="source-badge website">Website</span>
@@ -422,6 +425,11 @@
                         Buyer: <a href="/contacts/{{ pursuit.buyer_id }}">{{ pursuit.buyer_name }}</a>
                         {% if pursuit.buyer_fub_id %}
                         <a href="{{ fub_url }}/2/people/view/{{ pursuit.buyer_fub_id }}" target="_blank" style="margin-left: 8px; font-size: 11px;">FUB</a>
+                        {% endif %}
+                        {% elif pursuit.collection_source == 'agent_package' %}
+                        Buyer: {% if pursuit.lead_id %}<a href="/contacts/{{ pursuit.lead_id }}">{{ pursuit.buyer_name }}</a>{% else %}{{ pursuit.buyer_name }}{% endif %}
+                        {% if pursuit.description %}
+                        <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">{{ pursuit.description }}</div>
                         {% endif %}
                         {% else %}
                         Buyer: {% if pursuit.lead_id %}<a href="/contacts/{{ pursuit.lead_id }}">{{ pursuit.buyer_name }}</a>{% else %}{{ pursuit.buyer_name }}{% if pursuit.buyer_email %} ({{ pursuit.buyer_email }}){% endif %}{% endif %}
@@ -461,6 +469,14 @@
                         <a href="/contacts/{{ pursuit.buyer_id }}" class="pursuit-btn">View Buyer</a>
                         {% if pursuit.property_count %}
                         <a href="/collections/{{ pursuit.id }}/brochure" class="pursuit-btn" title="Download PDF brochure">PDF</a>
+                        {% endif %}
+                        {% elif pursuit.collection_source == 'agent_package' %}
+                        <a href="/contacts/{{ pursuit.lead_id }}/packages/{{ pursuit.id }}" class="pursuit-btn primary">View Collection</a>
+                        {% if pursuit.lead_id %}
+                        <a href="/contacts/{{ pursuit.lead_id }}" class="pursuit-btn">View Buyer</a>
+                        {% endif %}
+                        {% if pursuit.share_token %}
+                        <a href="/api/public/collections/{{ pursuit.share_token }}" class="pursuit-btn" target="_blank" title="Client share link">Share</a>
                         {% endif %}
                         {% else %}
                         <a href="/buyer-collections/{{ pursuit.id }}" class="pursuit-btn primary">View Collection</a>
