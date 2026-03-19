@@ -5220,6 +5220,9 @@ def contact_package_remove_property(contact_id, package_id, property_id):
                 [package_id, property_id]
             )
             conn.commit()
+        # Return JSON for fetch calls, redirect for form submissions
+        if request.headers.get('Content-Type') == 'application/json':
+            return jsonify({'success': True})
         return redirect(url_for('contact_package_detail', contact_id=contact_id, package_id=package_id))
     except Exception as e:
         logger.error(f"Error removing property from package: {e}")
