@@ -192,7 +192,7 @@
         <a href="/buyer-collections/{{ collection.id }}">&larr; Back to Collection</a>
         {% endif %}
         <h1>Route Planner</h1>
-        <span class="subtitle">{{ collection.name }} &middot; {{ properties|length }} properties</span>
+        <span class="subtitle"><input type="text" id="showingName" value="{{ collection.name }}" style="background:transparent; border:1px solid transparent; color:#c8a84e; font-size:inherit; font-family:inherit; padding:2px 6px; border-radius:3px; width: 300px;" onfocus="this.style.borderColor='#c8a84e'" onblur="this.style.borderColor='transparent'; COLLECTION_NAME=this.value;" title="Click to edit showing name"> &middot; {{ properties|length }} properties</span>
       </div>
       <div style="display: flex; gap: 8px;">
         {% if standalone %}
@@ -1395,7 +1395,7 @@
       form.method = 'POST';
       form.action = '/buyer-collections/' + COLLECTION_ID + '/save-showing';
       [
-        ['name', COLLECTION_NAME + ' - ' + cfg.date],
+        ['name', document.getElementById('showingName').value + ' - ' + cfg.date],
         ['scheduled_date', cfg.date],
         ['scheduled_time', cfg.time],
         ['route_data', JSON.stringify(routeData)],

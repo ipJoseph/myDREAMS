@@ -105,7 +105,11 @@
         <div class="showing-card">
             <div class="showing-info">
                 <div class="showing-name">
-                    {{ s.name or 'Untitled Showing' }}
+                    <input type="text" value="{{ s.name or 'Untitled Showing' }}"
+                           data-showing-id="{{ s.id }}"
+                           style="border: 1px solid transparent; background: transparent; font: inherit; color: inherit; padding: 2px 6px; border-radius: 4px; width: 350px;"
+                           onfocus="this.style.borderColor='var(--primary)'"
+                           onblur="this.style.borderColor='transparent'; renameShowing('{{ s.id }}', this.value);">
                     <span class="showing-status {{ s.status or 'scheduled' }}">{{ s.status or 'scheduled' }}</span>
                 </div>
                 <div class="showing-meta">
@@ -183,6 +187,15 @@
     {% endif %}
 
     <script>
+        async function renameShowing(id, newName) {
+            if (!newName.trim()) return;
+            await fetch('/showings/' + id + '/status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: newName.trim() })
+            });
+        }
+
         async function deleteShowing(id) {
             if (!confirm('Permanently delete this showing?')) return;
             const resp = await fetch('/showings/' + id, {

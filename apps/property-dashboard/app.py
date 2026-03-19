@@ -2537,15 +2537,21 @@ def delete_showing(showing_id):
 @app.route('/showings/<showing_id>/status', methods=['POST'])
 @requires_auth
 def update_showing_status(showing_id):
-    """Update showing status (archive/restore)."""
+    """Update showing status or name."""
     data = request.get_json()
-    new_status = data.get('status', 'scheduled')
-    if new_status not in ('scheduled', 'completed', 'cancelled', 'archived'):
-        return jsonify({'success': False, 'error': 'Invalid status'}), 400
     db = get_db()
+    now = datetime.now().isoformat()
+
     with db._get_connection() as conn:
-        conn.execute('UPDATE showings SET status = ?, updated_at = ? WHERE id = ?',
-                     [new_status, datetime.now().isoformat(), showing_id])
+        if 'name' in data:
+            conn.execute('UPDATE showings SET name = ?, updated_at = ? WHERE id = ?',
+                         [data['name'], now, showing_id])
+        if 'status' in data:
+            new_status = data['status']
+            if new_status not in ('scheduled', 'completed', 'cancelled', 'archived'):
+                return jsonify({'success': False, 'error': 'Invalid status'}), 400
+            conn.execute('UPDATE showings SET status = ?, updated_at = ? WHERE id = ?',
+                         [new_status, now, showing_id])
         conn.commit()
     return jsonify({'success': True})
 
