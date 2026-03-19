@@ -540,48 +540,22 @@ def get_listing(listing_id):
 
         _localize_photo(listing)
 
-        # Resolve gallery photos
-        listing_key = listing.pop('listing_key', None)
-        photos_local = listing.pop('photos_local', None)
-        photos_refreshed_at = listing.pop('photos_refreshed_at', None)
+        # Remove internal fields from response
+        listing.pop('listing_key', None)
+        listing.pop('photos_local', None)
+        listing.pop('photos_refreshed_at', None)
 
-        # Check if cached photos are still fresh (< 50 min old)
-        photos_fresh = False
-        if photos_refreshed_at:
+        # Parse photos JSON; for CanopyMLS listings, the frontend will
+        # call /listings/:id/photos to get fresh CDN URLs asynchronously.
+        if listing.get('photos') and isinstance(listing['photos'], str):
             try:
-                refreshed = datetime.fromisoformat(photos_refreshed_at)
-                age_minutes = (datetime.now() - refreshed).total_seconds() / 60
-                photos_fresh = age_minutes < 50
-            except (ValueError, TypeError):
-                pass
-
-        if photos_local and isinstance(photos_local, str):
-            # Local gallery photos available (downloaded to disk)
-            try:
-                local_list = json.loads(photos_local)
-                listing['photos'] = [p for p in local_list if p]
+                listing['photos'] = json.loads(listing['photos'])
             except json.JSONDecodeError:
-                pass
+                listing['photos'] = []
 
-        elif listing.get('mls_source') == 'CanopyMLS' and listing_key and not photos_fresh:
-            # MLS Grid tokens expire in ~1 hour; fetch fresh ones on demand
-            fresh_urls = _refresh_mlsgrid_photos(listing_key, listing.get('mls_number'))
-            if fresh_urls:
-                listing['photos'] = fresh_urls
-            else:
-                # Refresh failed; fall back to stored URLs (may be expired)
-                if listing.get('photos') and isinstance(listing['photos'], str):
-                    try:
-                        listing['photos'] = json.loads(listing['photos'])
-                    except json.JSONDecodeError:
-                        listing['photos'] = []
-        else:
-            # Navica/other CDN URLs don't expire, or cached URLs are still fresh
-            if listing.get('photos') and isinstance(listing['photos'], str):
-                try:
-                    listing['photos'] = json.loads(listing['photos'])
-                except json.JSONDecodeError:
-                    listing['photos'] = []
+        # Flag for the frontend: does this listing need async photo refresh?
+        if listing.get('mls_source') == 'CanopyMLS':
+            listing['photos_require_refresh'] = True
 
         # Find cross-MLS siblings at the same address
         also_listed_on = []
@@ -616,6 +590,100 @@ def get_listing(listing_id):
         return jsonify({
             'success': False,
             'error': {'code': 'SERVER_ERROR', 'message': 'Failed to retrieve listing'}
+        }), 500
+
+
+@public_bp.route('/listings/<listing_id>/photos', methods=['GET'])
+def refresh_listing_photos(listing_id):
+    """
+    Get fresh gallery photo URLs for a listing.
+
+    For CanopyMLS (MLS Grid) listings, CDN tokens expire in ~1 hour.
+    The frontend calls this endpoint asynchronously after the detail page
+    loads to get working photo URLs without blocking the initial render.
+
+    Returns cached URLs if they're still fresh (< 50 min old), otherwise
+    fetches new ones from the MLS Grid API.
+
+    For Navica/other sources, returns the stored URLs directly (they don't expire).
+    """
+    try:
+        db = get_db()
+        row = db.execute(
+            "SELECT mls_number, mls_source, listing_key, photos, "
+            "photos_local, photos_refreshed_at "
+            "FROM listings WHERE id = ? AND idx_opt_in = 1",
+            [listing_id]
+        ).fetchone()
+        db.close()
+
+        if not row:
+            return jsonify({
+                'success': False,
+                'error': {'code': 'NOT_FOUND', 'message': 'Listing not found'}
+            }), 404
+
+        listing = dict(row)
+        mls_source = listing.get('mls_source', '')
+        mls_number = listing.get('mls_number', '')
+        listing_key = listing.get('listing_key', '')
+
+        # If we have local gallery photos, use those (always fresh)
+        photos_local = listing.get('photos_local')
+        if photos_local:
+            try:
+                local_list = json.loads(photos_local)
+                photos = [p for p in local_list if p]
+                if photos:
+                    return jsonify({'success': True, 'data': photos, 'source': 'local'})
+            except json.JSONDecodeError:
+                pass
+
+        # For non-MLS-Grid sources, return stored URLs (they don't expire)
+        if mls_source != 'CanopyMLS':
+            stored = listing.get('photos')
+            if stored:
+                try:
+                    photos = json.loads(stored) if isinstance(stored, str) else stored
+                    return jsonify({'success': True, 'data': photos, 'source': 'cdn'})
+                except json.JSONDecodeError:
+                    pass
+            return jsonify({'success': True, 'data': [], 'source': 'none'})
+
+        # CanopyMLS: check if cached URLs are still fresh
+        refreshed_at = listing.get('photos_refreshed_at')
+        if refreshed_at:
+            try:
+                age_min = (datetime.now() - datetime.fromisoformat(refreshed_at)).total_seconds() / 60
+                if age_min < 50:
+                    stored = listing.get('photos')
+                    if stored:
+                        photos = json.loads(stored) if isinstance(stored, str) else stored
+                        return jsonify({'success': True, 'data': photos, 'source': 'cached'})
+            except (ValueError, TypeError):
+                pass
+
+        # Fetch fresh URLs from MLS Grid API
+        fresh = _refresh_mlsgrid_photos(listing_key, mls_number)
+        if fresh:
+            return jsonify({'success': True, 'data': fresh, 'source': 'refreshed'})
+
+        # Fall back to stored (possibly expired)
+        stored = listing.get('photos')
+        if stored:
+            try:
+                photos = json.loads(stored) if isinstance(stored, str) else stored
+                return jsonify({'success': True, 'data': photos, 'source': 'stale'})
+            except json.JSONDecodeError:
+                pass
+
+        return jsonify({'success': True, 'data': [], 'source': 'none'})
+
+    except Exception as e:
+        logger.exception(f"Photo refresh error for {listing_id}")
+        return jsonify({
+            'success': False,
+            'error': {'code': 'SERVER_ERROR', 'message': 'Failed to refresh photos'}
         }), 500
 
 

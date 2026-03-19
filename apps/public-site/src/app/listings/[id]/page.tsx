@@ -96,7 +96,12 @@ export default async function ListingDetailPage({ params }: PageProps) {
 
       {/* Photo gallery */}
       <section className="bg-[var(--color-dark)]">
-        <PhotoBrowser photos={allPhotos} address={listing.address} city={listing.city} />
+        <PhotoBrowser
+          photos={allPhotos}
+          address={listing.address}
+          city={listing.city}
+          listingId={"photos_require_refresh" in listing ? listing.id : undefined}
+        />
       </section>
 
       {/* Listing details */}
