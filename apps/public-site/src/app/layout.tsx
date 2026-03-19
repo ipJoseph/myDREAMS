@@ -21,6 +21,9 @@ export const metadata: Metadata = {
     "WNC Mountain Homes",
     "Western NC mountain real estate",
   ],
+  icons: {
+    icon: "/favicon.ico",
+  },
 };
 
 function Header() {
