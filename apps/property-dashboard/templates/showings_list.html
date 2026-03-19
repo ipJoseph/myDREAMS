@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Showings - DREAMS</title>
+    <link rel="icon" type="image/svg+xml" href="{{ favicon }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='shared/css/dreams.css') }}">
+    <style>
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+        .page-title { font-size: 24px; font-weight: 600; color: var(--text-primary); }
+        .page-subtitle { font-size: 14px; color: var(--text-secondary); margin-top: 4px; }
+
+        .showings-grid {
+            margin: 0 20px 20px 20px;
+            display: grid;
+            gap: 12px;
+        }
+
+        .showing-card {
+            background: white;
+            border-radius: 8px;
+            padding: 16px 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid var(--border);
+            transition: border-color 0.15s;
+        }
+        .showing-card:hover { border-color: var(--primary); }
+
+        .showing-info { flex: 1; }
+        .showing-name { font-weight: 600; font-size: 16px; color: var(--text-primary); margin-bottom: 4px; }
+        .showing-meta { font-size: 13px; color: var(--text-secondary); display: flex; gap: 16px; flex-wrap: wrap; }
+        .showing-meta span { display: inline-flex; align-items: center; gap: 4px; }
+
+        .showing-status {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-left: 8px;
+        }
+        .showing-status.scheduled { background: #dbeafe; color: #2563eb; }
+        .showing-status.completed { background: #dcfce7; color: #16a34a; }
+        .showing-status.cancelled { background: #f3f4f6; color: #6b7280; }
+
+        .showing-actions { display: flex; gap: 8px; }
+        .showing-btn {
+            padding: 6px 14px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            text-decoration: none;
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            background: white;
+        }
+        .showing-btn:hover { background: var(--bg-secondary); color: var(--text-primary); }
+        .showing-btn.primary { background: var(--primary); color: white; border-color: var(--primary); }
+        .showing-btn.primary:hover { opacity: 0.9; }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+            background: white;
+            border-radius: 8px;
+            margin: 0 20px;
+        }
+        .empty-state-title { font-size: 16px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px; }
+    </style>
+    {% set active_nav = 'showings' %}
+</head>
+<body>
+    {% include 'partials/sidebar.html' %}
+    <div class="main-content">
+    <header class="dreams-header">
+        <div>
+            <h1>DREAMS Dashboard</h1>
+            <div class="dreams-header-subtitle">Showings</div>
+        </div>
+    </header>
+
+    <div class="page-header">
+        <div>
+            <h2 class="page-title">Showings</h2>
+            <p class="page-subtitle">Scheduled and past showing tours</p>
+        </div>
+        <a href="/showings/plan" class="showing-btn primary" style="padding: 10px 20px; font-size: 14px;">+ Plan New Showing</a>
+    </div>
+
+    {% if showings %}
+    <div class="showings-grid">
+        {% for s in showings %}
+        <div class="showing-card">
+            <div class="showing-info">
+                <div class="showing-name">
+                    {{ s.name or 'Untitled Showing' }}
+                    <span class="showing-status {{ s.status or 'scheduled' }}">{{ s.status or 'scheduled' }}</span>
+                </div>
+                <div class="showing-meta">
+                    {% if s.scheduled_date %}
+                    <span>{{ s.scheduled_date }}</span>
+                    {% endif %}
+                    {% if s.scheduled_time %}
+                    <span>{{ s.scheduled_time }}</span>
+                    {% endif %}
+                    {% if s.lead_name %}
+                    <span>Buyer: {{ s.lead_name }}</span>
+                    {% endif %}
+                    {% if s.stop_count %}
+                    <span>{{ s.stop_count }} stops</span>
+                    {% endif %}
+                    {% if s.total_drive_time %}
+                    <span>{{ s.total_drive_time }} min drive</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="showing-actions">
+                {% if s.package_id %}
+                <a href="/buyer-collections/{{ s.package_id }}/route-planner" class="showing-btn primary">Route Planner</a>
+                <a href="/buyer-collections/{{ s.package_id }}" class="showing-btn">Collection</a>
+                {% endif %}
+                {% if s.lead_id %}
+                <a href="/contacts/{{ s.lead_id }}" class="showing-btn">Buyer</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-state-title">No Showings Yet</div>
+        <p>Save a showing from the Route Planner, or <a href="/showings/plan">plan a new one</a>.</p>
+    </div>
+    {% endif %}
+
+    <footer class="dreams-footer">
+        DREAMS - Desktop Real Estate Agent Management System | Joseph "Eugy" Williams
+    </footer>
+    </div>
+</body>
+</html>

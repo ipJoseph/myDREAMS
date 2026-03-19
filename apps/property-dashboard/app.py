@@ -2481,6 +2481,30 @@ def collection_save_showing(collection_id):
 # ── Standalone Showings Planner (CSV / manual entry) ─────────────────────
 
 
+@app.route('/showings')
+@requires_auth
+def showings_list():
+    """List all saved showings."""
+    db = get_db()
+    with db._get_connection() as conn:
+        showings = conn.execute('''
+            SELECT s.id, s.name, s.status, s.scheduled_date, s.scheduled_time,
+                   s.total_drive_time, s.total_distance, s.package_id,
+                   s.created_at, s.updated_at,
+                   l.first_name || ' ' || l.last_name as lead_name,
+                   l.id as lead_id,
+                   pp.name as collection_name,
+                   (SELECT COUNT(*) FROM showing_properties sp WHERE sp.showing_id = s.id) as stop_count
+            FROM showings s
+            LEFT JOIN leads l ON l.id = s.lead_id
+            LEFT JOIN property_packages pp ON pp.id = s.package_id
+            WHERE s.name IS NOT NULL
+            ORDER BY s.scheduled_date DESC, s.created_at DESC
+        ''').fetchall()
+    return render_template('showings_list.html',
+        showings=[dict(s) for s in showings])
+
+
 @app.route('/showings/plan', methods=['GET'])
 @requires_auth
 def showings_plan_form():
