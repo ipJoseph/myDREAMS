@@ -4,6 +4,8 @@ import SessionWrapper from "@/components/SessionWrapper";
 import UserMenu from "@/components/UserMenu";
 import "./globals.css";
 
+const dreamsEnv = process.env.DREAMS_ENV || "dev";
+
 export const metadata: Metadata = {
   title: {
     default: "WNC Mountain Homes | Western NC Real Estate",
@@ -22,7 +24,7 @@ export const metadata: Metadata = {
     "Western NC mountain real estate",
   ],
   icons: {
-    icon: "/favicon.ico",
+    icon: { url: `/favicon-${dreamsEnv}.svg`, type: "image/svg+xml" },
   },
 };
 
