@@ -1994,7 +1994,7 @@ def pursuits_list():
         LEFT JOIN users u ON u.id = pp.user_id
         LEFT JOIN leads l ON l.id = pp.lead_id
         LEFT JOIN package_properties pkp ON pkp.package_id = pp.id
-        WHERE pp.collection_type IN ('buyer_collection', 'agent_package')
+        WHERE pp.collection_type IN ('buyer_collection', 'agent_package', 'showing')
         GROUP BY pp.id
         ORDER BY pp.updated_at DESC
     ''').fetchall()

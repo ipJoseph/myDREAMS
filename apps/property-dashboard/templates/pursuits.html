@@ -30,7 +30,7 @@
 
         .content-grid {
             display: grid;
-            grid-template-columns: 2fr 1fr;
+            grid-template-columns: 1fr;
             gap: 20px;
             margin: 0 20px 20px 20px;
         }
@@ -390,7 +390,7 @@
             <h2 class="page-title">Active Collections</h2>
             <p class="page-subtitle">Buyer + Property portfolios in progress</p>
         </div>
-        <button class="pursuit-btn primary" style="padding: 10px 20px; font-size: 14px;" onclick="alert('Coming soon: Create a new collection from here.')">+ Start A New Collection</button>
+        <button class="pursuit-btn primary" style="padding: 10px 20px; font-size: 14px;" onclick="openCreateModal('', '', '', '', '')">+ Start A New Collection</button>
     </div>
 
     <!-- Content Grid -->
@@ -499,39 +499,7 @@
             {% endif %}
         </div>
 
-        <!-- Potential Buyers (no pursuit yet) -->
-        <div class="section-card">
-            <div class="section-header">
-                <h3 class="section-title">Start New Collection</h3>
-            </div>
-            <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 16px;">
-                Qualified buyers without an active collection:
-            </p>
-
-            {% if potential_buyers %}
-                {% for buyer in potential_buyers %}
-                <div class="buyer-item">
-                    <div class="buyer-heat">{{ "%.0f"|format(buyer.heat_score or 0) }}</div>
-                    <div class="buyer-info">
-                        <div class="buyer-name">
-                            <a href="/contacts/{{ buyer.id }}">{{ buyer.name }}</a>
-                        </div>
-                        <div class="buyer-meta">
-                            {{ buyer.stage }}
-                            {% if buyer.preferred_cities %} | {{ buyer.preferred_cities|truncate(20) }}{% endif %}
-                        </div>
-                    </div>
-                    <button class="buyer-create-btn" onclick="openCreateModal('{{ buyer.id }}', '{{ buyer.name }}', '{{ buyer.preferred_cities or '' }}', '{{ buyer.min_price or '' }}', '{{ buyer.max_price or '' }}')">
-                        Create
-                    </button>
-                </div>
-                {% endfor %}
-            {% else %}
-                <div class="empty-state">
-                    <div class="empty-state-text">No qualified buyers without collections.</div>
-                </div>
-            {% endif %}
-        </div>
+        <!-- Potential buyers panel removed; use "+ Start A New Collection" button above -->
     </div>
 
     <!-- Create Pursuit Modal -->
