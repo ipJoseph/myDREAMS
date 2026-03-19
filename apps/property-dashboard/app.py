@@ -2353,7 +2353,8 @@ def buyer_collection_detail(collection_id):
 @requires_auth
 def collection_route_planner(collection_id):
     """Route planner for a buyer collection."""
-    conn = get_db()
+    db = get_db()
+    conn = db._get_connection()
 
     collection = conn.execute(
         'SELECT * FROM property_packages WHERE id = ?', [collection_id]
