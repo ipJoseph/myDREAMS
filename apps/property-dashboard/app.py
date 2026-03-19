@@ -2219,6 +2219,22 @@ def api_active_collections():
     return api_active_pursuits()
 
 
+@app.route('/api/collections/<collection_id>/rename', methods=['POST'])
+@requires_auth
+def api_rename_collection(collection_id):
+    """Rename a collection from the collections list."""
+    data = request.get_json()
+    name = data.get('name', '').strip()
+    if not name:
+        return jsonify({'success': False, 'error': 'Name required'}), 400
+    db = get_db()
+    with db._get_connection() as conn:
+        conn.execute('UPDATE property_packages SET name = ?, updated_at = ? WHERE id = ?',
+                     [name, datetime.now().isoformat(), collection_id])
+        conn.commit()
+    return jsonify({'success': True})
+
+
 # ===== BUYER ACTIVITY routes =====
 
 @app.route('/buyer-activity')

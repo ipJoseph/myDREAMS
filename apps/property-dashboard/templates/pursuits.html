@@ -406,7 +406,10 @@
                 <div class="pursuit-card">
                     <div class="pursuit-header">
                         <div class="pursuit-name">
-                            {{ pursuit.name or pursuit.buyer_name }}
+                            <input type="text" value="{{ pursuit.name or pursuit.buyer_name }}"
+                                   style="border: 1px solid transparent; background: transparent; font: inherit; color: inherit; padding: 2px 6px; border-radius: 4px; width: 280px;"
+                                   onfocus="this.style.borderColor='var(--primary)'"
+                                   onblur="this.style.borderColor='transparent'; renameCollection('{{ pursuit.id }}', '{{ pursuit.collection_source }}', this.value);">
                             {% if pursuit.collection_source == 'pursuit' %}
                             <span class="source-badge agent">Pursuit</span>
                             {% elif pursuit.collection_source == 'agent_package' %}
@@ -557,6 +560,19 @@
         document.getElementById('createModal').addEventListener('click', function(e) {
             if (e.target === this) closeCreateModal();
         });
+    </script>
+
+    <script>
+        async function renameCollection(id, source, newName) {
+            if (!newName.trim()) return;
+            if (source === 'agent_package' || source === 'buyer_package' || source === 'showing') {
+                await fetch('/api/collections/' + id + '/rename', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: newName.trim() })
+                });
+            }
+        }
     </script>
 
     <!-- Footer -->
