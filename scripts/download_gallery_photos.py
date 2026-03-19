@@ -24,6 +24,7 @@ import os
 import sqlite3
 import sys
 import time
+from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from urllib.parse import urlparse
@@ -31,6 +32,7 @@ from urllib.parse import urlparse
 import requests
 
 PROJECT_ROOT = Path(__file__).parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
 DB_PATH = PROJECT_ROOT / 'data' / 'dreams.db'
 
 PHOTOS_DIRS = {
@@ -89,7 +91,7 @@ def primary_exists(dest_dir: Path, mls_number: str) -> Path | None:
 
 
 def download_one(mls_number: str, url: str, index: int, dest_dir: Path) -> dict:
-    """Download a single gallery photo."""
+    """Download a single gallery photo with retry on rate limiting."""
     ext = detect_ext(url)
     filename = f"{mls_number}_{index:02d}{ext}"
     filepath = dest_dir / filename
@@ -102,41 +104,58 @@ def download_one(mls_number: str, url: str, index: int, dest_dir: Path) -> dict:
             'status': 'skipped', 'path': existing.name,
         }
 
-    try:
-        resp = requests.get(url, timeout=30, stream=True)
-        resp.raise_for_status()
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            resp = requests.get(url, timeout=30, stream=True)
 
-        content_type = resp.headers.get('Content-Type', '')
-        if 'image' not in content_type and content_type:
+            # Handle rate limiting with exponential backoff
+            if resp.status_code == 429:
+                wait = 2 ** (attempt + 1)
+                time.sleep(wait)
+                continue
+
+            resp.raise_for_status()
+
+            content_type = resp.headers.get('Content-Type', '')
+            if 'image' not in content_type and content_type:
+                return {
+                    'mls': mls_number, 'index': index,
+                    'status': 'error', 'error': f'Not an image: {content_type}',
+                }
+
+            with open(filepath, 'wb') as f:
+                for chunk in resp.iter_content(chunk_size=8192):
+                    f.write(chunk)
+
+            size = filepath.stat().st_size
+            if size == 0:
+                filepath.unlink()
+                return {
+                    'mls': mls_number, 'index': index,
+                    'status': 'error', 'error': 'Empty file',
+                }
+
             return {
                 'mls': mls_number, 'index': index,
-                'status': 'error', 'error': f'Not an image: {content_type}',
+                'status': 'downloaded', 'size': size, 'path': filename,
             }
 
-        with open(filepath, 'wb') as f:
-            for chunk in resp.iter_content(chunk_size=8192):
-                f.write(chunk)
-
-        size = filepath.stat().st_size
-        if size == 0:
-            filepath.unlink()
+        except requests.RequestException as e:
+            if filepath.exists():
+                filepath.unlink()
+            if attempt < max_retries - 1 and '429' in str(e):
+                time.sleep(2 ** (attempt + 1))
+                continue
             return {
                 'mls': mls_number, 'index': index,
-                'status': 'error', 'error': 'Empty file',
+                'status': 'error', 'error': str(e),
             }
 
-        return {
-            'mls': mls_number, 'index': index,
-            'status': 'downloaded', 'size': size, 'path': filename,
-        }
-
-    except requests.RequestException as e:
-        if filepath.exists():
-            filepath.unlink()
-        return {
-            'mls': mls_number, 'index': index,
-            'status': 'error', 'error': str(e),
-        }
+    return {
+        'mls': mls_number, 'index': index,
+        'status': 'error', 'error': 'Max retries exceeded (rate limited)',
+    }
 
 
 def build_local_photos_list(dest_dir: Path, mls_number: str, photo_count: int) -> list[str]:
@@ -163,7 +182,7 @@ def main():
     parser = argparse.ArgumentParser(description="Download gallery photos for WNC listings")
     parser.add_argument('--apply', action='store_true', help='Actually download (default is dry-run)')
     parser.add_argument('--max', type=int, help='Max listings to process')
-    parser.add_argument('--workers', type=int, default=10, help='Parallel workers (default: 10)')
+    parser.add_argument('--workers', type=int, default=2, help='Parallel workers (default: 2, keep low to avoid CDN rate limits)')
     parser.add_argument('--zone', default='1,2', help='Zones to download for (default: 1,2)')
     parser.add_argument('--min-photos', type=int, default=2, help='Min photos to qualify (default: 2)')
     parser.add_argument('--db', type=str, default=str(DB_PATH), help='Database path')
@@ -194,7 +213,7 @@ def main():
     # Get listings with gallery photos in target zones
     placeholders = ','.join(['?'] * len(zones))
     query = f"""
-        SELECT mls_number, mls_source, photos, photo_count
+        SELECT mls_number, mls_source, listing_key, photos, photo_count
         FROM listings
         WHERE zone IN ({placeholders})
         AND UPPER(status) = 'ACTIVE'
@@ -203,10 +222,58 @@ def main():
         ORDER BY list_price DESC
     """
     rows = conn.execute(query, zones + [args.min_photos]).fetchall()
-    conn.close()
 
     if args.max:
         rows = rows[:args.max]
+
+    # For CanopyMLS listings, we must fetch fresh photo URLs from the API
+    # because the stored CDN tokens expire in ~1 hour.
+    # Navica/Mountain Lakes CDN URLs don't expire, so we use them directly.
+    print("Preparing photo URLs...")
+    canopy_listings = [r for r in rows if r['mls_source'] == 'CanopyMLS' and r['listing_key']]
+    other_listings = [r for r in rows if r['mls_source'] != 'CanopyMLS']
+
+    # Refresh CanopyMLS photo URLs in batches via the API
+    fresh_photos = {}  # mls_number -> [url, url, ...]
+    if canopy_listings and args.apply:
+        print(f"  Fetching fresh URLs for {len(canopy_listings):,} CanopyMLS listings...")
+        try:
+            from apps.mlsgrid.client import MLSGridClient
+            from apps.navica.field_mapper import extract_photos
+            client = MLSGridClient.from_env()
+
+            for i, row in enumerate(canopy_listings):
+                lk = row['listing_key']
+                mls = row['mls_number']
+                try:
+                    result = client.get(f"/Property('{lk}')", {'$expand': 'Media'})
+                    media = result.get('Media', [])
+                    _, photo_urls, _ = extract_photos(media)
+                    if photo_urls:
+                        fresh_photos[mls] = photo_urls
+                        # Update DB with fresh URLs
+                        conn.execute(
+                            "UPDATE listings SET photos = ?, photos_refreshed_at = ? WHERE mls_number = ?",
+                            [json.dumps(photo_urls), datetime.now().isoformat(), mls]
+                        )
+                except Exception as e:
+                    if i < 5:
+                        print(f"    Warning: {mls}: {e}")
+
+                if (i + 1) % 100 == 0 or (i + 1) == len(canopy_listings):
+                    conn.commit()
+                    print(f"    Refreshed {i + 1:,}/{len(canopy_listings):,} ({len(fresh_photos):,} OK)")
+
+                # Rate limit: MLS Grid allows 2 req/sec
+                time.sleep(0.6)
+
+        except ImportError as e:
+            print(f"  Warning: Could not load MLS Grid client: {e}")
+            print("  Will use stored URLs (may be expired)")
+    elif canopy_listings:
+        print(f"  [dry-run] Would refresh {len(canopy_listings):,} CanopyMLS URLs")
+
+    conn.close()
 
     # Build download queue: (mls_number, url, index, dest_dir)
     queue = []
@@ -219,10 +286,14 @@ def main():
         if not dest_dir:
             continue
 
-        try:
-            photos = json.loads(row['photos'])
-        except (json.JSONDecodeError, TypeError):
-            continue
+        # Use fresh URLs for CanopyMLS, stored URLs for others
+        if mls in fresh_photos:
+            photos = fresh_photos[mls]
+        else:
+            try:
+                photos = json.loads(row['photos'])
+            except (json.JSONDecodeError, TypeError):
+                continue
 
         if not photos or len(photos) < 2:
             continue

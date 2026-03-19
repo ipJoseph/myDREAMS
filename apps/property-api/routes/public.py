@@ -542,20 +542,32 @@ def get_listing(listing_id):
 
         # Remove internal fields from response
         listing.pop('listing_key', None)
-        listing.pop('photos_local', None)
+        photos_local = listing.pop('photos_local', None)
         listing.pop('photos_refreshed_at', None)
 
-        # Parse photos JSON; for CanopyMLS listings, the frontend will
-        # call /listings/:id/photos to get fresh CDN URLs asynchronously.
-        if listing.get('photos') and isinstance(listing['photos'], str):
+        # Use local gallery photos if available (downloaded to disk, never expire)
+        if photos_local and isinstance(photos_local, str):
             try:
-                listing['photos'] = json.loads(listing['photos'])
+                local_list = json.loads(photos_local)
+                filtered = [p for p in local_list if p]
+                if filtered:
+                    listing['photos'] = filtered
+                    photos_local = True  # flag that we used local photos
             except json.JSONDecodeError:
-                listing['photos'] = []
+                photos_local = None
 
-        # Flag for the frontend: does this listing need async photo refresh?
-        if listing.get('mls_source') == 'CanopyMLS':
-            listing['photos_require_refresh'] = True
+        if not photos_local:
+            # Parse stored photos JSON
+            if listing.get('photos') and isinstance(listing['photos'], str):
+                try:
+                    listing['photos'] = json.loads(listing['photos'])
+                except json.JSONDecodeError:
+                    listing['photos'] = []
+
+            # Flag for the frontend: CanopyMLS needs async photo refresh
+            # because CDN tokens expire in ~1 hour
+            if listing.get('mls_source') == 'CanopyMLS':
+                listing['photos_require_refresh'] = True
 
         # Find cross-MLS siblings at the same address
         also_listed_on = []

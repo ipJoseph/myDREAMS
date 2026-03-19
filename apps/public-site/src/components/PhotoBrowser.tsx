@@ -207,7 +207,7 @@ export default function PhotoBrowser({ photos: initialPhotos, address, city, lis
               </svg>
             </button>
 
-            {/* Current photo */}
+            {/* Current photo - unoptimized to load full-res directly from CDN */}
             <div className="relative w-full h-full max-w-5xl mx-16">
               <Image
                 key={current}
@@ -216,6 +216,7 @@ export default function PhotoBrowser({ photos: initialPhotos, address, city, lis
                 fill
                 sizes="90vw"
                 className="object-contain"
+                unoptimized
                 priority
               />
             </div>
@@ -252,6 +253,7 @@ export default function PhotoBrowser({ photos: initialPhotos, address, city, lis
                       fill
                       sizes="64px"
                       className="object-cover"
+                      unoptimized
                     />
                   </button>
                 ))}
