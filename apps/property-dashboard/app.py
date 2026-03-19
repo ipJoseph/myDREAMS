@@ -2354,29 +2354,29 @@ def buyer_collection_detail(collection_id):
 def collection_route_planner(collection_id):
     """Route planner for a buyer collection."""
     db = get_db()
-    conn = db._get_connection()
 
-    collection = conn.execute(
-        'SELECT * FROM property_packages WHERE id = ?', [collection_id]
-    ).fetchone()
+    with db._get_connection() as conn:
+        collection = conn.execute(
+            'SELECT * FROM property_packages WHERE id = ?', [collection_id]
+        ).fetchone()
 
-    if not collection:
-        return redirect('/buyer-activity')
+        if not collection:
+            return redirect('/buyer-activity')
 
-    collection = dict(collection)
+        collection = dict(collection)
 
-    # Get properties with full details for routing
-    properties = conn.execute('''
-        SELECT l.id, l.address, l.city, l.state, l.zip, l.county,
-               l.list_price, l.beds, l.baths, l.sqft, l.acreage,
-               l.primary_photo, l.mls_number, l.latitude, l.longitude,
-               l.status, l.property_type,
-               pkp.display_order, pkp.agent_notes
-        FROM package_properties pkp
-        JOIN listings l ON l.id = pkp.listing_id
-        WHERE pkp.package_id = ?
-        ORDER BY pkp.display_order, pkp.added_at
-    ''', [collection_id]).fetchall()
+        # Get properties with full details for routing
+        properties = conn.execute('''
+            SELECT l.id, l.address, l.city, l.state, l.zip, l.county,
+                   l.list_price, l.beds, l.baths, l.sqft, l.acreage,
+                   l.primary_photo, l.mls_number, l.latitude, l.longitude,
+                   l.status, l.property_type,
+                   pkp.display_order, pkp.agent_notes
+            FROM package_properties pkp
+            JOIN listings l ON l.id = pkp.listing_id
+            WHERE pkp.package_id = ?
+            ORDER BY pkp.display_order, pkp.added_at
+        ''', [collection_id]).fetchall()
 
     today = datetime.now(ET).strftime('%Y-%m-%d')
     home_address = os.getenv('AGENT_HOME_ADDRESS', '')
