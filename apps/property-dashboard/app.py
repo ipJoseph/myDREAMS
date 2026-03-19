@@ -2292,53 +2292,53 @@ def buyer_activity():
 @requires_auth
 def buyer_collection_detail(collection_id):
     """Agent view of a buyer's collection (property package)."""
-    conn = get_db()
+    db = get_db()
 
-    # Get collection
-    collection = conn.execute(
-        'SELECT * FROM property_packages WHERE id = ?', [collection_id]
-    ).fetchone()
-
-    if not collection:
-        return redirect('/buyer-activity')
-
-    collection = dict(collection)
-
-    # Get buyer info
-    buyer = {}
-    lead = None
-    if collection.get('user_id'):
-        user_row = conn.execute(
-            'SELECT * FROM users WHERE id = ?', [collection['user_id']]
+    with db._get_connection() as conn:
+        # Get collection
+        collection = conn.execute(
+            'SELECT * FROM property_packages WHERE id = ?', [collection_id]
         ).fetchone()
-        if user_row:
-            buyer = dict(user_row)
-            # Try to find linked lead
-            lead_id = buyer.get('lead_id') or buyer.get('fub_lead_id')
-            if lead_id:
-                lead_row = conn.execute(
-                    'SELECT id, heat_score, priority_score FROM leads WHERE id = ?', [lead_id]
-                ).fetchone()
-                if lead_row:
-                    lead = dict(lead_row)
-            elif buyer.get('email'):
-                lead_row = conn.execute(
-                    'SELECT id, heat_score, priority_score FROM leads WHERE email = ?',
-                    [buyer['email']]
-                ).fetchone()
-                if lead_row:
-                    lead = dict(lead_row)
 
-    # Get properties in collection (include lat/lng for map)
-    properties = conn.execute('''
-        SELECT l.id, l.address, l.city, l.state, l.list_price,
-               l.beds, l.baths, l.sqft, l.primary_photo, l.mls_number,
-               l.latitude, l.longitude
-        FROM package_properties pp
-        JOIN listings l ON l.id = pp.listing_id
-        WHERE pp.package_id = ?
-        ORDER BY pp.display_order, pp.added_at
-    ''', [collection_id]).fetchall()
+        if not collection:
+            return redirect('/buyer-activity')
+
+        collection = dict(collection)
+
+        # Get buyer info
+        buyer = {}
+        lead = None
+        if collection.get('user_id'):
+            user_row = conn.execute(
+                'SELECT * FROM users WHERE id = ?', [collection['user_id']]
+            ).fetchone()
+            if user_row:
+                buyer = dict(user_row)
+                lead_id = buyer.get('lead_id') or buyer.get('fub_lead_id')
+                if lead_id:
+                    lead_row = conn.execute(
+                        'SELECT id, heat_score, priority_score FROM leads WHERE id = ?', [lead_id]
+                    ).fetchone()
+                    if lead_row:
+                        lead = dict(lead_row)
+                elif buyer.get('email'):
+                    lead_row = conn.execute(
+                        'SELECT id, heat_score, priority_score FROM leads WHERE email = ?',
+                        [buyer['email']]
+                    ).fetchone()
+                    if lead_row:
+                        lead = dict(lead_row)
+
+        # Get properties in collection (include lat/lng for map)
+        properties = conn.execute('''
+            SELECT l.id, l.address, l.city, l.state, l.list_price,
+                   l.beds, l.baths, l.sqft, l.primary_photo, l.mls_number,
+                   l.latitude, l.longitude
+            FROM package_properties pp
+            JOIN listings l ON l.id = pp.listing_id
+            WHERE pp.package_id = ?
+            ORDER BY pp.display_order, pp.added_at
+        ''', [collection_id]).fetchall()
 
     return render_template('buyer_collection_detail.html',
         collection=collection,
