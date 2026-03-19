@@ -295,6 +295,17 @@
         {% endif %}
     </div>
 
+    <!-- Add Property -->
+    <div class="properties-container" style="margin-bottom: 0; padding-bottom: 0;">
+        <div style="display: flex; gap: 8px; align-items: center;">
+            <input type="text" id="add-property-search" placeholder="Search by address, MLS#, or city..."
+                   style="flex: 1; padding: 10px 14px; border: 1px solid var(--border, #d1d5db); border-radius: 6px; font-size: 14px;"
+                   onkeydown="if(event.key==='Enter'){searchAndAdd();}">
+            <button onclick="searchAndAdd()" class="dreams-btn dreams-btn-primary" style="white-space: nowrap;">Add Property</button>
+        </div>
+        <div id="add-search-results" style="margin-top: 8px;"></div>
+    </div>
+
     <!-- Properties -->
     <div class="properties-container">
         <div class="properties-header">
@@ -412,6 +423,56 @@
             } catch (error) {
                 console.error('Error:', error);
                 alert('Error removing property');
+            }
+        }
+
+        async function searchAndAdd() {
+            const q = document.getElementById('add-property-search').value.trim();
+            if (!q) return;
+            const resultsDiv = document.getElementById('add-search-results');
+            resultsDiv.innerHTML = '<span style="font-size: 13px; color: #6b7280;">Searching...</span>';
+
+            try {
+                const resp = await fetch(`/api/listings/search?q=${encodeURIComponent(q)}&limit=5`);
+                const data = await resp.json();
+                if (!data.listings || data.listings.length === 0) {
+                    resultsDiv.innerHTML = '<span style="font-size: 13px; color: #dc2626;">No listings found</span>';
+                    return;
+                }
+                let html = '<div style="border: 1px solid #d1d5db; border-radius: 6px; overflow: hidden; font-size: 13px;">';
+                for (const l of data.listings) {
+                    const price = l.list_price ? '$' + Number(l.list_price).toLocaleString() : '';
+                    const details = [l.beds ? l.beds + 'bd' : '', l.baths ? l.baths + 'ba' : '', l.sqft ? l.sqft.toLocaleString() + ' sqft' : ''].filter(Boolean).join(' / ');
+                    html += `<div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-bottom: 1px solid #f3f4f6;">
+                        <div>
+                            <strong>${price}</strong> ${l.address}, ${l.city}
+                            <span style="color: #6b7280; margin-left: 8px;">${details}</span>
+                            <span style="color: #9ca3af; margin-left: 8px;">MLS# ${l.mls_number}</span>
+                        </div>
+                        <button onclick="addToPackage('${l.id}')" class="dreams-btn dreams-btn-primary" style="padding: 4px 12px; font-size: 12px;">Add</button>
+                    </div>`;
+                }
+                html += '</div>';
+                resultsDiv.innerHTML = html;
+            } catch (e) {
+                resultsDiv.innerHTML = '<span style="font-size: 13px; color: #dc2626;">Search failed</span>';
+            }
+        }
+
+        async function addToPackage(listingId) {
+            try {
+                const resp = await fetch(`/contacts/${contactId}/packages/${packageId}/add`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ listing_id: listingId })
+                });
+                if (resp.ok) {
+                    location.reload();
+                } else {
+                    alert('Error adding property');
+                }
+            } catch (e) {
+                alert('Error adding property');
             }
         }
     </script>

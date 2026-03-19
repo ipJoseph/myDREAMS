@@ -5180,7 +5180,14 @@ def contact_package_add_properties(contact_id, package_id):
     import uuid
     db = get_db()
 
-    listing_ids = request.form.getlist('property_ids')
+    # Accept both form data and JSON
+    if request.is_json:
+        data = request.get_json()
+        listing_ids = data.get('property_ids') or []
+        if data.get('listing_id'):
+            listing_ids = [data['listing_id']]
+    else:
+        listing_ids = request.form.getlist('property_ids')
     if not listing_ids:
         return jsonify({'success': False, 'error': 'No properties selected'}), 400
 
@@ -5201,6 +5208,8 @@ def contact_package_add_properties(contact_id, package_id):
                 )
             conn.commit()
 
+        if request.is_json:
+            return jsonify({'success': True})
         return redirect(url_for('contact_package_detail', contact_id=contact_id, package_id=package_id))
     except Exception as e:
         logger.error(f"Error adding properties to package: {e}")
@@ -6465,6 +6474,31 @@ def reject_photo(listing_id):
         ''', [listing_id])
         conn.commit()
     return jsonify({'success': True})
+
+
+@app.route('/api/listings/search')
+@requires_auth
+def api_listings_search():
+    """Search listings by address, MLS#, or city for adding to collections."""
+    q = request.args.get('q', '').strip()
+    limit = min(10, request.args.get('limit', 5, type=int))
+    if not q:
+        return jsonify({'listings': []})
+
+    db = get_db()
+    with db._get_connection() as conn:
+        search_term = f"%{q}%"
+        rows = conn.execute('''
+            SELECT id, mls_number, address, city, state, county,
+                   list_price, beds, baths, sqft, acreage, primary_photo, status
+            FROM listings
+            WHERE (address LIKE ? OR mls_number LIKE ? OR city LIKE ?)
+            AND UPPER(status) = 'ACTIVE'
+            ORDER BY list_price DESC
+            LIMIT ?
+        ''', [search_term, search_term, search_term, limit]).fetchall()
+
+    return jsonify({'listings': [dict(r) for r in rows]})
 
 
 @app.route('/api/listings/<listing_id>')
