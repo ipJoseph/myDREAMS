@@ -596,11 +596,27 @@
         }
       }
 
+      // If we have a saved stop order, reorder waypoints to match and skip optimization.
+      // This preserves the user's arranged route across page reloads.
+      var hasSavedOrder = savedState._stopOrder && savedState._stopOrder.length > 0;
+      if (hasSavedOrder && cfg.start) {
+        var orderMap = {};
+        savedState._stopOrder.forEach(function(id, idx) { orderMap[id] = idx; });
+        routableProps.sort(function(a, b) {
+          var ai = orderMap[a.id] !== undefined ? orderMap[a.id] : 999;
+          var bi = orderMap[b.id] !== undefined ? orderMap[b.id] : 999;
+          return ai - bi;
+        });
+        waypoints = routableProps.map(function(p) {
+          return { location: getRouteAddress(p), stopover: true };
+        });
+      }
+
       ds.route({
         origin: startAddress,
         destination: endAddress,
         waypoints: waypoints,
-        optimizeWaypoints: true,
+        optimizeWaypoints: !hasSavedOrder,
         travelMode: google.maps.TravelMode.DRIVING,
       }, function(result, status) {
         if (status !== 'OK') {
@@ -787,6 +803,12 @@
 
       renderItinerary(itinerary);
       renderGrid(itinerary);
+
+      // Persist the stop order so it survives page reloads
+      savedState._stopOrder = allStopsOrdered.filter(function(s) { return s.id; }).map(function(s) { return s.id; });
+      savedState._config = getConfig();
+      savedState._breaks = extraStops;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(savedState));
     }
 
     function getDuration(stopKey, saved, csvDefault) {
