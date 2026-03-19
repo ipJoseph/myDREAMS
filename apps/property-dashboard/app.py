@@ -5259,11 +5259,14 @@ def contact_package_detail(contact_id, package_id):
         logger.error(f"Error fetching package: {e}")
         return "Error loading package", 500
 
-    # Generate shareable client URL
+    # Generate shareable client URL (points to public site)
     client_url = None
     if package.get('share_token'):
-        base_url = request.host_url.rstrip('/')
-        client_url = f"{base_url}/view/{package['share_token']}"
+        if DREAMS_ENV == 'prd':
+            public_base = 'https://wncmountain.homes'
+        else:
+            public_base = 'http://localhost:3000'
+        client_url = f"{public_base}/shared/{package['share_token']}"
 
     return render_template('package_detail.html',
         contact=contact,
