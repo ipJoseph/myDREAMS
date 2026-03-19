@@ -5292,6 +5292,22 @@ def contact_package_add_properties(contact_id, package_id):
         return jsonify({'success': False, 'error': 'Failed to add properties'}), 500
 
 
+@app.route('/contacts/<contact_id>/packages/<package_id>/rename', methods=['POST'])
+@requires_auth
+def contact_package_rename(contact_id, package_id):
+    """Rename a package."""
+    data = request.get_json()
+    name = data.get('name', '').strip()
+    if not name:
+        return jsonify({'success': False, 'error': 'Name required'}), 400
+    db = get_db()
+    with db._get_connection() as conn:
+        conn.execute('UPDATE property_packages SET name = ?, updated_at = ? WHERE id = ?',
+                     [name, datetime.now().isoformat(), package_id])
+        conn.commit()
+    return jsonify({'success': True})
+
+
 @app.route('/contacts/<contact_id>/packages/<package_id>/remove/<property_id>', methods=['POST'])
 @requires_auth
 def contact_package_remove_property(contact_id, package_id, property_id):

@@ -251,7 +251,10 @@
     <div class="package-header">
         <div class="package-header-top">
             <div>
-                <h1>{{ package.name or 'Untitled Package' }}</h1>
+                <h1><input type="text" id="packageName" value="{{ package.name or 'Untitled Package' }}"
+                    style="border: 1px solid transparent; background: transparent; font: inherit; color: inherit; padding: 2px 6px; border-radius: 4px; width: 100%;"
+                    onfocus="this.style.borderColor='var(--primary, #1971c2)'"
+                    onblur="this.style.borderColor='transparent'; renamePackage(this.value);"></h1>
                 <div class="package-meta">
                     <span class="dreams-badge dreams-badge-{{ package.status or 'draft' }}">{{ package.status or 'draft' }}</span>
                     <span class="package-meta-item">{{ properties|length }} properties</span>
@@ -399,6 +402,15 @@
             setTimeout(() => {
                 toast.classList.remove('visible');
             }, 2000);
+        }
+
+        async function renamePackage(newName) {
+            if (!newName.trim()) return;
+            await fetch(`/contacts/${contactId}/packages/${packageId}/rename`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: newName.trim() })
+            });
         }
 
         async function removeProperty(propertyId) {
