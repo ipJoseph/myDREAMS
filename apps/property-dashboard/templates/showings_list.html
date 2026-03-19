@@ -134,16 +134,85 @@
                 {% if s.lead_id %}
                 <a href="/contacts/{{ s.lead_id }}" class="showing-btn">Buyer</a>
                 {% endif %}
+                <button onclick="archiveShowing('{{ s.id }}')" class="showing-btn" title="Archive this showing">Archive</button>
+                <button onclick="deleteShowing('{{ s.id }}')" class="showing-btn" style="color: #dc2626;" title="Delete this showing">Delete</button>
             </div>
         </div>
         {% endfor %}
     </div>
+
+    {% if archived_showings %}
+    <div style="margin: 20px;">
+        <details>
+            <summary style="cursor: pointer; font-size: 14px; font-weight: 600; color: var(--text-secondary); padding: 8px 0;">
+                Archived Showings ({{ archived_showings|length }})
+            </summary>
+            <div class="showings-grid" style="margin: 12px 0 0 0;">
+                {% for s in archived_showings %}
+                <div class="showing-card" style="opacity: 0.7;">
+                    <div class="showing-info">
+                        <div class="showing-name">
+                            {{ s.name or 'Untitled Showing' }}
+                            <span class="showing-status" style="background: #f3f4f6; color: #6b7280;">archived</span>
+                        </div>
+                        <div class="showing-meta">
+                            {% if s.scheduled_date %}<span>{{ s.scheduled_date }}</span>{% endif %}
+                            {% if s.lead_name %}<span>Buyer: {{ s.lead_name }}</span>{% endif %}
+                            {% if s.stop_count %}<span>{{ s.stop_count }} stops</span>{% endif %}
+                        </div>
+                    </div>
+                    <div class="showing-actions">
+                        {% if s.package_id %}
+                        <a href="/buyer-collections/{{ s.package_id }}/route-planner" class="showing-btn">Route Planner</a>
+                        {% endif %}
+                        <button onclick="restoreShowing('{{ s.id }}')" class="showing-btn">Restore</button>
+                        <button onclick="deleteShowing('{{ s.id }}')" class="showing-btn" style="color: #dc2626;">Delete</button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </details>
+    </div>
+    {% endif %}
+
     {% else %}
     <div class="empty-state">
         <div class="empty-state-title">No Showings Yet</div>
         <p>Save a showing from the Route Planner, or <a href="/showings/plan">plan a new one</a>.</p>
     </div>
     {% endif %}
+
+    <script>
+        async function deleteShowing(id) {
+            if (!confirm('Permanently delete this showing?')) return;
+            const resp = await fetch('/showings/' + id, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            if (resp.ok) location.reload();
+            else alert('Error deleting showing');
+        }
+
+        async function archiveShowing(id) {
+            const resp = await fetch('/showings/' + id + '/status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: 'archived' })
+            });
+            if (resp.ok) location.reload();
+            else alert('Error archiving showing');
+        }
+
+        async function restoreShowing(id) {
+            const resp = await fetch('/showings/' + id + '/status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: 'scheduled' })
+            });
+            if (resp.ok) location.reload();
+            else alert('Error restoring showing');
+        }
+    </script>
 
     <footer class="dreams-footer">
         DREAMS - Desktop Real Estate Agent Management System | Joseph "Eugy" Williams

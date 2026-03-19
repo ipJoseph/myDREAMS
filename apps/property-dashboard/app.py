@@ -2498,11 +2498,56 @@ def showings_list():
             FROM showings s
             LEFT JOIN leads l ON l.id = s.lead_id
             LEFT JOIN property_packages pp ON pp.id = s.package_id
-            WHERE s.name IS NOT NULL
+            WHERE s.name IS NOT NULL AND COALESCE(s.status, 'scheduled') != 'archived'
             ORDER BY s.scheduled_date DESC, s.created_at DESC
         ''').fetchall()
+
+        archived_showings = conn.execute('''
+            SELECT s.id, s.name, s.status, s.scheduled_date, s.scheduled_time,
+                   s.total_drive_time, s.total_distance, s.package_id,
+                   s.created_at, s.updated_at,
+                   l.first_name || ' ' || l.last_name as lead_name,
+                   l.id as lead_id,
+                   pp.name as collection_name,
+                   (SELECT COUNT(*) FROM showing_properties sp WHERE sp.showing_id = s.id) as stop_count
+            FROM showings s
+            LEFT JOIN leads l ON l.id = s.lead_id
+            LEFT JOIN property_packages pp ON pp.id = s.package_id
+            WHERE s.name IS NOT NULL AND s.status = 'archived'
+            ORDER BY s.updated_at DESC
+        ''').fetchall()
+
     return render_template('showings_list.html',
-        showings=[dict(s) for s in showings])
+        showings=[dict(s) for s in showings],
+        archived_showings=[dict(s) for s in archived_showings])
+
+
+@app.route('/showings/<showing_id>', methods=['DELETE'])
+@requires_auth
+def delete_showing(showing_id):
+    """Delete a showing and its properties."""
+    db = get_db()
+    with db._get_connection() as conn:
+        conn.execute('DELETE FROM showing_properties WHERE showing_id = ?', [showing_id])
+        conn.execute('DELETE FROM showings WHERE id = ?', [showing_id])
+        conn.commit()
+    return jsonify({'success': True})
+
+
+@app.route('/showings/<showing_id>/status', methods=['POST'])
+@requires_auth
+def update_showing_status(showing_id):
+    """Update showing status (archive/restore)."""
+    data = request.get_json()
+    new_status = data.get('status', 'scheduled')
+    if new_status not in ('scheduled', 'completed', 'cancelled', 'archived'):
+        return jsonify({'success': False, 'error': 'Invalid status'}), 400
+    db = get_db()
+    with db._get_connection() as conn:
+        conn.execute('UPDATE showings SET status = ?, updated_at = ? WHERE id = ?',
+                     [new_status, datetime.now().isoformat(), showing_id])
+        conn.commit()
+    return jsonify({'success': True})
 
 
 @app.route('/showings/plan', methods=['GET'])
