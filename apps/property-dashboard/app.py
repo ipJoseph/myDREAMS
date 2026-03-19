@@ -5228,6 +5228,13 @@ def contact_package_remove_property(contact_id, package_id, property_id):
                 'DELETE FROM package_properties WHERE package_id = ? AND listing_id = ?',
                 [package_id, property_id]
             )
+            # Renumber remaining properties sequentially
+            remaining = conn.execute(
+                'SELECT id FROM package_properties WHERE package_id = ? ORDER BY display_order',
+                [package_id]
+            ).fetchall()
+            for i, row in enumerate(remaining, 1):
+                conn.execute('UPDATE package_properties SET display_order = ? WHERE id = ?', [i, row[0]])
             conn.commit()
         # Return JSON for fetch calls, redirect for form submissions
         if request.headers.get('Content-Type') == 'application/json':
