@@ -2371,6 +2371,7 @@ def collection_route_planner(collection_id):
                    l.list_price, l.beds, l.baths, l.sqft, l.acreage,
                    l.primary_photo, l.mls_number, l.latitude, l.longitude,
                    l.status, l.property_type,
+                   l.parcel_number, l.listing_agent_name, l.listing_agent_phone,
                    pkp.display_order, pkp.agent_notes
             FROM package_properties pkp
             JOIN listings l ON l.id = pkp.listing_id
