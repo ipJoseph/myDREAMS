@@ -399,6 +399,13 @@
         <div class="section-card">
             <div class="section-header">
                 <h3 class="section-title">Collections ({{ pursuits|length }})</h3>
+                <div style="display: flex; gap: 6px; align-items: center; font-size: 12px; color: var(--text-secondary);">
+                    Sort:
+                    <a href="?sort=updated" class="pursuit-btn{% if sort == 'updated' %} primary{% endif %}" style="padding: 3px 8px; font-size: 11px;">Recent</a>
+                    <a href="?sort=name" class="pursuit-btn{% if sort == 'name' %} primary{% endif %}" style="padding: 3px 8px; font-size: 11px;">Name</a>
+                    <a href="?sort=properties" class="pursuit-btn{% if sort == 'properties' %} primary{% endif %}" style="padding: 3px 8px; font-size: 11px;">Properties</a>
+                    <a href="?sort=created" class="pursuit-btn{% if sort == 'created' %} primary{% endif %}" style="padding: 3px 8px; font-size: 11px;">Created</a>
+                </div>
             </div>
 
             {% if pursuits %}

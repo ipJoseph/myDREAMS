@@ -2010,11 +2010,17 @@ def pursuits_list():
             pc['buyer_name'] = pc.get('user_name') or pc.get('user_email') or 'Unknown'
         pursuits.append(pc)
 
-    # Sort combined list by updated_at descending
-    def sort_key(item):
-        ts = item.get('updated_at') or item.get('created_at') or ''
-        return ts
-    pursuits.sort(key=sort_key, reverse=True)
+    # Sort based on query param
+    sort = request.args.get('sort', 'updated')
+
+    if sort == 'name':
+        pursuits.sort(key=lambda p: (p.get('name') or p.get('buyer_name') or '').lower())
+    elif sort == 'properties':
+        pursuits.sort(key=lambda p: p.get('property_count') or 0, reverse=True)
+    elif sort == 'created':
+        pursuits.sort(key=lambda p: p.get('created_at') or '', reverse=True)
+    else:  # 'updated' (default)
+        pursuits.sort(key=lambda p: p.get('updated_at') or p.get('created_at') or '', reverse=True)
 
     # Get buyers who could become pursuits (qualified but no pursuit yet)
     potential_buyers = db.get_potential_pursuit_buyers()
@@ -2022,6 +2028,7 @@ def pursuits_list():
     return render_template('pursuits.html',
                          pursuits=pursuits,
                          potential_buyers=potential_buyers,
+                         sort=sort,
                          refresh_time=datetime.now(tz=ET).strftime('%B %d, %Y %I:%M %p'))
 
 
