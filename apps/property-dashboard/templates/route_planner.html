@@ -1559,6 +1559,7 @@
         var acreage = row.acreage || (stop.acreage ? stop.acreage.toFixed(2) : '');
         var mls = row.mls || stop.mls_number || '';
         var agent = row.agent || stop.listing_agent_name || '';
+        var agentPhone = row.agentPhone || stop.listing_agent_phone || '';
         var notes = row.notes || '';
 
         var desc = '';
@@ -1567,7 +1568,7 @@
         if (sqft) desc += sqft + ' sqft\n';
         if (acreage) desc += acreage + ' acres\n';
         if (mls) desc += 'MLS: ' + mls + '\n';
-        if (agent) desc += 'Agent: ' + agent + '\n';
+        if (agent) desc += 'Agent: ' + agent + (agentPhone ? ' | ' + agentPhone : '') + '\n';
         if (notes) desc += 'Notes: ' + notes + '\n';
 
         // Use coordinates if available, otherwise geocode address
