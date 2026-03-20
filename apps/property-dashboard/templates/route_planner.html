@@ -769,13 +769,32 @@
       });
     }
 
+    function normalizeAddr(s) {
+      // Normalize address for matching: lowercase, expand abbreviations, strip non-alphanumeric
+      if (!s) return '';
+      return s.toLowerCase()
+        .replace(/\bdrive\b/g, 'dr').replace(/\broad\b/g, 'rd').replace(/\bstreet\b/g, 'st')
+        .replace(/\bavenue\b/g, 'ave').replace(/\blane\b/g, 'ln').replace(/\bcourt\b/g, 'ct')
+        .replace(/\bplace\b/g, 'pl').replace(/\bcircle\b/g, 'cir').replace(/\btrail\b/g, 'trl')
+        .replace(/\bboulevard\b/g, 'blvd').replace(/\bridge\b/g, 'rdg').replace(/\bterrace\b/g, 'ter')
+        .replace(/\bhighway\b/g, 'hwy').replace(/\bparkway\b/g, 'pkwy')
+        .replace(/[^a-z0-9]/g, '');
+    }
+
     function isAddressMatch(typed, prop) {
       // Check if a typed address roughly matches a property
       if (!typed || !prop) return false;
-      var t = typed.toLowerCase().replace(/[^a-z0-9]/g, '');
-      var a = ((prop._csv_address || prop.address) + (prop._csv_city || prop.city || '')).toLowerCase().replace(/[^a-z0-9]/g, '');
-      // Match if either is a substring of the other (handles "36 Prairie Crossing" vs "36 Prairie Crossing, Murphy, NC")
-      return t.indexOf(a) >= 0 || a.indexOf(t) >= 0;
+      var t = normalizeAddr(typed);
+      var addr = (prop._csv_address || prop.address || '');
+      var city = (prop._csv_city || prop.city || '');
+      var a = normalizeAddr(addr + ' ' + city);
+
+      // Also try just the street address without city
+      var aStreet = normalizeAddr(addr);
+
+      // Match if either is a substring of the other
+      return t.indexOf(a) >= 0 || a.indexOf(t) >= 0
+          || t.indexOf(aStreet) >= 0 || aStreet.indexOf(t) >= 0;
     }
 
     function buildFullStopList() {
