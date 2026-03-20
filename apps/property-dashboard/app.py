@@ -2250,30 +2250,31 @@ def api_rename_collection(collection_id):
 @requires_auth
 def buyer_activity():
     """Buyer activity feed: shows buyer actions from the public website."""
-    conn = get_db()
+    db = get_db()
 
-    # Pending showing requests (urgent, shown at top)
-    showing_requests = conn.execute('''
-        SELECT pp.id as collection_id, pp.name as collection_name,
-               pp.showing_requested_at, pp.user_id,
-               u.name as buyer_name, u.email as buyer_email,
-               u.lead_id,
-               (SELECT COUNT(*) FROM package_properties WHERE package_id = pp.id) as property_count
-        FROM property_packages pp
-        LEFT JOIN users u ON u.id = pp.user_id
-        WHERE pp.showing_requested = 1
-        ORDER BY pp.showing_requested_at DESC
-    ''').fetchall()
+    with db._get_connection() as conn:
+        # Pending showing requests (urgent, shown at top)
+        showing_requests = conn.execute('''
+            SELECT pp.id as collection_id, pp.name as collection_name,
+                   pp.showing_requested_at, pp.user_id,
+                   u.name as buyer_name, u.email as buyer_email,
+                   u.lead_id,
+                   (SELECT COUNT(*) FROM package_properties WHERE package_id = pp.id) as property_count
+            FROM property_packages pp
+            LEFT JOIN users u ON u.id = pp.user_id
+            WHERE pp.showing_requested = 1
+            ORDER BY pp.showing_requested_at DESC
+        ''').fetchall()
 
-    # Recent activity (last 30 days)
-    activities = conn.execute('''
-        SELECT ba.*, u.name as buyer_name, u.email as buyer_email,
-               COALESCE(u.lead_id, u.fub_lead_id) as lead_id
-        FROM buyer_activity ba
-        LEFT JOIN users u ON u.id = ba.user_id
-        ORDER BY ba.occurred_at DESC
-        LIMIT 200
-    ''').fetchall()
+        # Recent activity (last 30 days)
+        activities = conn.execute('''
+            SELECT ba.*, u.name as buyer_name, u.email as buyer_email,
+                   COALESCE(u.lead_id, u.fub_lead_id) as lead_id
+            FROM buyer_activity ba
+            LEFT JOIN users u ON u.id = ba.user_id
+            ORDER BY ba.occurred_at DESC
+            LIMIT 200
+        ''').fetchall()
 
     activity_list = [dict(a) for a in activities]
 
