@@ -1328,13 +1328,14 @@
     }
 
     function removeStop(itineraryIdx, isBreak) {
+      var fsIdx = isPropsOnly ? itineraryIdx : (itineraryIdx - 1);
+
       if (isBreak) {
         // Find which break this is and remove it
         var breakCount = 0;
         for (var i = 0; i < fullStopList.length; i++) {
           if (fullStopList[i].isBreak) {
-            // Count breaks seen so far to map back to extraStops index
-            if (i === itineraryIdx - 1) { // itinerary idx includes the Start row at 0
+            if (i === fsIdx) {
               extraStops.splice(breakCount, 1);
               break;
             }
@@ -1347,14 +1348,12 @@
         return;
       }
 
-      // Map itinerary index back to PROPERTIES index
-      // itinerary: [Start, stop1, stop2, ...break..., stop3, ..., End]
-      // We need to find which property (in allStopsOrdered) this itinerary row refers to
+      // Map fullStopList index to property number
       var propNumber = 0;
       var targetPropNum = -1;
       for (var j = 0; j < fullStopList.length; j++) {
         if (!fullStopList[j].isBreak) propNumber++;
-        if (j === itineraryIdx - 1) { // -1 because itinerary[0] is Start
+        if (j === fsIdx) {
           targetPropNum = propNumber;
           break;
         }
