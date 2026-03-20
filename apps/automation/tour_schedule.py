@@ -57,10 +57,10 @@ GOLD = "#ddab4a"
 GRAY = "#4e4e4e"
 
 AGENT = {
-    "name": "Joseph Williams",
-    "phone": "(828) 347-9363",
-    "email": "Joseph@NCPropertyInvestments.com",
-    "website": "www.JonTharpHomes.com",
+    "name": os.environ.get("AGENT_NAME", "Joseph Williams"),
+    "phone": os.environ.get("AGENT_PHONE", "(828) 347-9363"),
+    "email": os.environ.get("AGENT_EMAIL", "Joseph@JonTharpHomes.com"),
+    "website": os.environ.get("AGENT_WEBSITE", "www.JonTharpHomes.com"),
 }
 
 
@@ -277,6 +277,7 @@ def _build_html(showing_data: dict, db_path: str = None, version: str = "agent")
     if return_time:
         timing_parts.append(f"Return {_escape(str(return_time))}")
     timing_display = " | ".join(timing_parts)
+    schedule_label = "AGENT&#39;S SCHEDULE" if version == "agent" else "SCHEDULE"
 
     html = f"""<!DOCTYPE html>
 <html>
@@ -479,7 +480,7 @@ body {{
 
 <div class="header">
     <h1>HOUSE TOUR</h1>
-    <div class="subtitle">SCHEDULE</div>
+    <div class="subtitle">{schedule_label}</div>
     <div class="gold-line"></div>
     <div class="header-meta">
         <span class="date">{_escape(date_display)}</span>
@@ -606,13 +607,13 @@ def _build_property_card(stop: dict, listing: Optional[dict], stop_num: int, ver
     if listing and version == "agent":
         private = listing.get("private_remarks")
         if private:
-            extra_lines.append(f"Agent Notes: {_escape(private[:200])}")
+            extra_lines.append(f"Agent Notes: {_escape(private)}")
 
     # Directions (both versions)
     if listing:
         directions = listing.get("directions")
         if directions:
-            extra_lines.append(f"Directions: {_escape(directions[:200])}")
+            extra_lines.append(f"Directions: {_escape(directions)}")
 
     stats_display = " | ".join(stats_parts) if stats_parts else ""
 

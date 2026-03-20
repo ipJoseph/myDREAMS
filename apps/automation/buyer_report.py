@@ -53,15 +53,15 @@ if _env_path.exists():
 GOOGLE_MAPS_API_KEY = os.environ.get("GOOGLE_MAPS_API_KEY", "")
 
 # ---------------------------------------------------------------------------
-# Agent info (hardcoded for now)
+# Agent info (from .env, with fallback defaults)
 # ---------------------------------------------------------------------------
 AGENT = {
-    "name": "Joseph Williams",
-    "license": "North Carolina Real Estate License #360474",
-    "mobile": "(828) 347-9363",
-    "email": "Joseph@NCPropertyInvestments.com",
-    "website": "www.JonTharpHomes.com",
-    "office": "Jon Tharp Homes, A Keller Williams Team",
+    "name": os.environ.get("AGENT_NAME", "Joseph Williams"),
+    "license": os.environ.get("AGENT_LICENSE", "North Carolina Real Estate License #360474"),
+    "mobile": os.environ.get("AGENT_PHONE", "(828) 347-9363"),
+    "email": os.environ.get("AGENT_EMAIL", "Joseph@JonTharpHomes.com"),
+    "website": os.environ.get("AGENT_WEBSITE", "www.JonTharpHomes.com"),
+    "office": os.environ.get("AGENT_OFFICE", "Jon Tharp Homes, A Keller Williams Team"),
 }
 
 # ---------------------------------------------------------------------------
