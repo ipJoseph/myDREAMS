@@ -575,11 +575,16 @@
       var startAddress, endAddress, waypoints;
 
       if (cfg.start) {
-        // Start/End provided: all properties are waypoints
+        // Start/End provided: properties are waypoints (excluding any that match start/end)
         startAddress = cfg.start;
         endAddress = cfg.end;
         isPropsOnly = false;
-        waypoints = routableProps.map(function(p) {
+
+        // Filter out properties that match the start or end address to avoid duplicates
+        var waypointProps = routableProps.filter(function(p) {
+          return !isAddressMatch(cfg.start, p) && !isAddressMatch(cfg.end, p);
+        });
+        waypoints = waypointProps.map(function(p) {
           return { location: getRouteAddress(p), stopover: true };
         });
       } else {
@@ -653,10 +658,25 @@
           homeToFirstMeters = 0;
           routeLegs = legs; // All legs are property-to-property
         } else {
-          // Origin/destination are separate addresses
-          allStopsOrdered = order.map(function(i) { return routableProps[i]; });
+          // Origin/destination are separate addresses; waypoints exclude start/end matches
+          var reorderedWaypoints = order.map(function(i) { return waypointProps[i]; });
+
+          // Find properties matching start/end to include at correct positions
+          var startProp = null, endProp = null;
+          for (var pi = 0; pi < routableProps.length; pi++) {
+            if (!startProp && isAddressMatch(cfg.start, routableProps[pi])) startProp = routableProps[pi];
+            if (!endProp && isAddressMatch(cfg.end, routableProps[pi])) endProp = routableProps[pi];
+          }
+
+          allStopsOrdered = [];
+          if (startProp) allStopsOrdered.push(startProp);
+          allStopsOrdered = allStopsOrdered.concat(reorderedWaypoints);
+          if (endProp && endProp !== startProp) allStopsOrdered.push(endProp);
+
+          // First leg: start address to first waypoint (or first property)
           homeToFirstSeconds = legs[0].duration.value;
           homeToFirstMeters = legs[0].distance.value;
+          // Remaining legs connect the stops
           routeLegs = legs.slice(1);
         }
 
