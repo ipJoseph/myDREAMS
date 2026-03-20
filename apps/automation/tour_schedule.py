@@ -282,7 +282,7 @@ def _build_html(showing_data: dict, db_path: str = None) -> str:
 <meta charset="utf-8">
 <style>
 @page {{
-    size: 11in 8.5in;
+    size: 8.5in 11in;
     margin: 0.5in;
 }}
 
