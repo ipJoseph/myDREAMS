@@ -39,6 +39,16 @@ ASSETS_DIR = PROJECT_ROOT / "assets" / "branding"
 HEADSHOT_PATH = ASSETS_DIR / "agent-headshot.jpg"
 LOGO_PATH = ASSETS_DIR / "jth-icon.jpg"
 
+# Load .env if present (for GOOGLE_MAPS_API_KEY and other settings)
+_env_path = PROJECT_ROOT / ".env"
+if _env_path.exists():
+    with open(_env_path) as _f:
+        for _line in _f:
+            _line = _line.strip()
+            if _line and not _line.startswith('#') and '=' in _line:
+                _k, _v = _line.split('=', 1)
+                os.environ.setdefault(_k.strip(), _v.strip().strip('"\''))
+
 # Google Maps API key from environment
 GOOGLE_MAPS_API_KEY = os.environ.get("GOOGLE_MAPS_API_KEY", "")
 
@@ -256,15 +266,31 @@ def _build_html(listing: dict, index: int = 0) -> str:
         detail_photo_html = '<div class="photo-placeholder-detail">Photo Not Available</div>'
 
     # Map HTML
+    # Fetch map images and embed as base64 (WeasyPrint can't reliably fetch remote URLs)
+    sat_html = '<div class="map-placeholder">Aerial map unavailable (no coordinates or API key)</div>'
+    road_html = '<div class="map-placeholder">Road map unavailable (no coordinates or API key)</div>'
+
     if sat_url:
-        sat_html = f'<img src="{sat_url}" class="map-img" alt="Aerial view" />'
-    else:
-        sat_html = '<div class="map-placeholder">Aerial map unavailable (no coordinates or API key)</div>'
+        try:
+            import requests
+            resp = requests.get(sat_url, timeout=10)
+            if resp.status_code == 200 and 'image' in resp.headers.get('Content-Type', ''):
+                sat_b64 = base64.b64encode(resp.content).decode()
+                sat_html = f'<img src="data:image/png;base64,{sat_b64}" class="map-img" alt="Aerial view" />'
+        except Exception:
+            pass
 
     if road_url:
-        road_html = f'<img src="{road_url}" class="map-img" alt="Road map" />'
-    else:
-        road_html = '<div class="map-placeholder">Road map unavailable (no coordinates or API key)</div>'
+        try:
+            import requests
+            resp = requests.get(road_url, timeout=10)
+            if resp.status_code == 200 and 'image' in resp.headers.get('Content-Type', ''):
+                road_b64 = base64.b64encode(resp.content).decode()
+                road_html = f'<img src="data:image/png;base64,{road_b64}" class="map-img" alt="Road map" />'
+            else:
+                logger.warning(f"Road map request failed: HTTP {resp.status_code}")
+        except Exception as e:
+            logger.warning(f"Road map fetch error: {e}")
 
     # Status badge color
     status_bg = GOLD if status == "Active" else "#6c757d"
@@ -558,6 +584,8 @@ h1, h2, h3, h4 {{
     line-height: 1.55;
     color: {GRAY};
     margin-top: 4px;
+    max-height: 180px;
+    overflow: hidden;
 }}
 
 /* ================================================================== */
@@ -572,7 +600,8 @@ h1, h2, h3, h4 {{
 }}
 .map-img {{
     width: 100%;
-    height: auto;
+    max-height: 280px;
+    object-fit: cover;
     border-radius: 4px;
     border: 1px solid #ddd;
 }}
@@ -908,17 +937,16 @@ def get_package_report_filename(package_name: str) -> str:
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    import dotenv
-
     # Load .env for GOOGLE_MAPS_API_KEY
     env_path = PROJECT_ROOT / ".env"
     if env_path.exists():
-        try:
-            dotenv.load_dotenv(env_path)
-            # Re-read after loading
-            GOOGLE_MAPS_API_KEY = os.environ.get("GOOGLE_MAPS_API_KEY", "")
-        except ImportError:
-            pass
+        with open(env_path) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    k, v = line.split('=', 1)
+                    os.environ.setdefault(k.strip(), v.strip().strip('"\''))
+        GOOGLE_MAPS_API_KEY = os.environ.get("GOOGLE_MAPS_API_KEY", "")
 
     if len(sys.argv) < 2:
         print("Usage: python -m apps.automation.buyer_report <listing_id> [output_file]", file=sys.stderr)
