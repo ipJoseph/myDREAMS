@@ -1985,7 +1985,7 @@ def pursuits_list():
         SELECT pp.id, pp.name, pp.status, pp.user_id, pp.share_token,
                pp.lead_id, pp.collection_type, pp.description,
                pp.showing_requested, pp.showing_requested_at,
-               pp.created_at, pp.updated_at,
+               pp.created_at, pp.updated_at, pp.viewed_at,
                u.name as user_name, u.email as user_email,
                l.first_name || ' ' || l.last_name as lead_name,
                l.email as lead_email,
@@ -2019,6 +2019,8 @@ def pursuits_list():
         pursuits.sort(key=lambda p: p.get('property_count') or 0, reverse=True)
     elif sort == 'created':
         pursuits.sort(key=lambda p: p.get('created_at') or '', reverse=True)
+    elif sort == 'accessed':
+        pursuits.sort(key=lambda p: p.get('viewed_at') or p.get('updated_at') or p.get('created_at') or '', reverse=True)
     else:  # 'updated' (default)
         pursuits.sort(key=lambda p: p.get('updated_at') or p.get('created_at') or '', reverse=True)
 
@@ -5224,6 +5226,13 @@ def contact_package_detail(contact_id, package_id):
                 return "Package not found", 404
 
             package = dict(package)
+
+            # Track last access time for "Last Accessed" sort
+            conn.execute(
+                'UPDATE property_packages SET viewed_at = ? WHERE id = ?',
+                [datetime.now().isoformat(), package_id]
+            )
+            conn.commit()
 
             # Get properties in this package
             prop_rows = conn.execute('''
