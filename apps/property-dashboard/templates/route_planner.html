@@ -42,9 +42,11 @@
     .stop-number.home { background: #4a9eff; }
     .stop-number.break { background: #e67e22; color: #fff; font-size: 15px; }
     .stop-name { font-weight: 600; font-size: 14px; flex: 1; }
-    .stop-delete { width: 24px; height: 24px; border: none; background: transparent; color: #4a5f7a; cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 4px; flex-shrink: 0; opacity: 0; transition: all 0.15s; }
-    .stop:hover .stop-delete { opacity: 1; }
+    .stop-delete, .stop-move { width: 24px; height: 24px; border: none; background: transparent; color: #4a5f7a; cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 4px; flex-shrink: 0; opacity: 0; transition: all 0.15s; }
+    .stop:hover .stop-delete, .stop:hover .stop-move { opacity: 1; }
     .stop-delete:hover { background: #3a1520; color: #ef4444; }
+    .stop-move:hover { background: #1e3a5f; color: #c8a84e; }
+    .stop-actions { display: flex; gap: 2px; align-items: center; flex-shrink: 0; }
     .stop-details { margin-left: 40px; font-size: 12px; color: #8899aa; line-height: 1.6; }
     .stop-details .time { color: #4a9eff; font-weight: 600; }
     .stop-details .drive { color: #6b8aaa; }
@@ -77,14 +79,14 @@
     /* Property Details Grid */
     .grid-panel { border-top: 2px solid #1e3a5f; background: #0f1d32; overflow-x: auto; max-height: 320px; }
     .grid-panel h2 { font-size: 14px; color: #c8a84e; padding: 12px 16px 8px; background: #132744; border-bottom: 1px solid #1e3a5f; position: sticky; top: 0; z-index: 1; }
-    .prop-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .prop-table { width: 100%; border-collapse: collapse; font-size: 13px; }
     .prop-table thead { position: sticky; top: 38px; z-index: 1; }
     .prop-table th {
       background: #1a2d4a; color: #8899aa; text-transform: uppercase; letter-spacing: 0.5px;
       padding: 8px 12px; text-align: left; font-size: 10px; font-weight: 600;
       border-bottom: 1px solid #1e3a5f; white-space: nowrap;
     }
-    .prop-table td { padding: 6px 12px; border-bottom: 1px solid #0a1628; vertical-align: middle; }
+    .prop-table td { padding: 8px 14px; border-bottom: 1px solid #0a1628; vertical-align: middle; }
     .prop-table tr:hover td { background: #1a2d4a; }
     .prop-table .stop-badge {
       display: inline-flex; align-items: center; justify-content: center;
@@ -102,7 +104,7 @@
     .prop-table .addr-cell { color: #e0e6ed; font-weight: 500; white-space: nowrap; line-height: 1.5; }
     .prop-table .addr-city { color: #8899aa; font-size: 11px; font-weight: 400; }
     .prop-table .notes-row td { padding: 0 12px 6px; border-bottom: 1px solid #1e3a5f; }
-    .prop-table .notes-row input { font-size: 11px; color: #8899aa; background: transparent; border: 1px solid transparent; }
+    .prop-table .notes-row input { font-size: 13px; color: #8899aa; background: transparent; border: 1px solid transparent; }
     .prop-table .notes-row input:focus { border-color: #c8a84e; background: #1a2d4a; }
     .prop-table .notes-row input::placeholder { color: #3a4f6a; }
     .prop-table .time-cell { color: #4a9eff; font-weight: 600; font-size: 11px; white-space: nowrap; }
@@ -174,6 +176,7 @@
       .prop-table .time-cell { color: #000 !important; font-size: 11px; font-weight: 600; }
       .prop-table .addr-cell { white-space: normal; font-weight: 600; font-size: 11px; min-width: 140px; line-height: 1.5; }
       .prop-table .addr-city { font-size: 10px; font-weight: 400; color: #555 !important; }
+      .prop-table tr[style*="border-top"] { border-top: 2px solid #000 !important; }
       .prop-table .notes-row td { padding: 0 6px 4px; border-bottom: 1px solid #aaa; }
       .prop-table .notes-row input { font-size: 10px; font-style: italic; color: #333 !important; }
       .prop-table .duration-input { font-weight: 700 !important; }
@@ -596,9 +599,19 @@
         }
       }
 
-      // If we have a saved stop order, reorder waypoints to match and skip optimization.
-      // This preserves the user's arranged route across page reloads.
-      var hasSavedOrder = savedState._stopOrder && savedState._stopOrder.length > 0;
+      // If we have a saved stop order, validate that the IDs match current properties
+      // before using it. If properties were added/removed, the saved order is stale.
+      var hasSavedOrder = false;
+      if (savedState._stopOrder && savedState._stopOrder.length > 0) {
+        var currentIds = routableProps.map(function(p) { return p.id; }).filter(Boolean).sort().join(',');
+        var savedIds = savedState._stopOrder.slice().sort().join(',');
+        hasSavedOrder = (currentIds === savedIds);
+        if (!hasSavedOrder) {
+          // Saved order is stale (properties changed); clear it
+          delete savedState._stopOrder;
+        }
+      }
+
       if (hasSavedOrder && cfg.start) {
         var orderMap = {};
         savedState._stopOrder.forEach(function(id, idx) { orderMap[id] = idx; });
@@ -861,9 +874,17 @@
         html += '<div class="stop-number ' + numberClass + '">' + numberText + '</div>';
         html += '<div class="stop-name">' + stop.label + '</div>';
         if (!stop.isHome) {
+          html += '<div class="stop-actions">';
+          html += '<button class="stop-move" onclick="event.stopPropagation(); moveStop(' + idx + ', -1)" title="Move up">';
+          html += '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg>';
+          html += '</button>';
+          html += '<button class="stop-move" onclick="event.stopPropagation(); moveStop(' + idx + ', 1)" title="Move down">';
+          html += '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg>';
+          html += '</button>';
           html += '<button class="stop-delete" onclick="event.stopPropagation(); removeStop(' + idx + ', ' + (isBreak ? 'true' : 'false') + ')" title="Remove stop">';
           html += '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>';
           html += '</button>';
+          html += '</div>';
         }
         html += '</div>';
         html += '<div class="stop-details">';
@@ -910,12 +931,20 @@
           html += '<td class="time-cell" style="color: #6b8aaa;">' + (stop.driveToNext || '') + '</td>';
           html += '<td colspan="9" style="color: #6b8aaa; font-style: italic; text-align: center;">' + stop.address + '</td>';
           html += '</tr>';
-          html += '<tr class="notes-row" style="background: #1a2d4a;"><td></td><td colspan="14"><input type="text" data-stop="' + key + '" data-field="notes" value="' + (row.notes || '') + '" placeholder="Notes..." style="width:100%; font-style:italic;" onchange="onFieldChange()"></td></tr>';
+          html += '<tr class="notes-row" style="background: #1a2d4a;">';
+          html += '<td></td>';
+          html += '<td></td>';
+          html += '<td><input type="text" data-stop="' + key + '" data-field="stStart" value="' + (row.stStart || '') + '" placeholder="ST Start" style="width:80px; font-style:italic;" onchange="onFieldChange()"></td>';
+          html += '<td></td>';
+          html += '<td><input type="text" data-stop="' + key + '" data-field="stEnd" value="' + (row.stEnd || '') + '" placeholder="ST End" style="width:80px; font-style:italic;" onchange="onFieldChange()"></td>';
+          html += '<td></td>';
+          html += '<td colspan="9"><input type="text" data-stop="' + key + '" data-field="notes" value="' + (row.notes || '') + '" placeholder="Notes..." style="width:100%; font-style:italic;" onchange="onFieldChange()"></td>';
+          html += '</tr>';
         } else {
           var n = stop.stopNumber;
           var cityState = stop.city || '';
           if (stop.state && stop.state !== cityState) cityState += (cityState ? ', ' : '') + stop.state;
-          html += '<tr>';
+          html += '<tr style="border-top: 2px solid #000;">';
           html += '<td><span class="stop-badge">' + n + '</span></td>';
           html += '<td class="addr-cell">' + stop.label + (cityState ? '<br><span class="addr-city">' + cityState + '</span>' : '') + '</td>';
           html += '<td class="time-cell">' + formatTime(stop.arrive) + '</td>';
@@ -932,7 +961,15 @@
           html += '<td><input type="text" data-stop="' + key + '" data-field="agent" value="' + (row.agent || stop.agent || '') + '" placeholder="Agent name" style="width:120px;" onchange="onFieldChange()"></td>';
           html += '<td><input type="text" data-stop="' + key + '" data-field="agentPhone" value="' + (row.agentPhone || stop.agentPhone || '') + '" placeholder="Phone" style="width:110px;" onchange="onFieldChange()"></td>';
           html += '</tr>';
-          html += '<tr class="notes-row"><td></td><td colspan="14"><input type="text" data-stop="' + key + '" data-field="notes" value="' + (row.notes || '') + '" placeholder="Notes..." style="width:100%;" onchange="onFieldChange()"></td></tr>';
+          html += '<tr class="notes-row">';
+          html += '<td></td>';  /* # column */
+          html += '<td></td>';  /* address column */
+          html += '<td><input type="text" data-stop="' + key + '" data-field="stStart" value="' + (row.stStart || '') + '" placeholder="ST Start" style="width:80px;" onchange="onFieldChange()"></td>';  /* aligned with Appt Start */
+          html += '<td></td>';  /* duration column */
+          html += '<td><input type="text" data-stop="' + key + '" data-field="stEnd" value="' + (row.stEnd || '') + '" placeholder="ST End" style="width:80px;" onchange="onFieldChange()"></td>';  /* aligned with Appt End */
+          html += '<td></td>';  /* travel column */
+          html += '<td colspan="9"><input type="text" data-stop="' + key + '" data-field="notes" value="' + (row.notes || '') + '" placeholder="Notes..." style="width:100%;" onchange="onFieldChange()"></td>';  /* MLS# through Agent Phone */
+          html += '</tr>';
         }
       });
 
@@ -1143,6 +1180,70 @@
       calculateRoute();
     }
 
+    function moveStop(itineraryIdx, direction) {
+      // direction: -1 = up, +1 = down
+      // itinerary includes Start/End rows for non-propsOnly mode.
+      // Map itinerary index to the fullStopList index.
+      var fsIdx = isPropsOnly ? itineraryIdx : (itineraryIdx - 1);
+      var targetFsIdx = fsIdx + direction;
+
+      // Bounds check: can't move beyond the stop list
+      if (targetFsIdx < 0 || targetFsIdx >= fullStopList.length) return;
+
+      // Also find the corresponding indices in PROPERTIES (skip breaks)
+      // We need to reorder PROPERTIES to match the new order.
+      var propIndices = [];
+      for (var i = 0; i < allStopsOrdered.length; i++) {
+        for (var j = 0; j < PROPERTIES.length; j++) {
+          var aAddr = (allStopsOrdered[i]._csv_address || allStopsOrdered[i].address || '').toLowerCase();
+          var pAddr = (PROPERTIES[j]._csv_address || PROPERTIES[j].address || '').toLowerCase();
+          if (aAddr === pAddr && propIndices.indexOf(j) === -1) {
+            propIndices.push(j);
+            break;
+          }
+        }
+      }
+
+      // Swap in allStopsOrdered
+      var stopA = fullStopList[fsIdx];
+      var stopB = fullStopList[targetFsIdx];
+
+      // Find their positions in allStopsOrdered
+      var asoIdxA = -1, asoIdxB = -1;
+      var propCount = 0;
+      for (var k = 0; k < fullStopList.length; k++) {
+        if (!fullStopList[k].isBreak) {
+          if (k === fsIdx) asoIdxA = propCount;
+          if (k === targetFsIdx) asoIdxB = propCount;
+          propCount++;
+        }
+      }
+
+      // If both are properties, swap in allStopsOrdered and PROPERTIES
+      if (asoIdxA >= 0 && asoIdxB >= 0) {
+        // Swap in allStopsOrdered
+        var tmpA = allStopsOrdered[asoIdxA];
+        allStopsOrdered[asoIdxA] = allStopsOrdered[asoIdxB];
+        allStopsOrdered[asoIdxB] = tmpA;
+
+        // Swap in PROPERTIES to match
+        if (propIndices[asoIdxA] !== undefined && propIndices[asoIdxB] !== undefined) {
+          var tmpP = PROPERTIES[propIndices[asoIdxA]];
+          PROPERTIES[propIndices[asoIdxA]] = PROPERTIES[propIndices[asoIdxB]];
+          PROPERTIES[propIndices[asoIdxB]] = tmpP;
+        }
+      }
+
+      // Save the new stop order
+      savedState._stopOrder = allStopsOrdered.filter(function(s) { return s.id; }).map(function(s) { return s.id; });
+      savedState._config = getConfig();
+      savedState._breaks = extraStops;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(savedState));
+
+      // Recalculate route with the saved order (optimizeWaypoints will be false)
+      calculateRoute();
+    }
+
     function removeStop(itineraryIdx, isBreak) {
       if (isBreak) {
         // Find which break this is and remove it
@@ -1250,7 +1351,7 @@
     }
 
     function exportCSV() {
-      var headers = ['#','Address','Appt Start','Duration (min)','Appt End','Travel','MLS #','Parcel ID','List Price','Beds','Baths','SqFt','Acreage','Agent','Agent Phone','Notes'];
+      var headers = ['#','Address','Appt Start','Duration (min)','Appt End','Travel','MLS #','Parcel ID','List Price','Beds','Baths','SqFt','Acreage','Agent','Agent Phone','ST Start','ST End','Notes'];
       var rows = [headers.join(',')];
       var allTrs = document.querySelectorAll('#grid-body tr');
       for (var ti = 0; ti < allTrs.length; ti++) {
@@ -1270,13 +1371,19 @@
         tr.querySelectorAll('input:not(.duration-input)').forEach(function(input) {
           cells.push('"' + (input.value || '') + '"');
         });
-        // Notes from the following notes-row
+        // ST Start, ST End, and Notes from the following notes-row
         var notesRow = allTrs[ti + 1];
-        var notesVal = '';
+        var stStartVal = '', stEndVal = '', notesVal = '';
         if (notesRow && notesRow.classList.contains('notes-row')) {
+          var stStartInput = notesRow.querySelector('input[data-field="stStart"]');
+          if (stStartInput) stStartVal = stStartInput.value || '';
+          var stEndInput = notesRow.querySelector('input[data-field="stEnd"]');
+          if (stEndInput) stEndVal = stEndInput.value || '';
           var notesInput = notesRow.querySelector('input[data-field="notes"]');
           if (notesInput) notesVal = notesInput.value || '';
         }
+        cells.push('"' + stStartVal + '"');
+        cells.push('"' + stEndVal + '"');
         cells.push('"' + notesVal + '"');
         rows.push(cells.join(','));
       }
@@ -1382,6 +1489,8 @@
             duration: s.isBreak ? (s.duration || 45) : getDuration(s.address || s.label, savedState, s._duration),
             propertyId: s.id || null,
             notes: (gridData[s.address || s.label] || {}).notes || '',
+            stStart: (gridData[s.address || s.label] || {}).stStart || '',
+            stEnd: (gridData[s.address || s.label] || {}).stEnd || '',
           };
         }),
         breaks: extraStops,
@@ -1437,6 +1546,8 @@
             agent: row.agent || p.listing_agent_name || '',
             agentPhone: row.agentPhone || p.listing_agent_phone || '',
             notes: row.notes || '',
+            stStart: row.stStart || '',
+            stEnd: row.stEnd || '',
           };
         }),
         config: getConfig(),
