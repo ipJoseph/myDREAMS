@@ -87,6 +87,8 @@ Last updated: February 26, 2026 (Collections bridge, buyer activity, agent notif
 | 27 | **Branded property flyers** | Pending | Phase 3 | Marketing materials |
 | 28 | **Comparative market analysis** | Pending | Phase 3 | CMA generation |
 | 29 | **Client presentation decks** | Pending | Phase 3 | Slide generation |
+| 30 | **Configurable address abbreviations** | Pending | Route Planner | Let users add custom street suffix mappings (e.g., Hollow/Holw, Way/Wy) to the route planner address matcher. Currently hardcoded in normalizeAddr(). |
+| 31 | **Ascending/descending sort on Collections** | Pending | Collections | Add toggle for sort direction on Active Collections page |
 
 ---
 
