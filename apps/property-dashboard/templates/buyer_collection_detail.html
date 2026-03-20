@@ -130,7 +130,10 @@
     <div class="page-header">
         <div>
             <h2 style="font-size: 22px; font-weight: 600; color: var(--text-primary); margin: 0;">
-                {{ collection.name }}
+                <input type="text" value="{{ collection.name }}"
+                       style="border: 1px solid transparent; background: transparent; font: inherit; color: inherit; padding: 2px 6px; border-radius: 4px; width: 100%;"
+                       onfocus="this.style.borderColor='var(--primary, #1971c2)'"
+                       onblur="this.style.borderColor='transparent'; renameCollection(this.value);">
             </h2>
             <div style="display: flex; gap: 16px; align-items: center; margin-top: 8px;">
                 {% if collection.showing_requested %}
@@ -263,6 +266,16 @@
     <script>
     var mapInitialized = false;
     var properties = {{ properties | tojson }};
+    var collectionId = {{ collection.id | tojson }};
+
+    async function renameCollection(newName) {
+        if (!newName.trim()) return;
+        await fetch('/api/collections/' + collectionId + '/rename', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: newName.trim() })
+        });
+    }
 
     function toggleMap() {
         var mapDiv = document.getElementById('collectionMap');
