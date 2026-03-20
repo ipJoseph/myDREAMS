@@ -5366,20 +5366,43 @@ def contact_package_remove_property(contact_id, package_id, property_id):
 @app.route('/contacts/<contact_id>/packages/<package_id>/pdf')
 @requires_auth
 def contact_package_pdf(contact_id, package_id):
-    """Generate and download PDF for a property package."""
+    """Generate and download a combined Buyer Report PDF for all properties in a package."""
     try:
-        from apps.automation.pdf_generator import generate_pdf_bytes, get_package_pdf_filename
+        from apps.automation.buyer_report import generate_combined_report, get_package_report_filename
 
-        # Generate PDF bytes
-        pdf_bytes = generate_pdf_bytes(package_id)
+        db = get_db()
+
+        # Get package info for filename
+        with db._get_connection() as conn:
+            package = conn.execute(
+                'SELECT * FROM property_packages WHERE id = ? AND lead_id = ?',
+                (package_id, contact_id)
+            ).fetchone()
+
+            if not package:
+                return "Package not found", 404
+
+            # Get listing IDs in this package
+            rows = conn.execute('''
+                SELECT pp.listing_id
+                FROM package_properties pp
+                WHERE pp.package_id = ?
+                ORDER BY pp.display_order, pp.added_at
+            ''', (package_id,)).fetchall()
+
+        listing_ids = [r['listing_id'] for r in rows]
+        if not listing_ids:
+            return "No properties in this package", 400
+
+        # Generate combined PDF (one buyer report per property, all in one PDF)
+        pdf_bytes = generate_combined_report(listing_ids)
 
         if not pdf_bytes:
             return "Failed to generate PDF. Make sure WeasyPrint is installed.", 500
 
-        # Get filename
-        filename = get_package_pdf_filename(package_id)
+        # Build filename from package name
+        filename = get_package_report_filename(package['name'])
 
-        # Return PDF as download
         return Response(
             pdf_bytes,
             mimetype='application/pdf',
@@ -5389,7 +5412,8 @@ def contact_package_pdf(contact_id, package_id):
             }
         )
 
-    except ImportError:
+    except ImportError as e:
+        logger.error(f"Import error generating PDF: {e}")
         return "PDF generation requires WeasyPrint. Install with: pip install weasyprint", 500
     except Exception as e:
         logger.error(f"Error generating PDF: {e}")
