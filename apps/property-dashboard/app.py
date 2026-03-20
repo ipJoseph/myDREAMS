@@ -2581,6 +2581,81 @@ def update_showing_status(showing_id):
     return jsonify({'success': True})
 
 
+@app.route('/showings/<showing_id>/itinerary')
+@requires_auth
+def showing_itinerary_pdf(showing_id):
+    """Generate and return a House Tour Schedule PDF for a saved showing."""
+    try:
+        from apps.automation.tour_schedule import (
+            generate_tour_schedule, get_schedule_filename, _get_showing
+        )
+    except ImportError:
+        return "Tour schedule generator not available", 500
+
+    showing = _get_showing(showing_id, str(DB_PATH))
+    if not showing:
+        return "Showing not found", 404
+
+    pdf_bytes = generate_tour_schedule(showing_id, str(DB_PATH))
+    if not pdf_bytes:
+        return "Failed to generate PDF", 500
+
+    filename = get_schedule_filename(showing)
+    return Response(
+        pdf_bytes,
+        mimetype='application/pdf',
+        headers={'Content-Disposition': f'inline; filename="{filename}"'}
+    )
+
+
+@app.route('/buyer-collections/<collection_id>/itinerary', methods=['POST'])
+@requires_auth
+def collection_itinerary_pdf(collection_id):
+    """Generate a tour schedule PDF on the fly from route planner form data."""
+    try:
+        from apps.automation.tour_schedule import generate_tour_schedule_from_data
+    except ImportError:
+        return "Tour schedule generator not available", 500
+
+    conn = sqlite3.connect(str(DB_PATH))
+    conn.row_factory = sqlite3.Row
+    collection = conn.execute(
+        'SELECT id, lead_id, name FROM property_packages WHERE id = ?', [collection_id]
+    ).fetchone()
+    conn.close()
+
+    if not collection:
+        return "Collection not found", 404
+
+    # Build showing-like dict from form data
+    data = {
+        'name': request.form.get('name', collection['name'] or 'Showing Tour'),
+        'scheduled_date': request.form.get('scheduled_date', ''),
+        'scheduled_time': request.form.get('scheduled_time', ''),
+        'route_data': request.form.get('route_data', '{}'),
+        'lead_id': collection['lead_id'],
+    }
+
+    pdf_bytes = generate_tour_schedule_from_data(data, str(DB_PATH))
+    if not pdf_bytes:
+        return "Failed to generate PDF", 500
+
+    filename = f"House-Tour-{data['scheduled_date']}-{_sanitize(collection['name'] or 'Tour')}.pdf"
+    return Response(
+        pdf_bytes,
+        mimetype='application/pdf',
+        headers={'Content-Disposition': f'inline; filename="{filename}"'}
+    )
+
+
+def _sanitize(text):
+    """Turn text into a filename-safe string."""
+    import re as _re
+    text = _re.sub(r"[^\w\s-]", "", text or "")
+    text = _re.sub(r"\s+", "-", text.strip())
+    return text
+
+
 @app.route('/showings/plan', methods=['GET'])
 @requires_auth
 def showings_plan_form():

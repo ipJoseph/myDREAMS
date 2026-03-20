@@ -309,6 +309,7 @@
         <button class="btn btn-outline" onclick="printDetails()">Print Details</button>
         <button class="btn btn-outline" onclick="exportCSV()">Export CSV</button>
         <button class="btn btn-outline" onclick="exportKML()">Export to Google My Maps</button>
+        <button class="btn btn-outline" onclick="printItinerary()" style="border-color: #c8a84e; color: #c8a84e;">Print Itinerary</button>
       </div>
     </div>
   </div>
@@ -1553,6 +1554,58 @@
 
     function escXml(s) {
       return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function printItinerary() {
+      if (STANDALONE) {
+        alert('Save as a showing first to generate an itinerary PDF.');
+        return;
+      }
+      var cfg = getConfig();
+      var gridData = collectGridData();
+
+      var routeData = {
+        config: cfg,
+        stops: fullStopList.map(function(s) {
+          return {
+            address: s.address,
+            city: s.city || '',
+            label: s.label || s.address,
+            isBreak: !!s.isBreak,
+            duration: s.isBreak ? (s.duration || 45) : getDuration(s.address || s.label, savedState, s._duration),
+            propertyId: s.id || null,
+            notes: (gridData[s.address || s.label] || {}).notes || '',
+            stStart: (gridData[s.address || s.label] || {}).stStart || '',
+            stEnd: (gridData[s.address || s.label] || {}).stEnd || '',
+          };
+        }),
+        breaks: extraStops,
+        totalMiles: document.getElementById('total-distance').textContent,
+        totalTime: document.getElementById('total-time').textContent,
+        departTime: document.getElementById('depart-time').textContent,
+        returnTime: document.getElementById('return-time').textContent,
+      };
+
+      // POST form data to the itinerary endpoint, which returns a PDF
+      var form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '/buyer-collections/' + COLLECTION_ID + '/itinerary';
+      form.target = '_blank';
+      [
+        ['name', document.getElementById('showingName').value + ' - ' + cfg.date],
+        ['scheduled_date', cfg.date],
+        ['scheduled_time', cfg.time],
+        ['route_data', JSON.stringify(routeData)],
+        ['total_distance', document.getElementById('total-distance').textContent],
+        ['total_drive_time', document.getElementById('total-time').textContent],
+      ].forEach(function(pair) {
+        var inp = document.createElement('input');
+        inp.type = 'hidden'; inp.name = pair[0]; inp.value = pair[1];
+        form.appendChild(inp);
+      });
+      document.body.appendChild(form);
+      form.submit();
+      document.body.removeChild(form);
     }
 
     function saveShowing() {
