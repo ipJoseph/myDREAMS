@@ -41,3 +41,46 @@ Ideas and design notes for future releases. Items here are not committed to a ti
 - Team settings: default_zones (which zones show by default)
 - Agent-zone assignments for territory management
 - Backfill/recompute trigger when zone config changes
+
+---
+
+## House Tour Schedule PDF (Showing Itinerary)
+
+**Context:** When an agent schedules showings for a buyer, they need a clean, branded PDF itinerary to hand to the client. The route planner has all the data; we just need to render it as a polished flyer.
+
+**Reference:** 11x8.5 landscape flyer with property cards stacked vertically. Each card has: photo (left), address + price + showing time + property details (right).
+
+**Data sources:**
+1. `showings` table: date, time, name, lead_id, route_data (JSON with full stop order, times, notes)
+2. `listings` table: address, city, state, zip, price, beds, baths, sqft, acreage, year_built, primary_photo, mls_number
+3. `leads` table: buyer name
+4. Agent branding (same assets as buyer report)
+
+**Layout (per page, landscape 11x8.5):**
+- Header: "HOUSE TOUR SCHEDULE" in large serif font, date, buyer name
+- Jon Tharp Homes logo (top right or top left)
+- 4-5 property cards per page, each card:
+  - Left: primary photo (thumbnail, ~150px wide)
+  - Right: address (bold), city/state/zip
+  - Showing time (from route_data stops), e.g., "10:00 AM - 10:30 AM"
+  - Price, Beds, Baths, SqFt, Acreage, Year Built in a compact row
+  - Agent notes if present
+- Footer: agent name, phone, email, website
+- Page numbers if multi-page
+
+**Implementation:**
+- New file: `apps/automation/tour_schedule.py`
+- Function: `generate_tour_schedule(showing_id) -> bytes`
+- Uses WeasyPrint (same as buyer_report.py)
+- Triggered from: "Print Itinerary" button on route planner, or from showings list
+- Also available from package detail page
+
+**Route planner integration:**
+- Add "Print Itinerary" button next to "Print Details" in the route planner bottom bar
+- Parse route_data JSON to get ordered stops with times
+- Cross-reference listing_id to get full property data and photos
+
+**Buyer report integration:**
+- The Download PDF on package detail currently generates buyer reports (3 pages per property)
+- Add option to prepend the tour schedule as the first page(s) of the combined PDF
+- Or offer as a separate download: "Tour Schedule" vs "Full Report"
