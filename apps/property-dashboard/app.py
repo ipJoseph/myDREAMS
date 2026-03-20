@@ -5235,11 +5235,11 @@ def contact_package_detail(contact_id, package_id):
 
             # Renumber display_order to remove gaps (1, 2, 3, ...)
             ordered = conn.execute(
-                'SELECT id FROM package_properties WHERE package_id = ? ORDER BY display_order',
+                'SELECT rowid FROM package_properties WHERE package_id = ? ORDER BY display_order, added_at',
                 [package_id]
             ).fetchall()
             for i, row in enumerate(ordered, 1):
-                conn.execute('UPDATE package_properties SET display_order = ? WHERE id = ?', [i, row[0]])
+                conn.execute('UPDATE package_properties SET display_order = ? WHERE rowid = ?', [i, row[0]])
             conn.commit()
 
             # Get properties in this package
@@ -5328,11 +5328,11 @@ def contact_package_add_properties(contact_id, package_id):
 
             # Renumber sequentially to close any gaps
             ordered = conn.execute(
-                'SELECT id FROM package_properties WHERE package_id = ? ORDER BY display_order',
+                'SELECT rowid FROM package_properties WHERE package_id = ? ORDER BY display_order, added_at',
                 [package_id]
             ).fetchall()
             for i, row in enumerate(ordered, 1):
-                conn.execute('UPDATE package_properties SET display_order = ? WHERE id = ?', [i, row[0]])
+                conn.execute('UPDATE package_properties SET display_order = ? WHERE rowid = ?', [i, row[0]])
             conn.commit()
 
         if request.is_json:
@@ -5373,11 +5373,11 @@ def contact_package_remove_property(contact_id, package_id, property_id):
             )
             # Renumber remaining properties sequentially
             remaining = conn.execute(
-                'SELECT id FROM package_properties WHERE package_id = ? ORDER BY display_order',
+                'SELECT rowid FROM package_properties WHERE package_id = ? ORDER BY display_order, added_at',
                 [package_id]
             ).fetchall()
             for i, row in enumerate(remaining, 1):
-                conn.execute('UPDATE package_properties SET display_order = ? WHERE id = ?', [i, row[0]])
+                conn.execute('UPDATE package_properties SET display_order = ? WHERE rowid = ?', [i, row[0]])
             conn.commit()
         # Return JSON for fetch calls, redirect for form submissions
         if request.headers.get('Content-Type') == 'application/json':
