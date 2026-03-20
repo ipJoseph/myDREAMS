@@ -5232,6 +5232,14 @@ def contact_package_detail(contact_id, package_id):
                 'UPDATE property_packages SET viewed_at = ? WHERE id = ?',
                 [datetime.now().isoformat(), package_id]
             )
+
+            # Renumber display_order to remove gaps (1, 2, 3, ...)
+            ordered = conn.execute(
+                'SELECT id FROM package_properties WHERE package_id = ? ORDER BY display_order',
+                [package_id]
+            ).fetchall()
+            for i, row in enumerate(ordered, 1):
+                conn.execute('UPDATE package_properties SET display_order = ? WHERE id = ?', [i, row[0]])
             conn.commit()
 
             # Get properties in this package
@@ -5317,6 +5325,14 @@ def contact_package_add_properties(contact_id, package_id):
                     [str(uuid.uuid4()), package_id, listing_id, max_order + i + 1,
                      datetime.now().isoformat()]
                 )
+
+            # Renumber sequentially to close any gaps
+            ordered = conn.execute(
+                'SELECT id FROM package_properties WHERE package_id = ? ORDER BY display_order',
+                [package_id]
+            ).fetchall()
+            for i, row in enumerate(ordered, 1):
+                conn.execute('UPDATE package_properties SET display_order = ? WHERE id = ?', [i, row[0]])
             conn.commit()
 
         if request.is_json:
