@@ -68,6 +68,18 @@
     }
     .map-expand-btn:hover { background: #1e3a5f; border-color: #c8a84e; }
     .map-expand-btn svg { width: 18px; height: 18px; }
+    .map-labels-btn {
+      position: absolute; top: 10px; right: 56px; z-index: 10;
+      padding: 6px 10px; background: #132744; border: 2px solid #1e3a5f;
+      color: #8899aa; font-size: 11px; font-weight: 600; cursor: pointer;
+      border-radius: 4px; transition: all 0.2s; font-family: inherit;
+    }
+    .map-labels-btn:hover { background: #1e3a5f; border-color: #c8a84e; color: #c8a84e; }
+    .map-addr-label {
+      position: absolute; white-space: nowrap; font-size: 11px; font-weight: 600;
+      color: #fff; background: rgba(10, 22, 40, 0.85); padding: 2px 6px;
+      border-radius: 3px; pointer-events: none; border: 1px solid rgba(200, 168, 78, 0.4);
+    }
 
     /* Expanded map state */
     .layout.map-expanded .top-row { position: fixed; inset: 16px; z-index: 200; background: #0a1628; border-radius: 8px; overflow: hidden; box-shadow: 0 8px 40px rgba(0,0,0,0.6); }
@@ -422,14 +434,18 @@
 
     // ===== MAP INIT =====
     var MAP_STYLES = [
-      { elementType: 'geometry', stylers: [{ color: '#1a2744' }] },
-      { elementType: 'labels.text.stroke', stylers: [{ color: '#0a1628' }] },
-      { elementType: 'labels.text.fill', stylers: [{ color: '#8899aa' }] },
-      { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#2a3f5f' }] },
-      { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#1e3a5f' }] },
-      { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0e1a2e' }] },
-      { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#152238' }] },
+      { elementType: 'geometry', stylers: [{ color: '#2d4a6a' }] },
+      { elementType: 'labels.text.stroke', stylers: [{ color: '#1a3050' }] },
+      { elementType: 'labels.text.fill', stylers: [{ color: '#b0c4de' }] },
+      { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#3d5a80' }] },
+      { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#2d4a6a' }] },
+      { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#4a6d8c' }] },
+      { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#c0d0e0' }] },
+      { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#1a3050' }] },
+      { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#243d58' }] },
+      { featureType: 'administrative', elementType: 'labels.text.fill', stylers: [{ color: '#98b0c8' }] },
     ];
+    var showAddressLabels = true;
     var mapMarkers = [];
 
     function ensureMap() {
@@ -452,6 +468,16 @@
         zoom: 10, center: center, mapTypeId: 'roadmap', styles: MAP_STYLES,
         fullscreenControl: false,
       });
+
+      // Add label toggle button
+      if (!el.querySelector('.map-labels-btn')) {
+        var lblBtn = document.createElement('button');
+        lblBtn.className = 'map-labels-btn';
+        lblBtn.id = 'toggleLabelsBtn';
+        lblBtn.textContent = 'Hide Labels';
+        lblBtn.onclick = toggleAddressLabels;
+        el.appendChild(lblBtn);
+      }
 
       // Add custom expand button
       if (!el.querySelector('.map-expand-btn')) {
@@ -1063,6 +1089,10 @@
 
     // ===== MARKERS =====
     var markerZIndex = 100;
+    // Marker size: 70% of original (36x48 -> 25x34)
+    var PIN_W = 25, PIN_H = 34;
+    var mapInfoLabels = [];
+
     function pinSvg(label, bgColor, textColor) {
       var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="48" viewBox="0 0 36 48">'
         + '<path d="M18 0C8.06 0 0 8.06 0 18c0 13.5 18 30 18 30s18-16.5 18-30C36 8.06 27.94 0 18 0z" fill="' + bgColor + '" stroke="#fff" stroke-width="2.5"/>'
@@ -1072,7 +1102,7 @@
       return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
     }
 
-    function createMarker(pos, label, color, title) {
+    function createMarker(pos, label, color, title, addressLabel) {
       var textColor = (color === '#c8a84e') ? '#0a1628' : '#fff';
       var z = markerZIndex++;
       var m = new google.maps.Marker({
@@ -1080,17 +1110,44 @@
         zIndex: z,
         icon: {
           url: pinSvg(label, color, textColor),
-          scaledSize: new google.maps.Size(36, 48),
-          anchor: new google.maps.Point(18, 48),
+          scaledSize: new google.maps.Size(PIN_W, PIN_H),
+          anchor: new google.maps.Point(PIN_W / 2, PIN_H),
         },
         title: title,
       });
       mapMarkers.push(m);
+
+      // Add address label overlay (for property stops, not breaks)
+      if (addressLabel && showAddressLabels) {
+        var infoDiv = document.createElement('div');
+        infoDiv.className = 'map-addr-label';
+        infoDiv.textContent = addressLabel;
+        var overlay = new google.maps.OverlayView();
+        overlay.onAdd = function() { this.getPanes().overlayLayer.appendChild(infoDiv); };
+        overlay.draw = function() {
+          var pt = this.getProjection().fromLatLngToDivPixel(pos);
+          if (pt) { infoDiv.style.left = (pt.x + PIN_W / 2 + 4) + 'px'; infoDiv.style.top = (pt.y - PIN_H / 2) + 'px'; }
+        };
+        overlay.onRemove = function() { if (infoDiv.parentNode) infoDiv.parentNode.removeChild(infoDiv); };
+        overlay.setMap(map);
+        mapInfoLabels.push(overlay);
+      }
+
       return m;
+    }
+
+    function toggleAddressLabels() {
+      showAddressLabels = !showAddressLabels;
+      mapInfoLabels.forEach(function(ov) { ov.setMap(showAddressLabels ? map : null); });
+      var btn = document.getElementById('toggleLabelsBtn');
+      if (btn) btn.textContent = showAddressLabels ? 'Hide Labels' : 'Show Labels';
     }
 
     function addMarkers(startIsFirst, endIsLast) {
       markerZIndex = 100;
+      // Clear old address labels
+      mapInfoLabels.forEach(function(ov) { ov.setMap(null); });
+      mapInfoLabels = [];
       var bounds = new google.maps.LatLngBounds();
 
       // Build property positions from routeLegs.
@@ -1118,7 +1175,7 @@
         var renderedRoute = directionsRenderer.getDirections();
         if (renderedRoute) {
           var startPos = renderedRoute.routes[0].legs[0].start_location;
-          createMarker(startPos, 'S', '#4a9eff', 'Start');
+          createMarker(startPos, 'S', '#4a9eff', 'Start', null);
           bounds.extend(startPos);
         }
       }
@@ -1140,9 +1197,10 @@
 
         if (pos) {
           if (isBreak) {
-            createMarker(pos, '\u2615', '#e67e22', stop.label);
+            createMarker(pos, '\u2615', '#e67e22', stop.label, null);
           } else {
-            createMarker(pos, propNum, '#c8a84e', propNum + '. ' + (stop._csv_address || stop.address));
+            var addr = stop._csv_address || stop.address || '';
+            createMarker(pos, propNum, '#c8a84e', propNum + '. ' + addr, addr);
           }
           bounds.extend(pos);
         }
@@ -1156,7 +1214,7 @@
           var endPos = allLegs[allLegs.length - 1].end_location;
           var cfg = getConfig();
           if (!cfg.roundtrip) {
-            createMarker(endPos, 'E', '#4a9eff', 'End');
+            createMarker(endPos, 'E', '#4a9eff', 'End', null);
             bounds.extend(endPos);
           }
         }
