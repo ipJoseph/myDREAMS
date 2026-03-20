@@ -1568,7 +1568,7 @@
         if (sqft) desc += sqft + ' sqft\n';
         if (acreage) desc += acreage + ' acres\n';
         if (mls) desc += 'MLS: ' + mls + '\n';
-        if (agent) desc += 'Agent: ' + agent + (agentPhone ? ' | ' + agentPhone : '') + '\n';
+        if (agent) desc += 'Agent: ' + agent + (agentPhone ? ' - ' + agentPhone : '') + '\n';
         if (notes) desc += 'Notes: ' + notes + '\n';
 
         // Use coordinates if available, otherwise geocode address
