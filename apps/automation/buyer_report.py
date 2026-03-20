@@ -329,7 +329,7 @@ h1, h2, h3, h4 {{
 
 .page {{
     position: relative;
-    min-height: 9.0in;
+    height: 9.8in;
 }}
 .page-break {{
     page-break-before: always;
