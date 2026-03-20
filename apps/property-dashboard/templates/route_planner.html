@@ -309,7 +309,8 @@
         <button class="btn btn-outline" onclick="printDetails()">Print Details</button>
         <button class="btn btn-outline" onclick="exportCSV()">Export CSV</button>
         <button class="btn btn-outline" onclick="exportKML()">Export to Google My Maps</button>
-        <button class="btn btn-outline" onclick="printItinerary()" style="border-color: #c8a84e; color: #c8a84e;">Print Itinerary</button>
+        <button class="btn btn-outline" onclick="printItinerary('agent')" style="border-color: #c8a84e; color: #c8a84e;">Agent Itinerary</button>
+        <button class="btn btn-outline" onclick="printItinerary('buyer')" style="border-color: #4a9eff; color: #4a9eff;">Buyer Itinerary</button>
       </div>
     </div>
   </div>
@@ -1556,7 +1557,8 @@
       return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
-    function printItinerary() {
+    function printItinerary(version) {
+      version = version || 'agent';
       if (STANDALONE) {
         alert('Save as a showing first to generate an itinerary PDF.');
         return;
@@ -1598,6 +1600,7 @@
         ['route_data', JSON.stringify(routeData)],
         ['total_distance', document.getElementById('total-distance').textContent],
         ['total_drive_time', document.getElementById('total-time').textContent],
+        ['version', version],
       ].forEach(function(pair) {
         var inp = document.createElement('input');
         inp.type = 'hidden'; inp.name = pair[0]; inp.value = pair[1];

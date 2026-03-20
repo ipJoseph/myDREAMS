@@ -204,12 +204,14 @@ def _get_listing(listing_id: str, db_path: str = None) -> Optional[dict]:
 # HTML Template
 # ---------------------------------------------------------------------------
 
-def _build_html(showing_data: dict, db_path: str = None) -> str:
+def _build_html(showing_data: dict, db_path: str = None, version: str = "agent") -> str:
     """
     Build the full HTML for the tour schedule PDF.
 
     showing_data can be either a dict from the showings table
     or a manually constructed dict with the same fields.
+    version: 'agent' (includes door codes, private remarks) or
+             'buyer' (no door codes, adds elevation, views, DOM, HOA, taxes)
     """
     # Parse route data
     route_data_raw = showing_data.get("route_data", "{}")
@@ -264,7 +266,7 @@ def _build_html(showing_data: dict, db_path: str = None) -> str:
         property_id = stop.get("propertyId")
         listing = _get_listing(property_id, db_path) if property_id else None
 
-        cards_html.append(_build_property_card(stop, listing, stop_num))
+        cards_html.append(_build_property_card(stop, listing, stop_num, version))
 
     cards_joined = "\n".join(cards_html)
 
@@ -501,8 +503,8 @@ body {{
     return html
 
 
-def _build_property_card(stop: dict, listing: Optional[dict], stop_num: int) -> str:
-    """Build HTML for a single property card."""
+def _build_property_card(stop: dict, listing: Optional[dict], stop_num: int, version: str = "agent") -> str:
+    """Build HTML for a single property card. version='agent' or 'buyer'."""
     address = _escape(stop.get("address") or stop.get("label") or "")
     city = _escape(stop.get("city", ""))
 
@@ -563,12 +565,61 @@ def _build_property_card(stop: dict, listing: Optional[dict], stop_num: int) -> 
             if zipcode:
                 city = f"{city} {zipcode}"
 
+    # Buyer version: add extra stats
+    extra_lines = []
+    if listing and version == "buyer":
+        elevation = listing.get("elevation_feet")
+        if elevation:
+            stats_parts.append(f"{_fmt_number(elevation)} ft Elev")
+
+        views_raw = listing.get("views")
+        if views_raw:
+            try:
+                vlist = json.loads(views_raw) if isinstance(views_raw, str) else views_raw
+                if isinstance(vlist, list) and vlist:
+                    extra_lines.append(f"Views: {', '.join(str(v) for v in vlist)}")
+            except (json.JSONDecodeError, TypeError):
+                if isinstance(views_raw, str) and views_raw:
+                    extra_lines.append(f"Views: {_escape(views_raw)}")
+
+        dom = listing.get("days_on_market")
+        if dom is not None:
+            extra_lines.append(f"Days on Market: {dom}")
+
+        hoa_fee = listing.get("hoa_fee")
+        hoa_freq = listing.get("hoa_frequency") or listing.get("hoa_freq")
+        if hoa_fee:
+            hoa_str = f"HOA: {_fmt_price(hoa_fee)}"
+            if hoa_freq:
+                hoa_str += f" ({_escape(str(hoa_freq))})"
+            extra_lines.append(hoa_str)
+
+        tax = listing.get("tax_annual_amount")
+        county = listing.get("county")
+        if tax:
+            tax_str = f"County Tax: {_fmt_price(tax)}/yr"
+            if county:
+                tax_str += f" ({_escape(county)})"
+            extra_lines.append(tax_str)
+
+    # Agent version: add extra details
+    if listing and version == "agent":
+        private = listing.get("private_remarks")
+        if private:
+            extra_lines.append(f"Agent Notes: {_escape(private[:200])}")
+
+    # Directions (both versions)
+    if listing:
+        directions = listing.get("directions")
+        if directions:
+            extra_lines.append(f"Directions: {_escape(directions[:200])}")
+
     stats_display = " | ".join(stats_parts) if stats_parts else ""
 
-    # Notes
+    # Notes (agent version only; buyer version hides door codes etc.)
     notes = stop.get("notes", "")
     notes_html = ""
-    if notes:
+    if notes and version == "agent":
         notes_html = f'<div class="card-notes">{_escape(notes)}</div>'
 
     # City/state line
@@ -578,6 +629,10 @@ def _build_property_card(stop: dict, listing: Optional[dict], stop_num: int) -> 
     price_sep = ""
     if price:
         price_sep = f' | <span class="price">{_escape(price)}</span>'
+
+    extra_html = ""
+    for line in extra_lines:
+        extra_html += f'<div class="card-notes">{line}</div>'
 
     return f"""<div class="card">
     <div class="card-stop-num">{stop_num}</div>
@@ -589,6 +644,7 @@ def _build_property_card(stop: dict, listing: Optional[dict], stop_num: int) -> 
         </div>
         {"<div class='card-stats'>" + _escape(stats_display) + "</div>" if stats_display else ""}
         {notes_html}
+        {extra_html}
     </div>
 </div>"""
 
@@ -627,10 +683,11 @@ def _build_break_card(stop: dict) -> str:
 # Public API
 # ---------------------------------------------------------------------------
 
-def generate_tour_schedule(showing_id: str, db_path: str = None) -> Optional[bytes]:
+def generate_tour_schedule(showing_id: str, db_path: str = None, version: str = "agent") -> Optional[bytes]:
     """
     Generate a House Tour Schedule PDF for the given showing ID.
 
+    version: 'agent' (private remarks, door codes) or 'buyer' (public details, no codes)
     Returns PDF bytes on success, or None on failure.
     """
     if not WEASYPRINT_AVAILABLE:
@@ -643,7 +700,7 @@ def generate_tour_schedule(showing_id: str, db_path: str = None) -> Optional[byt
         logger.error("Showing %s not found", showing_id)
         return None
 
-    html = _build_html(showing, path)
+    html = _build_html(showing, path, version)
     try:
         pdf_bytes = HTML(string=html).write_pdf()
         logger.info("Generated tour schedule PDF for showing %s (%d bytes)", showing_id, len(pdf_bytes))
@@ -653,24 +710,18 @@ def generate_tour_schedule(showing_id: str, db_path: str = None) -> Optional[byt
         return None
 
 
-def generate_tour_schedule_from_data(data: dict, db_path: str = None) -> Optional[bytes]:
+def generate_tour_schedule_from_data(data: dict, db_path: str = None, version: str = "agent") -> Optional[bytes]:
     """
     Generate a House Tour Schedule PDF from a dict of showing-like data.
 
-    This is used for on-the-fly generation from route planner form data
-    without requiring a saved showing record.
-
-    Expected keys in data:
-        name, scheduled_date, scheduled_time, route_data, lead_id (optional),
-        buyer_name (optional)
-
+    version: 'agent' or 'buyer'
     Returns PDF bytes on success, or None on failure.
     """
     if not WEASYPRINT_AVAILABLE:
         logger.error("WeasyPrint is not installed. Cannot generate PDF.")
         return None
 
-    html = _build_html(data, db_path or str(DATABASE_PATH))
+    html = _build_html(data, db_path or str(DATABASE_PATH), version)
     try:
         pdf_bytes = HTML(string=html).write_pdf()
         logger.info("Generated tour schedule PDF from data (%d bytes)", len(pdf_bytes))

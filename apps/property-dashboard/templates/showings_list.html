@@ -138,7 +138,8 @@
                 {% if s.lead_id %}
                 <a href="/contacts/{{ s.lead_id }}" class="showing-btn">Buyer</a>
                 {% endif %}
-                <a href="/showings/{{ s.id }}/itinerary" target="_blank" class="showing-btn" title="Generate tour schedule PDF">Itinerary</a>
+                <a href="/showings/{{ s.id }}/itinerary" target="_blank" class="showing-btn" title="Agent itinerary (includes door codes, private remarks)">Agent Copy</a>
+                <a href="/showings/{{ s.id }}/itinerary?version=buyer" target="_blank" class="showing-btn" title="Buyer itinerary (no codes, adds elevation, views, HOA, taxes)">Buyer Copy</a>
                 <button onclick="archiveShowing('{{ s.id }}')" class="showing-btn" title="Archive this showing">Archive</button>
                 <button onclick="deleteShowing('{{ s.id }}')" class="showing-btn" style="color: #dc2626;" title="Delete this showing">Delete</button>
             </div>

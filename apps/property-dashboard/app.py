@@ -2596,7 +2596,8 @@ def showing_itinerary_pdf(showing_id):
     if not showing:
         return "Showing not found", 404
 
-    pdf_bytes = generate_tour_schedule(showing_id, str(DB_PATH))
+    version = request.args.get('version', 'agent')
+    pdf_bytes = generate_tour_schedule(showing_id, str(DB_PATH), version=version)
     if not pdf_bytes:
         return "Failed to generate PDF", 500
 
@@ -2636,7 +2637,8 @@ def collection_itinerary_pdf(collection_id):
         'lead_id': collection['lead_id'],
     }
 
-    pdf_bytes = generate_tour_schedule_from_data(data, str(DB_PATH))
+    version = request.form.get('version', 'agent')
+    pdf_bytes = generate_tour_schedule_from_data(data, str(DB_PATH), version=version)
     if not pdf_bytes:
         return "Failed to generate PDF", 500
 
