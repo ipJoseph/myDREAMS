@@ -225,12 +225,13 @@ def inject_globals():
     # Count pending showing requests for sidebar badge
     showing_count = 0
     try:
-        conn = get_db()
-        row = conn.execute(
-            "SELECT COUNT(*) as cnt FROM property_packages WHERE showing_requested = 1"
-        ).fetchone()
-        if row:
-            showing_count = row['cnt']
+        db = get_db()
+        with db._get_connection() as conn:
+            row = conn.execute(
+                "SELECT COUNT(*) as cnt FROM property_packages WHERE showing_requested = 1"
+            ).fetchone()
+            if row:
+                showing_count = row['cnt']
     except Exception:
         pass
 
@@ -902,16 +903,16 @@ def home():
             # Recent buyer activity for Mission Control widget
             buyer_activity_recent = []
             try:
-                conn = get_db()
-                rows = conn.execute('''
-                    SELECT ba.activity_type, ba.entity_name, ba.occurred_at,
-                           u.name as buyer_name, u.email as buyer_email
-                    FROM buyer_activity ba
-                    LEFT JOIN users u ON u.id = ba.user_id
-                    ORDER BY ba.occurred_at DESC
-                    LIMIT 5
-                ''').fetchall()
-                buyer_activity_recent = [dict(r) for r in rows]
+                with db._get_connection() as conn:
+                    rows = conn.execute('''
+                        SELECT ba.activity_type, ba.entity_name, ba.occurred_at,
+                               u.name as buyer_name, u.email as buyer_email
+                        FROM buyer_activity ba
+                        LEFT JOIN users u ON u.id = ba.user_id
+                        ORDER BY ba.occurred_at DESC
+                        LIMIT 5
+                    ''').fetchall()
+                    buyer_activity_recent = [dict(r) for r in rows]
             except Exception:
                 pass
 
@@ -6791,88 +6792,89 @@ def serve_photo(filename):
 @requires_auth
 def data_quality():
     """Data quality monitoring dashboard."""
-    db_conn = get_db()
+    db = get_db()
+    with db._get_connection() as conn:
+        # Listings stats
+        listings_stats = conn.execute("""
+            SELECT
+                COUNT(*) as total,
+                COUNT(CASE WHEN mls_number IS NOT NULL AND mls_number != '' THEN 1 END) as has_mls,
+                COUNT(CASE WHEN photos IS NOT NULL AND photos != '[]' AND photos != '' THEN 1 END) as has_photos_json,
+                COUNT(CASE WHEN primary_photo IS NOT NULL AND primary_photo != '' THEN 1 END) as has_primary_photo,
+                COUNT(CASE WHEN latitude IS NOT NULL AND latitude != 0 THEN 1 END) as has_coords,
+                COUNT(CASE WHEN listing_agent_name IS NOT NULL AND listing_agent_name != '' THEN 1 END) as has_agent,
+                COUNT(CASE WHEN parcel_id IS NOT NULL THEN 1 END) as has_parcel,
+                COUNT(CASE WHEN status = 'ACTIVE' THEN 1 END) as active,
+                COUNT(CASE WHEN status = 'PENDING' THEN 1 END) as pending,
+                COUNT(CASE WHEN status = 'SOLD' THEN 1 END) as sold
+            FROM listings
+        """).fetchone()
 
-    # Listings stats
-    listings_stats = db_conn.execute("""
-        SELECT
-            COUNT(*) as total,
-            COUNT(CASE WHEN mls_number IS NOT NULL AND mls_number != '' THEN 1 END) as has_mls,
-            COUNT(CASE WHEN photos IS NOT NULL AND photos != '[]' AND photos != '' THEN 1 END) as has_photos_json,
-            COUNT(CASE WHEN primary_photo IS NOT NULL AND primary_photo != '' THEN 1 END) as has_primary_photo,
-            COUNT(CASE WHEN latitude IS NOT NULL AND latitude != 0 THEN 1 END) as has_coords,
-            COUNT(CASE WHEN listing_agent_name IS NOT NULL AND listing_agent_name != '' THEN 1 END) as has_agent,
-            COUNT(CASE WHEN parcel_id IS NOT NULL THEN 1 END) as has_parcel,
-            COUNT(CASE WHEN status = 'ACTIVE' THEN 1 END) as active,
-            COUNT(CASE WHEN status = 'PENDING' THEN 1 END) as pending,
-            COUNT(CASE WHEN status = 'SOLD' THEN 1 END) as sold
-        FROM listings
-    """).fetchone()
-
-    # Listings by source
-    source_stats = db_conn.execute("""
-        SELECT
-            mls_source,
-            COUNT(*) as count,
-            COUNT(CASE WHEN mls_number IS NOT NULL AND mls_number != '' THEN 1 END) as has_mls,
-            COUNT(CASE WHEN photos IS NOT NULL AND photos != '[]' AND photos != '' THEN 1 END) as has_photos,
-            COUNT(CASE WHEN listing_agent_name IS NOT NULL AND listing_agent_name != '' THEN 1 END) as has_agent,
-            MAX(updated_at) as last_updated
-        FROM listings
-        GROUP BY mls_source
-        ORDER BY count DESC
-    """).fetchall()
+        # Listings by source
+        source_stats = conn.execute("""
+            SELECT
+                mls_source,
+                COUNT(*) as count,
+                COUNT(CASE WHEN mls_number IS NOT NULL AND mls_number != '' THEN 1 END) as has_mls,
+                COUNT(CASE WHEN photos IS NOT NULL AND photos != '[]' AND photos != '' THEN 1 END) as has_photos,
+                COUNT(CASE WHEN listing_agent_name IS NOT NULL AND listing_agent_name != '' THEN 1 END) as has_agent,
+                MAX(updated_at) as last_updated
+            FROM listings
+            GROUP BY mls_source
+            ORDER BY count DESC
+        """).fetchall()
 
     # Parcels stats (parcels table retired in Navica migration; spatial data now on listings)
     parcels_stats = {'total': 0, 'has_coords': 0, 'has_flood': 0, 'has_elevation': 0, 'spatially_enriched': 0, 'last_spatial_enrichment': None}
 
-    # Photo coverage by source
-    photo_stats = db_conn.execute("""
-        SELECT
-            COALESCE(photo_source, 'none') as source,
-            COUNT(*) as count,
-            ROUND(AVG(photo_confidence), 1) as avg_confidence
-        FROM listings
-        GROUP BY photo_source
-        ORDER BY count DESC
-    """).fetchall()
+    with db._get_connection() as conn:
+        # Photo coverage by source
+        photo_stats = conn.execute("""
+            SELECT
+                COALESCE(photo_source, 'none') as source,
+                COUNT(*) as count,
+                ROUND(AVG(photo_confidence), 1) as avg_confidence
+            FROM listings
+            GROUP BY photo_source
+            ORDER BY count DESC
+        """).fetchall()
 
-    # Photo review status
-    review_stats = db_conn.execute("""
-        SELECT
-            COALESCE(photo_review_status, 'not_reviewed') as status,
-            COUNT(*) as count
-        FROM listings
-        GROUP BY photo_review_status
-        ORDER BY count DESC
-    """).fetchall()
+        # Photo review status
+        review_stats = conn.execute("""
+            SELECT
+                COALESCE(photo_review_status, 'not_reviewed') as status,
+                COUNT(*) as count
+            FROM listings
+            GROUP BY photo_review_status
+            ORDER BY count DESC
+        """).fetchall()
 
-    # Coverage by city (top 10)
-    city_coverage = db_conn.execute("""
-        SELECT
-            city,
-            COUNT(*) as total,
-            COUNT(CASE WHEN mls_number IS NOT NULL AND mls_number != '' THEN 1 END) as has_mls,
-            COUNT(CASE WHEN primary_photo IS NOT NULL AND primary_photo != '' THEN 1 END) as has_photo
-        FROM listings
-        WHERE status = 'ACTIVE'
-        GROUP BY city
-        ORDER BY total DESC
-        LIMIT 10
-    """).fetchall()
+        # Coverage by city (top 10)
+        city_coverage = conn.execute("""
+            SELECT
+                city,
+                COUNT(*) as total,
+                COUNT(CASE WHEN mls_number IS NOT NULL AND mls_number != '' THEN 1 END) as has_mls,
+                COUNT(CASE WHEN primary_photo IS NOT NULL AND primary_photo != '' THEN 1 END) as has_photo
+            FROM listings
+            WHERE status = 'ACTIVE'
+            GROUP BY city
+            ORDER BY total DESC
+            LIMIT 10
+        """).fetchall()
 
-    # Import history (last 10 imports based on created_at clusters)
-    recent_imports = db_conn.execute("""
-        SELECT
-            DATE(created_at) as import_date,
-            mls_source,
-            COUNT(*) as records
-        FROM listings
-        WHERE created_at > datetime('now', '-30 days')
-        GROUP BY DATE(created_at), mls_source
-        ORDER BY import_date DESC
-        LIMIT 10
-    """).fetchall()
+        # Import history (last 10 imports based on created_at clusters)
+        recent_imports = conn.execute("""
+            SELECT
+                DATE(created_at) as import_date,
+                mls_source,
+                COUNT(*) as records
+            FROM listings
+            WHERE created_at > datetime('now', '-30 days')
+            GROUP BY DATE(created_at), mls_source
+            ORDER BY import_date DESC
+            LIMIT 10
+        """).fetchall()
 
     # MLS Grid sync state
     mlsgrid_state = {}
@@ -6898,15 +6900,16 @@ def data_quality():
 @requires_auth
 def api_data_quality():
     """Data quality API endpoint for programmatic access."""
-    db_conn = get_db()
+    db = get_db()
 
-    stats = db_conn.execute("""
-        SELECT
-            (SELECT COUNT(*) FROM listings) as total_listings,
-            (SELECT COUNT(*) FROM listings WHERE mls_number IS NOT NULL AND mls_number != '') as listings_with_mls,
-            (SELECT COUNT(*) FROM listings WHERE primary_photo IS NOT NULL AND primary_photo != '') as listings_with_photos,
-            (SELECT COUNT(*) FROM listings WHERE latitude IS NOT NULL AND latitude != 0) as listings_with_coords
-    """).fetchone()
+    with db._get_connection() as conn:
+        stats = conn.execute("""
+            SELECT
+                (SELECT COUNT(*) FROM listings) as total_listings,
+                (SELECT COUNT(*) FROM listings WHERE mls_number IS NOT NULL AND mls_number != '') as listings_with_mls,
+                (SELECT COUNT(*) FROM listings WHERE primary_photo IS NOT NULL AND primary_photo != '') as listings_with_photos,
+                (SELECT COUNT(*) FROM listings WHERE latitude IS NOT NULL AND latitude != 0) as listings_with_coords
+        """).fetchone()
 
     return jsonify({
         'listings': {
