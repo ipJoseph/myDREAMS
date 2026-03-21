@@ -120,6 +120,7 @@ export default function PhotoBrowser({ photos: initialPhotos, address, city, lis
               fill
               sizes="(max-width: 768px) 100vw, 50vw"
               className="object-cover group-hover:brightness-90 transition-all duration-300"
+              unoptimized
               priority
             />
           </button>
@@ -138,6 +139,7 @@ export default function PhotoBrowser({ photos: initialPhotos, address, city, lis
                   fill
                   sizes="25vw"
                   className="object-cover group-hover:brightness-90 transition-all duration-300"
+                  unoptimized
                   loading="lazy"
                 />
                 {/* "All Photos" button on the last visible thumbnail */}
