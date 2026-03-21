@@ -686,9 +686,9 @@ class MLSGridSyncEngine:
             media = prop.get('Media', [])
             if not media:
                 continue
-            _, photo_urls, photo_count = extract_photos(media)
+            primary_url, photo_urls, photo_count = extract_photos(media)
             if photo_urls:
-                fresh_photos[mls] = (json.dumps(photo_urls), photo_count)
+                fresh_photos[mls] = (primary_url, json.dumps(photo_urls), photo_count)
 
         if not fresh_photos:
             logger.info("No photo URLs to refresh")
@@ -713,12 +713,12 @@ class MLSGridSyncEngine:
             for row in wnc_listings:
                 mls = row['mls_number']
                 if mls in fresh_photos:
-                    photos_json, count = fresh_photos[mls]
-                    batch.append((photos_json, count, now, mls, self.mls_source))
+                    primary, photos_json, count = fresh_photos[mls]
+                    batch.append((primary, photos_json, count, now, mls, self.mls_source))
 
             if batch:
                 conn.executemany(
-                    "UPDATE listings SET photos = ?, photo_count = ?, "
+                    "UPDATE listings SET primary_photo = ?, photos = ?, photo_count = ?, "
                     "photos_refreshed_at = ? "
                     "WHERE mls_number = ? AND mls_source = ?",
                     batch
