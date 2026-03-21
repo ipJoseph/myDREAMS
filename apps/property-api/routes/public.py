@@ -163,10 +163,12 @@ def _download_gallery_on_demand(mls_number: str, photos_json: str) -> None:
             except Exception:
                 filepath.unlink(missing_ok=True)
 
-        # Update DB with local paths
+        # Update DB with local paths (short-lived connection, WAL-friendly)
         if local_paths:
             try:
-                conn = sqlite3.connect(str(DB_PATH))
+                conn = sqlite3.connect(str(DB_PATH), timeout=10)
+                conn.execute('PRAGMA journal_mode=WAL')
+                conn.execute('PRAGMA busy_timeout=10000')
                 conn.execute(
                     "UPDATE listings SET photos = ? WHERE mls_number = ?",
                     [json.dumps(local_paths), mls_number]
