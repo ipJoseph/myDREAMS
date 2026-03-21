@@ -102,7 +102,8 @@ class MLSGridSyncEngine:
 
     def _get_connection(self) -> sqlite3.Connection:
         """Get a database connection."""
-        conn = sqlite3.connect(str(self.db_path))
+        conn = sqlite3.connect(str(self.db_path), timeout=60)
+        conn.execute('PRAGMA busy_timeout=60000')
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA journal_mode = WAL")
         conn.execute("PRAGMA busy_timeout = 5000")
@@ -359,11 +360,16 @@ class MLSGridSyncEngine:
             skip_photo_fields = False
             new_photo_ts = listing.get('photos_change_timestamp')
             old_photo_ts = existing_dict.get('photos_change_timestamp')
-            if new_photo_ts and old_photo_ts and new_photo_ts == old_photo_ts:
+            has_local_photo = bool(existing_dict.get('photo_local_path'))
+            if new_photo_ts and old_photo_ts and new_photo_ts == old_photo_ts and has_local_photo:
                 skip_photo_fields = True
                 logger.debug(
                     f"Photos unchanged for {mls_number} "
                     f"(ts={new_photo_ts}), preserving local paths"
+                )
+            elif new_photo_ts and old_photo_ts and new_photo_ts == old_photo_ts and not has_local_photo:
+                logger.debug(
+                    f"Photos unchanged for {mls_number} but no local file, refreshing URLs"
                 )
 
             # Update existing: only update non-None values
