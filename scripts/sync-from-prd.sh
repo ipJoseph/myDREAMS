@@ -9,4 +9,10 @@ DEV_DB="/home/bigeug/myDREAMS/data/dreams.db"
 
 echo "Pulling dreams.db from PRD..."
 scp "$PRD_HOST:$PRD_DB" "$DEV_DB"
+echo "PRD database copied."
+
+# Ensure schema columns exist (PRD may not have DEV-only columns)
+echo "Ensuring schema..."
+cd /home/bigeug/myDREAMS
+python3 scripts/ensure_schema.py
 echo "Done. DEV database synced from PRD canonical source."

@@ -1,0 +1,19 @@
+# myDREAMS PRD Crontab
+# Install with: crontab /opt/mydreams/deploy/prd-crontab.txt
+#
+# All sync jobs run from /opt/mydreams using the system python3
+
+# Canopy MLS (MLS Grid) - incremental sync every 15 minutes
+*/15 * * * * cd /opt/mydreams && python3 -m apps.mlsgrid.cron_sync >> /opt/mydreams/data/logs/mlsgrid-sync.log 2>&1
+
+# Canopy MLS - nightly full sync at 2 AM UTC (10 PM EDT)
+0 2 * * * cd /opt/mydreams && python3 -m apps.mlsgrid.cron_sync --nightly >> /opt/mydreams/data/logs/mlsgrid-sync.log 2>&1
+
+# Canopy MLS - download new primary photos at 3 AM UTC
+0 3 * * * cd /opt/mydreams && python3 -m apps.mlsgrid.download_photos --status ACTIVE --workers 5 >> /opt/mydreams/data/logs/mlsgrid-photos.log 2>&1
+
+# Database backup at 11 PM UTC
+0 23 * * * cp /opt/mydreams/data/dreams.db /opt/mydreams/data/backups/dreams-$(date +\%Y\%m\%d).db 2>/dev/null
+
+# Schema check (ensure columns exist after any manual DB operations)
+0 4 * * * cd /opt/mydreams && python3 scripts/ensure_schema.py >> /opt/mydreams/data/logs/schema.log 2>&1
