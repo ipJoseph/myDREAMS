@@ -19,8 +19,10 @@ import re
 import os
 import sqlite3
 import sys
+import threading
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import urlparse
 from flask import Blueprint, request, jsonify, send_from_directory
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
@@ -107,6 +109,78 @@ def row_to_dict(row, fields=None):
     if fields:
         d = {k: v for k, v in d.items() if k in fields}
     return d
+
+
+# Track in-progress on-demand gallery downloads to avoid duplicates
+_gallery_downloads_in_progress = set()
+_gallery_lock = threading.Lock()
+
+
+def _download_gallery_on_demand(mls_number: str, photos_json: str) -> None:
+    """Background download of gallery photos for a single listing."""
+    import requests as req
+
+    with _gallery_lock:
+        if mls_number in _gallery_downloads_in_progress:
+            return
+        _gallery_downloads_in_progress.add(mls_number)
+
+    try:
+        urls = json.loads(photos_json)
+        if not urls or not isinstance(urls, list):
+            return
+
+        photos_dir = PHOTOS_DIRS.get('mlsgrid')
+        if not photos_dir:
+            return
+
+        local_paths = []
+        for i, url in enumerate(urls):
+            if not url or not isinstance(url, str) or not url.startswith('http'):
+                local_paths.append(url)
+                continue
+
+            path_lower = urlparse(url).path.lower()
+            ext = '.png' if path_lower.endswith('.png') else '.webp' if path_lower.endswith('.webp') else '.jpg'
+
+            filename = f"{mls_number}{ext}" if i == 0 else f"{mls_number}_{i:02d}{ext}"
+            filepath = photos_dir / filename
+
+            if filepath.exists() and filepath.stat().st_size > 0:
+                local_paths.append(f"/api/public/photos/mlsgrid/{filename}")
+                continue
+
+            try:
+                resp = req.get(url, timeout=30, stream=True)
+                resp.raise_for_status()
+                with open(filepath, 'wb') as f:
+                    for chunk in resp.iter_content(chunk_size=8192):
+                        f.write(chunk)
+                if filepath.stat().st_size > 0:
+                    local_paths.append(f"/api/public/photos/mlsgrid/{filename}")
+                else:
+                    filepath.unlink(missing_ok=True)
+            except Exception:
+                filepath.unlink(missing_ok=True)
+
+        # Update DB with local paths
+        if local_paths:
+            try:
+                conn = sqlite3.connect(str(DB_PATH))
+                conn.execute(
+                    "UPDATE listings SET photos = ? WHERE mls_number = ?",
+                    [json.dumps(local_paths), mls_number]
+                )
+                conn.commit()
+                conn.close()
+            except Exception:
+                pass
+
+    except Exception as e:
+        logger.warning(f"On-demand gallery download failed for {mls_number}: {e}")
+    finally:
+        with _gallery_lock:
+            _gallery_downloads_in_progress.discard(mls_number)
 
 
 def _localize_photo(listing: dict) -> None:
@@ -496,11 +570,22 @@ def get_listing(listing_id):
         _localize_photo(listing)
 
         # Parse photos from JSON string to list, strip CDN URLs
-        if listing.get('photos') and isinstance(listing['photos'], str):
+        raw_photos_json = listing.get('photos')
+        if raw_photos_json and isinstance(raw_photos_json, str):
             try:
-                photos = json.loads(listing['photos'])
-                # Only keep local paths; drop CDN URLs browsers can't load
-                listing['photos'] = [p for p in photos if isinstance(p, str) and not p.startswith('http')]
+                photos = json.loads(raw_photos_json)
+                local_only = [p for p in photos if isinstance(p, str) and not p.startswith('http')]
+                has_cdn_urls = any(isinstance(p, str) and 'mlsgrid.com' in p for p in photos)
+
+                # Trigger background download if gallery has CDN URLs
+                if has_cdn_urls and listing.get('mls_number'):
+                    threading.Thread(
+                        target=_download_gallery_on_demand,
+                        args=(listing['mls_number'], raw_photos_json),
+                        daemon=True
+                    ).start()
+
+                listing['photos'] = local_only
             except json.JSONDecodeError:
                 listing['photos'] = []
 
