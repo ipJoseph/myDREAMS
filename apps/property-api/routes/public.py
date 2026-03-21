@@ -123,6 +123,9 @@ def _localize_photo(listing: dict) -> None:
         return
 
     if not photos_dir:
+        # No local photo directory for this source; strip CDN URLs
+        if 'mlsgrid.com' in (listing.get('primary_photo') or ''):
+            listing['primary_photo'] = None
         return
 
     for ext in ('.jpg', '.jpeg', '.png', '.webp'):
@@ -130,6 +133,10 @@ def _localize_photo(listing: dict) -> None:
         if filepath.exists() and filepath.stat().st_size > 0:
             listing['primary_photo'] = f"/api/public/photos/{photos_dir.name}/{mls}{ext}"
             return
+
+    # Local file not found; strip CDN URLs that browsers can't use
+    if 'mlsgrid.com' in (listing.get('primary_photo') or ''):
+        listing['primary_photo'] = None
 
 
 def _compute_dom(listing: dict) -> int | None:
@@ -667,6 +674,7 @@ def get_shared_collection(share_token):
         for row in rows:
             d = dict(row)
             d['days_on_market'] = _compute_dom(d)
+            _localize_photo(d)
             listings.append(d)
 
         # Increment view count
@@ -1053,6 +1061,7 @@ def get_featured_collection(slug):
         for row in rows:
             d = dict(row)
             d['days_on_market'] = _compute_dom(d)
+            _localize_photo(d)
             listings.append(d)
 
         # Increment view count
