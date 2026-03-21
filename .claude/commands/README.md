@@ -11,6 +11,8 @@ Custom slash commands for common myDREAMS development tasks.
 | `/code-review` | Security and quality analysis |
 | `/docs-update` | Update CHANGELOG, ROADMAP, TODO |
 | `/deploy` | Deploy to production VPS |
+| `/sync-status` | Check MLS sync health across all sources |
+| `/handoff` | Generate session handoff summary for continuity |
 
 ## Usage
 
@@ -60,6 +62,19 @@ Deploys code from DEV to PRD.
 - Git push and SSH pull
 - Service restart
 - Verification and monitoring
+
+### /sync-status
+Checks MLS sync health across all sources.
+- Reports last sync time, record counts, photo counts
+- Flags stale syncs, missing tokens, error states
+- Example: `/sync-status` (all) or `/sync-status navica` (one source)
+
+### /handoff
+Generates a session summary for the next conversation.
+- Lists what was built/changed with commit references
+- Compares DEV vs PRD deployment state
+- Identifies in-progress work and next priorities
+- Example: `/handoff` or `/handoff "focused on MLS Grid integration"`
 
 ## Skill Files
 

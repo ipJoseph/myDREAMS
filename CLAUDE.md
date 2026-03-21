@@ -102,12 +102,38 @@ myDREAMS (Desktop Real Estate Agent Management System) is a local-first platform
 - [Project Index](docs/project-index.md) - All apps
 - **[TODO List](docs/TODO.md)** - Master task list (29 items, prioritized) - CHECK THIS AT SESSION START
 
+## MCP Servers
+
+Connected MCP servers provide direct tool access. **Prefer MCP tools over raw SQL or manual API calls.**
+
+| Server | Use For | Key Tools |
+|--------|---------|-----------|
+| **dreams-db** | All database queries | `query_leads`, `query_properties`, `run_sql`, `get_stats`, `get_call_list`, `match_leads_to_property` |
+| **fub** | Follow Up Boss CRM | `search_people`, `get_person`, `create_note`, `get_calls`, `update_person_stage` |
+| **Notion** | Project docs, notes | `notion-search`, `notion-create-pages`, `notion-query-database-view` |
+| **Gmail** | Email search, drafts | `gmail_search_messages`, `gmail_read_message`, `gmail_create_draft` |
+| **Google Calendar** | Scheduling | `gcal_list_events`, `gcal_create_event`, `gcal_find_my_free_time` |
+| **context7** | Library docs lookup | `resolve-library-id`, `query-docs` |
+| **Spotify** | Music playback | `spotify_play`, `spotify_pause`, `spotify_search` |
+
+**Rules:**
+- Use `dreams-db` MCP for database queries instead of `python3 -c "import sqlite3..."` or raw Bash SQL
+- Use `fub` MCP for CRM lookups instead of direct API calls
+- MCP tools handle auth automatically; no need to pass tokens
+
 ## Conventions
 
 - Commit messages: Short summary, bullet details if needed
 - Design system: Use `shared/css/dreams.css` for new UIs
 - Tech debt: Track in ROADMAP.md "Known Issues" section
 - Versioning: Update CHANGELOG.md when shipping features
+
+### Code Patterns
+- Database connections: `with db._get_connection() as conn:` (not `conn = get_db()`)
+- Photo serving: always local paths, never CDN URLs
+- Address normalization: use `normalizeAddr()` / `isAddressMatch()`
+- Collection/package IDs: UUID strings, not integers
+- MLS source identifiers: `'Navica'` for Carolina Smokies, `'CanopyMLS'` for Canopy/MLS Grid
 
 ## Workflow Guidelines
 

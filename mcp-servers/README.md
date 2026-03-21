@@ -82,6 +82,20 @@ Once enabled, use natural language in Claude Code:
 → Uses fub.create_note
 ```
 
+## Cloud MCP Servers (Anthropic-hosted)
+
+These are connected via Anthropic's managed MCP integrations (not local servers):
+
+| Server | Purpose | Key Tools |
+|--------|---------|-----------|
+| **Notion** | Project docs, notes, databases | `notion-search`, `notion-create-pages`, `notion-query-database-view` |
+| **Gmail** | Email search, read, draft | `gmail_search_messages`, `gmail_read_message`, `gmail_create_draft` |
+| **Google Calendar** | Scheduling, availability | `gcal_list_events`, `gcal_create_event`, `gcal_find_my_free_time` |
+| **Spotify** | Music playback control | `spotify_play`, `spotify_pause`, `spotify_search` |
+| **context7** | Library docs lookup | `resolve-library-id`, `query-docs` |
+
+These require no local configuration; auth is handled through the Anthropic console.
+
 ## Adding New Servers
 
 1. Create directory: `mcp-servers/new-server/`
