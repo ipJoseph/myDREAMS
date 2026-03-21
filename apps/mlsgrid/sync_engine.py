@@ -48,6 +48,7 @@ from apps.navica.field_mapper import (
     map_reso_to_open_house,
     generate_listing_id,
     ensure_listing_columns,
+    extract_photos,
     parse_timestamp,
 )
 
@@ -94,6 +95,7 @@ class MLSGridSyncEngine:
         self.db_path = Path(db_path) if db_path else DB_PATH
         self.mls_source = MLS_SOURCE
         self.client = None
+        self._photos_updated_count = 0
 
         # Ensure database tables exist (reuse Navica's table setup)
         self._ensure_tables()
@@ -268,16 +270,31 @@ class MLSGridSyncEngine:
     # Upsert logic
     # ---------------------------------------------------------------
 
+    # Fields related to photos that should be skipped during update
+    # when PhotosChangeTimestamp has not changed. This prevents CDN URLs
+    # from overwriting locally-downloaded photo paths during re-syncs.
+    PHOTO_FIELDS = {
+        'primary_photo', 'photos', 'photo_count', 'photo_source',
+        'photo_verified_at', 'photo_review_status', 'media_keys',
+    }
+
     def _upsert_listing(
         self,
         conn: sqlite3.Connection,
         listing: Dict,
+        raw_prop: Dict = None,
         dry_run: bool = False,
     ) -> str:
         """
         Insert or update a listing in the database.
 
-        Returns: 'created', 'updated', or 'skipped'
+        Args:
+            conn: Database connection
+            listing: Mapped listing dict from field_mapper
+            raw_prop: Raw RESO property dict (used for MlgCanView check)
+            dry_run: If True, do not write to database
+
+        Returns: 'created', 'updated', 'deleted', or 'skipped'
         """
         mls_number = listing.get('mls_number')
         if not mls_number:
@@ -290,6 +307,38 @@ class MLSGridSyncEngine:
         ).fetchone()
 
         existing_dict = dict(existing) if existing else None
+
+        # ----- Improvement 1: MlgCanView deletion detection -----
+        if raw_prop and raw_prop.get('MlgCanView') is False:
+            if existing_dict:
+                if dry_run:
+                    return 'deleted'
+                now = datetime.now().isoformat()
+                conn.execute(
+                    "UPDATE listings SET status = 'DELETED', idx_opt_in = 0, "
+                    "updated_at = ? WHERE id = ?",
+                    [now, existing_dict['id']]
+                )
+                logger.info(
+                    f"Deleted listing {mls_number}: MlgCanView=false "
+                    f"(was {existing_dict.get('status')})"
+                )
+                # Record the status change
+                if existing_dict.get('status') != 'DELETED':
+                    self._record_changes(conn, [{
+                        'listing_id': existing_dict['id'],
+                        'mls_number': mls_number,
+                        'change_type': 'status',
+                        'old_value': existing_dict.get('status', 'UNKNOWN'),
+                        'new_value': 'DELETED',
+                        'pct_change': None,
+                        'detected_at': now,
+                    }])
+            else:
+                logger.debug(
+                    f"Skipping deleted listing {mls_number}: not in local DB"
+                )
+            return 'deleted'
 
         # Detect changes before upsert
         changes = self._detect_changes(conn, listing, existing_dict)
@@ -304,11 +353,30 @@ class MLSGridSyncEngine:
         now = datetime.now().isoformat()
 
         if existing:
+            # ----- Improvement 3: PhotosChangeTimestamp tracking -----
+            # Compare new photos_change_timestamp with stored value.
+            # If unchanged, skip photo fields to preserve local photo paths.
+            skip_photo_fields = False
+            new_photo_ts = listing.get('photos_change_timestamp')
+            old_photo_ts = existing_dict.get('photos_change_timestamp')
+            if new_photo_ts and old_photo_ts and new_photo_ts == old_photo_ts:
+                skip_photo_fields = True
+                logger.debug(
+                    f"Photos unchanged for {mls_number} "
+                    f"(ts={new_photo_ts}), preserving local paths"
+                )
+
             # Update existing: only update non-None values
             update_data = {
                 k: v for k, v in listing.items()
                 if v is not None and k not in ('id', 'captured_at')
             }
+
+            # Remove photo fields if timestamps match
+            if skip_photo_fields:
+                for field in self.PHOTO_FIELDS:
+                    update_data.pop(field, None)
+
             update_data['updated_at'] = now
 
             if update_data:
@@ -320,6 +388,11 @@ class MLSGridSyncEngine:
                     f"UPDATE listings SET {set_clause} WHERE id = ?",
                     values
                 )
+
+            # Track whether photos were actually updated
+            if not skip_photo_fields and listing.get('photo_count'):
+                self._photos_updated_count += 1
+
             return 'updated'
         else:
             # Insert new listing
@@ -337,6 +410,11 @@ class MLSGridSyncEngine:
                 f"INSERT INTO listings ({', '.join(columns)}) VALUES ({placeholders})",
                 values
             )
+
+            # New listings always have photos updated
+            if listing.get('photo_count'):
+                self._photos_updated_count += 1
+
             return 'created'
 
     def _upsert_agent(self, conn: sqlite3.Connection, agent: Dict):
@@ -437,19 +515,24 @@ class MLSGridSyncEngine:
             'fetched': 0,
             'created': 0,
             'updated': 0,
+            'deleted': 0,
             'skipped': 0,
+            'photos_updated': 0,
             'price_changes': 0,
             'status_changes': 0,
             'errors': 0,
         }
+        self._photos_updated_count = 0
 
         logger.info(f"Starting full sync (status={status})")
 
         try:
+            # Full sync: MlgCanView=true only (no deletion signals needed)
             properties = self.client.fetch_properties(
                 status=status,
                 property_types=property_types,
                 max_records=max_records,
+                include_deleted=False,
             )
         except MLSGridAPIError as e:
             logger.error(f"Failed to fetch properties: {e}")
@@ -479,12 +562,16 @@ class MLSGridSyncEngine:
                         )
                         conn.commit()
 
-                    result = self._upsert_listing(conn, listing, dry_run=dry_run)
+                    result = self._upsert_listing(
+                        conn, listing, raw_prop=prop, dry_run=dry_run
+                    )
 
                     if result == 'created':
                         stats['created'] += 1
                     elif result == 'updated':
                         stats['updated'] += 1
+                    elif result == 'deleted':
+                        stats['deleted'] += 1
                     else:
                         stats['skipped'] += 1
 
@@ -496,6 +583,8 @@ class MLSGridSyncEngine:
                 except Exception as e:
                     logger.error(f"Error processing {prop.get('ListingId')}: {e}")
                     stats['errors'] += 1
+
+            stats['photos_updated'] = self._photos_updated_count
 
             if not dry_run:
                 conn.commit()
@@ -548,11 +637,14 @@ class MLSGridSyncEngine:
             'fetched': 0,
             'created': 0,
             'updated': 0,
+            'deleted': 0,
             'skipped': 0,
+            'photos_updated': 0,
             'price_changes': 0,
             'status_changes': 0,
             'errors': 0,
         }
+        self._photos_updated_count = 0
 
         # Load last sync timestamp
         state = self._load_sync_state()
@@ -566,11 +658,14 @@ class MLSGridSyncEngine:
             modified_since = datetime.now(timezone.utc) - timedelta(hours=24)
 
         try:
-            # MLS Grid supports server-side ModificationTimestamp filtering
+            # Incremental sync: include_deleted=True so we receive MlgCanView=false
+            # signals for listings that were deleted, pulled, or opted out.
+            # Without this, stale listings linger as ACTIVE in our DB.
             properties = self.client.fetch_properties(
                 status=status,
                 modified_since=modified_since,
                 max_records=max_records,
+                include_deleted=True,
             )
         except MLSGridAPIError as e:
             logger.error(f"Failed to fetch properties: {e}")
@@ -603,12 +698,16 @@ class MLSGridSyncEngine:
                         )
                         conn.commit()
 
-                    result = self._upsert_listing(conn, listing, dry_run=dry_run)
+                    result = self._upsert_listing(
+                        conn, listing, raw_prop=prop, dry_run=dry_run
+                    )
 
                     if result == 'created':
                         stats['created'] += 1
                     elif result == 'updated':
                         stats['updated'] += 1
+                    elif result == 'deleted':
+                        stats['deleted'] += 1
                     else:
                         stats['skipped'] += 1
 
@@ -620,6 +719,8 @@ class MLSGridSyncEngine:
                 except Exception as e:
                     logger.error(f"Error processing {prop.get('ListingId')}: {e}")
                     stats['errors'] += 1
+
+            stats['photos_updated'] = self._photos_updated_count
 
             if not dry_run:
                 conn.commit()
@@ -691,7 +792,9 @@ def print_stats(stats: Dict):
     print(f"  Fetched:        {stats.get('fetched', 0):,}")
     print(f"  Created:        {stats.get('created', 0):,}")
     print(f"  Updated:        {stats.get('updated', 0):,}")
+    print(f"  Deleted:        {stats.get('deleted', 0):,}")
     print(f"  Skipped:        {stats.get('skipped', 0):,}")
+    print(f"  Photos updated: {stats.get('photos_updated', 0):,}")
     print(f"  Errors:         {stats.get('errors', 0):,}")
 
     api_stats = stats.get('api_stats', {})

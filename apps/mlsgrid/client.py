@@ -359,6 +359,7 @@ class MLSGridClient:
         modified_since: Optional[datetime] = None,
         property_types: Optional[List[str]] = None,
         originating_system: str = CANOPY_SYSTEM_NAME,
+        include_deleted: bool = False,
     ) -> str:
         """
         Build an OData $filter string for property queries.
@@ -368,14 +369,20 @@ class MLSGridClient:
             modified_since: Only records modified after this timestamp
             property_types: Filter by PropertyType(s)
             originating_system: MLS system name (default: carolina for Canopy)
+            include_deleted: If True, omit MlgCanView filter so we receive
+                deletion signals (MlgCanView=false). Used for incremental sync.
 
         Returns:
             OData $filter string
         """
         clauses = [
             f"OriginatingSystemName eq '{originating_system}'",
-            "MlgCanView eq true",  # Exclude deleted records
         ]
+
+        # For full/initial syncs, exclude deleted records.
+        # For incremental syncs, include them so we detect deletions.
+        if not include_deleted:
+            clauses.append("MlgCanView eq true")
 
         if status:
             clauses.append(f"StandardStatus eq '{status}'")
@@ -406,6 +413,7 @@ class MLSGridClient:
         property_types: Optional[List[str]] = None,
         expand_media: bool = True,
         max_records: Optional[int] = None,
+        include_deleted: bool = False,
     ) -> List[Dict]:
         """
         Fetch property listings from Canopy MLS via MLS Grid.
@@ -416,6 +424,8 @@ class MLSGridClient:
             property_types: Filter by PropertyType (Residential, Land, etc.)
             expand_media: Include Media (photos) in response
             max_records: Stop after this many records
+            include_deleted: If True, include listings with MlgCanView=false
+                (used for incremental sync to detect deletions)
 
         Returns:
             List of property records (RESO Data Dictionary fields)
@@ -424,6 +434,7 @@ class MLSGridClient:
             status=status,
             modified_since=modified_since,
             property_types=property_types,
+            include_deleted=include_deleted,
         )
 
         params = {"$filter": filter_str}

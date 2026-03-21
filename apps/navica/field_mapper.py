@@ -91,6 +91,14 @@ EXPLICITLY_MAPPED_FIELDS = {
     'BuyerOfficeMlsId', 'BuyerOfficeKey', 'BuyerOfficeName',
     # Media (handled separately via extract_photos/extract_virtual_tour)
     'Media',
+    # Rooms (handled separately via extract_rooms)
+    'Rooms',
+    # UnitTypes (expanded but not yet mapped)
+    'UnitTypes',
+    # Photo change tracking
+    'PhotosChangeTimestamp',
+    # MLS Grid visibility flag (handled in sync engine)
+    'MlgCanView',
     # Parcel
     'ParcelNumber',
     # Descriptions
@@ -318,6 +326,80 @@ def extract_photos(media_list: List[Dict]) -> Tuple[Optional[str], List[str], in
         primary = photo_urls[0]
 
     return primary, photo_urls, len(photo_urls)
+
+
+def extract_rooms(rooms_list: list) -> Optional[str]:
+    """
+    Extract room data from RESO Rooms array.
+
+    Each room object may contain RoomType, RoomDimensions, RoomLevel,
+    RoomFeatures (array), and RoomKey. We store the full list as a
+    JSON string for flexible querying later.
+
+    Args:
+        rooms_list: RESO Rooms array from $expand=Rooms
+
+    Returns:
+        JSON string of room data, or None if empty
+    """
+    if not rooms_list:
+        return None
+
+    rooms = []
+    for room in rooms_list:
+        room_data = {}
+        if room.get('RoomType'):
+            room_data['type'] = room['RoomType']
+        if room.get('RoomLevel'):
+            room_data['level'] = room['RoomLevel']
+        if room.get('RoomDimensions'):
+            room_data['dimensions'] = room['RoomDimensions']
+        if room.get('RoomFeatures'):
+            room_data['features'] = room['RoomFeatures']
+        if room.get('RoomKey'):
+            room_data['key'] = room['RoomKey']
+        if room_data:
+            rooms.append(room_data)
+
+    return json.dumps(rooms) if rooms else None
+
+
+def extract_media_keys(media_list: list) -> Optional[str]:
+    """
+    Extract MediaKey values from RESO Media array.
+
+    Returns a JSON array of MediaKey strings for photo-type media,
+    ordered by display order. This allows granular detection of
+    individual photo additions, removals, and changes without
+    re-downloading everything.
+
+    Args:
+        media_list: RESO Media array from $expand=Media
+
+    Returns:
+        JSON string of MediaKey list, or None if empty
+    """
+    if not media_list:
+        return None
+
+    keys = []
+    for media in media_list:
+        # Only include photo media
+        category = media.get('MediaCategory', '')
+        if category and category != 'Photo':
+            continue
+
+        media_key = media.get('MediaKey')
+        if not media_key:
+            continue
+
+        order = media.get('Order', media.get('MediaOrder', 999))
+        keys.append((order, str(media_key)))
+
+    keys.sort(key=lambda x: x[0])
+    key_list = [k for _, k in keys]
+
+    return json.dumps(key_list) if key_list else None
 
 
 def extract_virtual_tour(media_list: List[Dict]) -> Optional[str]:
@@ -578,6 +660,9 @@ def map_reso_to_listing(prop: Dict, mls_source: str = 'NavicaMLS') -> Dict[str, 
         'fireplace_features': json_encode_list(prop.get('FireplaceFeatures')),
         'parking_features': json_encode_list(prop.get('ParkingFeatures')),
 
+        # Rooms (from $expand=Rooms)
+        'rooms': extract_rooms(prop.get('Rooms', [])),
+
         # Financial
         'hoa_fee': prop.get('AssociationFee'),
         'hoa_frequency': prop.get('AssociationFeeFrequency'),
@@ -610,6 +695,8 @@ def map_reso_to_listing(prop: Dict, mls_source: str = 'NavicaMLS') -> Dict[str, 
         'photo_source': mls_source.lower().replace('mls', '') if all_photos else None,
         'photo_verified_at': now if all_photos else None,
         'photo_review_status': 'verified' if all_photos else None,
+        'photos_change_timestamp': prop.get('PhotosChangeTimestamp'),
+        'media_keys': extract_media_keys(prop.get('Media', [])),
 
         # Virtual tour
         'virtual_tour_url': virtual_tour,
