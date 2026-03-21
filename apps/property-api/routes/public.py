@@ -495,10 +495,12 @@ def get_listing(listing_id):
 
         _localize_photo(listing)
 
-        # Parse photos from JSON string to list
+        # Parse photos from JSON string to list, strip CDN URLs
         if listing.get('photos') and isinstance(listing['photos'], str):
             try:
-                listing['photos'] = json.loads(listing['photos'])
+                photos = json.loads(listing['photos'])
+                # Only keep local paths; drop CDN URLs browsers can't load
+                listing['photos'] = [p for p in photos if isinstance(p, str) and not p.startswith('http')]
             except json.JSONDecodeError:
                 listing['photos'] = []
 
