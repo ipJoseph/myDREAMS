@@ -78,17 +78,23 @@ export default function PhotoBrowser({ photos, address, city }: PhotoBrowserProp
     <>
       {/* Photo grid */}
       <div className="max-w-7xl mx-auto">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-1 max-h-[500px] overflow-hidden">
+        <div className={`grid gap-1 max-h-[500px] overflow-hidden ${
+          photos.length === 1 ? "grid-cols-1" : "grid-cols-1 md:grid-cols-2"
+        }`}>
           {/* Main photo */}
           <button
             onClick={() => open(0)}
-            className="aspect-[4/3] md:aspect-auto md:row-span-2 relative cursor-pointer group"
+            className={`relative cursor-pointer group ${
+              photos.length === 1
+                ? "aspect-[16/9] md:aspect-[21/9]"
+                : "aspect-[4/3] md:aspect-auto md:row-span-2"
+            }`}
           >
             <Image
               src={photos[0]}
               alt={`${address}, ${city}`}
               fill
-              sizes="(max-width: 768px) 100vw, 50vw"
+              sizes={photos.length === 1 ? "100vw" : "(max-width: 768px) 100vw, 50vw"}
               className="object-cover group-hover:brightness-90 transition-all duration-300"
               unoptimized
               priority
@@ -96,6 +102,7 @@ export default function PhotoBrowser({ photos, address, city }: PhotoBrowserProp
           </button>
 
           {/* Secondary photos */}
+          {photos.length > 1 && (
           <div className="hidden md:grid grid-cols-2 gap-1">
             {photos.slice(1, 5).map((photo, i) => (
               <button
@@ -126,6 +133,7 @@ export default function PhotoBrowser({ photos, address, city }: PhotoBrowserProp
               </button>
             ))}
           </div>
+          )}
         </div>
 
         {/* Mobile "All Photos" button */}
