@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Property Views: March 16 to March 22, 2026</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f8fafc; color: #1a1a1a; padding: 24px; }
+.header { background: white; padding: 24px 28px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); margin-bottom: 20px; }
+.header h1 { font-size: 22px; font-weight: 800; margin-bottom: 4px; }
+.header .subtitle { font-size: 14px; color: #64748b; }
+.summary { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+.stat-card { background: white; padding: 16px 20px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); min-width: 120px; }
+.stat-card .label { font-size: 11px; text-transform: uppercase; font-weight: 700; color: #64748b; letter-spacing: 0.5px; }
+.stat-card .value { font-size: 24px; font-weight: 800; margin-top: 2px; }
+.hot-section { background: white; padding: 20px 24px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); margin-bottom: 20px; }
+.hot-section h2 { font-size: 15px; font-weight: 700; margin-bottom: 12px; }
+.hot-list { list-style: none; }
+.hot-list li { padding: 6px 0; font-size: 13px; display: flex; justify-content: space-between; border-bottom: 1px solid #f1f5f9; }
+.hot-list li:last-child { border-bottom: none; }
+.contact-card { background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); margin-bottom: 16px; overflow: hidden; }
+.contact-header { padding: 16px 20px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; }
+.contact-name { font-size: 16px; font-weight: 700; }
+.contact-meta { display: flex; gap: 10px; align-items: center; }
+.stage-badge { padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; color: white; }
+.heat-badge { font-size: 12px; font-weight: 600; color: #64748b; }
+.activity-counts { font-size: 12px; color: #64748b; }
+table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+col.col-prop { width: 40%; }
+col.col-price { width: 12%; }
+col.col-views { width: 10%; }
+col.col-fav { width: 10%; }
+col.col-shared { width: 10%; }
+col.col-time { width: 18%; }
+th { text-align: left; padding: 10px 16px; font-size: 11px; text-transform: uppercase; font-weight: 700; color: #64748b; letter-spacing: 0.5px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
+td { padding: 10px 16px; font-size: 13px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+.addr-main { font-weight: 600; }
+.addr-detail { font-size: 11px; color: #64748b; margin-top: 2px; }
+.num { text-align: center; font-weight: 600; }
+.fav { color: #dc2626; }
+.share { color: #2563eb; }
+.price { font-weight: 600; white-space: nowrap; }
+.muted { color: #94a3b8; }
+.footer { text-align: center; padding: 20px; font-size: 12px; color: #94a3b8; }
+</style>
+</head>
+<body>
+
+<div class="header">
+    <h1>Property Views Report</h1>
+    <div class="subtitle">March 16 to March 22, 2026</div>
+</div>
+
+<div class="summary">
+    <div class="stat-card"><div class="label">Contacts</div><div class="value">11</div></div>
+    <div class="stat-card"><div class="label">Properties</div><div class="value">25</div></div>
+    <div class="stat-card"><div class="label">Views</div><div class="value">28</div></div>
+    <div class="stat-card"><div class="label">Favorites</div><div class="value" style="color:#dc2626">3</div></div>
+    <div class="stat-card"><div class="label">Shares</div><div class="value" style="color:#2563eb">0</div></div>
+</div>
+
+<div class="hot-section"><h2>Most-Viewed Properties</h2><ul class="hot-list">
+<li><span>MLS# 1002747 (not in local DB)</span><span><b>2</b> contacts, 2 views</span></li>
+<li><span>MLS# 4356934 (not in local DB)</span><span><b>2</b> contacts, 2 views</span></li>
+</ul></div>
+
+<div class="contact-card">
+    <div class="contact-header">
+        <div>
+            <span class="contact-name">Paige Albrecht</span>
+            <span class="activity-counts"> (5 views)</span>
+        </div>
+        <div class="contact-meta">
+            <span class="stage-badge" style="background:#64748b">Nurture</span>
+            <span class="heat-badge">Heat: 91</span>
+        </div>
+    </div>
+    <table>
+        <colgroup>
+            <col class="col-prop"><col class="col-price"><col class="col-views">
+            <col class="col-fav"><col class="col-shared"><col class="col-time">
+        </colgroup>
+        <thead><tr>
+            <th>Property</th>
+            <th>Price</th>
+            <th class="num">Views</th>
+            <th class="num">Fav</th>
+            <th class="num">Shared</th>
+            <th>Time(s)</th>
+        </tr></thead>
+        <tbody>
+        <tr>
+            <td class="addr-col"><div class="addr-main">MLS# 1002747 (not in local DB)</div><div class="addr-detail">MLS# 1002747</div></td>
+            <td class="price">$225,000</td>
+            <td class="num">1</td>
+            <td class="num muted">-</td>
+            <td class="num muted">-</td>
+            <td>05:16</td>
+        </tr>
+        <tr>
+            <td class="addr-col"><div class="addr-main">MLS# 1002810 (not in local DB)</div><div class="addr-detail">MLS# 1002810</div></td>
+            <td class="price">$299,000</td>
+            <td class="num">1</td>
+            <td class="num muted">-</td>
+            <td class="num muted">-</td>
+            <td>06:52</td>
+        </tr>
+        <tr>
+            <td class="addr-col"><div class="addr-main">214 Beasley Mine Road, Franklin, NC, 28734</div><div class="addr-detail">2bd | 2ba | 3.51 ac | Residential</div></td>
+            <td class="price">$339,000</td>
+            <td class="num">2</td>
+            <td class="num muted">-</td>
+            <td class="num muted">-</td>
+            <td>06:53, 17:09</td>
+        </tr>
+        <tr>
+            <td class="addr-col"><div class="addr-main">1012 Alarka Highlands, Bryson City, NC, 28713</div><div class="addr-detail">1bd | 1ba | 826 sqft | 2.43 ac | Residential</div></td>
+            <td class="price">$350,000</td>
+            <td class="num">1</td>
+            <td class="num muted">-</td>
+            <td class="num muted">-</td>
+            <td>06:50</td>
+        </tr>
+</tbody></table></div>
+
+<div class="contact-card">
+    <div class="contact-header">
+        <div>
+            <span class="contact-name">Mike Cheek</span>
+            <span class="activity-counts"> (2 views)</span>
+        </div>
+        <div class="contact-meta">
+            <span class="stage-badge" style="background:#64748b">Nurture</span>
+            <span class="heat-badge">Heat: 47</span>
+        </div>
+    </div>
+    <table>
+        <colgroup>
+            <col class="col-prop"><col class="col-price"><col class="col-views">
+            <col class="col-fav"><col class="col-shared"><col class="col-time">
+        </colgroup>
+        <thead><tr>
+            <th>Property</th>
+            <th>Price</th>
+            <th class="num">Views</th>
+            <th class="num">Fav</th>
+            <th class="num">Shared</th>
+            <th>Time(s)</th>
+        </tr></thead>
+        <tbody>
+        <tr>
+            <td class="addr-col"><div class="addr-main">MLS# 4356639 (not in local DB)</div><div class="addr-detail">MLS# 4356639</div></td>
+            <td class="price">$460,000</td>
+            <td class="num">1</td>
+            <td class="num muted">-</td>
+            <td class="num muted">-</td>
+            <td>20:08</td>
+        </tr>
+        <tr>
+            <td class="addr-col"><div class="addr-main">MLS# 4356934 (not in local DB)</div><div class="addr-detail">MLS# 4356934</div></td>
+            <td class="price">$535,000</td>
+            <td class="num">1</td>
+            <td class="num muted">-</td>
+            <td class="num muted">-</td>
+            <td>20:11</td>
+        </tr>
+</tbody></table></div>
+
+<div class="contact-card">
+    <div class="contact-header">
+        <div>
+            <span class="contact-name">Andy Frauenfelder</span>
+            <span class="activity-counts"> (3 views)</span>
+        </div>
+        <div class="contact-meta">
+            <span class="stage-badge" style="background:#64748b">Nurture</span>
+            <span class="heat-badge">Heat: 100</span>
+        </div>
+    </div>
+    <table>
+        <colgroup>
+            <col class="col-prop"><col class="col-price"><col class="col-views">
+            <col class="col-fav"><col class="col-shared"><col class="col-time">
+        </colgroup>
+        <thead><tr>
+            <th>Property</th>
+            <th>Price</th>
+            <th class="num">Views</th>
+            <th class="num">Fav</th>
+            <th class="num">Shared</th>
+            <th>Time(s)</th>
+        </tr></thead>
+        <tbody>
+        <tr>
+            <td class="addr-col"><div class="addr-main">MLS# 4342413 (not in local DB)</div><div class="addr-detail">MLS# 4342413</div></td>
+            <td class="price">$149,000</td>
+            <td class="num">1</td>
+            <td class="num muted">-</td>
+            <td class="num muted">-</td>
+            <td>11:25</td>
+        </tr>
+        <tr>
+            <td class="addr-col"><div class="addr-main">MLS# 4356389 (not in local DB)</div><div class="addr-detail">MLS# 4356389</div></td>
+            <td class="price">$239,000</td>
+            <td class="num">1</td>
+            <td class="num muted">-</td>
+            <td class="num muted">-</td>
+            <td>11:28</td>
+        </tr>
+        <tr>
+            <td class="addr-col"><div class="addr-main">MLS# 4357630 (not in local DB)</div><div class="addr-detail">MLS# 4357630</div></td>
+            <td class="price">$224,900</td>
+            <td class="num">1</td>
+            <td class="num muted">-</td>
+            <td class="num muted">-</td>
+            <td>11:24</td>
+        </tr>
+</tbody></table></div>
+
+<div class="contact-card">
+    <div class="contact-header">
+        <div>
+            <span class="contact-name">Julio Garcia</span>
+            <span class="activity-counts"> (1 views)</span>
+        </div>
+        <div class="contact-meta">
+            <span class="stage-badge" style="background:#64748b">Nurture</span>
+            <span class="heat-badge">Heat: 45</span>
+        </div>
+    </div>
+    <table>
+        <colgroup>
+            <col class="col-prop"><col class="col-price"><col class="col-views">
+            <col class="col-fav"><col class="col-shared"><col class="col-time">
+        </colgroup>
+        <thead><tr>
+            <th>Property</th>
+            <th>Price</th>
+            <th class="num">Views</th>
+            <th class="num">Fav</th>
+            <th class="num">Shared</th>
+            <th>Time(s)</th>
+        </tr></thead>
+        <tbody>
+        <tr>
+            <td class="addr-col"><div class="addr-main">Lot 13 Little Fawn, Franklin, NC, 28734</div><div class="addr-detail">3.10 ac | Land</div></td>
+            <td class="price">$75,000</td>
+            <td class="num">1</td>
+            <td class="num muted">-</td>
+            <td class="num muted">-</td>
+            <td>14:38</td>
+        </tr>
+</tbody></table></div>
+
+<div class="contact-card">
+    <div class="contact-header">
+        <div>
+            <span class="contact-name">Beth Graham</span>
+            <span class="activity-counts"> (6 views)</span>
+        </div>
+        <div class="contact-meta">
+            <span class="stage-badge" style="background:#64748b">Nurture</span>
+            <span class="heat-badge">Heat: 44</span>
+        </div>
+    </div>
+    <table>
+        <colgroup>
+            <col class="col-prop"><col class="col-price"><col class="col-views">
+            <col class="col-fav"><col class="col-shared"><col class="col-time">
+        </colgroup>
+        <thead><tr>
+            <th>Property</th>
+            <th>Price</th>
+            <th class="num">Views</th>
+            <th class="num">Fav</th>
+            <th class="num">Shared</th>
+            <th>Time(s)</th>
+        </tr></thead>
+        <tbody>
+        <tr>
+            <td class="addr-col"><div class="addr-main">MLS# 1002747 (not in local DB)</div><div class="addr-detail">MLS# 1002747</div></td>
+            <td class="price">$225,000</td>
+            <td class="num">1</td>
+            <td class="num muted">-</td>
+            <td class="num muted">-</td>
+            <td>01:25</td>
+        </tr>
+        <tr>
+            <td class="addr-col"><div class="addr-main">157 Crosspatch Lane, Bryson City, NC, 28713</div><div class="addr-detail">2bd | 2ba | 1.23 ac | Residential</div></td>
+            <td class="price">$300,000</td>
+            <td class="num">1</td>
+            <td class="num muted">-</td>
+            <td class="num muted">-</td>
+            <td>01:18</td>
+        </tr>
+        <tr>
+            <td class="addr-col"><div class="addr-main">275 Conard Cir, Bryson City, NC, 28713</div><div class="addr-detail">2bd | 1ba | 0.70 ac | Residential</div></td>
+            <td class="price">$238,000</td>
+            <td class="num">1</td>
+            <td class="num muted">-</td>
+            <td class="num muted">-</td>
+            <td>00:14</td>
+        </tr>
+        <tr>
+            <td class="addr-col"><div class="addr-main">24 Tillie Lane, Bryson City, NC, 28713</div><div class="addr-detail">2bd | 1ba | 0.33 ac | Residential</div></td>
+            <td class="price">$179,000</td>
+            <td class="num">1</td>
+            <td class="num muted">-</td>
+            <td class="num muted">-</td>
+            <td>01:25</td>
+        </tr>
+        <tr>
+            <td class="addr-col"><div class="addr-main">848 S Country Club Drive, Cullowhee, NC, 28723</div><div class="addr-detail">3bd | 2ba | 0.72 ac | Residential</div></td>
+            <td class="price">$285,000</td>
+            <td class="num">1</td>
+            <td class="num muted">-</td>
+            <td class="num muted">-</td>
+            <td>01:22</td>
+        </tr>
+        <tr>
+            <td class="addr-col"><div class="addr-main">468 Hosta Drive, Sylva, NC, 28723</div><div class="addr-detail">2bd | 1ba | 684 sqft | 5.73 ac | Residential</div></td>
+            <td class="price">$240,000</td>
+            <td class="num">1</td>
+            <td class="num muted">-</td>
+            <td class="num muted">-</td>
+            <td>01:21</td>
+        </tr>
+</tbody></table></div>
+
+<div class="contact-card">
+    <div class="contact-header">
+        <div>
+            <span class="contact-name">Cathy Hamilton</span>
+            <span class="activity-counts"> (4 views, 2 favorites)</span>
+        </div>
+        <div class="contact-meta">
+            <span class="stage-badge" style="background:#64748b">Nurture</span>
+            <span class="heat-badge">Heat: 100</span>
+        </div>
+    </div>
+    <table>
+        <colgroup>
+            <col class="col-prop"><col class="col-price"><col class="col-views">
+            <col class="col-fav"><col class="col-shared"><col class="col-time">
+        </colgroup>
+        <thead><tr>
+            <th>Property</th>
+            <th>Price</th>
+            <th class="num">Views</th>
+            <th class="num">Fav</th>
+            <th class="num">Shared</th>
+            <th>Time(s)</th>
+        </tr></thead>
+        <tbody>
+        <tr>
+            <td class="addr-col"><div class="addr-main">MLS# 4298651 (not in local DB)</div><div class="addr-detail">MLS# 4298651</div></td>
+            <td class="price">$525,000</td>
+            <td class="num">1</td>
+            <td class="num muted">-</td>
+            <td class="num muted">-</td>
+            <td>23:05</td>
+        </tr>
+        <tr>
+            <td class="addr-col"><div class="addr-main">MLS# 4334075 (not in local DB)</div><div class="addr-detail">MLS# 4334075</div></td>
+            <td class="price">$510,000</td>
+            <td class="num">1</td>
+            <td class="num fav">1</td>
+            <td class="num muted">-</td>
+            <td>22:52, 22:53</td>
+        </tr>
+        <tr>
+            <td class="addr-col"><div class="addr-main">MLS# 4334322 (not in local DB)</div><div class="addr-detail">MLS# 4334322</div></td>
+            <td class="price">$540,000</td>
+            <td class="num">1</td>
+            <td class="num fav">1</td>
+            <td class="num muted">-</td>
+            <td>23:06</td>
+        </tr>
+        <tr>
+            <td class="addr-col"><div class="addr-main">MLS# 4335338 (not in local DB)</div><div class="addr-detail">MLS# 4335338</div></td>
+            <td class="price">$575,000</td>
+            <td class="num">1</td>
+            <td class="num muted">-</td>
+            <td class="num muted">-</td>
+            <td>22:52</td>
+        </tr>
+</tbody></table></div>
+
+<div class="contact-card">
+    <div class="contact-header">
+        <div>
+            <span class="contact-name">Bill Hollenbeck</span>
+            <span class="activity-counts"> (1 views)</span>
+        </div>
+        <div class="contact-meta">
+            <span class="stage-badge" style="background:#7c3aed">Lead</span>
+            <span class="heat-badge">Heat: 100</span>
+        </div>
+    </div>
+    <table>
+        <colgroup>
+            <col class="col-prop"><col class="col-price"><col class="col-views">
+            <col class="col-fav"><col class="col-shared"><col class="col-time">
+        </colgroup>
+        <thead><tr>
+            <th>Property</th>
+            <th>Price</th>
+            <th class="num">Views</th>
+            <th class="num">Fav</th>
+            <th class="num">Shared</th>
+            <th>Time(s)</th>
+        </tr></thead>
+        <tbody>
+        <tr>
+            <td class="addr-col"><div class="addr-main">Lot 95 Doghobble Drive, Franklin, NC, 28734</div><div class="addr-detail">1.67 ac | Land</div></td>
+            <td class="price">$21,500</td>
+            <td class="num">1</td>
+            <td class="num muted">-</td>
+            <td class="num muted">-</td>
+            <td>11:13</td>
+        </tr>
+</tbody></table></div>
+
+<div class="contact-card">
+    <div class="contact-header">
+        <div>
+            <span class="contact-name">Thomas Kenny</span>
+            <span class="activity-counts"> (2 views)</span>
+        </div>
+        <div class="contact-meta">
+            <span class="stage-badge" style="background:#64748b">Nurture</span>
+            <span class="heat-badge">Heat: 56</span>
+        </div>
+    </div>
+    <table>
+        <colgroup>
+            <col class="col-prop"><col class="col-price"><col class="col-views">
+            <col class="col-fav"><col class="col-shared"><col class="col-time">
+        </colgroup>
+        <thead><tr>
+            <th>Property</th>
+            <th>Price</th>
+            <th class="num">Views</th>
+            <th class="num">Fav</th>
+            <th class="num">Shared</th>
+            <th>Time(s)</th>
+        </tr></thead>
+        <tbody>
+        <tr>
+            <td class="addr-col"><div class="addr-main">MLS# 4349761 (not in local DB)</div><div class="addr-detail">MLS# 4349761</div></td>
+            <td class="price">$2,700,000</td>
+            <td class="num">1</td>
+            <td class="num muted">-</td>
+            <td class="num muted">-</td>
+            <td>14:41</td>
+        </tr>
+        <tr>
+            <td class="addr-col"><div class="addr-main">MLS# 4357405 (not in local DB)</div><div class="addr-detail">MLS# 4357405</div></td>
+            <td class="price">$1,800,000</td>
+            <td class="num">1</td>
+            <td class="num muted">-</td>
+            <td class="num muted">-</td>
+            <td>14:42</td>
+        </tr>
+</tbody></table></div>
+
+<div class="contact-card">
+    <div class="contact-header">
+        <div>
+            <span class="contact-name">Steve Legg</span>
+            <span class="activity-counts"> (1 views, 1 favorites)</span>
+        </div>
+        <div class="contact-meta">
+            <span class="stage-badge" style="background:#137333">Active Client</span>
+            <span class="heat-badge">Heat: 100</span>
+        </div>
+    </div>
+    <table>
+        <colgroup>
+            <col class="col-prop"><col class="col-price"><col class="col-views">
+            <col class="col-fav"><col class="col-shared"><col class="col-time">
+        </colgroup>
+        <thead><tr>
+            <th>Property</th>
+            <th>Price</th>
+            <th class="num">Views</th>
+            <th class="num">Fav</th>
+            <th class="num">Shared</th>
+            <th>Time(s)</th>
+        </tr></thead>
+        <tbody>
+        <tr>
+            <td class="addr-col"><div class="addr-main">MLS# 4357595 (not in local DB)</div><div class="addr-detail">MLS# 4357595</div></td>
+            <td class="price">$850,000</td>
+            <td class="num">1</td>
+            <td class="num fav">1</td>
+            <td class="num muted">-</td>
+            <td>12:33, 12:34</td>
+        </tr>
+</tbody></table></div>
+
+<div class="contact-card">
+    <div class="contact-header">
+        <div>
+            <span class="contact-name">Ronnie Winegar</span>
+            <span class="activity-counts"> (1 views)</span>
+        </div>
+        <div class="contact-meta">
+            <span class="stage-badge" style="background:#137333">Active Client</span>
+            <span class="heat-badge">Heat: 66</span>
+        </div>
+    </div>
+    <table>
+        <colgroup>
+            <col class="col-prop"><col class="col-price"><col class="col-views">
+            <col class="col-fav"><col class="col-shared"><col class="col-time">
+        </colgroup>
+        <thead><tr>
+            <th>Property</th>
+            <th>Price</th>
+            <th class="num">Views</th>
+            <th class="num">Fav</th>
+            <th class="num">Shared</th>
+            <th>Time(s)</th>
+        </tr></thead>
+        <tbody>
+        <tr>
+            <td class="addr-col"><div class="addr-main">MLS# 4357466 (not in local DB)</div><div class="addr-detail">MLS# 4357466</div></td>
+            <td class="price">$99,000</td>
+            <td class="num">1</td>
+            <td class="num muted">-</td>
+            <td class="num muted">-</td>
+            <td>13:01</td>
+        </tr>
+</tbody></table></div>
+
+<div class="contact-card">
+    <div class="contact-header">
+        <div>
+            <span class="contact-name">Paul Zak</span>
+            <span class="activity-counts"> (2 views)</span>
+        </div>
+        <div class="contact-meta">
+            <span class="stage-badge" style="background:#64748b">Nurture</span>
+            <span class="heat-badge">Heat: 53</span>
+        </div>
+    </div>
+    <table>
+        <colgroup>
+            <col class="col-prop"><col class="col-price"><col class="col-views">
+            <col class="col-fav"><col class="col-shared"><col class="col-time">
+        </colgroup>
+        <thead><tr>
+            <th>Property</th>
+            <th>Price</th>
+            <th class="num">Views</th>
+            <th class="num">Fav</th>
+            <th class="num">Shared</th>
+            <th>Time(s)</th>
+        </tr></thead>
+        <tbody>
+        <tr>
+            <td class="addr-col"><div class="addr-main">MLS# 1002817 (not in local DB)</div><div class="addr-detail">MLS# 1002817</div></td>
+            <td class="price">$599,900</td>
+            <td class="num">1</td>
+            <td class="num muted">-</td>
+            <td class="num muted">-</td>
+            <td>11:44</td>
+        </tr>
+        <tr>
+            <td class="addr-col"><div class="addr-main">MLS# 4356934 (not in local DB)</div><div class="addr-detail">MLS# 4356934</div></td>
+            <td class="price">$535,000</td>
+            <td class="num">1</td>
+            <td class="num muted">-</td>
+            <td class="num muted">-</td>
+            <td>11:44</td>
+        </tr>
+</tbody></table></div>
+
+<div class="footer">
+    Generated March 19, 2026 at 09:50 PM | myDREAMS Property Activity Report
+</div>
+</body></html>

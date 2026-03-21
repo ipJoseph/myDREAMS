@@ -7,41 +7,11 @@ interface PhotoBrowserProps {
   photos: string[];
   address: string;
   city: string;
-  /** If set, fetches fresh gallery photo URLs from /api/public/listings/:id/photos */
-  listingId?: string;
 }
 
-export default function PhotoBrowser({ photos: initialPhotos, address, city, listingId }: PhotoBrowserProps) {
-  const [photos, setPhotos] = useState(initialPhotos);
+export default function PhotoBrowser({ photos, address, city }: PhotoBrowserProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [current, setCurrent] = useState(0);
-
-  // Async photo refresh for MLS Grid listings (CDN tokens expire in ~1 hour)
-  useEffect(() => {
-    if (!listingId) return;
-
-    let cancelled = false;
-    fetch(`/api/public/listings/${listingId}/photos`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (cancelled || !data.success) return;
-        const fresh: string[] = data.data;
-        if (fresh.length > 0) {
-          // Keep the local primary photo (index 0) if it's a local path,
-          // then use fresh URLs for the rest of the gallery
-          const primary = initialPhotos[0];
-          const isLocalPrimary = primary && primary.startsWith("/api/public/photos/");
-          if (isLocalPrimary) {
-            setPhotos([primary, ...fresh.slice(1)]);
-          } else {
-            setPhotos(fresh);
-          }
-        }
-      })
-      .catch(() => {});
-
-    return () => { cancelled = true; };
-  }, [listingId, initialPhotos]);
 
   const open = useCallback((index: number = 0) => {
     setCurrent(index);
@@ -209,7 +179,7 @@ export default function PhotoBrowser({ photos: initialPhotos, address, city, lis
               </svg>
             </button>
 
-            {/* Current photo - unoptimized to load full-res directly from CDN */}
+            {/* Current photo */}
             <div className="relative w-full h-full max-w-5xl mx-16">
               <Image
                 key={current}

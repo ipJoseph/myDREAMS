@@ -61,7 +61,7 @@ def load_env():
 
 
 def run_incremental():
-    """Standard incremental sync (every 15 min) + WNC photo URL refresh."""
+    """Standard incremental sync (every 15 min)."""
     logger = logging.getLogger('mlsgrid.cron')
     logger.info("Starting incremental sync (Canopy MLS via MLS Grid)...")
 
@@ -75,11 +75,6 @@ def run_incremental():
         f"{stats['updated']} updated, "
         f"{stats['errors']} errors"
     )
-
-    # Refresh photo CDN URLs for WNC listings (tokens expire in ~1 hour)
-    logger.info("Refreshing photo URLs for WNC listings...")
-    photo_stats = engine.refresh_photo_urls(zones=[1, 2])
-    logger.info(f"Photo refresh: {photo_stats['refreshed']} listings updated")
 
     return stats
 

@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   images: {
-    // Allow MLS photos from CDN and local API
+    // Allow MLS photos from local API and CloudFront (Navica)
     remotePatterns: [
       {
         protocol: "https",
@@ -11,10 +11,6 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "api.wncmountain.homes",
-      },
-      {
-        protocol: "https",
-        hostname: "media.mlsgrid.com",
       },
       {
         protocol: "http",

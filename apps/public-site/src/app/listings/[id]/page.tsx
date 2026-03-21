@@ -100,7 +100,6 @@ export default async function ListingDetailPage({ params }: PageProps) {
           photos={allPhotos}
           address={listing.address}
           city={listing.city}
-          listingId={"photos_require_refresh" in listing ? listing.id : undefined}
         />
       </section>
 
