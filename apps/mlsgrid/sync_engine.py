@@ -49,6 +49,7 @@ from apps.navica.field_mapper import (
     generate_listing_id,
     ensure_listing_columns,
     parse_timestamp,
+    extract_photos,
 )
 
 
@@ -638,6 +639,104 @@ class MLSGridSyncEngine:
 
         stats['completed_at'] = datetime.now().isoformat()
         stats['api_stats'] = self.client.get_stats()
+        return stats
+
+    def refresh_photo_urls(self, zones: List[int] = None) -> Dict[str, int]:
+        """
+        Refresh photo CDN URLs for active WNC listings.
+
+        MLS Grid CDN tokens expire in ~1 hour. This method re-fetches
+        active listings with $expand=Media to get fresh URLs, then
+        updates only the photos and photos_refreshed_at columns.
+
+        Runs in ~17 seconds for WNC zones 1+2 (~5,600 listings).
+
+        Args:
+            zones: List of zone numbers to refresh (default: [1, 2])
+
+        Returns:
+            Stats dict with count of refreshed listings
+        """
+        if zones is None:
+            zones = [1, 2]
+
+        self._init_client()
+
+        stats = {'fetched': 0, 'refreshed': 0, 'errors': 0}
+
+        # Fetch all active listings with Media
+        try:
+            properties = self.client.fetch_properties(
+                status='Active',
+                expand_media=True,
+            )
+        except Exception as e:
+            logger.error(f"Photo refresh fetch failed: {e}")
+            stats['errors'] += 1
+            return stats
+
+        stats['fetched'] = len(properties)
+
+        # Build a lookup of mls_number -> fresh photo URLs
+        fresh_photos = {}
+        for prop in properties:
+            mls = prop.get('ListingId') or prop.get('ListingKey')
+            if not mls:
+                continue
+            media = prop.get('Media', [])
+            if not media:
+                continue
+            _, photo_urls, photo_count = extract_photos(media)
+            if photo_urls:
+                fresh_photos[mls] = (json.dumps(photo_urls), photo_count)
+
+        if not fresh_photos:
+            logger.info("No photo URLs to refresh")
+            return stats
+
+        # Update only WNC listings in the target zones
+        conn = sqlite3.connect(str(self.db_path))
+        conn.row_factory = sqlite3.Row
+
+        try:
+            placeholders = ','.join(['?'] * len(zones))
+            wnc_listings = conn.execute(
+                f"SELECT mls_number FROM listings "
+                f"WHERE mls_source = ? AND UPPER(status) = 'ACTIVE' "
+                f"AND zone IN ({placeholders})",
+                [self.mls_source] + zones
+            ).fetchall()
+
+            now = datetime.now().isoformat()
+            batch = []
+
+            for row in wnc_listings:
+                mls = row['mls_number']
+                if mls in fresh_photos:
+                    photos_json, count = fresh_photos[mls]
+                    batch.append((photos_json, count, now, mls, self.mls_source))
+
+            if batch:
+                conn.executemany(
+                    "UPDATE listings SET photos = ?, photo_count = ?, "
+                    "photos_refreshed_at = ? "
+                    "WHERE mls_number = ? AND mls_source = ?",
+                    batch
+                )
+                conn.commit()
+                stats['refreshed'] = len(batch)
+
+            logger.info(
+                f"Photo URL refresh: {stats['refreshed']} WNC listings updated "
+                f"(out of {len(fresh_photos)} total with photos)"
+            )
+
+        except Exception as e:
+            logger.error(f"Photo refresh DB update failed: {e}")
+            stats['errors'] += 1
+        finally:
+            conn.close()
+
         return stats
 
     def sync_members(self, dry_run: bool = False) -> Dict[str, int]:
