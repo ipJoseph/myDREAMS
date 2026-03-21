@@ -153,7 +153,8 @@ def download_listing_gallery(mls_number: str, photos_json: str) -> dict:
 
 def update_db_only(photos_dir: Path, db_path: Path):
     """Rebuild photos column from files already on disk."""
-    conn = sqlite3.connect(str(db_path))
+    conn = sqlite3.connect(str(db_path), timeout=60)
+    conn.execute('PRAGMA busy_timeout=60000')
     conn.row_factory = sqlite3.Row
 
     rows = conn.execute(
@@ -197,15 +198,20 @@ def update_db_only(photos_dir: Path, db_path: Path):
         if local_paths:
             updates.append((json.dumps(local_paths), mls))
 
-    if updates:
+    # Batch updates in chunks to avoid long locks
+    for i in range(0, len(updates), 100):
+        batch = updates[i:i + 100]
         conn.executemany(
             "UPDATE listings SET photos = ? WHERE mls_number = ?",
-            updates
+            batch
         )
         conn.commit()
+        done = min(i + 100, len(updates))
+        if done % 1000 == 0 or done == len(updates):
+            print(f"  {done:,}/{len(updates):,} updated")
 
     conn.close()
-    print(f"Updated photos column for {len(updates)} listings.")
+    print(f"Updated photos column for {len(updates):,} listings.")
 
 
 def main():
