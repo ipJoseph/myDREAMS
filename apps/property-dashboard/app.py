@@ -4316,6 +4316,106 @@ def scoring_runs_list():
 
 
 # =========================================================================
+# PHOTO STATUS DASHBOARD
+# =========================================================================
+
+@app.route('/system/photo-status')
+@requires_auth
+def photo_status():
+    """Photo download status across all MLS sources."""
+    import json as json_mod
+    from pathlib import Path
+
+    db_conn = sqlite3.connect(DB_PATH)
+    db_conn.row_factory = sqlite3.Row
+
+    # Per-source stats
+    sources = db_conn.execute("""
+        SELECT
+            mls_source,
+            COUNT(*) as total,
+            SUM(CASE WHEN UPPER(status) = 'ACTIVE' THEN 1 ELSE 0 END) as active,
+            SUM(CASE WHEN UPPER(status) = 'PENDING' THEN 1 ELSE 0 END) as pending,
+            SUM(CASE WHEN photo_local_path IS NOT NULL THEN 1 ELSE 0 END) as primary_photos,
+            SUM(CASE WHEN primary_photo IS NOT NULL THEN 1 ELSE 0 END) as has_photo_url,
+            SUM(CASE WHEN photos IS NOT NULL THEN 1 ELSE 0 END) as has_gallery
+        FROM listings
+        GROUP BY mls_source
+        ORDER BY total DESC
+    """).fetchall()
+
+    source_stats = []
+    for s in sources:
+        row = dict(s)
+
+        # Count gallery photos that are localized vs CDN
+        gallery_result = db_conn.execute("""
+            SELECT photos FROM listings
+            WHERE mls_source = ? AND photos IS NOT NULL
+            LIMIT 500
+        """, [row['mls_source']]).fetchall()
+
+        gallery_local = 0
+        gallery_cdn = 0
+        gallery_total = 0
+        for g in gallery_result:
+            try:
+                urls = json_mod.loads(g['photos'])
+                for u in urls:
+                    if isinstance(u, str):
+                        gallery_total += 1
+                        if u.startswith('/api/'):
+                            gallery_local += 1
+                        elif u.startswith('http'):
+                            gallery_cdn += 1
+            except (json_mod.JSONDecodeError, TypeError):
+                pass
+
+        row['gallery_local'] = gallery_local
+        row['gallery_cdn'] = gallery_cdn
+        row['gallery_total'] = gallery_total
+        row['gallery_sample_size'] = len(gallery_result)
+        source_stats.append(row)
+
+    # Sync state files
+    project_root = Path(__file__).parent.parent.parent
+    sync_states = {}
+    for name, path in [
+        ('navica', project_root / 'data' / 'navica_sync_state.json'),
+        ('mlsgrid', project_root / 'data' / 'mlsgrid_sync_state.json'),
+    ]:
+        try:
+            with open(path) as f:
+                sync_states[name] = json_mod.load(f)
+        except (FileNotFoundError, json_mod.JSONDecodeError):
+            sync_states[name] = {}
+
+    # Disk usage
+    photos_root = project_root / 'data' / 'photos'
+    disk_stats = {}
+    for subdir in ['mlsgrid', 'navica']:
+        d = photos_root / subdir
+        if d.exists():
+            files = list(d.iterdir())
+            file_count = len([f for f in files if f.is_file()])
+            total_bytes = sum(f.stat().st_size for f in files if f.is_file())
+            disk_stats[subdir] = {
+                'files': file_count,
+                'size_mb': round(total_bytes / (1024 * 1024)),
+                'size_gb': round(total_bytes / (1024 * 1024 * 1024), 1),
+            }
+        else:
+            disk_stats[subdir] = {'files': 0, 'size_mb': 0, 'size_gb': 0}
+
+    db_conn.close()
+
+    return render_template('photo_status.html',
+                         source_stats=source_stats,
+                         sync_states=sync_states,
+                         disk_stats=disk_stats)
+
+
+# =========================================================================
 # MY LEADS PAGE
 # =========================================================================
 
