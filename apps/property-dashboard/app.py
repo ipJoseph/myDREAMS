@@ -3437,7 +3437,7 @@ def client_dashboard(client_name):
 from src.core.listing_service import PHOTOS_DIRS as _PHOTOS_DIRS
 
 @app.route('/api/public/photos/<source>/<filename>')
-def serve_photo(source, filename):
+def serve_listing_photo(source, filename):
     """Serve locally-downloaded MLS photos (same URL scheme as the API)."""
     photos_dir = _PHOTOS_DIRS.get(source)
     if not photos_dir or not photos_dir.is_dir():
