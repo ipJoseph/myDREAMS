@@ -12,8 +12,11 @@ Business logic for the DREAMS platform:
 
 from src.core.database import DREAMSDatabase
 from src.core.matching_engine import MatchingEngine
+from src.core.listing_service import ListingService, ListingFilters
 
 __all__ = [
     "DREAMSDatabase",
     "MatchingEngine",
+    "ListingService",
+    "ListingFilters",
 ]

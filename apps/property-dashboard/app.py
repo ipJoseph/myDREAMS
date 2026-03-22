@@ -34,6 +34,13 @@ sys.path.insert(0, str(PROJECT_ROOT))
 load_dotenv(PROJECT_ROOT / '.env')
 
 from src.core.database import DREAMSDatabase
+from src.core.listing_service import (
+    ListingService, ListingFilters, SearchResult,
+    localize_photo, compute_dom, MLS_DISPLAY_NAMES,
+)
+
+# Alias for backward compatibility with other routes in this file
+_calculate_dom = compute_dom
 
 # Import intelligence briefing engine
 try:
@@ -47,6 +54,7 @@ except ImportError:
 # Initialize database connection
 DB_PATH = os.getenv('DREAMS_DB_PATH', str(PROJECT_ROOT / 'data' / 'dreams.db'))
 db = DREAMSDatabase(DB_PATH)
+listing_service = ListingService(DB_PATH)
 
 # Import task sync dashboard integration (optional - graceful degradation if not available)
 try:
@@ -520,135 +528,47 @@ def extract_property(prop: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     }
 
 
-def _calculate_dom(prop: Dict) -> Optional[int]:
-    """
-    Calculate Days on Market from list_date.
-
-    Priority:
-    1. Calculate from list_date if available
-    2. Fall back to stored days_on_market
-    3. Calculate from created_at as last resort
-
-    For non-active statuses (Sold, Withdrawn, etc.), use stored DOM as final value.
-    """
-    from datetime import datetime
-
-    status = (prop.get('status') or '').lower()
-    stored_dom = prop.get('days_on_market')
-
-    # For sold/withdrawn/terminated properties, use the stored DOM (final value)
-    if status in ('sold', 'withdrawn', 'terminated', 'expired', 'off market'):
-        return stored_dom
-
-    # For active listings, calculate DOM
-    list_date_str = prop.get('list_date')
-    if list_date_str:
-        try:
-            # Parse the list date (handle various formats)
-            if 'T' in str(list_date_str):
-                list_date = datetime.fromisoformat(list_date_str.replace('Z', '+00:00'))
-            else:
-                list_date = datetime.strptime(str(list_date_str)[:10], '%Y-%m-%d')
-            dom = (datetime.now() - list_date.replace(tzinfo=None)).days
-            return max(0, dom)  # Ensure non-negative
-        except (ValueError, TypeError):
-            pass
-
-    # Fall back to stored DOM
-    if stored_dom is not None:
-        return stored_dom
-
-    # Last resort: calculate from created_at
-    created_at_str = prop.get('created_at')
-    if created_at_str:
-        try:
-            if 'T' in str(created_at_str):
-                created_at = datetime.fromisoformat(created_at_str.replace('Z', '+00:00'))
-            else:
-                created_at = datetime.strptime(str(created_at_str)[:10], '%Y-%m-%d')
-            dom = (datetime.now() - created_at.replace(tzinfo=None)).days
-            return max(0, dom)
-        except (ValueError, TypeError):
-            pass
-
-    return None
-
-
 def get_filter_options() -> Dict[str, Any]:
-    """Get distinct values for filter dropdowns - efficient single query approach"""
-    with db._get_connection() as conn:
-        options: Dict[str, Any] = {}
-        table = 'listings'
-
-        # Use indexed columns with DISTINCT for fast retrieval
-        options['clients'] = sorted([r[0] for r in conn.execute(
-            f"SELECT DISTINCT added_for FROM {table} WHERE added_for IS NOT NULL AND added_for != ''"
-        ).fetchall()])
-        options['cities'] = sorted([r[0] for r in conn.execute(
-            f"SELECT DISTINCT city FROM {table} WHERE city IS NOT NULL AND city != ''"
-        ).fetchall()])
-        options['counties'] = sorted([r[0] for r in conn.execute(
-            f"SELECT DISTINCT county FROM {table} WHERE county IS NOT NULL AND county != ''"
-        ).fetchall()])
-        options['statuses'] = sorted([r[0] for r in conn.execute(
-            f"SELECT DISTINCT status FROM {table} WHERE status IS NOT NULL AND status != ''"
-        ).fetchall()])
-
-        # County -> cities mapping for cascade filtering
-        county_cities: Dict[str, List[str]] = {}
-        rows = conn.execute(
-            f"SELECT DISTINCT county, city FROM {table} "
-            f"WHERE county IS NOT NULL AND county != '' AND city IS NOT NULL AND city != '' "
-            f"ORDER BY county, city"
-        ).fetchall()
-        for county, city in rows:
-            county_cities.setdefault(county, []).append(city)
-        options['county_cities'] = county_cities
-
-        return options
+    """Get distinct values for filter dropdowns via ListingService."""
+    return listing_service.get_filter_options()
 
 
-def _build_multi_where(query: str, params: list, column: str, value: str, use_like: bool = False) -> str:
-    """Build WHERE clause for a potentially comma-separated multi-value filter.
-    Returns updated query string; modifies params list in place."""
-    if not value:
-        return query
-    values = [v.strip() for v in value.split(',') if v.strip()]
-    if not values:
-        return query
-    if len(values) == 1:
-        if use_like:
-            query += f' AND {column} LIKE ?'
-            params.append(f'%{values[0]}%')
-        else:
-            query += f' AND LOWER({column}) = LOWER(?)'
-            params.append(values[0])
-    else:
-        if use_like:
-            # Multiple LIKE conditions joined with OR
-            likes = ' OR '.join([f'{column} LIKE ?' for _ in values])
-            query += f' AND ({likes})'
-            params.extend([f'%{v}%' for v in values])
-        else:
-            placeholders = ','.join(['LOWER(?)'] * len(values))
-            query += f' AND LOWER({column}) IN ({placeholders})'
-            params.extend(values)
-    return query
+# Sort alias mapping: dashboard uses short names, service uses column names
+_DASHBOARD_SORT_MAP = {
+    'price': 'list_price', 'address': 'address', 'city': 'city', 'county': 'county',
+    'beds': 'beds', 'baths': 'baths', 'sqft': 'sqft', 'acreage': 'acreage',
+    'status': 'status', 'dom': 'days_on_market', 'year_built': 'year_built',
+    'created_at': 'captured_at', 'mls_number': 'mls_number',
+    'elevation': 'elevation_feet',
+}
 
 
-def parse_mls_list(q: str) -> list | None:
-    """Detect and parse multiple MLS numbers from search input.
-    Returns list of MLS numbers if input looks like a multi-MLS query,
-    or None to fall through to normal LIKE search.
+def _normalize_for_template(prop: dict) -> dict:
+    """Map listing_service field names to dashboard template aliases.
+
+    Templates expect: price, lot_acres, dom, hoa, photo_url, date_saved, last_updated.
+    The service returns: list_price, acreage, days_on_market, hoa_fee, primary_photo, etc.
     """
-    tokens = re.split(r'[,;\s]+', q.strip())
-    tokens = [t.strip() for t in tokens if t.strip()]
-    if len(tokens) < 2:
-        return None
-    for t in tokens:
-        if not re.match(r'^[A-Za-z0-9\-]{4,12}$', t):
-            return None
-    return tokens
+    prop['price'] = prop.get('list_price')
+
+    price = prop.get('price')
+    sqft = prop.get('sqft')
+    prop['price_per_sqft'] = round(price / sqft, 2) if price and sqft and sqft > 0 else None
+
+    prop['lot_acres'] = prop.get('acreage')
+    prop['dom'] = prop.get('days_on_market')
+    prop['tax_annual'] = prop.get('tax_annual_amount')
+    prop['hoa'] = prop.get('hoa_fee')
+    prop['date_saved'] = prop.get('captured_at')
+    prop['last_updated'] = prop.get('updated_at')
+    prop['photo_url'] = prop.get('primary_photo')
+    prop['favorites'] = None
+
+    # Clean county name (remove 'County' suffix)
+    if prop.get('county'):
+        prop['county'] = re.sub(r'\s+County$', '', prop['county'], flags=re.IGNORECASE).strip()
+
+    return prop
 
 
 def count_properties(added_for: Optional[str] = None, status: Optional[str] = None,
@@ -656,71 +576,19 @@ def count_properties(added_for: Optional[str] = None, status: Optional[str] = No
                      q: Optional[str] = None, min_price: Optional[int] = None,
                      max_price: Optional[int] = None, min_beds: Optional[int] = None,
                      bbo_only: bool = False) -> int:
-    """Count properties matching filters (for pagination)"""
-    with db._get_connection() as conn:
-        table = 'listings'
-
-        query = f'SELECT COUNT(*) FROM {table} WHERE 1=1'
-        params = []
-
-        if bbo_only:
-            query += " AND feed_types = '[\"BBO\"]' AND LOWER(status) = 'active'"
-        elif added_for:
-            query += ' AND added_for LIKE ?'
-            params.append(f'%{added_for}%')
-        if status and not bbo_only:
-            query += ' AND LOWER(status) = LOWER(?)'
-            params.append(status)
-        query = _build_multi_where(query, params, 'city', city)
-        query = _build_multi_where(query, params, 'county', county, use_like=True)
-        mls_list = parse_mls_list(q) if q else None
-        if mls_list:
-            placeholders = ','.join(['?'] * len(mls_list))
-            query += f' AND mls_number IN ({placeholders})'
-            params.extend(mls_list)
-        elif q:
-            words = q.strip().split()
-            if len(words) == 1:
-                query += ' AND (address LIKE ? OR mls_number LIKE ? OR city LIKE ? OR listing_agent_name LIKE ?)'
-                q_param = f'%{words[0]}%'
-                params.extend([q_param, q_param, q_param, q_param])
-            else:
-                word_conds = []
-                for word in words:
-                    wt = f'%{word}%'
-                    word_conds.append('(address LIKE ? OR mls_number LIKE ? OR city LIKE ? OR listing_agent_name LIKE ?)')
-                    params.extend([wt, wt, wt, wt])
-                query += ' AND (' + ' AND '.join(word_conds) + ')'
-        if min_price is not None:
-            query += ' AND list_price >= ?'
-            params.append(min_price)
-        if max_price is not None:
-            query += ' AND list_price <= ?'
-            params.append(max_price)
-        if min_beds is not None:
-            query += ' AND beds >= ?'
-            params.append(min_beds)
-
-        # Cross-MLS dedup for count
-        query += (
-            " AND (address_key IS NULL OR NOT EXISTS ("
-            "SELECT 1 FROM listings dup "
-            "WHERE dup.address_key = listings.address_key "
-            "AND dup.property_type = listings.property_type "
-            "AND dup.id != listings.id "
-            "AND UPPER(dup.status) = UPPER(listings.status) "
-            "AND ("
-            "  CASE dup.mls_source WHEN 'NavicaMLS' THEN 1 WHEN 'MountainLakesMLS' THEN 2 WHEN 'CanopyMLS' THEN 3 ELSE 4 END"
-            "  < CASE listings.mls_source WHEN 'NavicaMLS' THEN 1 WHEN 'MountainLakesMLS' THEN 2 WHEN 'CanopyMLS' THEN 3 ELSE 4 END"
-            "  OR ("
-            "    CASE dup.mls_source WHEN 'NavicaMLS' THEN 1 WHEN 'MountainLakesMLS' THEN 2 WHEN 'CanopyMLS' THEN 3 ELSE 4 END"
-            "    = CASE listings.mls_source WHEN 'NavicaMLS' THEN 1 WHEN 'MountainLakesMLS' THEN 2 WHEN 'CanopyMLS' THEN 3 ELSE 4 END"
-            "    AND dup.updated_at > listings.updated_at"
-            "  )"
-            ")))"
-        )
-
-        return conn.execute(query, params).fetchone()[0]
+    """Count properties matching filters (for pagination) via ListingService."""
+    filters = ListingFilters(
+        status=status if status and not bbo_only else None,
+        city=city,
+        county=county,
+        min_price=min_price,
+        max_price=max_price,
+        min_beds=min_beds,
+        q=q,
+        added_for=added_for,
+        bbo_only=bbo_only,
+    )
+    return listing_service.count_listings(filters)
 
 
 def fetch_properties(added_for: Optional[str] = None, status: Optional[str] = None,
@@ -730,131 +598,35 @@ def fetch_properties(added_for: Optional[str] = None, status: Optional[str] = No
                       q: Optional[str] = None, min_price: Optional[int] = None,
                       max_price: Optional[int] = None, min_beds: Optional[int] = None,
                       bbo_only: bool = False) -> List[Dict[str, Any]]:
-    """Fetch properties from listings table with optional filters, sorting, and pagination"""
-    # Whitelist of allowed sort columns (prevents SQL injection)
-    ALLOWED_SORTS = {
-        'price': 'list_price', 'address': 'address', 'city': 'city', 'county': 'county',
-        'beds': 'beds', 'baths': 'baths', 'sqft': 'sqft', 'acreage': 'acreage',
-        'status': 'status', 'dom': 'days_on_market', 'year_built': 'year_built',
-        'created_at': 'captured_at', 'mls_number': 'mls_number',
-        'elevation': 'elevation_feet'
-    }
-    sort_column = ALLOWED_SORTS.get(sort_by, 'list_price')
-    sort_dir = 'ASC' if sort_order == 'asc' else 'DESC'
+    """Fetch properties from listings table via ListingService with template normalization."""
+    sort_column = _DASHBOARD_SORT_MAP.get(sort_by, 'list_price')
 
-    with db._get_connection() as conn:
-        table = 'listings'
+    filters = ListingFilters(
+        status=status if status and not bbo_only else None,
+        city=city,
+        county=county,
+        min_price=min_price,
+        max_price=max_price,
+        min_beds=min_beds,
+        q=q,
+        added_for=added_for,
+        bbo_only=bbo_only,
+    )
 
-        query = f'SELECT * FROM {table} WHERE 1=1'
-        params = []
+    # Calculate page from offset/limit
+    effective_limit = limit or 500
+    page = (offset // effective_limit) + 1 if effective_limit else 1
 
-        if bbo_only:
-            query += " AND feed_types = '[\"BBO\"]' AND LOWER(status) = 'active'"
-        elif added_for:
-            query += ' AND added_for LIKE ?'
-            params.append(f'%{added_for}%')
+    result = listing_service.search_listings(
+        filters,
+        sort=sort_column,
+        order=sort_order,
+        page=page,
+        limit=effective_limit,
+    )
 
-        if status and not bbo_only:
-            query += ' AND LOWER(status) = LOWER(?)'
-            params.append(status)
-
-        query = _build_multi_where(query, params, 'city', city)
-        query = _build_multi_where(query, params, 'county', county, use_like=True)
-
-        mls_list = parse_mls_list(q) if q else None
-        if mls_list:
-            placeholders = ','.join(['?'] * len(mls_list))
-            query += f' AND mls_number IN ({placeholders})'
-            params.extend(mls_list)
-        elif q:
-            words = q.strip().split()
-            if len(words) == 1:
-                query += ' AND (address LIKE ? OR mls_number LIKE ? OR city LIKE ? OR listing_agent_name LIKE ?)'
-                q_param = f'%{words[0]}%'
-                params.extend([q_param, q_param, q_param, q_param])
-            else:
-                word_conds = []
-                for word in words:
-                    wt = f'%{word}%'
-                    word_conds.append('(address LIKE ? OR mls_number LIKE ? OR city LIKE ? OR listing_agent_name LIKE ?)')
-                    params.extend([wt, wt, wt, wt])
-                query += ' AND (' + ' AND '.join(word_conds) + ')'
-
-        if min_price is not None:
-            query += ' AND list_price >= ?'
-            params.append(min_price)
-
-        if max_price is not None:
-            query += ' AND list_price <= ?'
-            params.append(max_price)
-
-        if min_beds is not None:
-            query += ' AND beds >= ?'
-            params.append(min_beds)
-
-        # Cross-MLS dedup: keep highest priority source per address
-        # Priority: NavicaMLS (1) > MountainLakesMLS (2) > CanopyMLS (3)
-        query += (
-            " AND (address_key IS NULL OR NOT EXISTS ("
-            "SELECT 1 FROM listings dup "
-            "WHERE dup.address_key = listings.address_key "
-            "AND dup.property_type = listings.property_type "
-            "AND dup.id != listings.id "
-            "AND UPPER(dup.status) = UPPER(listings.status) "
-            "AND ("
-            "  CASE dup.mls_source WHEN 'NavicaMLS' THEN 1 WHEN 'MountainLakesMLS' THEN 2 WHEN 'CanopyMLS' THEN 3 ELSE 4 END"
-            "  < CASE listings.mls_source WHEN 'NavicaMLS' THEN 1 WHEN 'MountainLakesMLS' THEN 2 WHEN 'CanopyMLS' THEN 3 ELSE 4 END"
-            "  OR ("
-            "    CASE dup.mls_source WHEN 'NavicaMLS' THEN 1 WHEN 'MountainLakesMLS' THEN 2 WHEN 'CanopyMLS' THEN 3 ELSE 4 END"
-            "    = CASE listings.mls_source WHEN 'NavicaMLS' THEN 1 WHEN 'MountainLakesMLS' THEN 2 WHEN 'CanopyMLS' THEN 3 ELSE 4 END"
-            "    AND dup.updated_at > listings.updated_at"
-            "  )"
-            ")))"
-        )
-
-        # Server-side sorting with NULLS LAST behavior
-        query += f' ORDER BY {sort_column} IS NULL, {sort_column} {sort_dir}'
-
-        # Pagination
-        if limit:
-            query += f' LIMIT {int(limit)} OFFSET {int(offset)}'
-
-        rows = conn.execute(query, params).fetchall()
-
-        # Convert to list of dicts and normalize field names for templates
-        properties = []
-        for row in rows:
-            prop = dict(row)
-            # Normalize list_price to price for template compatibility
-            prop['price'] = prop.get('list_price')
-
-            # Calculate price per sqft
-            price = prop.get('price')
-            sqft = prop.get('sqft')
-            prop['price_per_sqft'] = round(price / sqft, 2) if price and sqft and sqft > 0 else None
-
-            # Normalize field names for template compatibility
-            prop['beds'] = prop.get('beds')
-            prop['baths'] = prop.get('baths')
-            prop['lot_acres'] = prop.get('acreage')
-
-            # Calculate DOM from list_date (preferred) or fall back to stored days_on_market
-            prop['dom'] = _calculate_dom(prop)
-
-            prop['tax_annual'] = None
-            prop['hoa'] = prop.get('hoa_fee')
-            prop['date_saved'] = prop.get('captured_at')
-            prop['last_updated'] = prop.get('updated_at')
-            prop['photo_url'] = prop.get('primary_photo')
-            prop['favorites'] = None
-
-            # Clean county name (remove 'County' suffix)
-            if prop.get('county'):
-                prop['county'] = re.sub(r'\s+County$', '', prop['county'], flags=re.IGNORECASE).strip()
-
-            properties.append(prop)
-
-        return properties
+    # Normalize field names for Jinja templates
+    return [_normalize_for_template(prop) for prop in result.listings]
 
 
 def calculate_metrics(properties: List[Dict[str, Any]]) -> Dict[str, Any]:
