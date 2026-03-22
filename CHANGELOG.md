@@ -9,6 +9,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Unified ListingService** (2026-03-22)
+  - New `src/core/listing_service.py`: shared search/filter/dedup/photo logic
+  - `ListingService` class with `search_listings`, `get_listing`, `get_map_markers`, `count_listings`, `get_filter_options`
+  - `ListingFilters` dataclass with `from_request()` builder for clean filter construction
+  - Public API and dashboard both import from the same service (no HTTP proxy needed)
+  - Dashboard gains: progressive multi-word search, subdivision/remarks search, photo localization
+  - Eliminated ~570 lines of duplicated code across both apps
+  - Cross-MLS dedup, MLS priority, and photo localization defined once in one place
 - **Geographic Zone System** (2026-03-18)
   - 5-zone system: West (1), Central (2), East WNC (3), Rest of NC (4), Outside NC (5)
   - Default view scoped to zones 1+2 (~8K active listings vs 28K total)
