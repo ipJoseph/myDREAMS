@@ -571,6 +571,12 @@ def _normalize_for_template(prop: dict) -> dict:
     return prop
 
 
+# Dashboard search: agents search by address, MLS#, city, and agent name.
+# Broader fields (subdivision, public_remarks, county) cause false positives
+# when words match independently across unrelated columns.
+_DASHBOARD_SEARCH_FIELDS = ['address', 'mls_number', 'city', 'listing_agent_name']
+
+
 def count_properties(added_for: Optional[str] = None, status: Optional[str] = None,
                      city: Optional[str] = None, county: Optional[str] = None,
                      q: Optional[str] = None, min_price: Optional[int] = None,
@@ -587,6 +593,7 @@ def count_properties(added_for: Optional[str] = None, status: Optional[str] = No
         q=q,
         added_for=added_for,
         bbo_only=bbo_only,
+        search_fields=_DASHBOARD_SEARCH_FIELDS,
     )
     return listing_service.count_listings(filters)
 
@@ -611,6 +618,7 @@ def fetch_properties(added_for: Optional[str] = None, status: Optional[str] = No
         q=q,
         added_for=added_for,
         bbo_only=bbo_only,
+        search_fields=_DASHBOARD_SEARCH_FIELDS,
     )
 
     # Calculate page from offset/limit
@@ -3213,7 +3221,7 @@ def properties_list():
 
     # Default to Active status for nimble loading (unless show_all or other filter set)
     if not status and not show_all and not added_for and not q:
-        status = 'Active'
+        status = 'ACTIVE'
 
     # Get dropdown options efficiently (uses indexed DISTINCT queries)
     filter_options = get_filter_options()

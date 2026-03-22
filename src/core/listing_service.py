@@ -113,6 +113,11 @@ class ListingFilters:
     added_for: Optional[str] = None     # client filter
     bbo_only: bool = False              # BBO-only listings
 
+    # Search field control: which columns free-text search checks.
+    # None = use the default SEARCH_FIELDS_SINGLE/MULTI lists.
+    # Provide an explicit list to narrow or widen the search scope.
+    search_fields: Optional[List[str]] = None
+
     @classmethod
     def from_request(cls, request_args, defaults: Optional[Dict[str, Any]] = None) -> 'ListingFilters':
         """Build ListingFilters from Flask request.args with optional defaults."""
@@ -436,19 +441,23 @@ class ListingService:
                 conditions.append(f'mls_number IN ({placeholders})')
                 params.extend(mls_list)
             else:
+                # Use custom search fields if provided, otherwise defaults
+                single_fields = filters.search_fields or SEARCH_FIELDS_SINGLE
+                multi_fields = filters.search_fields or SEARCH_FIELDS_MULTI
+
                 words = q.strip().split()
                 if len(words) == 1:
                     search_term = f"%{words[0]}%"
-                    field_conds = ' OR '.join([f'{f} LIKE ?' for f in SEARCH_FIELDS_SINGLE])
+                    field_conds = ' OR '.join([f'{f} LIKE ?' for f in single_fields])
                     conditions.append(f"({field_conds})")
-                    params.extend([search_term] * len(SEARCH_FIELDS_SINGLE))
+                    params.extend([search_term] * len(single_fields))
                 else:
                     word_conditions = []
                     for word in words:
                         wt = f"%{word}%"
-                        field_conds = ' OR '.join([f'{f} LIKE ?' for f in SEARCH_FIELDS_MULTI])
+                        field_conds = ' OR '.join([f'{f} LIKE ?' for f in multi_fields])
                         word_conditions.append(f"({field_conds})")
-                        params.extend([wt] * len(SEARCH_FIELDS_MULTI))
+                        params.extend([wt] * len(multi_fields))
                     conditions.append("(" + " AND ".join(word_conditions) + ")")
 
         return conditions, params
