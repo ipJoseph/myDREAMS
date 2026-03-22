@@ -576,7 +576,8 @@ def get_listing(listing_id):
         if raw_photos_json and isinstance(raw_photos_json, str):
             try:
                 photos = json.loads(raw_photos_json)
-                local_only = [p for p in photos if isinstance(p, str) and not p.startswith('http')]
+                # Strip MLS Grid CDN URLs (they expire) but keep CloudFront (Navica, don't expire)
+                local_only = [p for p in photos if isinstance(p, str) and 'mlsgrid.com' not in p]
                 has_cdn_urls = any(isinstance(p, str) and 'mlsgrid.com' in p for p in photos)
 
                 # Trigger background download if gallery has CDN URLs
