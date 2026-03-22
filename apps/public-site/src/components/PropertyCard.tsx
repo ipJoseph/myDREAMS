@@ -128,11 +128,18 @@ export default function PropertyCard({ listing, variant = "light" }: PropertyCar
         <div className={`text-sm ${isDark ? "text-white/40" : "text-[var(--color-text-light)]"}`}>
           {listing.city}, {listing.state} {listing.zip}
         </div>
-        <div className={`flex items-center justify-between mt-4 pt-3 text-xs border-t ${
+        <div className={`mt-4 pt-3 text-xs border-t ${
           isDark ? "border-white/10 text-white/30" : "border-gray-100 text-[var(--color-text-light)]"
         }`}>
-          <span>{listing.property_type}</span>
-          <span>MLS# {listing.mls_number}</span>
+          <div className="flex items-center justify-between">
+            <span>{listing.property_type}</span>
+            <span>MLS# {listing.mls_number}</span>
+          </div>
+          {listing.mls_display_name && (
+            <div className={`mt-1 ${isDark ? "text-white/20" : "text-[var(--color-text-light)]/60"}`}>
+              {listing.mls_display_name}
+            </div>
+          )}
         </div>
       </div>
     </Link>

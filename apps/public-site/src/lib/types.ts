@@ -6,6 +6,7 @@ export interface Listing {
   id: string;
   mls_number: string;
   mls_source: string;
+  mls_display_name?: string;
   status: string;
   list_price: number;
   original_list_price?: number;
@@ -71,6 +72,7 @@ export interface AlsoListedOn {
   id: string;
   mls_number: string;
   mls_source: string;
+  mls_display_name?: string;
   list_price: number;
   updated_at?: string;
 }

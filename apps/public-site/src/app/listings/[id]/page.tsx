@@ -216,6 +216,27 @@ export default async function ListingDetailPage({ params }: PageProps) {
               </div>
             )}
 
+            {/* MLS attribution line */}
+            <div className="mb-6 text-sm text-[var(--color-text-light)]">
+              <span>MLS# {listing.mls_number} on {listing.mls_display_name || listing.mls_source}</span>
+              {listing.also_listed_on && listing.also_listed_on.length > 0 && (
+                <span>
+                  . Also shown on{" "}
+                  {listing.also_listed_on.map((sib: { id: string; mls_display_name?: string; mls_source: string }, i: number) => (
+                    <span key={sib.id}>
+                      {i > 0 && " and "}
+                      <a
+                        href={`/listings/${sib.id}`}
+                        className="text-[var(--color-accent)] hover:underline"
+                      >
+                        {sib.mls_display_name || sib.mls_source}
+                      </a>
+                    </span>
+                  ))}
+                </span>
+              )}
+            </div>
+
             {/* Property details grid */}
             <div className="mb-10">
               <h2 className="text-xl text-[var(--color-primary)] mb-4">
@@ -223,8 +244,6 @@ export default async function ListingDetailPage({ params }: PageProps) {
               </h2>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-y-3 text-sm">
                 <Detail label="Property Type" value={listing.property_type} />
-                <Detail label="MLS #" value={listing.mls_number} />
-                <Detail label="MLS Source" value={listing.mls_source} />
                 <Detail label="Status" value={listing.status} />
                 <Detail label="List Date" value={listing.list_date} />
                 {listing.sold_date && (

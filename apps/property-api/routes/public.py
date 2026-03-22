@@ -34,6 +34,13 @@ public_bp = Blueprint('public', __name__)
 
 DB_PATH = os.getenv('DREAMS_DB_PATH', str(PROJECT_ROOT / 'data' / 'dreams.db'))
 
+# MLS source display names
+MLS_DISPLAY_NAMES = {
+    'NavicaMLS': 'Carolina Smokies MLS',
+    'MountainLakesMLS': 'Mountain Lakes MLS',
+    'CanopyMLS': 'Canopy MLS',
+}
+
 # Photo directories by source
 PHOTOS_DIRS = {
     'mlsgrid': PROJECT_ROOT / 'data' / 'photos' / 'mlsgrid',
@@ -407,9 +414,9 @@ def search_listings():
         fields_str = ", ".join(query_fields)
 
         # Dedup: for listings sharing the same address_key AND property_type,
-        # keep only the most recently updated one. This handles both cross-MLS
-        # duplicates and same-MLS re-listings. Different property types at the
-        # same address (e.g., land + commercial on one parcel) are kept.
+        # keep the one with highest MLS source priority:
+        #   NavicaMLS (Carolina Smokies) = 1, MountainLakesMLS = 2, CanopyMLS = 3
+        # Ties broken by most recently updated.
         dedup_condition = (
             "(address_key IS NULL OR NOT EXISTS ("
             "SELECT 1 FROM listings dup "
@@ -418,7 +425,15 @@ def search_listings():
             "AND dup.id != listings.id "
             "AND dup.idx_opt_in = 1 "
             "AND UPPER(dup.status) = UPPER(listings.status) "
-            "AND dup.updated_at > listings.updated_at))"
+            "AND ("
+            "  CASE dup.mls_source WHEN 'NavicaMLS' THEN 1 WHEN 'MountainLakesMLS' THEN 2 WHEN 'CanopyMLS' THEN 3 ELSE 4 END"
+            "  < CASE listings.mls_source WHEN 'NavicaMLS' THEN 1 WHEN 'MountainLakesMLS' THEN 2 WHEN 'CanopyMLS' THEN 3 ELSE 4 END"
+            "  OR ("
+            "    CASE dup.mls_source WHEN 'NavicaMLS' THEN 1 WHEN 'MountainLakesMLS' THEN 2 WHEN 'CanopyMLS' THEN 3 ELSE 4 END"
+            "    = CASE listings.mls_source WHEN 'NavicaMLS' THEN 1 WHEN 'MountainLakesMLS' THEN 2 WHEN 'CanopyMLS' THEN 3 ELSE 4 END"
+            "    AND dup.updated_at > listings.updated_at"
+            "  )"
+            ")))"
         )
         conditions.append(dedup_condition)
         where_clause = " AND ".join(conditions)
@@ -447,6 +462,7 @@ def search_listings():
             listing.pop('idx_address_display', None)
             listing['days_on_market'] = _compute_dom(listing)
             _localize_photo(listing)
+            listing['mls_display_name'] = MLS_DISPLAY_NAMES.get(listing.get('mls_source'), listing.get('mls_source'))
 
         db.close()
 
@@ -485,7 +501,7 @@ def map_listings():
         conditions.append("latitude IS NOT NULL")
         conditions.append("longitude IS NOT NULL")
 
-        # Dedup by address_key + property_type (same as search endpoint)
+        # Dedup by address_key + property_type (same priority as search endpoint)
         dedup_condition = (
             "(address_key IS NULL OR NOT EXISTS ("
             "SELECT 1 FROM listings dup "
@@ -494,7 +510,15 @@ def map_listings():
             "AND dup.id != listings.id "
             "AND dup.idx_opt_in = 1 "
             "AND UPPER(dup.status) = UPPER(listings.status) "
-            "AND dup.updated_at > listings.updated_at))"
+            "AND ("
+            "  CASE dup.mls_source WHEN 'NavicaMLS' THEN 1 WHEN 'MountainLakesMLS' THEN 2 WHEN 'CanopyMLS' THEN 3 ELSE 4 END"
+            "  < CASE listings.mls_source WHEN 'NavicaMLS' THEN 1 WHEN 'MountainLakesMLS' THEN 2 WHEN 'CanopyMLS' THEN 3 ELSE 4 END"
+            "  OR ("
+            "    CASE dup.mls_source WHEN 'NavicaMLS' THEN 1 WHEN 'MountainLakesMLS' THEN 2 WHEN 'CanopyMLS' THEN 3 ELSE 4 END"
+            "    = CASE listings.mls_source WHEN 'NavicaMLS' THEN 1 WHEN 'MountainLakesMLS' THEN 2 WHEN 'CanopyMLS' THEN 3 ELSE 4 END"
+            "    AND dup.updated_at > listings.updated_at"
+            "  )"
+            ")))"
         )
         conditions.append(dedup_condition)
 
@@ -610,11 +634,13 @@ def get_listing(listing_id):
                     'id': sib['id'],
                     'mls_number': sib['mls_number'],
                     'mls_source': sib['mls_source'],
+                    'mls_display_name': MLS_DISPLAY_NAMES.get(sib['mls_source'], sib['mls_source']),
                     'list_price': sib['list_price'],
                     'updated_at': sib['updated_at'],
                 })
 
         listing['also_listed_on'] = also_listed_on
+        listing['mls_display_name'] = MLS_DISPLAY_NAMES.get(listing.get('mls_source'), listing.get('mls_source'))
 
         db.close()
 
