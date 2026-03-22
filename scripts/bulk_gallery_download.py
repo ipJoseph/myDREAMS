@@ -129,8 +129,8 @@ def download_listing_photos(mls_number: str, photo_urls: list, photos_dir: Path,
 
 def get_listings_needing_gallery(db_path: Path, limit: int = None) -> list:
     """Get MLS numbers of active listings that still have CDN URLs in photos column."""
-    conn = sqlite3.connect(str(db_path), timeout=30)
-    conn.execute('PRAGMA busy_timeout=30000')
+    conn = sqlite3.connect(str(db_path), timeout=120)
+    conn.execute('PRAGMA busy_timeout=120000')
     conn.row_factory = sqlite3.Row
 
     query = """
@@ -187,17 +187,26 @@ def fetch_batch_from_api(client: MLSGridClient, mls_numbers: list) -> dict:
 
 
 def update_db_photos(db_path: Path, updates: list):
-    """Batch update photos column with local paths."""
+    """Batch update photos column with local paths. Retries on lock."""
     if not updates:
         return
-    conn = sqlite3.connect(str(db_path), timeout=60)
-    conn.execute('PRAGMA busy_timeout=60000')
-    conn.executemany(
-        "UPDATE listings SET photos = ? WHERE mls_number = ?",
-        updates
-    )
-    conn.commit()
-    conn.close()
+    for attempt in range(5):
+        try:
+            conn = sqlite3.connect(str(db_path), timeout=120)
+            conn.execute('PRAGMA busy_timeout=120000')
+            conn.executemany(
+                "UPDATE listings SET photos = ? WHERE mls_number = ?",
+                updates
+            )
+            conn.commit()
+            conn.close()
+            return
+        except sqlite3.OperationalError as e:
+            if 'locked' in str(e) and attempt < 4:
+                import time
+                time.sleep(5)
+            else:
+                raise
 
 
 def main():
