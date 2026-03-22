@@ -580,7 +580,9 @@ def get_listing(listing_id):
                 has_cdn_urls = any(isinstance(p, str) and 'mlsgrid.com' in p for p in photos)
 
                 # Trigger background download if gallery has CDN URLs
-                if has_cdn_urls and listing.get('mls_number'):
+                # Disable via DISABLE_ONDEMAND_GALLERY=1 during bulk downloads
+                if (has_cdn_urls and listing.get('mls_number')
+                        and not os.getenv('DISABLE_ONDEMAND_GALLERY')):
                     threading.Thread(
                         target=_download_gallery_on_demand,
                         args=(listing['mls_number'], raw_photos_json),
