@@ -679,9 +679,18 @@ def count_properties(added_for: Optional[str] = None, status: Optional[str] = No
             query += f' AND mls_number IN ({placeholders})'
             params.extend(mls_list)
         elif q:
-            query += ' AND (address LIKE ? OR mls_number LIKE ? OR city LIKE ? OR listing_agent_name LIKE ?)'
-            q_param = f'%{q}%'
-            params.extend([q_param, q_param, q_param, q_param])
+            words = q.strip().split()
+            if len(words) == 1:
+                query += ' AND (address LIKE ? OR mls_number LIKE ? OR city LIKE ? OR listing_agent_name LIKE ?)'
+                q_param = f'%{words[0]}%'
+                params.extend([q_param, q_param, q_param, q_param])
+            else:
+                word_conds = []
+                for word in words:
+                    wt = f'%{word}%'
+                    word_conds.append('(address LIKE ? OR mls_number LIKE ? OR city LIKE ? OR listing_agent_name LIKE ?)')
+                    params.extend([wt, wt, wt, wt])
+                query += ' AND (' + ' AND '.join(word_conds) + ')'
         if min_price is not None:
             query += ' AND list_price >= ?'
             params.append(min_price)
@@ -691,6 +700,25 @@ def count_properties(added_for: Optional[str] = None, status: Optional[str] = No
         if min_beds is not None:
             query += ' AND beds >= ?'
             params.append(min_beds)
+
+        # Cross-MLS dedup for count
+        query += (
+            " AND (address_key IS NULL OR NOT EXISTS ("
+            "SELECT 1 FROM listings dup "
+            "WHERE dup.address_key = listings.address_key "
+            "AND dup.property_type = listings.property_type "
+            "AND dup.id != listings.id "
+            "AND UPPER(dup.status) = UPPER(listings.status) "
+            "AND ("
+            "  CASE dup.mls_source WHEN 'NavicaMLS' THEN 1 WHEN 'MountainLakesMLS' THEN 2 WHEN 'CanopyMLS' THEN 3 ELSE 4 END"
+            "  < CASE listings.mls_source WHEN 'NavicaMLS' THEN 1 WHEN 'MountainLakesMLS' THEN 2 WHEN 'CanopyMLS' THEN 3 ELSE 4 END"
+            "  OR ("
+            "    CASE dup.mls_source WHEN 'NavicaMLS' THEN 1 WHEN 'MountainLakesMLS' THEN 2 WHEN 'CanopyMLS' THEN 3 ELSE 4 END"
+            "    = CASE listings.mls_source WHEN 'NavicaMLS' THEN 1 WHEN 'MountainLakesMLS' THEN 2 WHEN 'CanopyMLS' THEN 3 ELSE 4 END"
+            "    AND dup.updated_at > listings.updated_at"
+            "  )"
+            ")))"
+        )
 
         return conn.execute(query, params).fetchone()[0]
 
@@ -739,9 +767,18 @@ def fetch_properties(added_for: Optional[str] = None, status: Optional[str] = No
             query += f' AND mls_number IN ({placeholders})'
             params.extend(mls_list)
         elif q:
-            query += ' AND (address LIKE ? OR mls_number LIKE ? OR city LIKE ? OR listing_agent_name LIKE ?)'
-            q_param = f'%{q}%'
-            params.extend([q_param, q_param, q_param, q_param])
+            words = q.strip().split()
+            if len(words) == 1:
+                query += ' AND (address LIKE ? OR mls_number LIKE ? OR city LIKE ? OR listing_agent_name LIKE ?)'
+                q_param = f'%{words[0]}%'
+                params.extend([q_param, q_param, q_param, q_param])
+            else:
+                word_conds = []
+                for word in words:
+                    wt = f'%{word}%'
+                    word_conds.append('(address LIKE ? OR mls_number LIKE ? OR city LIKE ? OR listing_agent_name LIKE ?)')
+                    params.extend([wt, wt, wt, wt])
+                query += ' AND (' + ' AND '.join(word_conds) + ')'
 
         if min_price is not None:
             query += ' AND list_price >= ?'
@@ -754,6 +791,26 @@ def fetch_properties(added_for: Optional[str] = None, status: Optional[str] = No
         if min_beds is not None:
             query += ' AND beds >= ?'
             params.append(min_beds)
+
+        # Cross-MLS dedup: keep highest priority source per address
+        # Priority: NavicaMLS (1) > MountainLakesMLS (2) > CanopyMLS (3)
+        query += (
+            " AND (address_key IS NULL OR NOT EXISTS ("
+            "SELECT 1 FROM listings dup "
+            "WHERE dup.address_key = listings.address_key "
+            "AND dup.property_type = listings.property_type "
+            "AND dup.id != listings.id "
+            "AND UPPER(dup.status) = UPPER(listings.status) "
+            "AND ("
+            "  CASE dup.mls_source WHEN 'NavicaMLS' THEN 1 WHEN 'MountainLakesMLS' THEN 2 WHEN 'CanopyMLS' THEN 3 ELSE 4 END"
+            "  < CASE listings.mls_source WHEN 'NavicaMLS' THEN 1 WHEN 'MountainLakesMLS' THEN 2 WHEN 'CanopyMLS' THEN 3 ELSE 4 END"
+            "  OR ("
+            "    CASE dup.mls_source WHEN 'NavicaMLS' THEN 1 WHEN 'MountainLakesMLS' THEN 2 WHEN 'CanopyMLS' THEN 3 ELSE 4 END"
+            "    = CASE listings.mls_source WHEN 'NavicaMLS' THEN 1 WHEN 'MountainLakesMLS' THEN 2 WHEN 'CanopyMLS' THEN 3 ELSE 4 END"
+            "    AND dup.updated_at > listings.updated_at"
+            "  )"
+            ")))"
+        )
 
         # Server-side sorting with NULLS LAST behavior
         query += f' ORDER BY {sort_column} IS NULL, {sort_column} {sort_dir}'

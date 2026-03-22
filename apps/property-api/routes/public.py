@@ -357,12 +357,26 @@ def build_listing_filters():
         conditions.append(f'mls_number IN ({placeholders})')
         params.extend(mls_list)
     elif q:
-        search_term = f"%{q}%"
-        conditions.append(
-            "(address LIKE ? OR city LIKE ? OR county LIKE ? "
-            "OR subdivision LIKE ? OR public_remarks LIKE ? OR mls_number LIKE ?)"
-        )
-        params.extend([search_term] * 6)
+        # Progressive search: split into words, each must match somewhere
+        words = q.strip().split()
+        if len(words) == 1:
+            search_term = f"%{words[0]}%"
+            conditions.append(
+                "(address LIKE ? OR city LIKE ? OR county LIKE ? "
+                "OR subdivision LIKE ? OR public_remarks LIKE ? OR mls_number LIKE ?)"
+            )
+            params.extend([search_term] * 6)
+        else:
+            # Each word must appear in the combined searchable text
+            word_conditions = []
+            for word in words:
+                wt = f"%{word}%"
+                word_conditions.append(
+                    "(address LIKE ? OR city LIKE ? OR county LIKE ? "
+                    "OR subdivision LIKE ? OR mls_number LIKE ?)"
+                )
+                params.extend([wt] * 5)
+            conditions.append("(" + " AND ".join(word_conditions) + ")")
 
     return conditions, params
 
