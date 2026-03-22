@@ -565,6 +565,22 @@ def json_encode_list(value) -> Optional[str]:
     return None
 
 
+def _generate_mls_url(mls_source: str, mls_number: str, listing_key: str) -> Optional[str]:
+    """
+    Generate a direct link to view this listing in the MLS portal.
+    These are agent-only URLs that require MLS login.
+    """
+    if not mls_number:
+        return None
+    if mls_source == 'NavicaMLS':
+        return f"https://navicamls.net/listing/{listing_key}" if listing_key else None
+    elif mls_source == 'MountainLakesMLS':
+        return f"https://navicamls.net/listing/{listing_key}" if listing_key else None
+    elif mls_source == 'CanopyMLS':
+        return f"https://matrix.canopymls.com/Matrix/Public/Portal.aspx?k={listing_key}" if listing_key else None
+    return None
+
+
 def map_reso_to_listing(prop: Dict, mls_source: str = 'NavicaMLS') -> Dict[str, Any]:
     """
     Map a RESO property record to the myDREAMS listings table schema.
@@ -698,6 +714,9 @@ def map_reso_to_listing(prop: Dict, mls_source: str = 'NavicaMLS') -> Dict[str, 
         'buyer_agent_name': prop.get('BuyerAgentFullName'),
         'buyer_office_id': prop.get('BuyerOfficeMlsId') or prop.get('BuyerOfficeKey'),
         'buyer_office_name': prop.get('BuyerOfficeName'),
+
+        # MLS portal URL (agent-only, requires login)
+        'mls_url': _generate_mls_url(mls_source, mls_number, prop.get('ListingKey')),
 
         # Photos
         'primary_photo': primary_photo,
