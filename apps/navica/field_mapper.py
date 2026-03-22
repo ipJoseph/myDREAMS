@@ -539,6 +539,17 @@ def generate_address_key(address: Optional[str], city: Optional[str],
     norm_addr = re.sub(r'\s+', ' ', address.strip().lower())
     norm_city = re.sub(r'\s+', ' ', city.strip().lower())
     norm_state = (state or 'NC').strip().upper()
+
+    # Strip common street suffixes so "Silver Ridge" and "Silver Ridge Road" match
+    suffixes = (
+        r'\b(road|rd|street|st|drive|dr|avenue|ave|boulevard|blvd|lane|ln|'
+        r'court|ct|circle|cir|place|pl|way|trail|trl|terrace|ter|'
+        r'pike|highway|hwy|parkway|pkwy|loop|run|path|ridge|pass|'
+        r'cove|crossing|xing|point|pt|hollow|holler)\b'
+    )
+    norm_addr = re.sub(suffixes, '', norm_addr).strip()
+    norm_addr = re.sub(r'\s+', ' ', norm_addr)  # re-collapse after removal
+
     raw = f"{norm_addr}|{norm_city}|{norm_state}"
     return hashlib.md5(raw.encode()).hexdigest()[:16]
 
