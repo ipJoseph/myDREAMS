@@ -128,7 +128,7 @@ def init_services():
     from src.core.database import DREAMSDatabase
     db = DREAMSDatabase(db_path)
 
-    if notion_api_key and notion_db_id:
+    if notion_api_key and notion_db_id and not os.getenv('DISABLE_NOTION_SYNC'):
         notion_sync_service = NotionSyncService(
             notion_api_key=notion_api_key,
             database_id=notion_db_id,
