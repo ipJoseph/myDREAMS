@@ -251,9 +251,12 @@ def parse_mls_list(q: str) -> list | None:
     tokens = [t.strip() for t in tokens if t.strip()]
     if len(tokens) < 2:
         return None
+    # Each token must look like an MLS number (contains digits)
     for t in tokens:
         if not re.match(r'^[A-Za-z0-9\-]{4,12}$', t):
             return None
+        if not re.search(r'\d', t):
+            return None  # Pure alpha tokens are words, not MLS numbers
     return tokens
 
 
