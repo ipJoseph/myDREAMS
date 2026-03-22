@@ -3433,6 +3433,24 @@ def client_dashboard(client_name):
                          refresh_time=datetime.now(tz=ET).strftime('%B %d, %Y %I:%M %p'))
 
 
+# Photo serving route (mirrors the API's /api/public/photos/ so localized photo URLs work)
+from src.core.listing_service import PHOTOS_DIRS as _PHOTOS_DIRS
+
+@app.route('/api/public/photos/<source>/<filename>')
+def serve_photo(source, filename):
+    """Serve locally-downloaded MLS photos (same URL scheme as the API)."""
+    photos_dir = _PHOTOS_DIRS.get(source)
+    if not photos_dir or not photos_dir.is_dir():
+        return '', 404
+    safe_name = Path(filename).name
+    if safe_name != filename or '..' in filename:
+        return '', 404
+    filepath = photos_dir / safe_name
+    if not filepath.exists():
+        return '', 404
+    return send_from_directory(str(photos_dir), safe_name, max_age=86400)
+
+
 @app.route('/api/properties')
 @requires_auth
 def api_properties():
