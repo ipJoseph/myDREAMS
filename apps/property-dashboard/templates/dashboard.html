@@ -752,6 +752,12 @@
                 {% endfor %}
             </select>
 
+            <select id="zoneFilter" class="dash-filter-select" onchange="applyFilters()">
+                <option value="1,2" {% if selected_zone == '1,2' %}selected{% endif %}>WNC</option>
+                <option value="1,2,3" {% if selected_zone == '1,2,3' %}selected{% endif %}>WNC + East</option>
+                <option value="all" {% if selected_zone == 'all' %}selected{% endif %}>All NC</option>
+            </select>
+
             {% set has_filters = search_query or selected_min_price or selected_max_price or selected_min_beds or selected_status or selected_city or selected_county or selected_client %}
             {% if has_filters %}
             <button class="dash-filter-clear" onclick="clearAllFilters()">Clear All</button>
@@ -1026,6 +1032,7 @@
         {% if selected_max_price %}{% set _ = bp.append('max_price=' ~ selected_max_price) %}{% endif %}
         {% if selected_min_beds %}{% set _ = bp.append('min_beds=' ~ selected_min_beds) %}{% endif %}
         {% if show_all %}{% set _ = bp.append('show_all=1') %}{% endif %}
+        {% if selected_zone and selected_zone != '1,2' %}{% set _ = bp.append('zone=' ~ selected_zone) %}{% endif %}
         {% set _ = bp.append('sort=' ~ sort_by) %}
         {% set _ = bp.append('order=' ~ sort_order) %}
         {% set _ = bp.append('view=' ~ view_mode) %}
@@ -1172,6 +1179,8 @@
             const counties = getMultiValues('countyMulti');
             const cities = getMultiValues('cityMulti');
 
+            const zone = document.getElementById('zoneFilter').value;
+
             if (q) params.set('q', q);
             if (minPrice) params.set('min_price', minPrice);
             if (maxPrice) params.set('max_price', maxPrice);
@@ -1180,6 +1189,7 @@
             if (counties.length) params.set('county', counties.join(','));
             if (cities.length) params.set('city', cities.join(','));
             if (client) params.set('client', client);
+            if (zone && zone !== '1,2') params.set('zone', zone);
 
             // Preserve sort and view
             const sortVal = document.getElementById('sortFilter').value;

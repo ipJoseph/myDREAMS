@@ -581,7 +581,7 @@ def count_properties(added_for: Optional[str] = None, status: Optional[str] = No
                      city: Optional[str] = None, county: Optional[str] = None,
                      q: Optional[str] = None, min_price: Optional[int] = None,
                      max_price: Optional[int] = None, min_beds: Optional[int] = None,
-                     bbo_only: bool = False) -> int:
+                     bbo_only: bool = False, zone: Optional[str] = None) -> int:
     """Count properties matching filters (for pagination) via ListingService."""
     filters = ListingFilters(
         status=status if status and not bbo_only else None,
@@ -594,6 +594,7 @@ def count_properties(added_for: Optional[str] = None, status: Optional[str] = No
         added_for=added_for,
         bbo_only=bbo_only,
         search_fields=_DASHBOARD_SEARCH_FIELDS,
+        zone=zone,
     )
     return listing_service.count_listings(filters)
 
@@ -604,7 +605,7 @@ def fetch_properties(added_for: Optional[str] = None, status: Optional[str] = No
                       limit: Optional[int] = None, offset: int = 0,
                       q: Optional[str] = None, min_price: Optional[int] = None,
                       max_price: Optional[int] = None, min_beds: Optional[int] = None,
-                      bbo_only: bool = False) -> List[Dict[str, Any]]:
+                      bbo_only: bool = False, zone: Optional[str] = None) -> List[Dict[str, Any]]:
     """Fetch properties from listings table via ListingService with template normalization."""
     sort_column = _DASHBOARD_SORT_MAP.get(sort_by, 'list_price')
 
@@ -619,6 +620,7 @@ def fetch_properties(added_for: Optional[str] = None, status: Optional[str] = No
         added_for=added_for,
         bbo_only=bbo_only,
         search_fields=_DASHBOARD_SEARCH_FIELDS,
+        zone=zone,
     )
 
     # Calculate page from offset/limit
@@ -3196,6 +3198,7 @@ def properties_list():
     show_all = request.args.get('show_all', '')
     q = request.args.get('q', '').strip()
     view_mode = request.args.get('view', 'cards')
+    zone = request.args.get('zone', '1,2')  # Default: WNC (zones 1+2)
 
     # Parse numeric filter params safely
     try:
@@ -3245,6 +3248,7 @@ def properties_list():
         max_price=max_price,
         min_beds=min_beds,
         bbo_only=bbo_only,
+        zone=zone,
     )
 
     # Get total count for pagination
@@ -3292,6 +3296,7 @@ def properties_list():
                          selected_max_price=max_price,
                          selected_min_beds=min_beds,
                          view_mode=view_mode,
+                         selected_zone=zone,
                          county_cities=county_cities,
                          refresh_time=datetime.now(tz=ET).strftime('%B %d, %Y %I:%M %p'))
 
