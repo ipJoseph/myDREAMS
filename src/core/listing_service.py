@@ -185,7 +185,13 @@ class SearchResult:
 # ---------------------------------------------------------------------------
 
 def localize_photo(listing: dict) -> None:
-    """Rewrite primary_photo to local URL if we have the file downloaded."""
+    """Rewrite primary_photo to local URL if we have the file downloaded.
+
+    For Canopy (MLS Grid) listings where the local photo is missing,
+    attempts an on-demand fetch of the primary photo from the CDN URL
+    stored in the database. This adds ~200ms for a single missing photo
+    but ensures listings always display with an image when possible.
+    """
     mls = listing.get('mls_number')
     if not mls:
         return
@@ -208,9 +214,52 @@ def localize_photo(listing: dict) -> None:
             listing['primary_photo'] = f"/api/public/photos/{photos_dir.name}/{mls}{ext}"
             return
 
-    # Local file not found; strip CDN URLs that browsers can't use
-    if 'mlsgrid.com' in (listing.get('primary_photo') or ''):
+    # Local file not found. For Canopy listings, try on-demand fetch
+    # of the primary photo from the CDN URL in the DB.
+    cdn_url = listing.get('primary_photo') or ''
+    if cdn_url.startswith('http'):
+        local_path = _fetch_primary_photo_on_demand(mls, cdn_url, photos_dir)
+        if local_path:
+            listing['primary_photo'] = local_path
+            return
+
+    # No local file and no fetchable URL
+    if 'mlsgrid.com' in cdn_url:
         listing['primary_photo'] = None
+
+
+def _fetch_primary_photo_on_demand(mls: str, cdn_url: str, photos_dir: Path) -> Optional[str]:
+    """Fetch a single primary photo from CDN. Returns local URL or None.
+
+    Lightweight: single HTTP request, no DB update, no gallery download.
+    Only fetches if the file doesn't already exist.
+    """
+    try:
+        import requests as req
+        from urllib.parse import urlparse
+
+        path_lower = urlparse(cdn_url).path.lower()
+        ext = '.png' if path_lower.endswith('.png') else '.webp' if path_lower.endswith('.webp') else '.jpg'
+        filename = f"{mls}{ext}"
+        filepath = photos_dir / filename
+
+        if filepath.exists() and filepath.stat().st_size > 0:
+            return f"/api/public/photos/{photos_dir.name}/{filename}"
+
+        photos_dir.mkdir(parents=True, exist_ok=True)
+        resp = req.get(cdn_url, timeout=5, stream=True)
+        resp.raise_for_status()
+        with open(filepath, 'wb') as f:
+            for chunk in resp.iter_content(chunk_size=8192):
+                f.write(chunk)
+
+        if filepath.stat().st_size > 0:
+            return f"/api/public/photos/{photos_dir.name}/{filename}"
+        else:
+            filepath.unlink(missing_ok=True)
+    except Exception as e:
+        logger.debug(f"On-demand photo fetch failed for {mls}: {e}")
+    return None
 
 
 def compute_dom(listing: dict) -> Optional[int]:
