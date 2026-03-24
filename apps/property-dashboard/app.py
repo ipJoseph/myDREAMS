@@ -146,6 +146,17 @@ COUNTY_LINKS = {
 COUNTY_GIS_URLS = {county: info['gis'] for county, info in COUNTY_LINKS.items() if info.get('gis')}
 
 
+# MLS number prefix stripping (CAR, NCM, etc.)
+_MLS_PREFIX_RE = re.compile(r'^(CAR|NCM|CARNCM)', re.IGNORECASE)
+
+@app.template_filter('strip_mls_prefix')
+def strip_mls_prefix(value):
+    """Strip MLS source prefix (CAR, NCM) from MLS number for display."""
+    if not value:
+        return ''
+    return _MLS_PREFIX_RE.sub('', str(value))
+
+
 # Custom Jinja2 filter for phone number formatting
 @app.template_filter('phone')
 def format_phone(value):

@@ -37,6 +37,16 @@ MLS_DISPLAY_NAMES = {
     'CanopyMLS': 'Canopy MLS',
 }
 
+# Prefixes added by MLS feeds (e.g. CAR = Carolina region via MLS Grid)
+_MLS_PREFIX_RE = re.compile(r'^(CAR|NCM|CARNCM)', re.IGNORECASE)
+
+
+def strip_mls_prefix(mls_number: str) -> str:
+    """Strip MLS source prefix (CAR, NCM) for clean display."""
+    if not mls_number:
+        return ''
+    return _MLS_PREFIX_RE.sub('', str(mls_number))
+
 MLS_PRIORITY = {
     'NavicaMLS': 1,
     'MountainLakesMLS': 2,
@@ -546,6 +556,7 @@ class ListingService:
                 listing['mls_display_name'] = MLS_DISPLAY_NAMES.get(
                     listing.get('mls_source'), listing.get('mls_source')
                 )
+                listing['mls_number_display'] = strip_mls_prefix(listing.get('mls_number'))
 
             return SearchResult(
                 listings=listings,

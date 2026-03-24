@@ -837,6 +837,7 @@
     <div class="dash-card-grid">
         {% for prop in properties %}
         {% set idx_mls = prop.idx_mls_number or prop.mls_number %}
+        {% set display_mls = idx_mls|strip_mls_prefix %}
         {% set idx_status = prop.idx_validation_status or 'pending' %}
         <div class="dash-card" data-mls="{{ idx_mls or '' }}" data-href="/properties/{{ prop.id }}">
             <div class="dash-card-photo">
@@ -888,7 +889,7 @@
 
             <div class="dash-card-footer">
                 <span>{{ prop.property_type or '' }}</span>
-                <span>MLS# {{ idx_mls or 'N/A' }}</span>
+                <span>MLS# {{ display_mls or 'N/A' }} <small style="color: #9ca3af;">({{ prop.mls_display_name or prop.mls_source or '' }})</small></span>
             </div>
 
             <div class="dash-card-detail-rows">
@@ -962,6 +963,7 @@
             <tbody>
                 {% for prop in properties %}
                 {% set idx_mls = prop.idx_mls_number or prop.mls_number %}
+                {% set display_mls = idx_mls|strip_mls_prefix %}
                 {% set idx_status = prop.idx_validation_status or 'pending' %}
                 {% set idx_status_class = idx_status|lower|replace(' ', '-')|replace('_', '-') %}
                 <tr data-mls="{{ idx_mls or '' }}">
@@ -979,10 +981,8 @@
                         <div class="address-city">{{ prop.city }}{% if prop.county %}, {{ prop.county }}{% endif %}</div>
                     </td>
                     <td>
-                        <span class="mls-num">{{ idx_mls or '-' }}</span>
-                        {% if prop.original_mls_number and prop.original_mls_number != idx_mls %}
-                        <br><span class="mls-num" style="font-size: 10px; color: #9ca3af;" title="Original MLS#">{{ prop.original_mls_number }}</span>
-                        {% endif %}
+                        <span class="mls-num">{{ display_mls or '-' }}</span>
+                        <br><span style="font-size: 10px; color: #9ca3af;">{{ prop.mls_display_name or prop.mls_source or '' }}</span>
                     </td>
                     <td>
                         {% if idx_mls %}
