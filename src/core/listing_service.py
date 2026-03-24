@@ -250,13 +250,15 @@ def parse_mls_list(q: str) -> Optional[list]:
 
     Returns list of MLS numbers if input looks like a multi-MLS query,
     or None to fall through to normal LIKE search.
+    Handles bare numeric MLS numbers (e.g. "4286259") as well as
+    prefixed ones (e.g. "CAR4286259").
     """
     tokens = re.split(r'[,;\s]+', q.strip())
     tokens = [t.strip() for t in tokens if t.strip()]
     if len(tokens) < 2:
         return None
     for t in tokens:
-        if not re.match(r'^[A-Za-z0-9\-]{4,12}$', t):
+        if not re.match(r'^[A-Za-z0-9\-]{4,15}$', t):
             return None
         if not re.search(r'\d', t):
             return None  # Pure alpha tokens are words, not MLS numbers
@@ -437,9 +439,18 @@ class ListingService:
         if q:
             mls_list = parse_mls_list(q)
             if mls_list:
-                placeholders = ','.join(['?'] * len(mls_list))
-                conditions.append(f'mls_number IN ({placeholders})')
-                params.extend(mls_list)
+                # Use LIKE matching so bare numbers (4286259) match
+                # prefixed MLS numbers (CAR4286259) in the database.
+                # Prefixed tokens (CAR4286259) get exact match.
+                mls_conds = []
+                for t in mls_list:
+                    if t.isdigit():
+                        mls_conds.append('mls_number LIKE ?')
+                        params.append(f'%{t}')
+                    else:
+                        mls_conds.append('mls_number = ?')
+                        params.append(t)
+                conditions.append(f'({" OR ".join(mls_conds)})')
             else:
                 # Use custom search fields if provided, otherwise defaults
                 single_fields = filters.search_fields or SEARCH_FIELDS_SINGLE
