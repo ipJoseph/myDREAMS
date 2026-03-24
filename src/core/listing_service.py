@@ -214,31 +214,84 @@ def localize_photo(listing: dict) -> None:
             listing['primary_photo'] = f"/api/public/photos/{photos_dir.name}/{mls}{ext}"
             return
 
-    # Local file not found. For Canopy listings, try on-demand fetch
-    # of the primary photo from the CDN URL in the DB.
+    # Local file not found. For Canopy/MLS Grid listings, fetch a fresh
+    # photo URL from the API (stored CDN URLs expire) and download it.
+    source_lower = (listing.get('mls_source') or '').lower()
+    if 'canopy' in source_lower or 'mlsgrid' in source_lower:
+        local_path = _fetch_primary_photo_from_api(mls, photos_dir)
+        if local_path:
+            listing['primary_photo'] = local_path
+            return
+
+    # For non-API sources, try the stored URL directly
     cdn_url = listing.get('primary_photo') or ''
-    if cdn_url.startswith('http'):
-        local_path = _fetch_primary_photo_on_demand(mls, cdn_url, photos_dir)
+    if cdn_url.startswith('http') and 'mlsgrid.com' not in cdn_url:
+        local_path = _download_photo_url(mls, cdn_url, photos_dir)
         if local_path:
             listing['primary_photo'] = local_path
             return
 
     # No local file and no fetchable URL
-    if 'mlsgrid.com' in cdn_url:
-        listing['primary_photo'] = None
+    listing['primary_photo'] = None
 
 
-def _fetch_primary_photo_on_demand(mls: str, cdn_url: str, photos_dir: Path) -> Optional[str]:
-    """Fetch a single primary photo from CDN. Returns local URL or None.
+def _fetch_primary_photo_from_api(mls: str, photos_dir: Path) -> Optional[str]:
+    """Fetch a fresh photo URL from MLS Grid API and download it.
 
-    Lightweight: single HTTP request, no DB update, no gallery download.
-    Only fetches if the file doesn't already exist.
+    MLS Grid CDN URLs are time-limited tokens that expire. The stored
+    primary_photo URL in the DB is often stale. This fetches a fresh
+    URL directly from the API, downloads the photo, and saves it locally.
+
+    Adds ~300-500ms on first view. Subsequent views serve from disk.
     """
+    try:
+        import requests as req
+
+        token = os.getenv('MLSGRID_TOKEN')
+        if not token:
+            return None
+
+        # Fetch fresh media URL from API
+        headers = {
+            'Authorization': f'Bearer {token}',
+            'Accept-Encoding': 'gzip',
+        }
+        api_url = (
+            f"https://api.mlsgrid.com/v2/Property"
+            f"?$filter=ListingId eq '{mls}'"
+            f"&$expand=Media"
+            f"&$top=1"
+        )
+        api_resp = req.get(api_url, headers=headers, timeout=5)
+        if api_resp.status_code != 200:
+            return None
+
+        listings = api_resp.json().get('value', [])
+        if not listings:
+            return None
+
+        media = listings[0].get('Media', [])
+        if not media:
+            return None
+
+        fresh_url = media[0].get('MediaURL')
+        if not fresh_url:
+            return None
+
+        return _download_photo_url(mls, fresh_url, photos_dir)
+
+    except Exception as e:
+        logger.debug(f"On-demand API photo fetch failed for {mls}: {e}")
+    return None
+
+
+def _download_photo_url(mls: str, url: str, photos_dir: Path) -> Optional[str]:
+    """Download a photo from a URL and save it locally. Returns local URL or None."""
     try:
         import requests as req
         from urllib.parse import urlparse
 
-        path_lower = urlparse(cdn_url).path.lower()
+        path_lower = urlparse(url).path.lower()
         ext = '.png' if path_lower.endswith('.png') else '.webp' if path_lower.endswith('.webp') else '.jpg'
         filename = f"{mls}{ext}"
         filepath = photos_dir / filename
@@ -247,7 +300,7 @@ def _fetch_primary_photo_on_demand(mls: str, cdn_url: str, photos_dir: Path) -> 
             return f"/api/public/photos/{photos_dir.name}/{filename}"
 
         photos_dir.mkdir(parents=True, exist_ok=True)
-        resp = req.get(cdn_url, timeout=5, stream=True)
+        resp = req.get(url, timeout=5, stream=True)
         resp.raise_for_status()
         with open(filepath, 'wb') as f:
             for chunk in resp.iter_content(chunk_size=8192):
@@ -258,7 +311,7 @@ def _fetch_primary_photo_on_demand(mls: str, cdn_url: str, photos_dir: Path) -> 
         else:
             filepath.unlink(missing_ok=True)
     except Exception as e:
-        logger.debug(f"On-demand photo fetch failed for {mls}: {e}")
+        logger.debug(f"Photo download failed for {mls}: {e}")
     return None
 
 
