@@ -2773,6 +2773,7 @@ def collection_itinerary_pdf(collection_id):
     # Build showing-like dict from form data
     data = {
         'name': request.form.get('name', collection['name'] or 'Showing Tour'),
+        'buyer_name': request.form.get('buyer_name', ''),
         'scheduled_date': request.form.get('scheduled_date', ''),
         'scheduled_time': request.form.get('scheduled_time', ''),
         'route_data': request.form.get('route_data', '{}'),
