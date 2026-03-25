@@ -37,6 +37,14 @@
     .stop { padding: 14px 20px; border-bottom: 1px solid #1a2d4a; cursor: pointer; transition: background 0.2s; position: relative; }
     .stop:hover { background: #1a2d4a; }
     .stop.active { background: #1e3a5f; border-left: 3px solid #c8a84e; }
+    .stop.deselected { opacity: 0.35; }
+    .stop.deselected .stop-number { background: #4a5f7a; }
+    .prop-table tr.deselected td { opacity: 0.35; }
+    .selection-bar { display: flex; align-items: center; gap: 10px; padding: 8px 20px; background: #1a2d4a; border-bottom: 1px solid #1e3a5f; font-size: 12px; }
+    .selection-bar .sel-count { color: #c8a84e; font-weight: 600; }
+    .selection-bar button { background: transparent; border: 1px solid #1e3a5f; color: #8899aa; padding: 3px 8px; border-radius: 3px; font-size: 11px; cursor: pointer; }
+    .selection-bar button:hover { border-color: #c8a84e; color: #c8a84e; }
+    .stop-checkbox { width: 16px; height: 16px; cursor: pointer; flex-shrink: 0; accent-color: #c8a84e; }
     .stop-header { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
     .stop-number { width: 28px; height: 28px; border-radius: 50%; background: #c8a84e; color: #0a1628; font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
     .stop-number.home { background: #4a9eff; }
@@ -214,6 +222,7 @@
         <button class="btn btn-outline" onclick="saveTourAs()">Save As...</button>
         <button class="btn btn-gold" onclick="saveTour()">Save</button>
         {% else %}
+        <button class="btn btn-outline" onclick="saveRouteToDb()" id="saveRouteBtn">Save Route</button>
         <button class="btn btn-green" onclick="saveShowing()">Save as Showing</button>
         {% endif %}
       </div>
@@ -250,6 +259,13 @@
             <button class="btn btn-outline" onclick="calculateRoute()" style="padding: 6px 12px;">Recalculate Route</button>
             <button class="btn btn-outline" onclick="resetRoute()" style="padding: 6px 12px; color: #ef4444; border-color: #ef4444;">Reset</button>
           </div>
+        </div>
+
+        <!-- Selection bar -->
+        <div class="selection-bar">
+          <span class="sel-count" id="selCount">Selected: -- of --</span>
+          <button onclick="selectAll()">Select All</button>
+          <button onclick="clearAll()">Clear All</button>
         </div>
 
         <!-- Route summary -->
@@ -374,9 +390,31 @@
     var COLLECTION_NAME = {{ collection.name | tojson }};
     var GOOGLE_MAPS_KEY = {{ google_maps_key | tojson }};
     var STANDALONE = {{ standalone | default(false) | tojson }};
+    var PRE_SELECTED_IDS = {{ pre_selected_ids | default([]) | tojson }};
+    var SHOWING_ID = {{ showing_id | default('') | tojson }};
+    var SHOWING_NAME = {{ showing_name | default('') | tojson }};
 
     var DEFAULT_DURATION = 30;
     var STORAGE_KEY = 'route-planner-' + (COLLECTION_ID || 'standalone-' + COLLECTION_NAME);
+
+    // Initialize selection state on each property
+    (function initSelection() {
+      var hasPreSelected = PRE_SELECTED_IDS.length > 0;
+      for (var i = 0; i < PROPERTIES.length; i++) {
+        if (hasPreSelected) {
+          PROPERTIES[i]._selected = PRE_SELECTED_IDS.indexOf(PROPERTIES[i].id) >= 0;
+        } else {
+          PROPERTIES[i]._selected = true;  // all selected by default
+        }
+      }
+      // If loading a saved route, set the showing name
+      if (SHOWING_NAME) {
+        setTimeout(function() {
+          var nameInput = document.getElementById('showingName');
+          if (nameInput) nameInput.value = SHOWING_NAME;
+        }, 0);
+      }
+    })();
 
     var map, directionsRenderer;
     var routeLegs = [];
@@ -411,6 +449,37 @@
     function toggleRoundtrip() {
       var checked = document.getElementById('cfgRoundtrip').checked;
       document.getElementById('endAddrRow').style.display = checked ? 'none' : '';
+    }
+
+    function updateSelectionCount() {
+      var selected = PROPERTIES.filter(function(p) { return p._selected; }).length;
+      var el = document.getElementById('selCount');
+      if (el) el.textContent = 'Selected: ' + selected + ' of ' + PROPERTIES.length;
+      // Update subtitle
+      var subtitle = document.querySelector('.top-bar .subtitle input, .top-bar .subtitle');
+      // The subtitle span contains the input + text, update just the text part
+    }
+
+    function togglePropertySelection(index) {
+      PROPERTIES[index]._selected = !PROPERTIES[index]._selected;
+      updateSelectionCount();
+      calculateRoute();
+    }
+
+    function selectAll() {
+      for (var i = 0; i < PROPERTIES.length; i++) PROPERTIES[i]._selected = true;
+      updateSelectionCount();
+      calculateRoute();
+    }
+
+    function clearAll() {
+      for (var i = 0; i < PROPERTIES.length; i++) PROPERTIES[i]._selected = false;
+      updateSelectionCount();
+      renderPropertiesWithoutRoute();
+    }
+
+    function getSelectedProperties() {
+      return PROPERTIES.filter(function(p) { return p._selected; });
     }
 
     function getConfig() {
@@ -530,6 +599,7 @@
 
     // Render itinerary and grid with property data only (no route/timing)
     function renderPropertiesWithoutRoute() {
+      updateSelectionCount();
       allStopsOrdered = PROPERTIES.slice();
       fullStopList = allStopsOrdered.map(function(p) {
         return Object.assign({}, p, { isBreak: false });
@@ -558,6 +628,8 @@
           parcelNumber: stop.parcel_number || '',
           agent: stop.listing_agent_name || '', agentPhone: stop.listing_agent_phone || '',
           propId: stop.id,
+          _selected: stop._selected,
+          _propIndex: i,
         });
       }
       renderItinerary(itinerary);
@@ -595,7 +667,7 @@
       DEFAULT_DURATION = cfg.duration;
 
       var routableProps = PROPERTIES.filter(function(p) {
-        return (p.latitude && p.longitude) || (STANDALONE && (p.address || p._csv_address));
+        return p._selected && ((p.latitude && p.longitude) || (STANDALONE && (p.address || p._csv_address)));
       });
       if (routableProps.length === 0) {
         showMapMessage('No properties have location data for routing.');
@@ -842,6 +914,7 @@
 
     // ===== TIME CALCULATIONS =====
     function recalcTimes() {
+      updateSelectionCount();
       var FIRST_ARRIVAL = getFirstArrival();
       var departTime = new Date(FIRST_ARRIVAL.getTime() - homeToFirstSeconds * 1000);
       var currentTime = new Date(departTime);
@@ -901,6 +974,13 @@
           agent: stop.listing_agent_name || '',
           agentPhone: stop.listing_agent_phone || '',
           propId: stop.id,
+          _selected: true,  // these are all selected (in the route)
+          _propIndex: (function() {
+            for (var pi = 0; pi < PROPERTIES.length; pi++) {
+              if (PROPERTIES[pi].id && PROPERTIES[pi].id === stop.id) return pi;
+            }
+            return undefined;
+          })(),
         });
 
         currentTime = new Date(departAfter.getTime() + (leg ? leg.duration.value * 1000 : 0));
@@ -973,15 +1053,27 @@
     function renderItinerary(itinerary) {
       var container = document.getElementById('itinerary');
       var html = '';
+
+      // Build a set of property IDs already in the itinerary
+      var itineraryPropIds = {};
+      itinerary.forEach(function(stop) {
+        if (stop.propId) itineraryPropIds[stop.propId] = true;
+      });
+
       itinerary.forEach(function(stop, idx) {
         var isFirst = idx === 0;
         var isLast = idx === itinerary.length - 1;
         var isBreak = !!stop.isBreak;
         var numberClass = stop.isHome ? 'home' : (isBreak ? 'break' : '');
         var numberText = stop.isStart ? 'S' : (stop.isEnd ? 'E' : (isBreak ? '\u2615' : stop.stopNumber));
+        var deselectedClass = (stop._selected === false) ? ' deselected' : '';
 
-        html += '<div class="stop" data-index="' + idx + '">';
+        html += '<div class="stop' + deselectedClass + '" data-index="' + idx + '">';
         html += '<div class="stop-header">';
+        // Checkbox for non-home, non-break stops
+        if (!stop.isHome && !isBreak && stop._propIndex !== undefined) {
+          html += '<input type="checkbox" class="stop-checkbox" ' + (stop._selected !== false ? 'checked' : '') + ' onclick="event.stopPropagation(); togglePropertySelection(' + stop._propIndex + ')" title="Include in route">';
+        }
         html += '<div class="stop-number ' + numberClass + '">' + numberText + '</div>';
         html += '<div class="stop-name">' + stop.label + '</div>';
         if (!stop.isHome) {
@@ -1000,25 +1092,46 @@
         html += '</div>';
         html += '<div class="stop-details">';
 
-        if (isFirst) {
+        if (isFirst && stop.isHome) {
           html += '<div class="time">Depart: ' + formatTime(stop.depart) + '</div>';
           if (stop.driveToNext && stop.driveToNext !== '0 min') {
             html += '<div class="drive">Drive ' + stop.driveToNext + ' to first showing</div>';
           }
-        } else if (isLast) {
+        } else if (isLast && stop.isHome) {
           html += '<div class="time">Arrive: ' + formatTime(stop.arrive) + '</div>';
         } else if (isBreak) {
           html += '<div class="time">Arrive: ' + formatTime(stop.arrive) + ' | Depart: ' + formatTime(stop.depart) + '</div>';
           html += '<div class="note">' + stop.duration + ' min break</div>';
           if (stop.driveToNext) html += '<div class="drive">Drive ' + stop.driveToNext + ' to next stop</div>';
         } else {
-          html += '<div class="time">Arrive: ' + formatTime(stop.arrive) + ' | Depart: ' + formatTime(stop.depart) + '</div>';
+          if (stop.arrive) {
+            html += '<div class="time">Arrive: ' + formatTime(stop.arrive) + ' | Depart: ' + formatTime(stop.depart) + '</div>';
+          }
           if (stop.price) html += '<div class="note">$' + stop.price.toLocaleString() + '</div>';
           html += '<div class="note">' + stop.duration + ' min showing</div>';
           if (stop.driveToNext) html += '<div class="drive">Drive ' + stop.driveToNext + ' to next stop</div>';
         }
         html += '</div></div>';
       });
+
+      // Append deselected properties that aren't in the itinerary
+      PROPERTIES.forEach(function(p, idx) {
+        if (p._selected) return;
+        if (itineraryPropIds[p.id]) return;  // already shown
+        var addr = p._csv_address || p.address || '';
+        var city = p._csv_city || p.city || '';
+        html += '<div class="stop deselected" data-index="-1">';
+        html += '<div class="stop-header">';
+        html += '<input type="checkbox" class="stop-checkbox" onclick="event.stopPropagation(); togglePropertySelection(' + idx + ')" title="Include in route">';
+        html += '<div class="stop-number" style="background: #4a5f7a;">&ndash;</div>';
+        html += '<div class="stop-name">' + addr + '</div>';
+        html += '</div>';
+        html += '<div class="stop-details">';
+        if (p.list_price) html += '<div class="note">$' + p.list_price.toLocaleString() + '</div>';
+        if (city) html += '<div class="drive">' + city + (p.state ? ', ' + p.state : '') + '</div>';
+        html += '</div></div>';
+      });
+
       container.innerHTML = html;
     }
 
@@ -1082,6 +1195,34 @@
           html += '<td colspan="9"><input type="text" data-stop="' + key + '" data-field="notes" value="' + (row.notes || '') + '" placeholder="Notes..." style="width:100%;" onchange="onFieldChange()"></td>';  /* MLS# through Agent Phone */
           html += '</tr>';
         }
+      });
+
+      // Append deselected properties to grid (dimmed)
+      var itineraryPropIds = {};
+      itinerary.forEach(function(s) { if (s.propId) itineraryPropIds[s.propId] = true; });
+      PROPERTIES.forEach(function(p) {
+        if (p._selected) return;
+        if (itineraryPropIds[p.id]) return;
+        var addr = p._csv_address || p.address || '';
+        var city = p._csv_city || p.city || '';
+        var cityState = city + (p.state && p.state !== city ? (city ? ', ' : '') + p.state : '');
+        html += '<tr class="deselected" style="border-top: 2px solid #000;">';
+        html += '<td><span class="stop-badge" style="background: #4a5f7a;">&ndash;</span></td>';
+        html += '<td class="addr-cell">' + addr + (cityState ? '<br><span class="addr-city">' + cityState + '</span>' : '') + '</td>';
+        html += '<td class="time-cell">--</td>';
+        html += '<td>--</td>';
+        html += '<td class="time-cell">--</td>';
+        html += '<td>--</td>';
+        html += '<td>' + (p.mls_number || '') + '</td>';
+        html += '<td>' + (p.parcel_number || '') + '</td>';
+        html += '<td>' + (p.list_price ? '$' + p.list_price.toLocaleString() : '') + '</td>';
+        html += '<td>' + (p.beds || '') + '</td>';
+        html += '<td>' + (p.baths || '') + '</td>';
+        html += '<td>' + (p.sqft ? p.sqft.toLocaleString() : '') + '</td>';
+        html += '<td>' + (p.acreage ? p.acreage.toFixed(2) : '') + '</td>';
+        html += '<td>' + (p.listing_agent_name || '') + '</td>';
+        html += '<td>' + (p.listing_agent_phone || '') + '</td>';
+        html += '</tr>';
       });
 
       tbody.innerHTML = html;
@@ -1668,6 +1809,79 @@
       document.body.appendChild(form);
       form.submit();
       document.body.removeChild(form);
+    }
+
+    function saveRouteToDb() {
+      if (STANDALONE) return;
+      var selectedProps = getSelectedProperties();
+      if (selectedProps.length === 0) {
+        alert('Select at least one property to save a route.');
+        return;
+      }
+
+      var defaultName = (document.getElementById('showingName').value || COLLECTION_NAME);
+      var routeName = prompt('Save route as:', defaultName);
+      if (!routeName || !routeName.trim()) return;
+      routeName = routeName.trim();
+
+      var cfg = getConfig();
+      var gridData = collectGridData();
+
+      var routeData = {
+        config: cfg,
+        stops: fullStopList.filter(function(s) {
+          return s.isBreak || s._selected !== false;
+        }).map(function(s) {
+          return {
+            address: s.address,
+            city: s.city || '',
+            label: s.label || s.address,
+            isBreak: !!s.isBreak,
+            duration: s.isBreak ? (s.duration || 45) : getDuration(s.address || s.label, savedState, s._duration),
+            propertyId: s.id || null,
+            notes: (gridData[s.address || s.label] || {}).notes || '',
+          };
+        }),
+        breaks: extraStops,
+        totalMiles: document.getElementById('total-distance').textContent,
+        totalTime: document.getElementById('total-time').textContent,
+        departTime: document.getElementById('depart-time').textContent,
+        returnTime: document.getElementById('return-time').textContent,
+      };
+
+      var formData = new FormData();
+      formData.append('name', routeName);
+      formData.append('scheduled_date', cfg.date);
+      formData.append('scheduled_time', cfg.time);
+      formData.append('route_data', JSON.stringify(routeData));
+      formData.append('total_distance', document.getElementById('total-distance').textContent);
+      formData.append('total_drive_time', document.getElementById('total-time').textContent);
+      formData.append('tour_only', 'true');
+
+      fetch('/buyer-collections/' + COLLECTION_ID + '/save-showing', {
+        method: 'POST',
+        body: formData,
+      })
+      .then(function(resp) { return resp.json(); })
+      .then(function(data) {
+        if (data.success) {
+          var btn = document.getElementById('saveRouteBtn');
+          if (btn) {
+            var orig = btn.textContent;
+            btn.textContent = 'Saved!';
+            btn.style.borderColor = '#16a34a';
+            btn.style.color = '#16a34a';
+            setTimeout(function() {
+              btn.textContent = orig;
+              btn.style.borderColor = '';
+              btn.style.color = '';
+            }, 2000);
+          }
+        } else {
+          alert('Error saving route.');
+        }
+      })
+      .catch(function() { alert('Error saving route.'); });
     }
 
     function saveShowing() {

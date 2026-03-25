@@ -2115,6 +2115,19 @@ def collection_detail(collection_id):
             for prop in properties:
                 localize_photo(prop)
 
+            # Get saved routes for this collection
+            saved_routes = conn.execute('''
+                SELECT s.id, s.name, s.status, s.scheduled_date, s.scheduled_time,
+                       s.total_drive_time, s.total_distance, s.created_at,
+                       (SELECT COUNT(*) FROM showing_properties sp WHERE sp.showing_id = s.id) as stop_count
+                FROM showings s
+                WHERE s.package_id = ?
+                  AND s.name IS NOT NULL
+                  AND COALESCE(s.status, 'scheduled') NOT IN ('archived', 'cancelled')
+                ORDER BY s.created_at DESC
+            ''', (collection_id,)).fetchall()
+            saved_routes = [dict(r) for r in saved_routes]
+
     except Exception as e:
         logger.error(f"Error fetching collection: {e}")
         return "Error loading collection", 500
@@ -2132,7 +2145,8 @@ def collection_detail(collection_id):
         contact=contact,
         package=package,
         properties=properties,
-        client_url=client_url)
+        client_url=client_url,
+        saved_routes=saved_routes)
 
 @app.route('/collections/<pursuit_id>/add-property', methods=['POST'])
 @requires_auth
@@ -2443,6 +2457,22 @@ def collection_route_planner(collection_id):
             ORDER BY pkp.display_order, pkp.added_at
         ''', [collection_id]).fetchall()
 
+        # If loading a saved route, get pre-selected property IDs
+        pre_selected_ids = []
+        showing_id = request.args.get('showing_id')
+        showing_name = ''
+        if showing_id:
+            sp_rows = conn.execute(
+                'SELECT property_id FROM showing_properties WHERE showing_id = ? ORDER BY stop_order',
+                [showing_id]
+            ).fetchall()
+            pre_selected_ids = [r['property_id'] for r in sp_rows]
+            showing_row = conn.execute(
+                'SELECT name FROM showings WHERE id = ?', [showing_id]
+            ).fetchone()
+            if showing_row:
+                showing_name = showing_row['name'] or ''
+
     today = datetime.now(ET).strftime('%Y-%m-%d')
     home_address = os.getenv('AGENT_HOME_ADDRESS', '')
 
@@ -2452,6 +2482,9 @@ def collection_route_planner(collection_id):
         google_maps_key=os.getenv('GOOGLE_MAPS_API_KEY', ''),
         today=today,
         home_address=home_address,
+        pre_selected_ids=pre_selected_ids,
+        showing_id=showing_id or '',
+        showing_name=showing_name,
     )
 
 
@@ -2492,17 +2525,21 @@ def collection_save_showing(collection_id):
     except ValueError:
         pass
 
+    # Use 'planned' status for route-only saves, 'scheduled' for showings
+    save_status = 'planned' if request.form.get('tour_only') == 'true' else 'scheduled'
+
     conn.execute('''
         INSERT INTO showings
         (id, lead_id, package_id, name, status, scheduled_date, scheduled_time,
          route_optimized, route_data, total_drive_time, total_distance,
          created_at, updated_at)
-        VALUES (?, ?, ?, ?, 'scheduled', ?, ?, 1, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?)
     ''', (
         showing_id,
         collection['lead_id'],
         collection_id,
         name,
+        save_status,
         request.form.get('scheduled_date', ''),
         request.form.get('scheduled_time', ''),
         route_data,
@@ -2539,7 +2576,42 @@ def collection_save_showing(collection_id):
     conn.commit()
     conn.close()
 
+    # Return JSON for AJAX (tour_only), redirect for form submissions
+    if request.form.get('tour_only') == 'true':
+        return jsonify({'success': True, 'showing_id': showing_id, 'name': name})
+
     return redirect(f'/buyer-collections/{collection_id}')
+
+
+@app.route('/api/collections/<collection_id>/saved-routes')
+@requires_auth
+def api_collection_saved_routes(collection_id):
+    """List saved routes for a collection."""
+    db = get_db()
+    with db._get_connection() as conn:
+        routes = conn.execute('''
+            SELECT s.id, s.name, s.status, s.scheduled_date, s.scheduled_time,
+                   s.total_drive_time, s.total_distance, s.created_at,
+                   (SELECT COUNT(*) FROM showing_properties sp WHERE sp.showing_id = s.id) as stop_count
+            FROM showings s
+            WHERE s.package_id = ?
+              AND s.name IS NOT NULL
+              AND COALESCE(s.status, 'scheduled') NOT IN ('archived', 'cancelled')
+            ORDER BY s.created_at DESC
+        ''', [collection_id]).fetchall()
+    return jsonify({'routes': [dict(r) for r in routes]})
+
+
+@app.route('/api/collections/<collection_id>/saved-routes/<showing_id>', methods=['DELETE'])
+@requires_auth
+def api_delete_saved_route(collection_id, showing_id):
+    """Delete a saved route from a collection."""
+    db = get_db()
+    with db._get_connection() as conn:
+        conn.execute('DELETE FROM showing_properties WHERE showing_id = ?', [showing_id])
+        conn.execute('DELETE FROM showings WHERE id = ? AND package_id = ?', [showing_id, collection_id])
+        conn.commit()
+    return jsonify({'success': True})
 
 
 # ── Standalone Showings Planner (CSV / manual entry) ─────────────────────
@@ -5509,6 +5581,19 @@ def contact_package_detail(contact_id, package_id):
                         prop['primary_photo'] = f"/photos/{photo_dir.name}/{mls}{ext}"
                         break
 
+            # Get saved routes for this collection
+            saved_routes = conn.execute('''
+                SELECT s.id, s.name, s.status, s.scheduled_date, s.scheduled_time,
+                       s.total_drive_time, s.total_distance, s.created_at,
+                       (SELECT COUNT(*) FROM showing_properties sp WHERE sp.showing_id = s.id) as stop_count
+                FROM showings s
+                WHERE s.package_id = ?
+                  AND s.name IS NOT NULL
+                  AND COALESCE(s.status, 'scheduled') NOT IN ('archived', 'cancelled')
+                ORDER BY s.created_at DESC
+            ''', (package_id,)).fetchall()
+            saved_routes = [dict(r) for r in saved_routes]
+
     except Exception as e:
         logger.error(f"Error fetching package: {e}")
         return "Error loading package", 500
@@ -5526,7 +5611,8 @@ def contact_package_detail(contact_id, package_id):
         contact=contact,
         package=package,
         properties=properties,
-        client_url=client_url)
+        client_url=client_url,
+        saved_routes=saved_routes)
 
 
 @app.route('/contacts/<contact_id>/packages/<package_id>/add', methods=['POST'])
