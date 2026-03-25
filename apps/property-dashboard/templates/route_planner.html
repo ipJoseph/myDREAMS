@@ -96,9 +96,35 @@
     .map-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 199; }
     .layout.map-expanded .map-backdrop { display: block; }
 
+    /* Resize handle between map/sidebar and grid */
+    .grid-resize-handle {
+      height: 6px; background: #1e3a5f; cursor: ns-resize; position: relative;
+      flex-shrink: 0; z-index: 10; transition: background 0.15s;
+    }
+    .grid-resize-handle:hover, .grid-resize-handle.active { background: #c8a84e; }
+    .grid-resize-handle::after {
+      content: ''; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+      width: 40px; height: 2px; background: #4a5f7a; border-radius: 1px;
+    }
+    .grid-resize-handle:hover::after, .grid-resize-handle.active::after { background: #0a1628; }
+
     /* Property Details Grid */
-    .grid-panel { border-top: 2px solid #1e3a5f; background: #0f1d32; overflow-x: auto; max-height: 320px; }
-    .grid-panel h2 { font-size: 14px; color: #c8a84e; padding: 12px 16px 8px; background: #132744; border-bottom: 1px solid #1e3a5f; position: sticky; top: 0; z-index: 1; }
+    .grid-panel { background: #0f1d32; overflow-x: auto; overflow-y: auto; flex-shrink: 0; transition: height 0.2s ease; }
+    .grid-panel.collapsed { height: 0 !important; overflow: hidden; }
+    .grid-panel-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 16px; background: #132744; border-bottom: 1px solid #1e3a5f;
+      position: sticky; top: 0; z-index: 1;
+    }
+    .grid-panel-header h2 { font-size: 14px; color: #c8a84e; margin: 0; }
+    .grid-panel-header .grid-view-btns { display: flex; gap: 4px; }
+    .grid-panel-header .grid-view-btn {
+      background: transparent; border: 1px solid #1e3a5f; color: #8899aa;
+      padding: 3px 8px; border-radius: 3px; font-size: 11px; cursor: pointer;
+      font-family: inherit; font-weight: 600;
+    }
+    .grid-panel-header .grid-view-btn:hover { border-color: #c8a84e; color: #c8a84e; }
+    .grid-panel-header .grid-view-btn.active { border-color: #c8a84e; color: #c8a84e; background: rgba(200,168,78,0.1); }
     .prop-table { width: 100%; border-collapse: collapse; font-size: 13px; }
     .prop-table thead { position: sticky; top: 38px; z-index: 1; }
     .prop-table th {
@@ -163,7 +189,9 @@
 
       /* Hide everything except the grid */
       .layout { height: auto; display: block; }
-      .top-bar, .top-row, .map-backdrop, .modal-overlay, .btn-row { display: none !important; }
+      .top-bar, .top-row, .map-backdrop, .modal-overlay, .btn-row, .grid-resize-handle, .grid-panel-header { display: none !important; }
+      .grid-panel { height: auto !important; max-height: none !important; overflow: visible !important; flex: none !important; }
+      .grid-panel.collapsed { height: auto !important; overflow: visible !important; }
 
       /* Show print header */
       .print-header {
@@ -307,9 +335,19 @@
       <span class="print-meta" id="printMeta"></span>
     </div>
 
+    <!-- Resize handle -->
+    <div class="grid-resize-handle" id="gridResizeHandle"></div>
+
     <!-- Property Details Grid -->
-    <div class="grid-panel">
-      <h2>Property Details &amp; Itinerary</h2>
+    <div class="grid-panel" id="gridPanel" style="height: 280px;">
+      <div class="grid-panel-header">
+        <h2>Property Details &amp; Itinerary</h2>
+        <div class="grid-view-btns">
+          <button class="grid-view-btn" onclick="setGridView('collapse')" title="Hide grid panel">Collapse</button>
+          <button class="grid-view-btn active" onclick="setGridView('split')" title="Split view (default)">Split</button>
+          <button class="grid-view-btn" onclick="setGridView('full')" title="Maximize grid panel">Full</button>
+        </div>
+      </div>
       <table class="prop-table">
         <thead>
           <tr>
@@ -2040,6 +2078,127 @@
       var m = Math.round((seconds % 3600) / 60);
       return h > 0 ? h + 'h ' + m + 'm' : m + ' min';
     }
+
+    // ===== RESIZABLE GRID PANEL =====
+    var gridPanel = document.getElementById('gridPanel');
+    var resizeHandle = document.getElementById('gridResizeHandle');
+    var currentGridView = 'split';
+    var savedGridHeight = 280;
+
+    // Restore saved height from localStorage
+    (function() {
+      var h = localStorage.getItem('route-planner-grid-height');
+      if (h) {
+        savedGridHeight = parseInt(h) || 280;
+        gridPanel.style.height = savedGridHeight + 'px';
+      }
+      var v = localStorage.getItem('route-planner-grid-view');
+      if (v && (v === 'collapse' || v === 'split' || v === 'full')) {
+        setGridView(v, true);
+      }
+    })();
+
+    function setGridView(mode, skipSave) {
+      currentGridView = mode;
+      var topRow = document.querySelector('.top-row');
+
+      // Update button states
+      document.querySelectorAll('.grid-view-btn').forEach(function(btn) {
+        btn.classList.toggle('active', btn.textContent.toLowerCase() === mode);
+      });
+
+      if (mode === 'collapse') {
+        gridPanel.classList.add('collapsed');
+        resizeHandle.style.display = 'none';
+        topRow.style.flex = '1';
+      } else if (mode === 'full') {
+        gridPanel.classList.remove('collapsed');
+        resizeHandle.style.display = '';
+        topRow.style.flex = '0 0 120px';
+        gridPanel.style.height = '';
+        gridPanel.style.flex = '1';
+      } else {
+        // split
+        gridPanel.classList.remove('collapsed');
+        resizeHandle.style.display = '';
+        topRow.style.flex = '1';
+        gridPanel.style.flex = '';
+        gridPanel.style.height = savedGridHeight + 'px';
+      }
+
+      if (!skipSave) localStorage.setItem('route-planner-grid-view', mode);
+      // Trigger map resize
+      if (map) setTimeout(function() { google.maps.event.trigger(map, 'resize'); }, 50);
+    }
+
+    // Drag-to-resize
+    (function() {
+      var dragging = false;
+      var startY, startH;
+
+      resizeHandle.addEventListener('mousedown', function(e) {
+        e.preventDefault();
+        dragging = true;
+        startY = e.clientY;
+        startH = gridPanel.offsetHeight;
+        resizeHandle.classList.add('active');
+        document.body.style.cursor = 'ns-resize';
+        document.body.style.userSelect = 'none';
+      });
+
+      document.addEventListener('mousemove', function(e) {
+        if (!dragging) return;
+        var delta = startY - e.clientY;
+        var newH = Math.max(80, Math.min(window.innerHeight - 200, startH + delta));
+        gridPanel.style.height = newH + 'px';
+        gridPanel.style.flex = '';
+        // Keep in split mode during drag
+        if (currentGridView !== 'split') {
+          currentGridView = 'split';
+          document.querySelector('.top-row').style.flex = '1';
+          document.querySelectorAll('.grid-view-btn').forEach(function(btn) {
+            btn.classList.toggle('active', btn.textContent.toLowerCase() === 'split');
+          });
+        }
+      });
+
+      document.addEventListener('mouseup', function() {
+        if (!dragging) return;
+        dragging = false;
+        resizeHandle.classList.remove('active');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        savedGridHeight = gridPanel.offsetHeight;
+        localStorage.setItem('route-planner-grid-height', savedGridHeight);
+        localStorage.setItem('route-planner-grid-view', 'split');
+        if (map) google.maps.event.trigger(map, 'resize');
+      });
+
+      // Touch support
+      resizeHandle.addEventListener('touchstart', function(e) {
+        dragging = true;
+        startY = e.touches[0].clientY;
+        startH = gridPanel.offsetHeight;
+        resizeHandle.classList.add('active');
+      }, { passive: true });
+
+      document.addEventListener('touchmove', function(e) {
+        if (!dragging) return;
+        var delta = startY - e.touches[0].clientY;
+        var newH = Math.max(80, Math.min(window.innerHeight - 200, startH + delta));
+        gridPanel.style.height = newH + 'px';
+        gridPanel.style.flex = '';
+      }, { passive: true });
+
+      document.addEventListener('touchend', function() {
+        if (!dragging) return;
+        dragging = false;
+        resizeHandle.classList.remove('active');
+        savedGridHeight = gridPanel.offsetHeight;
+        localStorage.setItem('route-planner-grid-height', savedGridHeight);
+        if (map) google.maps.event.trigger(map, 'resize');
+      });
+    })();
 
     window.initMap = initMap;
   </script>
