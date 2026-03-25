@@ -2073,6 +2073,66 @@ def update_collection_status(pursuit_id):
 def auto_populate_collection(pursuit_id):
     return auto_populate_pursuit(pursuit_id)
 
+@app.route('/api/collections/create-from-properties', methods=['POST'])
+@requires_auth
+def create_collection_from_properties():
+    """Create a collection from selected property IDs.
+
+    Accepts JSON: { name: str, property_ids: [str], contact_id: str|null }
+    contact_id is optional; if omitted, creates an unassigned template collection.
+    """
+    import uuid
+    import secrets
+
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'error': 'No data provided'}), 400
+
+    property_ids = data.get('property_ids', [])
+    if not property_ids:
+        return jsonify({'success': False, 'error': 'No properties selected'}), 400
+
+    name = data.get('name', '').strip()
+    if not name:
+        name = f"Collection - {datetime.now().strftime('%b %d, %Y %I:%M %p')}"
+
+    contact_id = data.get('contact_id') or None
+    collection_type = 'agent_package' if not contact_id else 'client_package'
+
+    package_id = str(uuid.uuid4())
+    share_token = secrets.token_urlsafe(16)
+    now = datetime.now().isoformat()
+
+    db = get_db()
+    try:
+        with db._get_connection() as conn:
+            conn.execute('''
+                INSERT INTO property_packages
+                (id, lead_id, name, status, share_token, collection_type, created_at, updated_at)
+                VALUES (?, ?, ?, 'draft', ?, ?, ?, ?)
+            ''', (package_id, contact_id, name, share_token, collection_type, now, now))
+
+            for i, prop_id in enumerate(property_ids):
+                conn.execute('''
+                    INSERT OR IGNORE INTO package_properties
+                    (package_id, listing_id, display_order, added_at)
+                    VALUES (?, ?, ?, ?)
+                ''', (package_id, prop_id, i + 1, now))
+
+            conn.commit()
+    except Exception as e:
+        logger.error(f"Error creating collection: {e}")
+        return jsonify({'success': False, 'error': 'Failed to create collection'}), 500
+
+    return jsonify({
+        'success': True,
+        'collection_id': package_id,
+        'name': name,
+        'property_count': len(property_ids),
+        'redirect_url': f'/collections/{package_id}',
+    })
+
+
 @app.route('/api/collections/active')
 @requires_auth
 def api_active_collections():

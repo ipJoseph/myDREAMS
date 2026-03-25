@@ -820,6 +820,9 @@
                 <span id="copyBtnText">Copy MLS #s</span>
             </button>
             <button class="dash-action-btn" onclick="openIDXSearch()" title="Open IDX search page">Open IDX</button>
+            <button class="dash-action-btn success" onclick="createCollection()" title="Create a property collection from selected properties">
+                <span id="collectionBtnText">Create Collection</span>
+            </button>
             <button class="dash-action-btn success" onclick="createIDXPortfolio()" title="Auto-fill IDX search with selected properties">
                 <span id="portfolioBtnText">Create IDX Portfolio</span>
             </button>
@@ -1261,9 +1264,11 @@
                 const checkbox = item.querySelector('.row-select');
                 if (checkbox && checkbox.checked) {
                     const mls = item.dataset.mls;
-                    // Get address from link text
+                    // Get property ID from the detail link
                     const link = item.querySelector('a[href^="/properties/"]');
                     const address = link ? link.textContent.trim() : '';
+                    const href = link ? link.getAttribute('href') : '';
+                    const propId = href ? href.replace('/properties/', '') : '';
                     // IDX status from badge
                     const idxBadge = item.querySelector('.dash-mini-badge.idx-validated, .dash-mini-badge.idx-not-found, .idx-link, .idx-badge');
                     let idxStatus = 'pending';
@@ -1271,7 +1276,7 @@
                         if (idxBadge.classList.contains('idx-validated') || idxBadge.classList.contains('validated')) idxStatus = 'validated';
                         else if (idxBadge.classList.contains('idx-not-found') || idxBadge.classList.contains('not-found')) idxStatus = 'not_found';
                     }
-                    properties.push({ mls_number: mls || '', address: address, idx_status: idxStatus });
+                    properties.push({ id: propId, mls_number: mls || '', address: address, idx_status: idxStatus });
                 }
             });
             return properties;
@@ -1353,6 +1358,54 @@
             if (mlsNumbers.length === 0) { alert('No MLS numbers found. Select some properties first.'); return; }
             navigator.clipboard.writeText(mlsNumbers.join(', ')).catch(() => {});
             window.open('https://www.smokymountainhomes4sale.com/search/mls_search/', '_blank');
+        }
+
+        // ── Create Collection ──
+        async function createCollection() {
+            const properties = getSelectedProperties();
+            if (properties.length === 0) {
+                alert('No properties selected. Check the boxes for properties you want to include.');
+                return;
+            }
+
+            const propertyIds = properties.map(p => p.id).filter(id => id);
+            if (propertyIds.length === 0) {
+                alert('Could not determine property IDs for selected items.');
+                return;
+            }
+
+            const now = new Date();
+            const yy = String(now.getFullYear()).slice(-2);
+            const mm = String(now.getMonth() + 1).padStart(2, '0');
+            const dd = String(now.getDate()).padStart(2, '0');
+            const defaultName = `${yy}${mm}${dd}.Collection.${propertyIds.length}`;
+            const name = prompt(`Collection name (${propertyIds.length} properties):`, defaultName);
+            if (name === null) return;
+
+            const btn = document.getElementById('collectionBtnText');
+            btn.textContent = 'Creating...';
+
+            try {
+                const resp = await fetch('/api/collections/create-from-properties', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: name,
+                        property_ids: propertyIds,
+                        contact_id: null
+                    })
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    window.location.href = data.redirect_url;
+                } else {
+                    alert('Failed to create collection: ' + (data.error || 'Unknown error'));
+                    btn.textContent = 'Create Collection';
+                }
+            } catch (err) {
+                alert('Error creating collection: ' + err.message);
+                btn.textContent = 'Create Collection';
+            }
         }
 
         // ── IDX Portfolio ──
