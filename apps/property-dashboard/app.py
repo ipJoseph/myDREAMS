@@ -2607,8 +2607,8 @@ def collection_save_showing(collection_id):
     conn.commit()
     conn.close()
 
-    # Return JSON for AJAX (tour_only), redirect for form submissions
-    if request.form.get('tour_only') == 'true':
+    # Return JSON for AJAX requests, redirect for form submissions
+    if request.form.get('tour_only') == 'true' or request.form.get('ajax') == 'true':
         return jsonify({'success': True, 'showing_id': showing_id, 'name': name})
 
     return redirect(f'/buyer-collections/{collection_id}')

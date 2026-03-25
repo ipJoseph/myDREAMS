@@ -250,7 +250,7 @@
         <a href="/buyer-collections/{{ collection.id }}">&larr; Back to Collection</a>
         {% endif %}
         <h1>Route Planner</h1>
-        <span class="subtitle"><input type="text" id="showingName" value="{{ collection.name }}" style="background:transparent; border:1px solid transparent; color:#c8a84e; font-size:18px; font-weight:600; font-family:inherit; padding:2px 6px; border-radius:3px; width: 360px;" onfocus="this.style.borderColor='#c8a84e'" onblur="this.style.borderColor='transparent'; COLLECTION_NAME=this.value;" title="Click to edit showing name"> &middot; {{ properties|length }} properties</span>
+        <span class="subtitle"><input type="text" id="showingName" value="{{ collection.name }}" style="background:transparent; border:1px solid transparent; color:#c8a84e; font-size:16px; font-weight:600; font-family:inherit; padding:2px 6px; border-radius:3px; width: 360px;" onfocus="this.style.borderColor='#c8a84e'" onblur="this.style.borderColor='transparent'; COLLECTION_NAME=this.value;" title="Click to edit showing name"> &middot; {{ properties|length }} properties</span>
       </div>
       <div style="display: flex; gap: 8px;">
         {% if standalone %}
@@ -350,6 +350,10 @@
       <div class="grid-panel-header">
         <h2>Property Details &amp; Itinerary</h2>
         <div class="grid-view-btns">
+          <button class="grid-view-btn" onclick="printItinerary('agent')" title="Agent itinerary PDF" style="border-color: #c8a84e; color: #c8a84e;">Agent Itinerary</button>
+          <button class="grid-view-btn" onclick="printItinerary('buyer')" title="Buyer itinerary PDF" style="border-color: #4a9eff; color: #4a9eff;">Buyer Itinerary</button>
+          <button class="grid-view-btn" onclick="printDetails()" title="Print grid details">Print</button>
+          <span style="width: 1px; background: #1e3a5f; margin: 0 4px;"></span>
           <button class="grid-view-btn" onclick="setGridView('collapse')" title="Hide grid panel">Collapse</button>
           <button class="grid-view-btn active" onclick="setGridView('split')" title="Split view (default)">Split</button>
           <button class="grid-view-btn" onclick="setGridView('full')" title="Maximize grid panel">Full</button>
@@ -1990,23 +1994,33 @@
         returnTime: document.getElementById('return-time').textContent,
       };
 
-      var form = document.createElement('form');
-      form.method = 'POST';
-      form.action = '/buyer-collections/' + COLLECTION_ID + '/save-showing';
-      [
-        ['name', document.getElementById('showingName').value],
-        ['scheduled_date', cfg.date],
-        ['scheduled_time', cfg.time],
-        ['route_data', JSON.stringify(routeData)],
-        ['total_distance', document.getElementById('total-distance').textContent],
-        ['total_drive_time', document.getElementById('total-time').textContent],
-      ].forEach(function(pair) {
-        var inp = document.createElement('input');
-        inp.type = 'hidden'; inp.name = pair[0]; inp.value = pair[1];
-        form.appendChild(inp);
-      });
-      document.body.appendChild(form);
-      form.submit();
+      var formData = new FormData();
+      formData.append('name', document.getElementById('showingName').value);
+      formData.append('scheduled_date', cfg.date);
+      formData.append('scheduled_time', cfg.time);
+      formData.append('route_data', JSON.stringify(routeData));
+      formData.append('total_distance', document.getElementById('total-distance').textContent);
+      formData.append('total_drive_time', document.getElementById('total-time').textContent);
+      formData.append('ajax', 'true');
+
+      fetch('/buyer-collections/' + COLLECTION_ID + '/save-showing', {
+        method: 'POST',
+        body: formData,
+      })
+      .then(function(resp) { return resp.json(); })
+      .then(function(data) {
+        if (data.success) {
+          var btn = document.querySelector('.btn-green');
+          if (btn) {
+            var orig = btn.textContent;
+            btn.textContent = 'Saved!';
+            setTimeout(function() { btn.textContent = orig; }, 2000);
+          }
+        } else {
+          alert('Error saving showing.');
+        }
+      })
+      .catch(function() { alert('Error saving showing.'); });
     }
 
     // ===== TOUR SAVE / LOAD =====
