@@ -17,6 +17,7 @@ Recommended crontab entries:
 """
 
 import argparse
+import fcntl
 import logging
 import os
 import sys
@@ -27,6 +28,8 @@ PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from apps.mlsgrid.sync_engine import MLSGridSyncEngine, print_stats
+
+LOCK_FILE = PROJECT_ROOT / 'data' / '.mlsgrid_sync.lock'
 
 
 def setup_logging(log_dir: Path = None):
@@ -135,6 +138,18 @@ def main():
     load_env()
     setup_logging()
 
+    logger = logging.getLogger('mlsgrid.cron')
+
+    # Acquire exclusive lock to prevent overlapping sync runs
+    LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
+    lock_fd = open(LOCK_FILE, 'w')
+    try:
+        fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        logger.info("Another sync is already running, skipping this run.")
+        lock_fd.close()
+        return 0
+
     try:
         if args.nightly:
             run_nightly()
@@ -144,8 +159,11 @@ def main():
             # Default: incremental sync
             run_incremental()
     except Exception as e:
-        logging.getLogger('mlsgrid.cron').error(f"Sync failed: {e}", exc_info=True)
+        logger.error(f"Sync failed: {e}", exc_info=True)
         return 1
+    finally:
+        fcntl.flock(lock_fd, fcntl.LOCK_UN)
+        lock_fd.close()
 
     return 0
 

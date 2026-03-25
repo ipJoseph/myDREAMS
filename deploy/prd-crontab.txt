@@ -3,8 +3,8 @@
 #
 # All sync jobs run from /opt/mydreams using the system python3
 
-# Canopy MLS (MLS Grid) - incremental sync every 15 minutes
-*/15 * * * * cd /opt/mydreams && python3 -m apps.mlsgrid.cron_sync >> /opt/mydreams/data/logs/mlsgrid-sync.log 2>&1
+# Canopy MLS (MLS Grid) - incremental sync every 30 min during business hours (12-01 UTC = 8am-9pm EDT)
+*/30 12-1 * * * cd /opt/mydreams && python3 -m apps.mlsgrid.cron_sync >> /opt/mydreams/data/logs/mlsgrid-sync.log 2>&1
 
 # Canopy MLS - nightly full sync at 2 AM UTC (10 PM EDT)
 0 2 * * * cd /opt/mydreams && python3 -m apps.mlsgrid.cron_sync --nightly >> /opt/mydreams/data/logs/mlsgrid-sync.log 2>&1

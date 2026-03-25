@@ -39,9 +39,9 @@ MLSGRID_DEMO_URL = "https://api-demo.mlsgrid.com/v2"
 # Canopy MLS identifier in MLS Grid
 CANOPY_SYSTEM_NAME = "carolina"
 
-# Rate limiting (MLS Grid: 2/sec, 7200/hr, 40000/day)
-DEFAULT_REQUEST_DELAY = 0.6  # seconds between requests (conservative)
-MAX_REQUESTS_PER_RUN = 5000  # stay well under hourly limit
+# Rate limiting (MLS Grid limits: 2 RPS warning, 6 RPS suspend, 7200/hr, 40000/day)
+DEFAULT_REQUEST_DELAY = 1.1  # seconds between requests (keeps us well under 1 RPS)
+MAX_REQUESTS_PER_RUN = 3000  # stay well under hourly limit
 
 
 def load_env():
