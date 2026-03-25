@@ -1861,6 +1861,13 @@ def pursuits_list():
             pc['buyer_name'] = pc.get('user_name') or pc.get('user_email') or 'Unknown'
         pursuits.append(pc)
 
+    # Filter based on query param
+    filter_type = request.args.get('filter', 'all')
+    if filter_type == 'with_contact':
+        pursuits = [p for p in pursuits if p.get('lead_id') or p.get('buyer_id')]
+    elif filter_type == 'templates':
+        pursuits = [p for p in pursuits if not p.get('lead_id') and not p.get('buyer_id')]
+
     # Sort based on query param
     sort = request.args.get('sort', 'updated')
 
@@ -1882,6 +1889,7 @@ def pursuits_list():
                          pursuits=pursuits,
                          potential_buyers=potential_buyers,
                          sort=sort,
+                         filter=filter_type,
                          refresh_time=datetime.now(tz=ET).strftime('%B %d, %Y %I:%M %p'))
 
 
@@ -2224,6 +2232,24 @@ def api_rename_collection(collection_id):
     with db._get_connection() as conn:
         conn.execute('UPDATE property_packages SET name = ?, updated_at = ? WHERE id = ?',
                      [name, datetime.now().isoformat(), collection_id])
+        conn.commit()
+    return jsonify({'success': True})
+
+
+@app.route('/api/collections/<collection_id>/delete', methods=['POST'])
+@requires_auth
+def api_delete_collection(collection_id):
+    """Delete a collection and its property assignments."""
+    db = get_db()
+    with db._get_connection() as conn:
+        # Verify it exists
+        pkg = conn.execute('SELECT id, collection_type FROM property_packages WHERE id = ?',
+                           [collection_id]).fetchone()
+        if not pkg:
+            return jsonify({'success': False, 'error': 'Collection not found'}), 404
+
+        conn.execute('DELETE FROM package_properties WHERE package_id = ?', [collection_id])
+        conn.execute('DELETE FROM property_packages WHERE id = ?', [collection_id])
         conn.commit()
     return jsonify({'success': True})
 

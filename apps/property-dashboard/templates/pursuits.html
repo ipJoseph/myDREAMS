@@ -206,6 +206,25 @@
             opacity: 0.9;
         }
 
+        .pursuit-btn.danger {
+            color: #dc2626;
+            border-color: #fca5a5;
+        }
+
+        .pursuit-btn.danger:hover {
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+
+        .filter-toggle {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+            margin-left: 16px;
+            padding-left: 16px;
+            border-left: 1px solid var(--border);
+        }
+
         /* Potential Buyers List */
         .buyer-item {
             display: flex;
@@ -401,11 +420,17 @@
                 <h3 class="section-title">Collections ({{ pursuits|length }})</h3>
                 <div style="display: flex; gap: 6px; align-items: center; font-size: 12px; color: var(--text-secondary);">
                     Sort:
-                    <a href="?sort=updated" class="pursuit-btn{% if sort == 'updated' %} primary{% endif %}" style="padding: 3px 8px; font-size: 11px;" onclick="saveSort('updated')">Recent</a>
-                    <a href="?sort=accessed" class="pursuit-btn{% if sort == 'accessed' %} primary{% endif %}" style="padding: 3px 8px; font-size: 11px;" onclick="saveSort('accessed')">Last Accessed</a>
-                    <a href="?sort=name" class="pursuit-btn{% if sort == 'name' %} primary{% endif %}" style="padding: 3px 8px; font-size: 11px;" onclick="saveSort('name')">Name</a>
-                    <a href="?sort=properties" class="pursuit-btn{% if sort == 'properties' %} primary{% endif %}" style="padding: 3px 8px; font-size: 11px;" onclick="saveSort('properties')">Properties</a>
-                    <a href="?sort=created" class="pursuit-btn{% if sort == 'created' %} primary{% endif %}" style="padding: 3px 8px; font-size: 11px;" onclick="saveSort('created')">Created</a>
+                    <a href="?sort=updated&filter={{ filter }}" class="pursuit-btn{% if sort == 'updated' %} primary{% endif %}" style="padding: 3px 8px; font-size: 11px;" onclick="saveSort('updated')">Recent</a>
+                    <a href="?sort=accessed&filter={{ filter }}" class="pursuit-btn{% if sort == 'accessed' %} primary{% endif %}" style="padding: 3px 8px; font-size: 11px;" onclick="saveSort('accessed')">Last Accessed</a>
+                    <a href="?sort=name&filter={{ filter }}" class="pursuit-btn{% if sort == 'name' %} primary{% endif %}" style="padding: 3px 8px; font-size: 11px;" onclick="saveSort('name')">Name</a>
+                    <a href="?sort=properties&filter={{ filter }}" class="pursuit-btn{% if sort == 'properties' %} primary{% endif %}" style="padding: 3px 8px; font-size: 11px;" onclick="saveSort('properties')">Properties</a>
+                    <a href="?sort=created&filter={{ filter }}" class="pursuit-btn{% if sort == 'created' %} primary{% endif %}" style="padding: 3px 8px; font-size: 11px;" onclick="saveSort('created')">Created</a>
+                    <div class="filter-toggle">
+                        Filter:
+                        <a href="?sort={{ sort }}&filter=all" class="pursuit-btn{% if filter == 'all' %} primary{% endif %}" style="padding: 3px 8px; font-size: 11px;" onclick="saveFilter('all')">All</a>
+                        <a href="?sort={{ sort }}&filter=with_contact" class="pursuit-btn{% if filter == 'with_contact' %} primary{% endif %}" style="padding: 3px 8px; font-size: 11px;" onclick="saveFilter('with_contact')">With Contact</a>
+                        <a href="?sort={{ sort }}&filter=templates" class="pursuit-btn{% if filter == 'templates' %} primary{% endif %}" style="padding: 3px 8px; font-size: 11px;" onclick="saveFilter('templates')">Templates</a>
+                    </div>
                 </div>
             </div>
 
@@ -502,6 +527,7 @@
                         <a href="/buyer-collections/{{ pursuit.id }}/brochure" class="pursuit-btn" title="Download PDF brochure">PDF</a>
                         {% endif %}
                         {% endif %}
+                        <button class="pursuit-btn danger" onclick="deleteCollection('{{ pursuit.id }}', '{{ pursuit.collection_source }}', '{{ pursuit.name or pursuit.buyer_name }}')" title="Delete collection">Delete</button>
                     </div>
                 </div>
                 {% endfor %}
@@ -575,18 +601,23 @@
     </script>
 
     <script>
-        // Persist sort preference and restore on page load
+        // Persist sort and filter preferences
         function saveSort(sort) {
             localStorage.setItem('collections-sort', sort);
         }
 
+        function saveFilter(filter) {
+            localStorage.setItem('collections-filter', filter);
+        }
+
         (function() {
             var params = new URLSearchParams(window.location.search);
-            if (!params.has('sort')) {
-                var saved = localStorage.getItem('collections-sort');
-                if (saved) {
-                    window.location.replace('/collections?sort=' + saved);
-                }
+            var needsRedirect = false;
+            var sort = params.get('sort') || localStorage.getItem('collections-sort') || 'updated';
+            var filter = params.get('filter') || localStorage.getItem('collections-filter') || 'all';
+
+            if (!params.has('sort') || !params.has('filter')) {
+                window.location.replace('/collections?sort=' + sort + '&filter=' + filter);
             }
         })();
 
@@ -598,6 +629,22 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name: newName.trim() })
                 });
+            }
+        }
+
+        async function deleteCollection(id, source, name) {
+            if (!confirm('Delete "' + name + '"? This will remove the collection and all its property assignments.')) return;
+
+            const resp = await fetch('/api/collections/' + id + '/delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (resp.ok) {
+                window.location.reload();
+            } else {
+                const data = await resp.json().catch(() => ({}));
+                alert(data.error || 'Failed to delete collection');
             }
         }
     </script>
