@@ -2254,6 +2254,34 @@ def api_delete_collection(collection_id):
     return jsonify({'success': True})
 
 
+@app.route('/api/collections/<collection_id>/assign', methods=['POST'])
+@requires_auth
+def api_assign_collection(collection_id):
+    """Assign a contact to an existing collection."""
+    data = request.get_json()
+    lead_id = data.get('lead_id')
+    if not lead_id:
+        return jsonify({'success': False, 'error': 'lead_id required'}), 400
+
+    db = get_db()
+    with db._get_connection() as conn:
+        pkg = conn.execute('SELECT id FROM property_packages WHERE id = ?',
+                           [collection_id]).fetchone()
+        if not pkg:
+            return jsonify({'success': False, 'error': 'Collection not found'}), 404
+
+        # Verify the lead exists
+        lead = conn.execute('SELECT id FROM leads WHERE id = ?', [lead_id]).fetchone()
+        if not lead:
+            return jsonify({'success': False, 'error': 'Contact not found'}), 404
+
+        conn.execute('UPDATE property_packages SET lead_id = ?, updated_at = ? WHERE id = ?',
+                     [lead_id, datetime.now().isoformat(), collection_id])
+        conn.commit()
+
+    return jsonify({'success': True})
+
+
 # ===== BUYER ACTIVITY routes =====
 
 @app.route('/buyer-activity')

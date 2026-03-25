@@ -225,6 +225,94 @@
             border-left: 1px solid var(--border);
         }
 
+        /* Contact assign typeahead */
+        .assign-contact-wrapper {
+            display: inline-block;
+            position: relative;
+        }
+
+        .assign-contact-btn {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            background: #eff6ff;
+            color: #2563eb;
+            border: 1px dashed #93c5fd;
+            cursor: pointer;
+        }
+
+        .assign-contact-btn:hover {
+            background: #dbeafe;
+            border-style: solid;
+        }
+
+        .assign-dropdown {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            z-index: 100;
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+            width: 320px;
+            margin-top: 4px;
+        }
+
+        .assign-dropdown.active {
+            display: block;
+        }
+
+        .assign-search-input {
+            width: 100%;
+            padding: 10px 12px;
+            border: none;
+            border-bottom: 1px solid var(--border);
+            border-radius: 8px 8px 0 0;
+            font-size: 13px;
+            outline: none;
+        }
+
+        .assign-results {
+            max-height: 240px;
+            overflow-y: auto;
+        }
+
+        .assign-result-item {
+            padding: 8px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid var(--bg-secondary);
+        }
+
+        .assign-result-item:last-child {
+            border-bottom: none;
+        }
+
+        .assign-result-item:hover {
+            background: var(--bg-secondary);
+        }
+
+        .assign-result-name {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .assign-result-meta {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        .assign-empty {
+            padding: 16px 12px;
+            text-align: center;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
         /* Potential Buyers List */
         .buyer-item {
             display: flex;
@@ -463,12 +551,36 @@
                         <a href="{{ fub_url }}/2/people/view/{{ pursuit.buyer_fub_id }}" target="_blank" style="margin-left: 8px; font-size: 11px;">FUB</a>
                         {% endif %}
                         {% elif pursuit.collection_source == 'agent_package' %}
-                        Buyer: {% if pursuit.lead_id %}<a href="/contacts/{{ pursuit.lead_id }}">{{ pursuit.buyer_name }}</a>{% else %}{{ pursuit.buyer_name }}{% endif %}
+                        Buyer: {% if pursuit.lead_id %}<a href="/contacts/{{ pursuit.lead_id }}">{{ pursuit.buyer_name }}</a>{% else %}
+                        <div class="assign-contact-wrapper" id="assign-wrapper-{{ pursuit.id }}">
+                            <button class="assign-contact-btn" onclick="toggleAssignDropdown('{{ pursuit.id }}')">+ Assign Contact</button>
+                            <div class="assign-dropdown" id="assign-dropdown-{{ pursuit.id }}">
+                                <input type="text" class="assign-search-input" id="assign-search-{{ pursuit.id }}"
+                                       placeholder="Search contacts..." autocomplete="off"
+                                       oninput="searchContacts('{{ pursuit.id }}', this.value)">
+                                <div class="assign-results" id="assign-results-{{ pursuit.id }}">
+                                    <div class="assign-empty">Type to search contacts</div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
                         {% if pursuit.description %}
                         <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">{{ pursuit.description }}</div>
                         {% endif %}
                         {% else %}
-                        Buyer: {% if pursuit.lead_id %}<a href="/contacts/{{ pursuit.lead_id }}">{{ pursuit.buyer_name }}</a>{% else %}{{ pursuit.buyer_name }}{% if pursuit.buyer_email %} ({{ pursuit.buyer_email }}){% endif %}{% endif %}
+                        Buyer: {% if pursuit.lead_id %}<a href="/contacts/{{ pursuit.lead_id }}">{{ pursuit.buyer_name }}</a>{% else %}
+                        <div class="assign-contact-wrapper" id="assign-wrapper-{{ pursuit.id }}">
+                            <button class="assign-contact-btn" onclick="toggleAssignDropdown('{{ pursuit.id }}')">+ Assign Contact</button>
+                            <div class="assign-dropdown" id="assign-dropdown-{{ pursuit.id }}">
+                                <input type="text" class="assign-search-input" id="assign-search-{{ pursuit.id }}"
+                                       placeholder="Search contacts..." autocomplete="off"
+                                       oninput="searchContacts('{{ pursuit.id }}', this.value)">
+                                <div class="assign-results" id="assign-results-{{ pursuit.id }}">
+                                    <div class="assign-empty">Type to search contacts</div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}{% if pursuit.buyer_email %} ({{ pursuit.buyer_email }}){% endif %}
                         {% endif %}
                     </div>
                     {% if pursuit.criteria_summary %}
@@ -647,6 +759,82 @@
                 alert(data.error || 'Failed to delete collection');
             }
         }
+
+        // Assign contact typeahead
+        let searchTimeout = null;
+
+        function toggleAssignDropdown(collectionId) {
+            const dropdown = document.getElementById('assign-dropdown-' + collectionId);
+            const isActive = dropdown.classList.contains('active');
+
+            // Close all other dropdowns
+            document.querySelectorAll('.assign-dropdown.active').forEach(d => d.classList.remove('active'));
+
+            if (!isActive) {
+                dropdown.classList.add('active');
+                const input = document.getElementById('assign-search-' + collectionId);
+                input.value = '';
+                input.focus();
+                // Load recent contacts by default
+                searchContacts(collectionId, '');
+            }
+        }
+
+        function searchContacts(collectionId, query) {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(async () => {
+                const resultsDiv = document.getElementById('assign-results-' + collectionId);
+
+                if (query.length === 1) {
+                    resultsDiv.innerHTML = '<div class="assign-empty">Keep typing...</div>';
+                    return;
+                }
+
+                try {
+                    const url = '/api/leads/search?limit=15' + (query.length >= 2 ? '&q=' + encodeURIComponent(query) : '');
+                    const resp = await fetch(url);
+                    const data = await resp.json();
+
+                    if (!data.success || !data.leads.length) {
+                        resultsDiv.innerHTML = '<div class="assign-empty">No contacts found</div>';
+                        return;
+                    }
+
+                    resultsDiv.innerHTML = data.leads.map(lead => {
+                        const name = [lead.first_name, lead.last_name].filter(Boolean).join(' ') || 'Unknown';
+                        const meta = [lead.email, lead.stage].filter(Boolean).join(' · ');
+                        return `<div class="assign-result-item" onclick="assignContact('${collectionId}', '${lead.id}', '${name.replace(/'/g, "\\'")}')">
+                            <div class="assign-result-name">${name}</div>
+                            ${meta ? '<div class="assign-result-meta">' + meta + '</div>' : ''}
+                        </div>`;
+                    }).join('');
+                } catch (e) {
+                    resultsDiv.innerHTML = '<div class="assign-empty">Error searching contacts</div>';
+                }
+            }, 200);
+        }
+
+        async function assignContact(collectionId, leadId, leadName) {
+            const resp = await fetch('/api/collections/' + collectionId + '/assign', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ lead_id: leadId })
+            });
+
+            if (resp.ok) {
+                window.location.reload();
+            } else {
+                const data = await resp.json().catch(() => ({}));
+                alert(data.error || 'Failed to assign contact');
+            }
+        }
+
+        // Close dropdowns when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.assign-contact-wrapper')) {
+                document.querySelectorAll('.assign-dropdown.active').forEach(d => d.classList.remove('active'));
+            }
+        });
     </script>
 
     <!-- Footer -->
