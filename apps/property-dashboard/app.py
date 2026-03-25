@@ -2509,7 +2509,6 @@ def collection_save_showing(collection_id):
         conn.close()
         return redirect('/buyer-activity')
 
-    showing_id = str(uuid.uuid4())
     now = datetime.now(ET).isoformat()
     name = request.form.get('name', collection['name'] or 'Showing Tour')
     route_data = request.form.get('route_data', '{}')
@@ -2532,27 +2531,55 @@ def collection_save_showing(collection_id):
     # Use 'planned' status for route-only saves, 'scheduled' for showings
     save_status = 'planned' if request.form.get('tour_only') == 'true' else 'scheduled'
 
-    conn.execute('''
-        INSERT INTO showings
-        (id, lead_id, package_id, name, status, scheduled_date, scheduled_time,
-         route_optimized, route_data, total_drive_time, total_distance,
-         created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?)
-    ''', (
-        showing_id,
-        collection['lead_id'],
-        collection_id,
-        name,
-        save_status,
-        request.form.get('scheduled_date', ''),
-        request.form.get('scheduled_time', ''),
-        route_data,
-        total_drive_min,
-        total_distance,
-        now, now,
-    ))
+    # Upsert: if a showing with the same name + package_id exists, update it
+    existing = conn.execute(
+        'SELECT id FROM showings WHERE package_id = ? AND name = ?',
+        [collection_id, name]
+    ).fetchone()
 
-    # Also save individual showing_properties
+    if existing:
+        showing_id = existing['id']
+        conn.execute('''
+            UPDATE showings
+            SET status = ?, scheduled_date = ?, scheduled_time = ?,
+                route_optimized = 1, route_data = ?,
+                total_drive_time = ?, total_distance = ?, updated_at = ?
+            WHERE id = ?
+        ''', (
+            save_status,
+            request.form.get('scheduled_date', ''),
+            request.form.get('scheduled_time', ''),
+            route_data,
+            total_drive_min,
+            total_distance,
+            now,
+            showing_id,
+        ))
+        # Clear old showing_properties and re-insert
+        conn.execute('DELETE FROM showing_properties WHERE showing_id = ?', [showing_id])
+    else:
+        showing_id = str(uuid.uuid4())
+        conn.execute('''
+            INSERT INTO showings
+            (id, lead_id, package_id, name, status, scheduled_date, scheduled_time,
+             route_optimized, route_data, total_drive_time, total_distance,
+             created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?)
+        ''', (
+            showing_id,
+            collection['lead_id'],
+            collection_id,
+            name,
+            save_status,
+            request.form.get('scheduled_date', ''),
+            request.form.get('scheduled_time', ''),
+            route_data,
+            total_drive_min,
+            total_distance,
+            now, now,
+        ))
+
+    # Save individual showing_properties
     try:
         route = json.loads(route_data)
         stops = route.get('stops', [])
