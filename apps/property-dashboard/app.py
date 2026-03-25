@@ -2048,10 +2048,83 @@ def collections_list():
 def create_collection_dashboard():
     return create_pursuit()
 
-@app.route('/collections/<pursuit_id>')
+@app.route('/collections/<collection_id>')
 @requires_auth
-def collection_detail(pursuit_id):
-    return pursuit_detail(pursuit_id)
+def collection_detail(collection_id):
+    """View collection detail. Works with or without an assigned contact."""
+    db = get_db()
+
+    package = None
+    properties = []
+    contact = None
+
+    try:
+        with db._get_connection() as conn:
+            package = conn.execute(
+                'SELECT * FROM property_packages WHERE id = ?',
+                [collection_id]
+            ).fetchone()
+
+            if not package:
+                return "Collection not found", 404
+
+            package = dict(package)
+
+            # Get contact if assigned
+            if package.get('lead_id'):
+                contact = db.get_lead(package['lead_id'])
+
+            # Track last access
+            conn.execute(
+                'UPDATE property_packages SET viewed_at = ? WHERE id = ?',
+                [datetime.now().isoformat(), collection_id]
+            )
+
+            # Renumber display_order to remove gaps
+            ordered = conn.execute(
+                'SELECT rowid FROM package_properties WHERE package_id = ? ORDER BY display_order, added_at',
+                [collection_id]
+            ).fetchall()
+            for i, row in enumerate(ordered, 1):
+                conn.execute('UPDATE package_properties SET display_order = ? WHERE rowid = ?', [i, row[0]])
+            conn.commit()
+
+            # Get properties
+            prop_rows = conn.execute('''
+                SELECT l.id, l.mls_number, l.address, l.city, l.state, l.zip,
+                       l.list_price, l.beds, l.baths, l.sqft, l.acreage,
+                       l.property_type, l.status, l.primary_photo, l.days_on_market,
+                       l.mls_source, l.photo_local_path,
+                       pp.display_order, pp.agent_notes
+                FROM package_properties pp
+                JOIN listings l ON l.id = pp.listing_id
+                WHERE pp.package_id = ?
+                ORDER BY pp.display_order, pp.added_at
+            ''', (collection_id,)).fetchall()
+            properties = [dict(r) for r in prop_rows]
+
+            # Localize photos
+            for prop in properties:
+                localize_photo(prop)
+
+    except Exception as e:
+        logger.error(f"Error fetching collection: {e}")
+        return "Error loading collection", 500
+
+    # Shareable client URL
+    client_url = None
+    if package.get('share_token'):
+        if DREAMS_ENV == 'prd':
+            public_base = 'https://wncmountain.homes'
+        else:
+            public_base = 'http://localhost:3000'
+        client_url = f"{public_base}/shared/{package['share_token']}"
+
+    return render_template('package_detail.html',
+        contact=contact,
+        package=package,
+        properties=properties,
+        client_url=client_url)
 
 @app.route('/collections/<pursuit_id>/add-property', methods=['POST'])
 @requires_auth
