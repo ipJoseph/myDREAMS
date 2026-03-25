@@ -591,7 +591,7 @@
     }
 
     // ===== MAP INIT =====
-    var MAP_STYLES = [
+    var MAP_THEME_DARK = [
       { elementType: 'geometry', stylers: [{ color: '#2d4a6a' }] },
       { elementType: 'labels.text.stroke', stylers: [{ color: '#1a3050' }] },
       { elementType: 'labels.text.fill', stylers: [{ color: '#b0c4de' }] },
@@ -603,8 +603,35 @@
       { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#243d58' }] },
       { featureType: 'administrative', elementType: 'labels.text.fill', stylers: [{ color: '#98b0c8' }] },
     ];
+    var MAP_THEME_STANDARD = [];  // empty = Google default styling
+    var MAP_THEMES = { standard: MAP_THEME_STANDARD, dark: MAP_THEME_DARK };
+    var currentMapTheme = localStorage.getItem('route-planner-map-theme') || 'standard';
+    var MAP_STYLES = MAP_THEMES[currentMapTheme] || MAP_THEME_STANDARD;
     var showAddressLabels = true;
     var mapMarkers = [];
+
+    function cycleMapTheme() {
+      var themeNames = Object.keys(MAP_THEMES);
+      var idx = themeNames.indexOf(currentMapTheme);
+      currentMapTheme = themeNames[(idx + 1) % themeNames.length];
+      MAP_STYLES = MAP_THEMES[currentMapTheme];
+      localStorage.setItem('route-planner-map-theme', currentMapTheme);
+      if (map) {
+        map.setOptions({ styles: MAP_STYLES });
+        // Update route line color for theme
+        if (directionsRenderer) {
+          var routeColor = (currentMapTheme === 'dark') ? '#c8a84e' : '#1a73e8';
+          directionsRenderer.setOptions({
+            polylineOptions: { strokeColor: routeColor, strokeWeight: 4, strokeOpacity: 0.8 }
+          });
+          // Re-render to apply new color
+          var dirs = directionsRenderer.getDirections();
+          if (dirs) directionsRenderer.setDirections(dirs);
+        }
+      }
+      var btn = document.getElementById('mapThemeBtn');
+      if (btn) btn.textContent = currentMapTheme === 'dark' ? 'Dark' : 'Standard';
+    }
 
     function ensureMap() {
       // (Re)create map if the DOM element was cleared or map not yet initialized
@@ -627,8 +654,19 @@
         fullscreenControl: false,
       });
 
+      // Add map theme toggle button
+      if (!el.querySelector('.map-theme-btn')) {
+        var thBtn = document.createElement('button');
+        thBtn.className = 'map-labels-btn map-theme-btn';
+        thBtn.id = 'mapThemeBtn';
+        thBtn.textContent = currentMapTheme === 'dark' ? 'Dark' : 'Standard';
+        thBtn.style.right = '112px';
+        thBtn.onclick = function(e) { e.stopPropagation(); cycleMapTheme(); };
+        el.appendChild(thBtn);
+      }
+
       // Add label toggle button
-      if (!el.querySelector('.map-labels-btn')) {
+      if (!el.querySelector('.map-labels-btn:not(.map-theme-btn)')) {
         var lblBtn = document.createElement('button');
         lblBtn.className = 'map-labels-btn';
         lblBtn.id = 'toggleLabelsBtn';
@@ -656,9 +694,10 @@
         el.appendChild(gtBtn);
         updateGridToggleLabel();
       }
+      var routeColor = (currentMapTheme === 'dark') ? '#c8a84e' : '#1a73e8';
       directionsRenderer = new google.maps.DirectionsRenderer({
         map: map, suppressMarkers: true,
-        polylineOptions: { strokeColor: '#c8a84e', strokeWeight: 4, strokeOpacity: 0.8 },
+        polylineOptions: { strokeColor: routeColor, strokeWeight: 4, strokeOpacity: 0.8 },
       });
     }
 
