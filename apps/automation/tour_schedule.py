@@ -479,11 +479,10 @@ body {{
     border-top: 2px solid {GOLD};
 }}
 .travel-divider .label {{
-    padding: 1px 12px;
+    padding: 2px 14px;
     font-size: 10px;
     font-weight: 600;
     color: {GOLD};
-    border: 1px solid {GOLD};
     border-radius: 12px;
     white-space: nowrap;
     background: #fff;
