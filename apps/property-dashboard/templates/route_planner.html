@@ -772,16 +772,11 @@
       var ds = new google.maps.DirectionsService();
       var startAddress, endAddress, waypoints;
 
-      // Check for saved stop order (validate IDs match current properties)
-      var hasSavedOrder = false;
-      if (savedState._stopOrder && savedState._stopOrder.length > 0) {
-        var currentIds = routableProps.map(function(p) { return p.id; }).filter(Boolean).sort().join(',');
-        var savedIds = savedState._stopOrder.slice().sort().join(',');
-        hasSavedOrder = (currentIds === savedIds);
-        if (!hasSavedOrder) {
-          delete savedState._stopOrder;
-        }
-      }
+      // Determine if we should preserve stop order (skip Google re-optimization).
+      // Once there's any saved order, we trust the PROPERTIES array order and
+      // never let Google reshuffle. Only a fresh collection with no saved state
+      // gets the initial optimization pass.
+      var hasSavedOrder = !!(savedState._stopOrder && savedState._stopOrder.length > 0);
 
       // Identify properties that match the start/end addresses
       var startMatchIdx = -1, endMatchIdx = -1;
@@ -811,14 +806,7 @@
             return idx !== startMatchIdx && idx !== endMatchIdx;
           });
 
-          // If saved order, sort middle props to match
-          if (hasSavedOrder) {
-            var orderMap = {};
-            savedState._stopOrder.forEach(function(id, i) { orderMap[id] = i; });
-            middleProps.sort(function(a, b) {
-              return (orderMap[a.id] || 999) - (orderMap[b.id] || 999);
-            });
-          }
+          // middleProps inherits order from routableProps (which comes from PROPERTIES)
 
           // Use the matched property as origin/destination for Google
           startAddress = startP ? getRouteAddress(startP) : cfg.start;
@@ -835,14 +823,7 @@
           startAddress = cfg.start;
           endAddress = cfg.end;
 
-          if (hasSavedOrder) {
-            var orderMap = {};
-            savedState._stopOrder.forEach(function(id, i) { orderMap[id] = i; });
-            routableProps.sort(function(a, b) {
-              return (orderMap[a.id] || 999) - (orderMap[b.id] || 999);
-            });
-          }
-
+          // routableProps is already in PROPERTIES order (the user's desired order)
           waypoints = routableProps.map(function(p) {
             return { location: getRouteAddress(p), stopover: true };
           });
