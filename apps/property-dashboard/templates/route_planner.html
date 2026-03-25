@@ -655,16 +655,20 @@
     // Render itinerary and grid with property data only (no route/timing)
     function renderPropertiesWithoutRoute() {
       updateSelectionCount();
-      allStopsOrdered = PROPERTIES.slice();
+      // allStopsOrdered and fullStopList only contain SELECTED properties
+      // (used by saveShowing/saveRoute to determine what gets saved)
+      var selectedProps = PROPERTIES.filter(function(p) { return p._selected; });
+      allStopsOrdered = selectedProps.slice();
       fullStopList = allStopsOrdered.map(function(p) {
         return Object.assign({}, p, { isBreak: false });
       });
 
+      // But the itinerary UI shows ALL properties (selected ones with numbers, deselected dimmed)
       var itinerary = [];
       var propNumber = 0;
-      for (var i = 0; i < fullStopList.length; i++) {
-        var stop = fullStopList[i];
-        propNumber++;
+      for (var i = 0; i < PROPERTIES.length; i++) {
+        var stop = PROPERTIES[i];
+        if (stop._selected) propNumber++;
         var key = stop._csv_address || stop.address || stop.label;
         var dur = getDuration(key, savedState, stop._duration);
         var displayAddr = stop._csv_address || stop.address || '';
@@ -677,7 +681,7 @@
           arrive: null, depart: null, duration: dur,
           driveToNext: null, driveSeconds: 0,
           isHome: false, isBreak: false,
-          stopNumber: propNumber,
+          stopNumber: stop._selected ? propNumber : null,
           price: stop.list_price, beds: stop.beds, baths: stop.baths,
           sqft: stop.sqft, acreage: stop.acreage, mls: stop.mls_number,
           parcelNumber: stop.parcel_number || '',

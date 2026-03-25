@@ -132,7 +132,7 @@
             </div>
             <div class="showing-actions">
                 {% if s.package_id %}
-                <a href="/buyer-collections/{{ s.package_id }}/route-planner" class="showing-btn primary">Route Planner</a>
+                <a href="/buyer-collections/{{ s.package_id }}/route-planner?showing_id={{ s.id }}" class="showing-btn primary">Route Planner</a>
                 <a href="/buyer-collections/{{ s.package_id }}" class="showing-btn">Collection</a>
                 {% endif %}
                 {% if s.lead_id %}
@@ -169,7 +169,7 @@
                     </div>
                     <div class="showing-actions">
                         {% if s.package_id %}
-                        <a href="/buyer-collections/{{ s.package_id }}/route-planner" class="showing-btn">Route Planner</a>
+                        <a href="/buyer-collections/{{ s.package_id }}/route-planner?showing_id={{ s.id }}" class="showing-btn">Route Planner</a>
                         {% endif %}
                         <button onclick="restoreShowing('{{ s.id }}')" class="showing-btn">Restore</button>
                         <button onclick="deleteShowing('{{ s.id }}')" class="showing-btn" style="color: #dc2626;">Delete</button>
