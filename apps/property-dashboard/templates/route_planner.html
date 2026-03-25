@@ -350,6 +350,9 @@
       <div class="grid-panel-header">
         <h2>Property Details &amp; Itinerary</h2>
         <div class="grid-view-btns">
+          <input type="text" id="itineraryName" value="" placeholder="Report name..."
+            style="background: #0f1d32; border: 1px solid #1e3a5f; color: #e0e6ed; padding: 3px 8px; border-radius: 3px; font-size: 11px; font-family: inherit; width: 200px;"
+            onfocus="this.style.borderColor='#c8a84e'" onblur="this.style.borderColor='#1e3a5f'">
           <button class="grid-view-btn" onclick="printItinerary('agent')" title="Agent itinerary PDF" style="border-color: #c8a84e; color: #c8a84e;">Agent Itinerary</button>
           <button class="grid-view-btn" onclick="printItinerary('buyer')" title="Buyer itinerary PDF" style="border-color: #4a9eff; color: #4a9eff;">Buyer Itinerary</button>
           <button class="grid-view-btn" onclick="printDetails()" title="Print grid details">Print</button>
@@ -485,6 +488,13 @@
         setTimeout(function() {
           var nameInput = document.getElementById('showingName');
           if (nameInput) nameInput.value = SHOWING_NAME;
+          var itinInput = document.getElementById('itineraryName');
+          if (itinInput) itinInput.value = SHOWING_NAME;
+        }, 0);
+      } else {
+        setTimeout(function() {
+          var itinInput = document.getElementById('itineraryName');
+          if (itinInput) itinInput.value = COLLECTION_NAME;
         }, 0);
       }
     })();
@@ -1840,6 +1850,11 @@
       return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
+    function getItineraryName() {
+      var el = document.getElementById('itineraryName');
+      return (el && el.value.trim()) || (document.getElementById('showingName').value + ' - ' + getConfig().date);
+    }
+
     function printItinerary(version) {
       version = version || 'agent';
       if (STANDALONE) {
@@ -1877,7 +1892,7 @@
       form.action = '/buyer-collections/' + COLLECTION_ID + '/itinerary';
       form.target = '_blank';
       [
-        ['name', document.getElementById('showingName').value + ' - ' + cfg.date],
+        ['name', getItineraryName()],
         ['scheduled_date', cfg.date],
         ['scheduled_time', cfg.time],
         ['route_data', JSON.stringify(routeData)],
