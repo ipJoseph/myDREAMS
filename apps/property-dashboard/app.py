@@ -2411,18 +2411,22 @@ def buyer_collection_detail(collection_id):
         properties = conn.execute('''
             SELECT l.id, l.address, l.city, l.state, l.list_price,
                    l.beds, l.baths, l.sqft, l.primary_photo, l.mls_number,
-                   l.latitude, l.longitude
+                   l.latitude, l.longitude, l.mls_source, l.photo_local_path
             FROM package_properties pp
             JOIN listings l ON l.id = pp.listing_id
             WHERE pp.package_id = ?
             ORDER BY pp.display_order, pp.added_at
         ''', [collection_id]).fetchall()
 
+    properties = [dict(p) for p in properties]
+    for prop in properties:
+        localize_photo(prop)
+
     return render_template('buyer_collection_detail.html',
         collection=collection,
         buyer=buyer,
         lead=lead,
-        properties=[dict(p) for p in properties],
+        properties=properties,
         google_maps_key=os.getenv('GOOGLE_MAPS_API_KEY', ''),
     )
 
