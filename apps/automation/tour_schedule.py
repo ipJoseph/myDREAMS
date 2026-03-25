@@ -267,9 +267,7 @@ def _build_html(showing_data: dict, db_path: str = None, version: str = "agent")
                 label = f"{drive_min} min | {drive_mi} mi"
                 cards_html.append(
                     f'<div class="travel-divider">'
-                    f'<div class="line"></div>'
-                    f'<div class="label">{_escape(label)}</div>'
-                    f'<div class="line"></div>'
+                    f'<span class="label">{_escape(label)}</span>'
                     f'</div>'
                 )
 
@@ -466,28 +464,26 @@ body {{
     color: {GRAY};
 }}
 
-/* Travel divider between stops */
+/* Travel divider between stops (label sits on the card's gold border) */
 .travel-divider {{
-    display: flex;
-    align-items: center;
-    gap: 0;
-    padding: 4px 0;
+    text-align: center;
+    height: 0;
+    position: relative;
+    z-index: 1;
     page-break-inside: avoid;
 }}
-.travel-divider .line {{
-    flex: 1;
-    height: 1px;
-    background: {GOLD};
-}}
 .travel-divider .label {{
-    padding: 2px 14px;
+    display: inline-block;
+    position: relative;
+    top: 7px;
+    padding: 1px 14px;
     font-size: 10px;
     font-weight: 600;
     color: {GOLD};
     border: 1px solid {GOLD};
     border-radius: 12px;
     white-space: nowrap;
-    background: #fffdf5;
+    background: #fff;
 }}
 
 /* Footer */
