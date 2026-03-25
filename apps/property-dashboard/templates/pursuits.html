@@ -482,7 +482,11 @@
                         <a href="/collections/{{ pursuit.id }}/brochure" class="pursuit-btn" title="Download PDF brochure">PDF</a>
                         {% endif %}
                         {% elif pursuit.collection_source == 'agent_package' %}
+                        {% if pursuit.lead_id %}
                         <a href="/contacts/{{ pursuit.lead_id }}/packages/{{ pursuit.id }}" class="pursuit-btn primary">View Collection</a>
+                        {% else %}
+                        <a href="/collections/{{ pursuit.id }}" class="pursuit-btn primary">View Collection</a>
+                        {% endif %}
                         {% if pursuit.lead_id %}
                         <a href="/contacts/{{ pursuit.lead_id }}" class="pursuit-btn">View Buyer</a>
                         {% endif %}
