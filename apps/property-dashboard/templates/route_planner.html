@@ -1974,7 +1974,7 @@
       form.method = 'POST';
       form.action = '/buyer-collections/' + COLLECTION_ID + '/save-showing';
       [
-        ['name', document.getElementById('showingName').value + ' - ' + cfg.date],
+        ['name', document.getElementById('showingName').value],
         ['scheduled_date', cfg.date],
         ['scheduled_time', cfg.time],
         ['route_data', JSON.stringify(routeData)],
