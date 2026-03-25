@@ -1537,44 +1537,74 @@
 
     function moveStop(itineraryIdx, direction) {
       // direction: -1 = up, +1 = down
-      // Strategy: find the two adjacent selected stops in PROPERTIES and swap them.
+      // Determine if this is a break or a property from the rendered itinerary.
+      var stopEl = document.querySelectorAll('#itinerary .stop')[itineraryIdx];
+      if (!stopEl) return;
 
-      // Get all stop elements with a prop index (these are real properties, not home/break)
-      var allStopEls = document.querySelectorAll('#itinerary .stop[data-prop-index]');
-      var stopList = [];
-      for (var i = 0; i < allStopEls.length; i++) {
-        var el = allStopEls[i];
-        var pi = parseInt(el.getAttribute('data-prop-index'));
-        var di = parseInt(el.getAttribute('data-index'));
-        if (!isNaN(pi) && PROPERTIES[pi] && PROPERTIES[pi]._selected) {
-          stopList.push({ el: el, propIndex: pi, itinIndex: di });
+      var propIndexAttr = stopEl.getAttribute('data-prop-index');
+      var isBreakMove = (propIndexAttr === null);
+
+      if (isBreakMove) {
+        // Moving a break: change its afterStop value
+        // Find which break in extraStops corresponds to this itinerary position.
+        // Walk fullStopList to find the break at this position.
+        var fsIdx = isPropsOnly ? itineraryIdx : (itineraryIdx - 1);
+        var breakIdx = -1;
+        var breakCount = 0;
+        for (var bi = 0; bi < fullStopList.length; bi++) {
+          if (fullStopList[bi].isBreak) {
+            if (bi === fsIdx) { breakIdx = breakCount; break; }
+            breakCount++;
+          }
         }
+        if (breakIdx < 0 || !extraStops[breakIdx]) return;
+
+        // Adjust afterStop: moving up means insert after an earlier property
+        var currentAfter = extraStops[breakIdx].afterStop;
+        var newAfter = currentAfter + direction;
+        var selectedCount = PROPERTIES.filter(function(p) { return p._selected; }).length;
+        if (newAfter < 1 || newAfter > selectedCount) return;
+
+        extraStops[breakIdx].afterStop = newAfter;
+
+        savedState._breaks = extraStops;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(savedState));
+        calculateRoute();
+      } else {
+        // Moving a property: swap in PROPERTIES array
+        var allStopEls = document.querySelectorAll('#itinerary .stop[data-prop-index]');
+        var stopList = [];
+        for (var i = 0; i < allStopEls.length; i++) {
+          var el = allStopEls[i];
+          var pi = parseInt(el.getAttribute('data-prop-index'));
+          var di = parseInt(el.getAttribute('data-index'));
+          if (!isNaN(pi) && PROPERTIES[pi] && PROPERTIES[pi]._selected) {
+            stopList.push({ el: el, propIndex: pi, itinIndex: di });
+          }
+        }
+
+        var pos = -1;
+        for (var j = 0; j < stopList.length; j++) {
+          if (stopList[j].itinIndex === itineraryIdx) { pos = j; break; }
+        }
+        if (pos < 0) return;
+
+        var targetPos = pos + direction;
+        if (targetPos < 0 || targetPos >= stopList.length) return;
+
+        var idxA = stopList[pos].propIndex;
+        var idxB = stopList[targetPos].propIndex;
+        var tmp = PROPERTIES[idxA];
+        PROPERTIES[idxA] = PROPERTIES[idxB];
+        PROPERTIES[idxB] = tmp;
+
+        savedState._stopOrder = PROPERTIES.filter(function(p) { return p._selected && p.id; }).map(function(p) { return p.id; });
+        savedState._config = getConfig();
+        savedState._breaks = extraStops;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(savedState));
+
+        calculateRoute();
       }
-
-      // Find which position in the selected stop list this itinerary index is
-      var pos = -1;
-      for (var j = 0; j < stopList.length; j++) {
-        if (stopList[j].itinIndex === itineraryIdx) { pos = j; break; }
-      }
-      if (pos < 0) return;
-
-      var targetPos = pos + direction;
-      if (targetPos < 0 || targetPos >= stopList.length) return;
-
-      // Swap the two properties in the PROPERTIES array
-      var idxA = stopList[pos].propIndex;
-      var idxB = stopList[targetPos].propIndex;
-      var tmp = PROPERTIES[idxA];
-      PROPERTIES[idxA] = PROPERTIES[idxB];
-      PROPERTIES[idxB] = tmp;
-
-      // Save the new order and recalculate
-      savedState._stopOrder = PROPERTIES.filter(function(p) { return p._selected && p.id; }).map(function(p) { return p.id; });
-      savedState._config = getConfig();
-      savedState._breaks = extraStops;
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(savedState));
-
-      calculateRoute();
     }
 
     function removeStop(itineraryIdx, isBreak) {
