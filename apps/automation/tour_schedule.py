@@ -258,14 +258,15 @@ def _build_html(showing_data: dict, db_path: str = None, version: str = "agent")
     for i, stop in enumerate(stops):
         is_break = stop.get("isBreak", False)
 
-        # Insert travel divider before this stop (not before the first)
+        # Build travel divider (before this stop, not before the first)
+        divider_html = ''
         if i > 0:
             prev_stop = stops[i - 1]
             drive_min = prev_stop.get("driveMinutes")
             drive_mi = prev_stop.get("driveMiles")
             if drive_min is not None and drive_mi is not None:
                 label = f"{drive_min} min | {drive_mi} mi"
-                cards_html.append(
+                divider_html = (
                     f'<div class="travel-divider">'
                     f'<div class="line"></div>'
                     f'<span class="label">{_escape(label)}</span>'
@@ -274,14 +275,17 @@ def _build_html(showing_data: dict, db_path: str = None, version: str = "agent")
                 )
 
         if is_break:
-            cards_html.append(_build_break_card(stop))
-            continue
+            card_html = _build_break_card(stop)
+        else:
+            stop_num += 1
+            property_id = stop.get("propertyId")
+            listing = _get_listing(property_id, db_path) if property_id else None
+            card_html = _build_property_card(stop, listing, stop_num, version)
 
-        stop_num += 1
-        property_id = stop.get("propertyId")
-        listing = _get_listing(property_id, db_path) if property_id else None
-
-        cards_html.append(_build_property_card(stop, listing, stop_num, version))
+        # Wrap divider + card in a group to prevent page breaks splitting them
+        cards_html.append(
+            f'<div class="stop-group">{divider_html}{card_html}</div>'
+        )
 
     cards_joined = "\n".join(cards_html)
 
@@ -301,7 +305,7 @@ def _build_html(showing_data: dict, db_path: str = None, version: str = "agent")
 <style>
 @page {{
     size: 8.5in 11in;
-    margin: 0.5in;
+    margin: 0.5in 0.5in 0.8in 0.5in;  /* extra bottom margin for fixed footer */
 }}
 
 * {{ margin: 0; padding: 0; box-sizing: border-box; }}
@@ -353,6 +357,11 @@ body {{
 .header-meta .buyer {{ font-weight: 600; color: {NAVY}; font-size: 14px; }}
 .header-meta .timing {{ color: {GRAY}; }}
 
+/* Stop group: keeps divider + card together across page breaks */
+.stop-group {{
+    page-break-inside: avoid;
+}}
+
 /* Property cards */
 .card {{
     border-top: 2px solid {GOLD};
@@ -360,7 +369,6 @@ body {{
     display: flex;
     gap: 14px;
     align-items: flex-start;
-    page-break-inside: avoid;
 }}
 .card-photo {{
     width: 150px;
@@ -488,8 +496,8 @@ body {{
     background: #fff;
     flex-shrink: 0;
 }}
-.travel-divider + .card,
-.travel-divider + .break-card {{
+.stop-group .travel-divider + .card,
+.stop-group .travel-divider + .break-card {{
     border-top: none;
 }}
 
