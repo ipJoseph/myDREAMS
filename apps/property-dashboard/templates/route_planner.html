@@ -445,11 +445,35 @@
     // Initialize selection state on each property
     (function initSelection() {
       var hasPreSelected = PRE_SELECTED_IDS.length > 0;
-      for (var i = 0; i < PROPERTIES.length; i++) {
-        if (hasPreSelected) {
+      if (hasPreSelected) {
+        // Mark selection
+        for (var i = 0; i < PROPERTIES.length; i++) {
           PROPERTIES[i]._selected = PRE_SELECTED_IDS.indexOf(PROPERTIES[i].id) >= 0;
-        } else {
-          PROPERTIES[i]._selected = true;  // all selected by default
+        }
+        // Reorder PROPERTIES so selected ones appear in the saved stop order,
+        // with deselected ones after
+        var selectedByOrder = [];
+        var deselected = [];
+        // First, build selected list in the order from PRE_SELECTED_IDS
+        for (var si = 0; si < PRE_SELECTED_IDS.length; si++) {
+          for (var pi = 0; pi < PROPERTIES.length; pi++) {
+            if (PROPERTIES[pi].id === PRE_SELECTED_IDS[si]) {
+              selectedByOrder.push(PROPERTIES[pi]);
+              break;
+            }
+          }
+        }
+        // Then collect deselected ones in original order
+        for (var di = 0; di < PROPERTIES.length; di++) {
+          if (!PROPERTIES[di]._selected) deselected.push(PROPERTIES[di]);
+        }
+        // Replace PROPERTIES contents
+        PROPERTIES.length = 0;
+        for (var ri = 0; ri < selectedByOrder.length; ri++) PROPERTIES.push(selectedByOrder[ri]);
+        for (var rj = 0; rj < deselected.length; rj++) PROPERTIES.push(deselected[rj]);
+      } else {
+        for (var k = 0; k < PROPERTIES.length; k++) {
+          PROPERTIES[k]._selected = true;
         }
       }
       // If loading a saved route, set the showing name
@@ -489,6 +513,12 @@
     }
     if (savedState._breaks) {
       extraStops = savedState._breaks;
+    }
+
+    // When loading from a saved showing, override localStorage stop order
+    // with the DB-saved order (PRE_SELECTED_IDS is already in stop_order)
+    if (PRE_SELECTED_IDS.length > 0) {
+      savedState._stopOrder = PRE_SELECTED_IDS.slice();
     }
 
     function toggleRoundtrip() {
