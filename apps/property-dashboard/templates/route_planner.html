@@ -1126,8 +1126,9 @@
         var numberClass = stop.isHome ? 'home' : (isBreak ? 'break' : '');
         var numberText = stop.isStart ? 'S' : (stop.isEnd ? 'E' : (isBreak ? '\u2615' : stop.stopNumber));
         var deselectedClass = (stop._selected === false) ? ' deselected' : '';
+        var propIndexAttr = (stop._propIndex !== undefined) ? ' data-prop-index="' + stop._propIndex + '"' : '';
 
-        html += '<div class="stop' + deselectedClass + '" data-index="' + idx + '">';
+        html += '<div class="stop' + deselectedClass + '" data-index="' + idx + '"' + propIndexAttr + '>';
         html += '<div class="stop-header">';
         // Checkbox for non-home, non-break stops
         if (!stop.isHome && !isBreak && stop._propIndex !== undefined) {
@@ -1525,65 +1526,43 @@
 
     function moveStop(itineraryIdx, direction) {
       // direction: -1 = up, +1 = down
-      // itinerary includes Start/End rows for non-propsOnly mode.
-      // Map itinerary index to the fullStopList index.
-      var fsIdx = isPropsOnly ? itineraryIdx : (itineraryIdx - 1);
-      var targetFsIdx = fsIdx + direction;
+      // Strategy: find the two adjacent selected stops in PROPERTIES and swap them.
 
-      // Bounds check: can't move beyond the stop list
-      if (targetFsIdx < 0 || targetFsIdx >= fullStopList.length) return;
-
-      // Also find the corresponding indices in PROPERTIES (skip breaks)
-      // We need to reorder PROPERTIES to match the new order.
-      var propIndices = [];
-      for (var i = 0; i < allStopsOrdered.length; i++) {
-        for (var j = 0; j < PROPERTIES.length; j++) {
-          var aAddr = (allStopsOrdered[i]._csv_address || allStopsOrdered[i].address || '').toLowerCase();
-          var pAddr = (PROPERTIES[j]._csv_address || PROPERTIES[j].address || '').toLowerCase();
-          if (aAddr === pAddr && propIndices.indexOf(j) === -1) {
-            propIndices.push(j);
-            break;
-          }
+      // Get all stop elements with a prop index (these are real properties, not home/break)
+      var allStopEls = document.querySelectorAll('#itinerary .stop[data-prop-index]');
+      var stopList = [];
+      for (var i = 0; i < allStopEls.length; i++) {
+        var el = allStopEls[i];
+        var pi = parseInt(el.getAttribute('data-prop-index'));
+        var di = parseInt(el.getAttribute('data-index'));
+        if (!isNaN(pi) && PROPERTIES[pi] && PROPERTIES[pi]._selected) {
+          stopList.push({ el: el, propIndex: pi, itinIndex: di });
         }
       }
 
-      // Swap in allStopsOrdered
-      var stopA = fullStopList[fsIdx];
-      var stopB = fullStopList[targetFsIdx];
-
-      // Find their positions in allStopsOrdered
-      var asoIdxA = -1, asoIdxB = -1;
-      var propCount = 0;
-      for (var k = 0; k < fullStopList.length; k++) {
-        if (!fullStopList[k].isBreak) {
-          if (k === fsIdx) asoIdxA = propCount;
-          if (k === targetFsIdx) asoIdxB = propCount;
-          propCount++;
-        }
+      // Find which position in the selected stop list this itinerary index is
+      var pos = -1;
+      for (var j = 0; j < stopList.length; j++) {
+        if (stopList[j].itinIndex === itineraryIdx) { pos = j; break; }
       }
+      if (pos < 0) return;
 
-      // If both are properties, swap in allStopsOrdered and PROPERTIES
-      if (asoIdxA >= 0 && asoIdxB >= 0) {
-        // Swap in allStopsOrdered
-        var tmpA = allStopsOrdered[asoIdxA];
-        allStopsOrdered[asoIdxA] = allStopsOrdered[asoIdxB];
-        allStopsOrdered[asoIdxB] = tmpA;
+      var targetPos = pos + direction;
+      if (targetPos < 0 || targetPos >= stopList.length) return;
 
-        // Swap in PROPERTIES to match
-        if (propIndices[asoIdxA] !== undefined && propIndices[asoIdxB] !== undefined) {
-          var tmpP = PROPERTIES[propIndices[asoIdxA]];
-          PROPERTIES[propIndices[asoIdxA]] = PROPERTIES[propIndices[asoIdxB]];
-          PROPERTIES[propIndices[asoIdxB]] = tmpP;
-        }
-      }
+      // Swap the two properties in the PROPERTIES array
+      var idxA = stopList[pos].propIndex;
+      var idxB = stopList[targetPos].propIndex;
+      var tmp = PROPERTIES[idxA];
+      PROPERTIES[idxA] = PROPERTIES[idxB];
+      PROPERTIES[idxB] = tmp;
 
-      // Save the new stop order
-      savedState._stopOrder = allStopsOrdered.filter(function(s) { return s.id; }).map(function(s) { return s.id; });
+      // Save the new order and recalculate
+      savedState._stopOrder = PROPERTIES.filter(function(p) { return p._selected && p.id; }).map(function(p) { return p.id; });
       savedState._config = getConfig();
       savedState._breaks = extraStops;
       localStorage.setItem(STORAGE_KEY, JSON.stringify(savedState));
 
-      // Recalculate route with the saved order (optimizeWaypoints will be false)
       calculateRoute();
     }
 
