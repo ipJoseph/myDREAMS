@@ -251,12 +251,27 @@ def _build_html(showing_data: dict, db_path: str = None, version: str = "agent")
     # Load logo
     logo_b64 = _load_base64(LOGO_PATH)
 
-    # Build property cards
+    # Build property cards with travel dividers between stops
     cards_html = []
     stop_num = 0
 
-    for stop in stops:
+    for i, stop in enumerate(stops):
         is_break = stop.get("isBreak", False)
+
+        # Insert travel divider before this stop (not before the first)
+        if i > 0:
+            prev_stop = stops[i - 1]
+            drive_min = prev_stop.get("driveMinutes")
+            drive_mi = prev_stop.get("driveMiles")
+            if drive_min is not None and drive_mi is not None:
+                label = f"{drive_min} min | {drive_mi} mi"
+                cards_html.append(
+                    f'<div class="travel-divider">'
+                    f'<div class="line"></div>'
+                    f'<div class="label">{_escape(label)}</div>'
+                    f'<div class="line"></div>'
+                    f'</div>'
+                )
 
         if is_break:
             cards_html.append(_build_break_card(stop))
@@ -449,6 +464,30 @@ body {{
 .break-detail {{
     font-size: 11px;
     color: {GRAY};
+}}
+
+/* Travel divider between stops */
+.travel-divider {{
+    display: flex;
+    align-items: center;
+    gap: 0;
+    padding: 4px 0;
+    page-break-inside: avoid;
+}}
+.travel-divider .line {{
+    flex: 1;
+    height: 1px;
+    background: {GOLD};
+}}
+.travel-divider .label {{
+    padding: 2px 14px;
+    font-size: 10px;
+    font-weight: 600;
+    color: {GOLD};
+    border: 1px solid {GOLD};
+    border-radius: 12px;
+    white-space: nowrap;
+    background: #fffdf5;
 }}
 
 /* Footer */

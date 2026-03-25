@@ -1925,6 +1925,15 @@
         returnTime: document.getElementById('return-time').textContent,
       };
 
+      // Add drive time/distance to each stop for the PDF dividers
+      routeData.stops.forEach(function(s, idx) {
+        var leg = routeLegs[idx];
+        if (leg) {
+          s.driveMinutes = Math.round(leg.duration.value / 60);
+          s.driveMiles = parseFloat((leg.distance.value / 1609.34).toFixed(1));
+        }
+      });
+
       // POST form data to the itinerary endpoint, which returns a PDF
       var form = document.createElement('form');
       form.method = 'POST';
