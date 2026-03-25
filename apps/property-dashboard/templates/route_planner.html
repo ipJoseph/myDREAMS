@@ -83,6 +83,13 @@
       border-radius: 4px; transition: all 0.2s; font-family: inherit;
     }
     .map-labels-btn:hover { background: #1e3a5f; border-color: #c8a84e; color: #c8a84e; }
+    .map-grid-toggle {
+      position: absolute; bottom: 10px; right: 10px; z-index: 10;
+      padding: 7px 12px; background: #132744; border: 2px solid #1e3a5f;
+      color: #c8a84e; font-size: 11px; font-weight: 600; cursor: pointer;
+      border-radius: 4px; transition: all 0.2s; font-family: inherit;
+    }
+    .map-grid-toggle:hover { background: #1e3a5f; border-color: #c8a84e; }
     .map-addr-label {
       position: absolute; white-space: nowrap; font-size: 11px; font-weight: 600;
       color: #fff; background: rgba(10, 22, 40, 0.85); padding: 2px 6px;
@@ -594,6 +601,16 @@
         btn.innerHTML = '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/></svg>';
         btn.onclick = function(e) { e.stopPropagation(); toggleMapExpand(); };
         el.appendChild(btn);
+      }
+      // Add grid toggle button (bottom-right of map)
+      if (!el.querySelector('.map-grid-toggle')) {
+        var gtBtn = document.createElement('button');
+        gtBtn.className = 'map-grid-toggle';
+        gtBtn.id = 'mapGridToggle';
+        gtBtn.textContent = 'Show Grid';
+        gtBtn.onclick = function(e) { e.stopPropagation(); toggleGridFromMap(); };
+        el.appendChild(gtBtn);
+        updateGridToggleLabel();
       }
       directionsRenderer = new google.maps.DirectionsRenderer({
         map: map, suppressMarkers: true,
@@ -2079,6 +2096,25 @@
       return h > 0 ? h + 'h ' + m + 'm' : m + ' min';
     }
 
+    // ===== GRID TOGGLE FROM MAP =====
+    function toggleGridFromMap() {
+      if (currentGridView === 'collapse') {
+        setGridView('split');
+      } else {
+        setGridView('collapse');
+      }
+    }
+
+    function updateGridToggleLabel() {
+      var btn = document.getElementById('mapGridToggle');
+      if (!btn) return;
+      if (currentGridView === 'collapse') {
+        btn.textContent = 'Show Grid';
+      } else {
+        btn.textContent = 'Hide Grid';
+      }
+    }
+
     // ===== RESIZABLE GRID PANEL =====
     var gridPanel = document.getElementById('gridPanel');
     var resizeHandle = document.getElementById('gridResizeHandle');
@@ -2127,6 +2163,7 @@
       }
 
       if (!skipSave) localStorage.setItem('route-planner-grid-view', mode);
+      updateGridToggleLabel();
       // Trigger map resize
       if (map) setTimeout(function() { google.maps.event.trigger(map, 'resize'); }, 50);
     }
