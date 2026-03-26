@@ -548,8 +548,10 @@
         document.getElementById('endAddrRow').style.display = 'none';
       }
     }
-    if (SAVED_ROUTE_DATA.breaks && SAVED_ROUTE_DATA.breaks.length > 0) {
-      extraStops = SAVED_ROUTE_DATA.breaks;
+    if (SHOWING_ID) {
+      // DB is the source of truth: use saved breaks (even if empty)
+      extraStops = (SAVED_ROUTE_DATA.breaks && SAVED_ROUTE_DATA.breaks.length > 0)
+        ? SAVED_ROUTE_DATA.breaks : [];
     }
 
     // Override localStorage stop order with DB-saved order
