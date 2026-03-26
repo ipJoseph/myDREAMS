@@ -305,7 +305,7 @@ def _build_html(showing_data: dict, db_path: str = None, version: str = "agent")
 <style>
 @page {{
     size: 8.5in 11in;
-    margin: 0.5in 0.5in 0.8in 0.5in;  /* extra bottom margin for fixed footer */
+    margin: 0.5in;
 }}
 
 * {{ margin: 0; padding: 0; box-sizing: border-box; }}
@@ -315,6 +315,7 @@ body {{
     color: {GRAY};
     font-size: 11px;
     line-height: 1.4;
+    padding-bottom: 40px;  /* reserve space for fixed footer */
 }}
 
 /* Header */
