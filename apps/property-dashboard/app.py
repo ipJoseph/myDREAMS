@@ -2465,6 +2465,7 @@ def collection_route_planner(collection_id):
         pre_selected_ids = []
         showing_id = request.args.get('showing_id')
         showing_name = ''
+        saved_route_data = '{}'
         if showing_id:
             sp_rows = conn.execute(
                 'SELECT property_id FROM showing_properties WHERE showing_id = ? ORDER BY stop_order',
@@ -2472,10 +2473,11 @@ def collection_route_planner(collection_id):
             ).fetchall()
             pre_selected_ids = [r['property_id'] for r in sp_rows]
             showing_row = conn.execute(
-                'SELECT name FROM showings WHERE id = ?', [showing_id]
+                'SELECT name, route_data, scheduled_date, scheduled_time FROM showings WHERE id = ?', [showing_id]
             ).fetchone()
             if showing_row:
                 showing_name = showing_row['name'] or ''
+                saved_route_data = showing_row['route_data'] or '{}'
 
     today = datetime.now(ET).strftime('%Y-%m-%d')
     home_address = os.getenv('AGENT_HOME_ADDRESS', '')
@@ -2489,6 +2491,7 @@ def collection_route_planner(collection_id):
         pre_selected_ids=pre_selected_ids,
         showing_id=showing_id or '',
         showing_name=showing_name,
+        saved_route_data=saved_route_data if showing_id else '{}',
     )
 
 

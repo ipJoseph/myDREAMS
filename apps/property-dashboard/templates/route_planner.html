@@ -445,6 +445,8 @@
     var PRE_SELECTED_IDS = {{ pre_selected_ids | default([]) | tojson }};
     var SHOWING_ID = {{ showing_id | default('') | tojson }};
     var SHOWING_NAME = {{ showing_name | default('') | tojson }};
+    var SAVED_ROUTE_DATA = {};
+    try { SAVED_ROUTE_DATA = JSON.parse({{ saved_route_data | default('{}') | tojson }}); } catch(e) {}
 
     var DEFAULT_DURATION = 30;
     var STORAGE_KEY = 'route-planner-' + (COLLECTION_ID || 'standalone-' + COLLECTION_NAME);
@@ -529,8 +531,28 @@
       extraStops = savedState._breaks;
     }
 
-    // When loading from a saved showing, override localStorage stop order
-    // with the DB-saved order (PRE_SELECTED_IDS is already in stop_order)
+    // When loading from a saved showing, override localStorage with DB-saved config
+    if (SAVED_ROUTE_DATA.config) {
+      var cfg = SAVED_ROUTE_DATA.config;
+      if (cfg.date) document.getElementById('cfgDate').value = cfg.date;
+      if (cfg.time) document.getElementById('cfgTime').value = cfg.time;
+      if (cfg.start) document.getElementById('cfgStart').value = cfg.start;
+      else if (cfg.home) document.getElementById('cfgStart').value = cfg.home;
+      if (cfg.duration) document.getElementById('cfgDuration').value = cfg.duration;
+      if (cfg.roundtrip === false) {
+        document.getElementById('cfgRoundtrip').checked = false;
+        document.getElementById('endAddrRow').style.display = '';
+        if (cfg.end) document.getElementById('cfgEnd').value = cfg.end;
+      } else {
+        document.getElementById('cfgRoundtrip').checked = true;
+        document.getElementById('endAddrRow').style.display = 'none';
+      }
+    }
+    if (SAVED_ROUTE_DATA.breaks && SAVED_ROUTE_DATA.breaks.length > 0) {
+      extraStops = SAVED_ROUTE_DATA.breaks;
+    }
+
+    // Override localStorage stop order with DB-saved order
     if (PRE_SELECTED_IDS.length > 0) {
       savedState._stopOrder = PRE_SELECTED_IDS.slice();
     }
