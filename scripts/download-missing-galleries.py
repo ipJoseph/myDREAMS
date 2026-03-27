@@ -110,16 +110,24 @@ def download_canopy_galleries(listings, dry_run=False):
             continue
 
         try:
-            # Fetch listing with media
-            resp = session.get(
-                f'{base_url}/Property',
-                params={
-                    '$filter': f"ListingId eq '{mls}'",
-                    '$expand': 'Media',
-                },
-                timeout=30,
-            )
-            time.sleep(1.1)  # Rate limit: stay under 1 RPS
+            # Fetch listing with media (with 429 retry/backoff)
+            resp = None
+            for attempt in range(3):
+                resp = session.get(
+                    f'{base_url}/Property',
+                    params={
+                        '$filter': f"ListingId eq '{mls}'",
+                        '$expand': 'Media',
+                    },
+                    timeout=30,
+                )
+                if resp.status_code == 429:
+                    wait = 60 * (attempt + 1)  # 60s, 120s, 180s
+                    logger.warning(f"  Rate limited (429). Waiting {wait}s before retry...")
+                    time.sleep(wait)
+                    continue
+                break
+            time.sleep(2.0)  # Conservative: 0.5 RPS
 
             if resp.status_code != 200:
                 logger.warning(f"  API error {resp.status_code} for {mls}")
@@ -157,7 +165,7 @@ def download_canopy_galleries(listings, dry_run=False):
                     if img_resp.status_code == 200 and len(img_resp.content) > 1000:
                         fpath.write_bytes(img_resp.content)
                         downloaded += 1
-                    time.sleep(0.3)  # Brief pause between photo downloads
+                    time.sleep(0.5)  # Pause between photo downloads
                 except Exception as e:
                     logger.warning(f"  Photo download error: {e}")
 
@@ -300,8 +308,8 @@ def main():
         download_navica_galleries(by_source['NavicaMLS'], dry_run=args.dry_run)
 
     if 'MountainLakesMLS' in by_source:
-        logger.info(f"MountainLakesMLS: {len(by_source['MountainLakesMLS'])} missing (uses Navica API)")
-        download_navica_galleries(by_source['MountainLakesMLS'], dry_run=args.dry_run)
+        logger.info(f"Downloading {len(by_source['MountainLakesMLS'])} MountainLakesMLS galleries (via MLS Grid API)...")
+        download_canopy_galleries(by_source['MountainLakesMLS'], dry_run=args.dry_run)
 
 
 if __name__ == '__main__':
