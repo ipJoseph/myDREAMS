@@ -85,9 +85,19 @@ def get_missing_listings(source_filter=None, zone_filter=None):
 
 def download_canopy_galleries(listings, dry_run=False):
     """Download galleries from MLS Grid API for CanopyMLS listings."""
+    from src.core.mlsgrid_throttle import get_throttle
+    throttle = get_throttle()
+
     token = os.environ.get('MLSGRID_TOKEN')
     if not token:
         logger.error("MLSGRID_TOKEN not set in .env")
+        return
+
+    # Pre-flight check: do we have headroom?
+    # Each listing = ~2 requests (1 listing fetch + 1 batch photo download)
+    estimated = len(listings) * 2
+    if not throttle.can_start_batch(estimated):
+        logger.error(f"Batch rejected: {estimated} requests would exceed rate limits. Try later.")
         return
 
     base_url = 'https://api.mlsgrid.com/v2'
@@ -110,24 +120,22 @@ def download_canopy_galleries(listings, dry_run=False):
             continue
 
         try:
-            # Fetch listing with media (with 429 retry/backoff)
-            resp = None
-            for attempt in range(3):
-                resp = session.get(
-                    f'{base_url}/Property',
-                    params={
-                        '$filter': f"ListingId eq '{mls}'",
-                        '$expand': 'Media',
-                    },
-                    timeout=30,
-                )
-                if resp.status_code == 429:
-                    wait = 60 * (attempt + 1)  # 60s, 120s, 180s
-                    logger.warning(f"  Rate limited (429). Waiting {wait}s before retry...")
-                    time.sleep(wait)
-                    continue
-                break
-            time.sleep(2.0)  # Conservative: 0.5 RPS
+            # Fetch listing with media (central throttle handles timing)
+            throttle.wait()
+            resp = session.get(
+                f'{base_url}/Property',
+                params={
+                    '$filter': f"ListingId eq '{mls}'",
+                    '$expand': 'Media',
+                },
+                timeout=30,
+            )
+            throttle.record()
+
+            if resp.status_code == 429:
+                logger.error(f"  Rate limited (429) for {mls}. Stopping batch to protect API access.")
+                errors += 1
+                break  # STOP, don't retry, don't continue
 
             if resp.status_code != 200:
                 logger.warning(f"  API error {resp.status_code} for {mls}")

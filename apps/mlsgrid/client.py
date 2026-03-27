@@ -123,7 +123,11 @@ class MLSGridClient:
             'Accept-Encoding': 'gzip,deflate',
         })
 
-        # Rate limiting state
+        # Central rate limiter (shared across all processes)
+        from src.core.mlsgrid_throttle import get_throttle
+        self.throttle = get_throttle()
+
+        # Per-run state
         self.request_count = 0
         self.last_request_time = 0.0
 
@@ -163,10 +167,9 @@ class MLSGridClient:
         return cls(token=token, use_demo=use_demo, **kwargs)
 
     def _rate_limit(self):
-        """Enforce rate limiting between requests."""
-        elapsed = time.time() - self.last_request_time
-        if elapsed < self.request_delay:
-            time.sleep(self.request_delay - elapsed)
+        """Enforce rate limiting using central throttle (shared across all processes)."""
+        # Central throttle handles cross-process timing
+        self.throttle.wait()
 
         self.last_request_time = time.time()
         self.request_count += 1
@@ -203,6 +206,7 @@ class MLSGridClient:
             try:
                 logger.debug(f"{method} {url} (attempt {attempt + 1})")
                 response = self.session.request(method, url, **kwargs)
+                self.throttle.record()  # track in central limiter
 
                 if response.status_code == 200:
                     return response
