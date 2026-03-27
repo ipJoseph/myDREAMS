@@ -581,7 +581,7 @@ def _build_property_card(stop: dict, listing: Optional[dict], stop_num: int, ver
         beds = listing.get("bedrooms") or listing.get("beds")
         baths = listing.get("bathrooms") or listing.get("baths")
         sqft = listing.get("sqft") or listing.get("living_area")
-        acres = listing.get("lot_size_acres") or listing.get("acreage")
+        acres = listing.get("lot_size_area") or listing.get("acreage")
         year_built = listing.get("year_built")
 
         if beds:
