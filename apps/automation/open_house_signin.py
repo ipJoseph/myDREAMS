@@ -25,7 +25,7 @@ except ImportError:
 # Paths
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 ASSETS_DIR = PROJECT_ROOT / "assets" / "branding"
-LOGO_PATH = ASSETS_DIR / "wnc-logo-small.png"
+LOGO_PATH = ASSETS_DIR / "jth-icon.jpg"
 REPORTS_DIR = PROJECT_ROOT / "reports"
 
 # Load .env
