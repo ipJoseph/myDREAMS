@@ -1395,6 +1395,29 @@ def api_generate_buyer_activity_report():
     })
 
 
+@app.route('/reports/open-house-signin')
+@requires_auth
+def open_house_signin():
+    """Generate and serve an open house sign-in sheet PDF."""
+    try:
+        from apps.automation.open_house_signin import generate_signin_sheet
+    except ImportError:
+        return "Sign-in sheet generator not available", 500
+
+    address = request.args.get('address', '')
+    date = request.args.get('date', '')
+
+    pdf_bytes = generate_signin_sheet(address=address, date=date)
+    if not pdf_bytes:
+        return "Failed to generate sign-in sheet", 500
+
+    return Response(
+        pdf_bytes,
+        mimetype='application/pdf',
+        headers={'Content-Disposition': 'inline; filename="open-house-signin.pdf"'}
+    )
+
+
 @app.route('/reports/<path:filename>')
 @requires_auth
 def serve_report(filename):
