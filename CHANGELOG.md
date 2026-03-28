@@ -8,6 +8,25 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+- **MLS Grid Rate Limit Violation** (2026-03-28)
+  - Root cause: pagination in `client.py:get_all_pages()` called `_rate_limit()` but never `throttle.record()`, so the throttle state file didn't track pagination requests. Subsequent pages saw a stale `last_request` timestamp and fired without the 2-second delay.
+  - The nightly full sync (27,000+ records, 55 pages) was hitting pages every 1-2 seconds instead of every 2+ seconds, triggering Canopy MLS suspension.
+  - Fix: added `throttle.record()` after every pagination request in `get_all_pages()`
+  - Increased `MIN_REQUEST_INTERVAL` from 2.0s to 3.0s as safety margin
+
+### Changed
+- **Replaced nightly full sync with tiered reconciliation** (2026-03-28)
+  - Nightly `--nightly` now runs a count check (1 API request) + completeness audit (0 API requests) instead of pulling all 27,000+ records
+  - New `apps/mlsgrid/reconciliation.py` module with three tiers:
+    - Daily: compare Active listing count vs MLS Grid (1 API request)
+    - Weekly: compare counts by status bucket (3 API requests, runs Sundays)
+    - Monthly: local data quality audit (0 API requests): stale listings, missing fields
+  - Full sync is now manual-only via `--full-sync` flag
+  - New `--reconcile` flag runs all tiers on demand
+  - API usage drops from ~3,100/month to ~1,470/month
+  - Results logged to `data/reconciliation_history.json` (90-day retention)
+
 ### Added
 - **Unified ListingService** (2026-03-22)
   - New `src/core/listing_service.py`: shared search/filter/dedup/photo logic

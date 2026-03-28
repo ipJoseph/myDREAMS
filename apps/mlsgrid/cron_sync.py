@@ -3,17 +3,22 @@
 MLS Grid (Canopy MLS) Automated Sync (Cron Job)
 
 Designed to be run via crontab for automated MLS data syncing.
-Performs incremental sync by default, with full sync for nightly rebuilds.
+Performs incremental sync by default; nightly runs reconciliation checks
+instead of a full sync (which caused rate limit violations).
 
-Recommended crontab entries:
-    # Incremental sync every 15 minutes during business hours
-    */15 8-20 * * * cd /home/bigeug/myDREAMS && python3 -m apps.mlsgrid.cron_sync
+Modes:
+    (default)       Incremental sync: fetch only changed records (1 API request)
+    --nightly       Reconciliation: count check + completeness audit (1-4 API requests)
+    --reconcile     Run all reconciliation tiers (daily + weekly + monthly)
+    --full-sync     Manual full sync (use only when reconciliation flags issues)
+    --sync-members  Sync agent/member records
 
-    # Full active listings sync nightly at 2:30 AM (offset from Navica at 2:00)
-    30 2 * * * cd /home/bigeug/myDREAMS && python3 -m apps.mlsgrid.cron_sync --nightly
+Recommended crontab entries (see deploy/prd-crontab.txt):
+    # Incremental sync every 30 min during business hours
+    */30 12-23 * * * cd /opt/mydreams && python3 -m apps.mlsgrid.cron_sync
 
-    # Sync agents weekly on Sunday at 4 AM
-    0 4 * * 0 cd /home/bigeug/myDREAMS && python3 -m apps.mlsgrid.cron_sync --sync-members
+    # Nightly reconciliation at 2 AM UTC
+    0 2 * * * cd /opt/mydreams && python3 -m apps.mlsgrid.cron_sync --nightly
 """
 
 import argparse
@@ -28,6 +33,11 @@ PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from apps.mlsgrid.sync_engine import MLSGridSyncEngine, print_stats
+from apps.mlsgrid.reconciliation import (
+    run_daily_count_check,
+    run_weekly_status_check,
+    run_monthly_completeness_audit,
+)
 
 LOCK_FILE = PROJECT_ROOT / 'data' / '.mlsgrid_sync.lock'
 
@@ -83,35 +93,45 @@ def run_incremental():
 
 
 def run_nightly():
-    """Nightly full sync of active and pending listings."""
+    """Nightly reconciliation check (replaces old full sync).
+
+    The old nightly full sync pulled 27,000+ records across 55+ pages,
+    causing rate limit violations. This replacement uses 1 API request
+    to verify our data matches MLS Grid, plus a local completeness audit.
+
+    A full sync should only be run manually when reconciliation flags
+    a real problem, after a suspension clears, or when onboarding new data.
+    """
     logger = logging.getLogger('mlsgrid.cron')
-    logger.info("Starting nightly full sync (Canopy MLS)...")
+    logger.info("Starting nightly reconciliation (Canopy MLS)...")
 
-    engine = MLSGridSyncEngine()
+    # Daily count check (1 API request)
+    daily_result = run_daily_count_check()
+    logger.info(f"Daily check: {daily_result['status']} "
+                f"(API: {daily_result['api_active_count']}, DB: {daily_result['db_active_count']}, "
+                f"drift: {daily_result['drift_pct']}%)")
 
-    # Sync active listings
-    logger.info("Phase 1: Active listings")
-    active_stats = engine.run_full_sync(status='Active')
+    # Monthly completeness audit (0 API requests, runs nightly for freshness)
+    monthly_result = run_monthly_completeness_audit()
+    logger.info(f"Completeness audit: {monthly_result['status']}")
 
-    # Sync pending listings
-    logger.info("Phase 2: Pending listings")
-    engine.client.reset_stats()
-    pending_stats = engine.run_full_sync(status='Pending')
+    # Check if today is Sunday (weekday 6) for weekly status check
+    from datetime import datetime
+    if datetime.now().weekday() == 6:
+        logger.info("Sunday: running weekly status distribution check")
+        weekly_result = run_weekly_status_check()
+        logger.info(f"Weekly check: {weekly_result['status']}")
 
-    total = {
-        'fetched': active_stats['fetched'] + pending_stats['fetched'],
-        'created': active_stats['created'] + pending_stats['created'],
-        'updated': active_stats['updated'] + pending_stats['updated'],
-        'errors': active_stats['errors'] + pending_stats['errors'],
-    }
+    overall = 'alert' if daily_result['status'] == 'alert' or monthly_result['status'] == 'alert' else daily_result['status']
 
-    logger.info(
-        f"Nightly sync complete: "
-        f"{total['fetched']} fetched, "
-        f"{total['created']} created, "
-        f"{total['updated']} updated"
-    )
-    return total
+    if overall == 'alert':
+        logger.warning(
+            "RECONCILIATION ALERT: Data drift detected. "
+            "Consider running a targeted sync: "
+            "python3 -m apps.mlsgrid.sync_engine --full --status Active"
+        )
+
+    return {'status': overall, 'daily': daily_result}
 
 
 def run_sync_members():
@@ -132,6 +152,12 @@ def main():
                         help='Run nightly full sync')
     parser.add_argument('--sync-members', action='store_true',
                         help='Sync agents/members')
+    parser.add_argument('--reconcile', action='store_true',
+                        help='Run all reconciliation checks (daily + weekly + monthly)')
+    parser.add_argument('--full-sync', action='store_true',
+                        help='Run full sync (manual only, use after reconciliation flags issues)')
+    parser.add_argument('--status', default=None,
+                        help='Status filter for --full-sync (Active, Pending, etc.)')
 
     args = parser.parse_args()
 
@@ -151,7 +177,17 @@ def main():
         return 0
 
     try:
-        if args.nightly:
+        if args.reconcile:
+            from apps.mlsgrid.reconciliation import run_all_checks
+            results = run_all_checks()
+            logger.info(f"Reconciliation complete: {results['overall_status']} "
+                        f"({results['total_api_requests']} API requests used)")
+        elif args.full_sync:
+            engine = MLSGridSyncEngine()
+            status = args.status or 'Active'
+            logger.info(f"Manual full sync: status={status}")
+            engine.run_full_sync(status=status)
+        elif args.nightly:
             run_nightly()
         elif args.sync_members:
             run_sync_members()

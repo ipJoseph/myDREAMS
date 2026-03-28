@@ -315,6 +315,7 @@ See: `docs/DATA_QUALITY_TRACKING.md` for full details.
 | ~~Low photo coverage (11.2%)~~ | High | Done: 1,575 photos downloaded from Navica CDN |
 | ~~Zillow scraper blocked~~ | Low | Retired, Navica replaces all scrapers |
 | ~~Realtor.com scraper not implemented~~ | Low | Done - Dedicated scraper with __NEXT_DATA__ + DOM extraction |
+| ~~MLS Grid rate limit violation~~ | Critical | Done: Fixed missing throttle.record() in pagination; replaced nightly full sync with reconciliation |
 | Inconsistent error handling | Medium | Standardize patterns |
 | Missing unit tests | Medium | Add test coverage |
 

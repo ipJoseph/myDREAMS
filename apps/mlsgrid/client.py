@@ -332,6 +332,7 @@ class MLSGridClient:
 
             try:
                 response = self.session.get(next_url, timeout=self.timeout)
+                self.throttle.record()  # Track in central limiter (was missing, caused rate violations)
                 if response.status_code != 200:
                     logger.warning(f"Page {page + 1} failed ({response.status_code})")
                     break

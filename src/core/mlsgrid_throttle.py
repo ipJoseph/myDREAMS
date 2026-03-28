@@ -42,7 +42,7 @@ STATE_FILE = PROJECT_ROOT / 'data' / '.mlsgrid_throttle.json'
 LOCK_FILE = PROJECT_ROOT / 'data' / '.mlsgrid_throttle.lock'
 
 # Our conservative limits (well under MLS Grid warning thresholds)
-MIN_REQUEST_INTERVAL = 2.0    # seconds between requests (0.5 RPS)
+MIN_REQUEST_INTERVAL = 3.0    # seconds between requests (~0.33 RPS, extra margin after suspension)
 MAX_REQUESTS_PER_HOUR = 3000
 MAX_REQUESTS_PER_DAY = 20000
 BATCH_HEADROOM = 0.7          # only start a batch if under 70% of limits
