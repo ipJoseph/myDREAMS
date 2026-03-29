@@ -214,14 +214,14 @@ def localize_photo(listing: dict) -> None:
             listing['primary_photo'] = f"/api/public/photos/{photos_dir.name}/{mls}{ext}"
             return
 
-    # Local file not found. For Canopy/MLS Grid listings, fetch a fresh
-    # photo URL from the API (stored CDN URLs expire) and download it.
+    # Local file not found. Photos are downloaded during replication sync,
+    # not on demand. Individual API lookups per listing violate MLS Grid
+    # Best Practices (rules #3, #4) and burn through rate limits.
+    # Show no photo until the next sync backfills it.
     source_lower = (listing.get('mls_source') or '').lower()
     if 'canopy' in source_lower or 'mlsgrid' in source_lower:
-        local_path = _fetch_primary_photo_from_api(mls, photos_dir)
-        if local_path:
-            listing['primary_photo'] = local_path
-            return
+        listing['primary_photo'] = None
+        return
 
     # For non-API sources, try the stored URL directly
     cdn_url = listing.get('primary_photo') or ''

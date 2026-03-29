@@ -423,6 +423,66 @@ class MLSGridSyncEngine:
 
             return 'created'
 
+    def _download_primary_photo(self, mls_number: str, media_list: list) -> bool:
+        """Download primary photo from Media array during sync.
+
+        Called after upsert for new/photo-changed listings. Uses the fresh
+        MediaURL from the replication response (zero additional API calls).
+
+        Returns True if a photo was downloaded or already exists on disk.
+        """
+        if not media_list or not mls_number:
+            return False
+
+        PHOTOS_DIR.mkdir(parents=True, exist_ok=True)
+
+        # Check if already on disk
+        for ext in ('.jpg', '.jpeg', '.png', '.webp'):
+            filepath = PHOTOS_DIR / f"{mls_number}{ext}"
+            if filepath.exists() and filepath.stat().st_size > 0:
+                return True
+
+        # Find primary photo URL from media
+        primary_url, _, _ = extract_photos(media_list)
+        if not primary_url:
+            return False
+
+        try:
+            import requests as req
+            from urllib.parse import urlparse
+
+            path_lower = urlparse(primary_url).path.lower()
+            ext = '.png' if path_lower.endswith('.png') else '.webp' if path_lower.endswith('.webp') else '.jpg'
+            filename = f"{mls_number}{ext}"
+            filepath = PHOTOS_DIR / filename
+
+            resp = req.get(primary_url, timeout=30, stream=True)
+            resp.raise_for_status()
+
+            with open(filepath, 'wb') as f:
+                for chunk in resp.iter_content(chunk_size=8192):
+                    f.write(chunk)
+
+            if filepath.stat().st_size > 0:
+                # Update photo_local_path in DB
+                conn = self._get_connection()
+                try:
+                    conn.execute(
+                        "UPDATE listings SET photo_local_path = ? WHERE mls_source = ? AND mls_number = ?",
+                        [str(filepath), self.mls_source, mls_number]
+                    )
+                    conn.commit()
+                finally:
+                    conn.close()
+                return True
+            else:
+                filepath.unlink(missing_ok=True)
+
+        except Exception as e:
+            logger.debug(f"Photo download failed for {mls_number}: {e}")
+
+        return False
+
     def _upsert_agent(self, conn: sqlite3.Connection, agent: Dict):
         """Upsert an agent/member record."""
         if not agent.get('member_key'):
@@ -691,6 +751,7 @@ class MLSGridSyncEngine:
                 })
             return stats
 
+        photos_downloaded = 0
         conn = self._get_connection()
         try:
             for i, prop in enumerate(properties):
@@ -707,6 +768,16 @@ class MLSGridSyncEngine:
                     result = self._upsert_listing(
                         conn, listing, raw_prop=prop, dry_run=dry_run
                     )
+
+                    # Download primary photo for new or photo-changed listings.
+                    # Media data is already in the replication response
+                    # ($expand=Media), so this costs zero additional API calls.
+                    if result in ('created', 'updated') and not dry_run:
+                        media = prop.get('Media', [])
+                        if media and self._download_primary_photo(
+                            listing.get('mls_number'), media
+                        ):
+                            photos_downloaded += 1
 
                     if result == 'created':
                         stats['created'] += 1
@@ -727,6 +798,7 @@ class MLSGridSyncEngine:
                     stats['errors'] += 1
 
             stats['photos_updated'] = self._photos_updated_count
+            stats['photos_downloaded'] = photos_downloaded
 
             if not dry_run:
                 conn.commit()
@@ -745,6 +817,8 @@ class MLSGridSyncEngine:
 
         stats['completed_at'] = datetime.now().isoformat()
         stats['api_stats'] = self.client.get_stats()
+        if photos_downloaded:
+            logger.info(f"Downloaded {photos_downloaded} primary photos during sync")
         return stats
 
     def sync_members(self, dry_run: bool = False) -> Dict[str, int]:
