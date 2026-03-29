@@ -237,8 +237,10 @@ def localize_photo(listing: dict, on_demand: bool = False) -> None:
     if local_primary:
         local_urls.append(local_primary)
 
-    idx = 1
-    while True:
+    # Tolerate gaps in numbering (Navica starts at _02, skipping _01).
+    # Scan up to _99 but stop after 5 consecutive misses.
+    consecutive_misses = 0
+    for idx in range(1, 100):
         suffix = f"_{idx:02d}"
         found = False
         for ext in ('.jpg', '.jpeg', '.png', '.webp'):
@@ -246,10 +248,12 @@ def localize_photo(listing: dict, on_demand: bool = False) -> None:
             if filepath.exists() and filepath.stat().st_size > 0:
                 local_urls.append(f"/api/public/photos/{dir_name}/{mls}{suffix}{ext}")
                 found = True
+                consecutive_misses = 0
                 break
         if not found:
-            break
-        idx += 1
+            consecutive_misses += 1
+            if consecutive_misses >= 5:
+                break
 
     if local_urls:
         # We have local files; use them
