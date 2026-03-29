@@ -178,6 +178,18 @@ class Config:
     STAGE_MULTIPLIER_CLOSED = float(os.getenv("STAGE_MULTIPLIER_CLOSED", "0.0"))
     STAGE_MULTIPLIER_TRASH = float(os.getenv("STAGE_MULTIPLIER_TRASH", "0.0"))
 
+    # Scoring Weights - Inbound Recency Bonus (additive to priority)
+    # Rewards leads who recently communicated inbound (text, email, call)
+    INBOUND_RECENCY_BONUS_0_2_DAYS = float(os.getenv("INBOUND_RECENCY_BONUS_0_2_DAYS", "15.0"))
+    INBOUND_RECENCY_BONUS_3_7_DAYS = float(os.getenv("INBOUND_RECENCY_BONUS_3_7_DAYS", "10.0"))
+    INBOUND_RECENCY_BONUS_8_14_DAYS = float(os.getenv("INBOUND_RECENCY_BONUS_8_14_DAYS", "5.0"))
+
+    # Scoring Weights - Ghost Browser Penalty (multiplicative on heat)
+    # High views + zero inbound after outreach = likely stale cookie or window shopper
+    GHOST_BROWSER_MIN_VIEWS = int(os.getenv("GHOST_BROWSER_MIN_VIEWS", "30"))
+    GHOST_BROWSER_MIN_OUTREACH = int(os.getenv("GHOST_BROWSER_MIN_OUTREACH", "3"))
+    GHOST_BROWSER_HEAT_MULTIPLIER = float(os.getenv("GHOST_BROWSER_HEAT_MULTIPLIER", "0.5"))
+
     # Scoring Weights - Source Quality Bonuses (additive to priority)
     # High-quality sources get a bonus; unknown sources get 0 (no penalty)
     SOURCE_BONUS_REFERRAL = float(os.getenv("SOURCE_BONUS_REFERRAL", "8.0"))
@@ -303,6 +315,16 @@ class Config:
                 "cold": cls.STAGE_MULTIPLIER_COLD,
                 "closed": cls.STAGE_MULTIPLIER_CLOSED,
                 "trash": cls.STAGE_MULTIPLIER_TRASH,
+            },
+            "inbound_recency_bonuses": {
+                "0_2_days": cls.INBOUND_RECENCY_BONUS_0_2_DAYS,
+                "3_7_days": cls.INBOUND_RECENCY_BONUS_3_7_DAYS,
+                "8_14_days": cls.INBOUND_RECENCY_BONUS_8_14_DAYS,
+            },
+            "ghost_browser": {
+                "min_views": cls.GHOST_BROWSER_MIN_VIEWS,
+                "min_outreach": cls.GHOST_BROWSER_MIN_OUTREACH,
+                "heat_multiplier": cls.GHOST_BROWSER_HEAT_MULTIPLIER,
             },
             "source_bonuses": {
                 "referral": cls.SOURCE_BONUS_REFERRAL,
@@ -606,12 +628,26 @@ class LeadScorer:
         texts_inbound: int,
         texts_total: int,
         emails_received: int = 0,
-        emails_sent: int = 0
+        emails_sent: int = 0,
+        emails_auto_sent: int = 0,
     ) -> Tuple[float, Dict]:
-        """Calculate relationship strength score including email communication"""
-        # Include emails in inbound/total calculation
+        """Calculate relationship strength score.
+
+        Key improvement: automated emails (drip, bulk, system) are excluded
+        from outbound counts. A drip campaign sending 30 emails is not a
+        relationship signal. Only personal (manual) outbound counts.
+        """
+        # Exclude automated emails from outbound total.
+        # emails_sent = total outbound (auto + manual)
+        # emails_auto_sent = automated subset
+        emails_manual_sent = max(0, emails_sent - emails_auto_sent)
+
+        # Inbound: real two-way signals only
         inbound_contacts = calls_inbound + texts_inbound + emails_received
-        total_contacts = calls_inbound + calls_outbound + texts_total + emails_received + emails_sent
+
+        # Total: personal outbound + all inbound (exclude auto emails)
+        personal_outbound = calls_outbound + (texts_total - texts_inbound) + emails_manual_sent
+        total_contacts = inbound_contacts + personal_outbound
 
         if total_contacts > 0:
             inbound_ratio = inbound_contacts / total_contacts
@@ -621,11 +657,17 @@ class LeadScorer:
         inbound_ratio = max(0.0, min(1.0, inbound_ratio))
         ratio_component = inbound_ratio * 50.0
 
-        # Volume component (capped)
+        # Volume component: only inbound contacts count (capped)
         capped_contacts = min(inbound_contacts, 10)
         volume_component = capped_contacts * 5.0
 
         raw_score = ratio_component + volume_component
+
+        # Zero-inbound penalty: if we've sent 3+ personal outreach
+        # and received zero inbound, this is a one-way relationship
+        if inbound_contacts == 0 and personal_outbound >= 3:
+            raw_score *= 0.5
+
         final_score = max(0, min(100, round(raw_score, 1)))
 
         breakdown = {
@@ -633,7 +675,9 @@ class LeadScorer:
             "ratio_component": round(ratio_component, 1),
             "volume_component": round(volume_component, 1),
             "emails_received": emails_received,
-            "emails_sent": emails_sent,
+            "emails_manual_sent": emails_manual_sent,
+            "emails_auto_sent": emails_auto_sent,
+            "zero_inbound_penalty": inbound_contacts == 0 and personal_outbound >= 3,
             "final_score": final_score
         }
 
@@ -648,24 +692,49 @@ class LeadScorer:
         source: str = "",
         tags: list = None,
         lead_type_tags: list = None,
+        days_since_last_inbound: float = None,
+        properties_viewed: int = 0,
+        total_outreach: int = 0,
+        total_inbound: int = 0,
     ) -> Tuple[float, Dict]:
         """Calculate composite priority score with stage multiplier and bonuses.
 
-        Bonuses from source quality and tags are additive (they can only
-        help, never hurt). Fuzzy stage matching handles inconsistent
-        labeling across the team.
+        Bonuses from source quality, tags, and inbound recency are additive
+        (they can only help, never hurt). Ghost browser detection reduces
+        inflated heat scores for silent browsers.
         """
         w = self.config.PRIORITY_WEIGHTS
+
+        # Ghost browser detection: high views + outreach sent + zero inbound
+        # = likely stale cookie or window shopper. Dampen heat score.
+        effective_heat = heat_score
+        is_ghost_browser = False
+        if (properties_viewed >= Config.GHOST_BROWSER_MIN_VIEWS
+                and total_outreach >= Config.GHOST_BROWSER_MIN_OUTREACH
+                and total_inbound == 0):
+            effective_heat *= Config.GHOST_BROWSER_HEAT_MULTIPLIER
+            is_ghost_browser = True
 
         # Fuzzy stage lookup: normalize to lowercase, fall back to 1.0
         stage_key = (stage or "").lower().strip()
         stage_mult = self.config._STAGE_LOOKUP.get(stage_key, 1.0)
 
         raw_score = (
-            heat_score * w["heat"]
+            effective_heat * w["heat"]
             + value_score * w["value"]
             + relationship_score * w["relationship"]
         ) * stage_mult
+
+        # Inbound recency bonus: rewards leads who recently communicated
+        inbound_recency_bonus = 0.0
+        if days_since_last_inbound is not None:
+            if days_since_last_inbound <= 2:
+                inbound_recency_bonus = Config.INBOUND_RECENCY_BONUS_0_2_DAYS
+            elif days_since_last_inbound <= 7:
+                inbound_recency_bonus = Config.INBOUND_RECENCY_BONUS_3_7_DAYS
+            elif days_since_last_inbound <= 14:
+                inbound_recency_bonus = Config.INBOUND_RECENCY_BONUS_8_14_DAYS
+        raw_score += inbound_recency_bonus
 
         # Source quality bonus (additive, best match wins)
         source_bonus = 0.0
@@ -712,14 +781,16 @@ class LeadScorer:
         final_score = max(0, min(100, round(raw_score, 1)))
 
         breakdown = {
-            "heat_contribution": round(heat_score * w["heat"], 1),
+            "heat_contribution": round(effective_heat * w["heat"], 1),
             "value_contribution": round(value_score * w["value"], 1),
             "relationship_contribution": round(relationship_score * w["relationship"], 1),
             "stage_multiplier": stage_mult,
+            "inbound_recency_bonus": inbound_recency_bonus,
             "source_bonus": source_bonus,
             "source_match": source_match,
             "tag_bonus": tag_bonus,
             "tag_matches": tag_matches,
+            "ghost_browser": is_ghost_browser,
             "final_score": final_score
         }
 
@@ -827,6 +898,8 @@ def build_person_stats(
         "texts_inbound": 0,
         "emails_received": 0,
         "emails_sent": 0,
+        "emails_auto_sent": 0,         # Automated outbound (drip, bulk, system)
+        "emails_manual_sent": 0,       # Personal outbound
         "website_visits": 0,
         "website_visits_last_7": 0,
         "properties_viewed": 0,
@@ -834,6 +907,7 @@ def build_person_stats(
         "properties_favorited": 0,
         "properties_shared": 0,
         "last_website_visit": None,
+        "last_inbound_at": None,       # Most recent inbound comm (any channel)
         "avg_price_viewed": None,
         "price_view_std_dev": 0.0,
     })
@@ -853,6 +927,12 @@ def build_person_stats(
         is_incoming = call.get("isIncoming")
         if is_incoming is True:
             stats[pid]["calls_inbound"] += 1
+            # Track last inbound timestamp
+            call_ts = call.get("created") or call.get("timestamp")
+            if call_ts:
+                prev = stats[pid]["last_inbound_at"]
+                if prev is None or call_ts > prev:
+                    stats[pid]["last_inbound_at"] = call_ts
         elif is_incoming is False:
             stats[pid]["calls_outbound"] += 1
 
@@ -864,9 +944,15 @@ def build_person_stats(
 
         stats[pid]["texts_total"] += 1
 
+        is_incoming_text = text.get("isIncoming")
         direction = text.get("direction", "").lower()
-        if direction == "inbound":
+        if is_incoming_text is True or direction == "inbound":
             stats[pid]["texts_inbound"] += 1
+            text_ts = text.get("created") or text.get("sent")
+            if text_ts:
+                prev = stats[pid]["last_inbound_at"]
+                if prev is None or text_ts > prev:
+                    stats[pid]["last_inbound_at"] = text_ts
 
     # Process emails
     # FUB emails use relatedPeople[].personId and status field
@@ -886,8 +972,21 @@ def build_person_stats(
         status = email.get("status", "").lower()
         if status == "received":
             stats[pid]["emails_received"] += 1
+            email_ts = email.get("created") or email.get("date")
+            if email_ts:
+                prev = stats[pid]["last_inbound_at"]
+                if prev is None or email_ts > prev:
+                    stats[pid]["last_inbound_at"] = email_ts
         elif status == "sent":
             stats[pid]["emails_sent"] += 1
+            # Classify as automated or manual
+            campaign = email.get("campaignOrigin") or ""
+            action_plan = email.get("actionPlanId")
+            template_id = email.get("emailTemplateId")
+            if campaign or action_plan:
+                stats[pid]["emails_auto_sent"] += 1
+            else:
+                stats[pid]["emails_manual_sent"] += 1
 
     # Process events (with scoring guard: skip excluded people)
     for event in events:
@@ -1544,7 +1643,28 @@ def build_contact_rows(
                 texts_inbound=int(stats.get("texts_inbound", 0)),
                 texts_total=int(stats.get("texts_total", 0)),
                 emails_received=int(stats.get("emails_received", 0)),
-                emails_sent=int(stats.get("emails_sent", 0))
+                emails_sent=int(stats.get("emails_sent", 0)),
+                emails_auto_sent=int(stats.get("emails_auto_sent", 0)),
+            )
+
+            # Calculate days since last inbound communication
+            last_inbound_str = stats.get("last_inbound_at")
+            days_since_inbound = None
+            if last_inbound_str:
+                last_inbound_dt = parse_datetime_safe(last_inbound_str)
+                if last_inbound_dt:
+                    days_since_inbound = (now - last_inbound_dt).total_seconds() / 86400
+
+            # Total inbound and outreach for ghost browser detection
+            total_inbound = (
+                int(stats.get("calls_inbound", 0))
+                + int(stats.get("texts_inbound", 0))
+                + int(stats.get("emails_received", 0))
+            )
+            total_outreach = (
+                int(stats.get("calls_outbound", 0))
+                + int(stats.get("emails_manual_sent", 0))
+                + (int(stats.get("texts_total", 0)) - int(stats.get("texts_inbound", 0)))
             )
 
             priority_score, _ = scorer.calculate_priority_score(
@@ -1555,6 +1675,10 @@ def build_contact_rows(
                 source=base.get("source", ""),
                 tags=person.get("tags"),
                 lead_type_tags=person.get("leadTypeTags"),
+                days_since_last_inbound=days_since_inbound,
+                properties_viewed=int(stats.get("properties_viewed", 0)),
+                total_outreach=total_outreach,
+                total_inbound=total_inbound,
             )
         else:
             heat_score = 0
