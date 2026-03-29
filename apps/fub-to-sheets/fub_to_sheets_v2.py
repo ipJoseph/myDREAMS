@@ -2382,16 +2382,40 @@ def sync_communications_to_sqlite(
             # Get agent name from userId (no nested user object in FUB emails)
             agent_name = None
 
-            # Extract email detail fields (from/to/subject/body/type)
-            email_from = email.get("from") or email.get("fromAddress") or ""
-            email_to = email.get("to") or email.get("toAddress") or ""
+            # Extract email detail fields
+            # FUB addresses are in an 'addresses' dict with from/to/cc/bcc arrays
+            addrs = email.get("addresses") or {}
+            from_list = addrs.get("from", [])
+            to_list = addrs.get("to", [])
+            email_from = from_list[0] if from_list else ""
+            email_to = to_list[0] if to_list else ""
+
+            # Subject and body may be hidden by FUB API permissions
             subject = email.get("subject") or ""
-            # Body: take first 500 chars as snippet
-            body = email.get("body") or email.get("snippet") or email.get("textBody") or ""
+            if subject == "[CONTENT HIDDEN]":
+                subject = ""
+
+            body = email.get("bodyExcerpt") or email.get("body") or ""
+            if body == "[CONTENT HIDDEN]":
+                body = ""
             if len(body) > 500:
                 body = body[:500]
-            # Type: manual, drip, action_plan, bulk, etc.
-            email_type = email.get("type") or email.get("emailType") or ""
+
+            # Campaign origin: "FUB/Beacon" = automated, None = manual/inbound
+            # Also capture actionPlanId and templateId for automation analysis
+            campaign = email.get("campaignOrigin") or ""
+            action_plan_id = email.get("actionPlanId")
+            template_id = email.get("emailTemplateId")
+
+            # Build a descriptive email_type from available signals
+            if campaign:
+                email_type = f"auto:{campaign}"
+            elif template_id:
+                email_type = f"template:{template_id}"
+            elif direction == "inbound":
+                email_type = "inbound"
+            else:
+                email_type = "manual"
 
             if db.insert_communication(
                 comm_id=comm_id,
