@@ -6918,6 +6918,15 @@ def listings_gallery():
             "SELECT DISTINCT status FROM listings WHERE status IS NOT NULL ORDER BY status"
         ).fetchall()]
 
+        # County -> cities mapping for cascade filtering
+        county_cities = {}
+        for row in conn.execute(
+            "SELECT DISTINCT county, city FROM listings "
+            "WHERE county IS NOT NULL AND county != '' AND city IS NOT NULL AND city != '' "
+            "ORDER BY county, city"
+        ).fetchall():
+            county_cities.setdefault(row[0], []).append(row[1])
+
         # Build query for listings with denormalized address data
         # (faster than JOIN - address fields now on listings table)
         query = '''
@@ -7030,6 +7039,7 @@ def listings_gallery():
                          max_price=max_price,
                          photos_only=photos_only,
                          selected_zone=zone,
+                         county_cities=county_cities,
                          page=page,
                          total_pages=total_pages,
                          total_count=total_count,

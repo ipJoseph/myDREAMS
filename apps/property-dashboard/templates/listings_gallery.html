@@ -327,7 +327,7 @@
         <form class="filters-bar" method="get">
             <div class="filter-group">
                 <label>Zone</label>
-                <select name="zone" onchange="this.form.submit()">
+                <select name="zone" id="zoneFilter" onchange="filterCountiesByZone()">
                     <option value="1,2" {% if selected_zone == '1,2' %}selected{% endif %}>WNC (Default)</option>
                     <option value="1" {% if selected_zone == '1' %}selected{% endif %}>West</option>
                     <option value="2" {% if selected_zone == '2' %}selected{% endif %}>Central</option>
@@ -341,7 +341,7 @@
 
             <div class="filter-group">
                 <label>County</label>
-                <select name="county" onchange="this.form.submit()">
+                <select name="county" id="countyFilter" onchange="filterCitiesByCounty(); this.form.submit()">
                     <option value="">All Counties</option>
                     {% for c in counties %}
                     <option value="{{ c }}" {% if c == selected_county %}selected{% endif %}>{{ c }}</option>
@@ -351,7 +351,7 @@
 
             <div class="filter-group">
                 <label>City</label>
-                <select name="city" onchange="this.form.submit()">
+                <select name="city" id="cityFilter" onchange="this.form.submit()">
                     <option value="">All Cities</option>
                     {% for c in cities %}
                     <option value="{{ c }}" {% if c == selected_city %}selected{% endif %}>{{ c }}</option>
@@ -493,6 +493,63 @@
     </div>
 
     <script>
+        // Zone -> Counties cascade
+        const zoneCounties = {
+            '1': ['Cherokee', 'Clay', 'Graham', 'Jackson', 'Macon', 'Swain'],
+            '2': ['Buncombe', 'Haywood', 'Henderson', 'Madison', 'Transylvania'],
+            '3': ['Avery', 'Burke', 'McDowell', 'Mitchell', 'Polk', 'Rutherford', 'Yancey'],
+        };
+        // County -> Cities cascade
+        const countyCities = {{ county_cities | tojson if county_cities is defined else '{}' }};
+
+        function filterCountiesByZone() {
+            var zone = document.getElementById('zoneFilter').value;
+            var select = document.getElementById('countyFilter');
+            var options = select.querySelectorAll('option');
+            if (zone === 'all') {
+                options.forEach(function(o) { o.style.display = ''; });
+                return;
+            }
+            var zoneNums = zone.split(',');
+            var allowed = new Set();
+            zoneNums.forEach(function(z) {
+                (zoneCounties[z.trim()] || []).forEach(function(c) { allowed.add(c); });
+            });
+            options.forEach(function(o) {
+                if (!o.value || allowed.has(o.value)) {
+                    o.style.display = '';
+                } else {
+                    o.style.display = 'none';
+                    if (o.selected) { o.selected = false; select.value = ''; }
+                }
+            });
+            filterCitiesByCounty();
+        }
+
+        function filterCitiesByCounty() {
+            var county = document.getElementById('countyFilter').value;
+            var citySelect = document.getElementById('cityFilter');
+            var options = citySelect.querySelectorAll('option');
+            if (!county) {
+                options.forEach(function(o) { o.style.display = ''; });
+                return;
+            }
+            var allowed = new Set(countyCities[county] || []);
+            options.forEach(function(o) {
+                if (!o.value || allowed.has(o.value)) {
+                    o.style.display = '';
+                } else {
+                    o.style.display = 'none';
+                    if (o.selected) { o.selected = false; citySelect.value = ''; }
+                }
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            filterCountiesByZone();
+            filterCitiesByCounty();
+        });
+
         function openModal(listingId) {
             fetch(`/api/listings/${listingId}`)
                 .then(r => r.json())

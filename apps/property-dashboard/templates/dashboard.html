@@ -752,7 +752,7 @@
                 {% endfor %}
             </select>
 
-            <select id="zoneFilter" class="dash-filter-select" onchange="applyFilters()">
+            <select id="zoneFilter" class="dash-filter-select" onchange="filterCountiesByZone(); applyFilters()">
                 <option value="1,2" {% if selected_zone == '1,2' %}selected{% endif %}>WNC</option>
                 <option value="1,2,3" {% if selected_zone == '1,2,3' %}selected{% endif %}>WNC + East</option>
                 <option value="all" {% if selected_zone == 'all' %}selected{% endif %}>All NC</option>
@@ -1086,6 +1086,13 @@
         // ── County -> Cities mapping for cascade filtering ──
         const countyCities = {{ county_cities | tojson }};
 
+        // ── Zone -> Counties mapping for cascade filtering ──
+        const zoneCounties = {
+            '1': ['Cherokee', 'Clay', 'Graham', 'Jackson', 'Macon', 'Swain'],
+            '2': ['Buncombe', 'Haywood', 'Henderson', 'Madison', 'Transylvania'],
+            '3': ['Avery', 'Burke', 'McDowell', 'Mitchell', 'Polk', 'Rutherford', 'Yancey'],
+        };
+
         // ── Multi-select dropdown toggle ──
         function toggleMulti(id) {
             const wrapper = document.getElementById(id);
@@ -1147,13 +1154,49 @@
             });
         }
 
+        // Filter county checkboxes based on selected zone
+        function filterCountiesByZone() {
+            const zone = document.getElementById('zoneFilter').value;
+            const countyLabels = document.querySelectorAll('#countyDropdown label');
+
+            if (zone === 'all') {
+                // All NC: show all counties
+                countyLabels.forEach(label => label.style.display = '');
+                return;
+            }
+
+            // Build set of allowed counties from selected zones
+            const zoneNums = zone.split(',').map(z => z.trim());
+            const allowedCounties = new Set();
+            zoneNums.forEach(z => {
+                (zoneCounties[z] || []).forEach(c => allowedCounties.add(c));
+            });
+
+            countyLabels.forEach(label => {
+                const countyName = label.querySelector('input').value;
+                if (allowedCounties.has(countyName)) {
+                    label.style.display = '';
+                } else {
+                    label.style.display = 'none';
+                    // Uncheck hidden counties
+                    label.querySelector('input').checked = false;
+                }
+            });
+
+            // Re-cascade to cities after county filter changes
+            filterCitiesByCounty();
+        }
+
         // Watch county changes to cascade filter cities
         document.querySelectorAll('#countyDropdown input[type="checkbox"]').forEach(cb => {
             cb.addEventListener('change', filterCitiesByCounty);
         });
 
-        // Run on page load to apply cascade if counties are pre-selected
-        document.addEventListener('DOMContentLoaded', filterCitiesByCounty);
+        // Run on page load to apply cascades
+        document.addEventListener('DOMContentLoaded', function() {
+            filterCountiesByZone();
+            filterCitiesByCounty();
+        });
 
         // Save current filter URL so property detail can link back with filters intact
         sessionStorage.setItem('propertiesFilterUrl', window.location.href);
