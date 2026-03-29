@@ -6552,6 +6552,176 @@ def api_update_setting(key):
 
 
 # ==========================================
+# Scoring Configuration Routes
+# ==========================================
+
+# All scoring config keys with their defaults, types, and UI metadata
+SCORING_CONFIG_SCHEMA = {
+    # Priority weights (must sum to 1.0)
+    "PRIORITY_WEIGHT_HEAT": {"default": 0.50, "type": "float", "min": 0, "max": 1, "step": 0.05, "section": "priority", "label": "Heat Weight"},
+    "PRIORITY_WEIGHT_VALUE": {"default": 0.20, "type": "float", "min": 0, "max": 1, "step": 0.05, "section": "priority", "label": "Value Weight"},
+    "PRIORITY_WEIGHT_RELATIONSHIP": {"default": 0.30, "type": "float", "min": 0, "max": 1, "step": 0.05, "section": "priority", "label": "Relationship Weight"},
+    # Heat signal weights
+    "HEAT_WEIGHT_WEBSITE_VISIT": {"default": 1.5, "type": "float", "min": 0, "max": 10, "step": 0.5, "section": "heat", "label": "Website Visit"},
+    "HEAT_WEIGHT_PROPERTY_VIEWED": {"default": 3.0, "type": "float", "min": 0, "max": 10, "step": 0.5, "section": "heat", "label": "Property Viewed"},
+    "HEAT_WEIGHT_PROPERTY_FAVORITED": {"default": 5.0, "type": "float", "min": 0, "max": 10, "step": 0.5, "section": "heat", "label": "Property Favorited"},
+    "HEAT_WEIGHT_PROPERTY_SHARED": {"default": 1.5, "type": "float", "min": 0, "max": 10, "step": 0.5, "section": "heat", "label": "Property Shared"},
+    "HEAT_WEIGHT_CALL_INBOUND": {"default": 5.0, "type": "float", "min": 0, "max": 10, "step": 0.5, "section": "heat", "label": "Inbound Call"},
+    "HEAT_WEIGHT_TEXT_INBOUND": {"default": 3.0, "type": "float", "min": 0, "max": 10, "step": 0.5, "section": "heat", "label": "Inbound Text"},
+    # Recency bonuses
+    "RECENCY_BONUS_0_3_DAYS": {"default": 25, "type": "int", "min": 0, "max": 50, "step": 1, "section": "recency", "label": "0-3 Days"},
+    "RECENCY_BONUS_4_7_DAYS": {"default": 15, "type": "int", "min": 0, "max": 50, "step": 1, "section": "recency", "label": "4-7 Days"},
+    "RECENCY_BONUS_8_14_DAYS": {"default": 10, "type": "int", "min": 0, "max": 50, "step": 1, "section": "recency", "label": "8-14 Days"},
+    "RECENCY_BONUS_15_30_DAYS": {"default": 5, "type": "int", "min": 0, "max": 50, "step": 1, "section": "recency", "label": "15-30 Days"},
+    # Decay multipliers
+    "DECAY_MULTIPLIER_0_7_DAYS": {"default": 1.0, "type": "float", "min": 0, "max": 1, "step": 0.05, "section": "decay", "label": "0-7 Days"},
+    "DECAY_MULTIPLIER_8_14_DAYS": {"default": 0.95, "type": "float", "min": 0, "max": 1, "step": 0.05, "section": "decay", "label": "8-14 Days"},
+    "DECAY_MULTIPLIER_15_30_DAYS": {"default": 0.85, "type": "float", "min": 0, "max": 1, "step": 0.05, "section": "decay", "label": "15-30 Days"},
+    "DECAY_MULTIPLIER_31_60_DAYS": {"default": 0.70, "type": "float", "min": 0, "max": 1, "step": 0.05, "section": "decay", "label": "31-60 Days"},
+    "DECAY_MULTIPLIER_61_90_DAYS": {"default": 0.50, "type": "float", "min": 0, "max": 1, "step": 0.05, "section": "decay", "label": "61-90 Days"},
+    "DECAY_MULTIPLIER_90_PLUS_DAYS": {"default": 0.30, "type": "float", "min": 0, "max": 1, "step": 0.05, "section": "decay", "label": "90+ Days"},
+    # Stage multipliers
+    "STAGE_MULTIPLIER_HOT_LEAD": {"default": 1.3, "type": "float", "min": 0, "max": 2, "step": 0.1, "section": "stage", "label": "Hot Lead"},
+    "STAGE_MULTIPLIER_ACTIVE_BUYER": {"default": 1.2, "type": "float", "min": 0, "max": 2, "step": 0.1, "section": "stage", "label": "Active Buyer"},
+    "STAGE_MULTIPLIER_ACTIVE_SELLER": {"default": 1.2, "type": "float", "min": 0, "max": 2, "step": 0.1, "section": "stage", "label": "Active Seller"},
+    "STAGE_MULTIPLIER_NURTURE": {"default": 1.0, "type": "float", "min": 0, "max": 2, "step": 0.1, "section": "stage", "label": "Nurture"},
+    "STAGE_MULTIPLIER_NEW_LEAD": {"default": 0.9, "type": "float", "min": 0, "max": 2, "step": 0.1, "section": "stage", "label": "New Lead"},
+    "STAGE_MULTIPLIER_COLD": {"default": 0.7, "type": "float", "min": 0, "max": 2, "step": 0.1, "section": "stage", "label": "Cold"},
+    "STAGE_MULTIPLIER_CLOSED": {"default": 0.0, "type": "float", "min": 0, "max": 2, "step": 0.1, "section": "stage", "label": "Closed"},
+    "STAGE_MULTIPLIER_TRASH": {"default": 0.0, "type": "float", "min": 0, "max": 2, "step": 0.1, "section": "stage", "label": "Trash"},
+    # Inbound recency bonuses
+    "INBOUND_RECENCY_BONUS_0_2_DAYS": {"default": 15.0, "type": "float", "min": 0, "max": 30, "step": 1, "section": "inbound_recency", "label": "0-2 Days"},
+    "INBOUND_RECENCY_BONUS_3_7_DAYS": {"default": 10.0, "type": "float", "min": 0, "max": 30, "step": 1, "section": "inbound_recency", "label": "3-7 Days"},
+    "INBOUND_RECENCY_BONUS_8_14_DAYS": {"default": 5.0, "type": "float", "min": 0, "max": 30, "step": 1, "section": "inbound_recency", "label": "8-14 Days"},
+    # Ghost browser detection
+    "GHOST_BROWSER_MIN_VIEWS": {"default": 30, "type": "int", "min": 5, "max": 100, "step": 5, "section": "ghost", "label": "Min Views Threshold"},
+    "GHOST_BROWSER_MIN_OUTREACH": {"default": 3, "type": "int", "min": 1, "max": 20, "step": 1, "section": "ghost", "label": "Min Outreach Attempts"},
+    "GHOST_BROWSER_HEAT_MULTIPLIER": {"default": 0.5, "type": "float", "min": 0, "max": 1, "step": 0.05, "section": "ghost", "label": "Heat Penalty Multiplier"},
+    # Source quality bonuses
+    "SOURCE_BONUS_REFERRAL": {"default": 8.0, "type": "float", "min": 0, "max": 20, "step": 1, "section": "source", "label": "Referral"},
+    "SOURCE_BONUS_SPHERE": {"default": 6.0, "type": "float", "min": 0, "max": 20, "step": 1, "section": "source", "label": "Sphere"},
+    "SOURCE_BONUS_DIRECT": {"default": 5.0, "type": "float", "min": 0, "max": 20, "step": 1, "section": "source", "label": "Direct"},
+    "SOURCE_BONUS_OPEN_HOUSE": {"default": 4.0, "type": "float", "min": 0, "max": 20, "step": 1, "section": "source", "label": "Open House"},
+    "SOURCE_BONUS_WEBSITE": {"default": 2.0, "type": "float", "min": 0, "max": 20, "step": 1, "section": "source", "label": "Website/IDX"},
+    # Tag bonuses
+    "TAG_BONUS_PRE_APPROVED": {"default": 10.0, "type": "float", "min": 0, "max": 20, "step": 1, "section": "tag", "label": "Pre-Approved"},
+    "TAG_BONUS_CASH_BUYER": {"default": 8.0, "type": "float", "min": 0, "max": 20, "step": 1, "section": "tag", "label": "Cash Buyer"},
+    "TAG_BONUS_INVESTOR": {"default": 5.0, "type": "float", "min": 0, "max": 20, "step": 1, "section": "tag", "label": "Investor"},
+    "TAG_BONUS_RELOCATION": {"default": 6.0, "type": "float", "min": 0, "max": 20, "step": 1, "section": "tag", "label": "Relocation"},
+    "TAG_BONUS_BUYER": {"default": 2.0, "type": "float", "min": 0, "max": 20, "step": 1, "section": "tag", "label": "Buyer"},
+    "TAG_BONUS_SELLER": {"default": 2.0, "type": "float", "min": 0, "max": 20, "step": 1, "section": "tag", "label": "Seller"},
+}
+
+SCORING_CONFIG_PATH = PROJECT_ROOT / "data" / "scoring_config.json"
+
+
+def _load_scoring_config():
+    """Load current scoring config, merging defaults with saved overrides."""
+    saved = {}
+    if SCORING_CONFIG_PATH.exists():
+        try:
+            with open(SCORING_CONFIG_PATH) as f:
+                saved = json.load(f)
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    config = {}
+    for key, meta in SCORING_CONFIG_SCHEMA.items():
+        val = saved.get(key, meta["default"])
+        config[key] = int(val) if meta["type"] == "int" else float(val)
+    return config
+
+
+def _save_scoring_config(config):
+    """Save scoring config to JSON file."""
+    SCORING_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(SCORING_CONFIG_PATH, 'w') as f:
+        json.dump(config, f, indent=2)
+
+
+@app.route('/admin/scoring')
+@requires_auth
+def admin_scoring():
+    """Scoring configuration dashboard with visual sliders and dials."""
+    config = _load_scoring_config()
+    return render_template('scoring_config.html',
+                           config=config,
+                           schema=SCORING_CONFIG_SCHEMA,
+                           env_name=DREAMS_ENV)
+
+
+@app.route('/api/admin/scoring-config', methods=['GET'])
+@requires_auth
+def api_get_scoring_config():
+    """Get current scoring configuration."""
+    config = _load_scoring_config()
+    return jsonify({'success': True, 'config': config, 'schema': SCORING_CONFIG_SCHEMA})
+
+
+@app.route('/api/admin/scoring-config', methods=['POST'])
+@requires_auth
+def api_save_scoring_config():
+    """Save scoring configuration."""
+    try:
+        data = request.get_json()
+        if not data or 'config' not in data:
+            return jsonify({'success': False, 'error': 'Missing config data'}), 400
+
+        new_config = {}
+        for key, meta in SCORING_CONFIG_SCHEMA.items():
+            if key in data['config']:
+                val = data['config'][key]
+                new_config[key] = int(val) if meta["type"] == "int" else float(val)
+            else:
+                new_config[key] = meta["default"]
+
+        _save_scoring_config(new_config)
+        logger.info("Scoring config saved by admin")
+        return jsonify({'success': True, 'config': new_config})
+
+    except Exception as e:
+        logger.error(f"Error saving scoring config: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/admin/scoring-preview', methods=['POST'])
+@requires_auth
+def api_scoring_preview():
+    """Preview how config changes would affect top contacts.
+    Returns current scores vs projected scores for top 10 contacts."""
+    try:
+        db = get_db()
+        # Get top 15 leads by current priority score
+        with db._get_connection() as conn:
+            rows = conn.execute("""
+                SELECT id, first_name, last_name, stage,
+                       heat_score, value_score, relationship_score, priority_score
+                FROM leads
+                WHERE priority_score > 0 AND stage NOT IN ('Closed', 'Trash', '')
+                ORDER BY priority_score DESC
+                LIMIT 15
+            """).fetchall()
+
+        contacts = []
+        for row in rows:
+            contacts.append({
+                'contact_id': row[0],
+                'name': f"{row[1] or ''} {row[2] or ''}".strip(),
+                'stage': row[3],
+                'heat': round(row[4] or 0, 1),
+                'value': round(row[5] or 0, 1),
+                'relationship': round(row[6] or 0, 1),
+                'priority': round(row[7] or 0, 1),
+            })
+
+        return jsonify({'success': True, 'contacts': contacts})
+
+    except Exception as e:
+        logger.error(f"Error generating scoring preview: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ==========================================
 # PDF Generator Routes
 # ==========================================
 

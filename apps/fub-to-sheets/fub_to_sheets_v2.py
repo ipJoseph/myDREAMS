@@ -100,6 +100,30 @@ load_dotenv()
 # CONFIGURATION
 # =========================================================================
 
+def _load_scoring_overrides():
+    """Load scoring config overrides from JSON file (saved by dashboard UI).
+    Returns a dict of CONFIG_KEY -> value. Empty dict if file missing/invalid."""
+    config_path = Path(__file__).resolve().parent.parent.parent / "data" / "scoring_config.json"
+    if config_path.exists():
+        try:
+            with open(config_path) as f:
+                return json.load(f)
+        except (json.JSONDecodeError, OSError):
+            pass
+    return {}
+
+_SCORING_OVERRIDES = _load_scoring_overrides()
+
+def _cfg(env_key, default, cast=float):
+    """Resolve config value: env var > JSON override > hardcoded default."""
+    env_val = os.getenv(env_key)
+    if env_val is not None:
+        return cast(env_val)
+    if env_key in _SCORING_OVERRIDES:
+        return cast(_SCORING_OVERRIDES[env_key])
+    return cast(default)
+
+
 class Config:
     """Centralized configuration with validation"""
 
@@ -141,71 +165,66 @@ class Config:
     CACHE_MAX_AGE_MINUTES = int(os.getenv("CACHE_MAX_AGE_MINUTES", "30"))
 
 # Scoring Weights - Heat Score
-    HEAT_WEIGHT_WEBSITE_VISIT = float(os.getenv("HEAT_WEIGHT_WEBSITE_VISIT", "1.5"))
-    HEAT_WEIGHT_PROPERTY_VIEWED = float(os.getenv("HEAT_WEIGHT_PROPERTY_VIEWED", "3.0"))
-    HEAT_WEIGHT_PROPERTY_FAVORITED = float(os.getenv("HEAT_WEIGHT_PROPERTY_FAVORITED", "5.0"))
-    HEAT_WEIGHT_PROPERTY_SHARED = float(os.getenv("HEAT_WEIGHT_PROPERTY_SHARED", "1.5"))
-    HEAT_WEIGHT_CALL_INBOUND = float(os.getenv("HEAT_WEIGHT_CALL_INBOUND", "5.0"))
-    HEAT_WEIGHT_TEXT_INBOUND = float(os.getenv("HEAT_WEIGHT_TEXT_INBOUND", "3.0"))
+    HEAT_WEIGHT_WEBSITE_VISIT = _cfg("HEAT_WEIGHT_WEBSITE_VISIT", 1.5)
+    HEAT_WEIGHT_PROPERTY_VIEWED = _cfg("HEAT_WEIGHT_PROPERTY_VIEWED", 3.0)
+    HEAT_WEIGHT_PROPERTY_FAVORITED = _cfg("HEAT_WEIGHT_PROPERTY_FAVORITED", 5.0)
+    HEAT_WEIGHT_PROPERTY_SHARED = _cfg("HEAT_WEIGHT_PROPERTY_SHARED", 1.5)
+    HEAT_WEIGHT_CALL_INBOUND = _cfg("HEAT_WEIGHT_CALL_INBOUND", 5.0)
+    HEAT_WEIGHT_TEXT_INBOUND = _cfg("HEAT_WEIGHT_TEXT_INBOUND", 3.0)
 
     # Scoring Weights - Recency Bonuses
-    RECENCY_BONUS_0_3_DAYS = int(os.getenv("RECENCY_BONUS_0_3_DAYS", "25"))
-    RECENCY_BONUS_4_7_DAYS = int(os.getenv("RECENCY_BONUS_4_7_DAYS", "15"))
-    RECENCY_BONUS_8_14_DAYS = int(os.getenv("RECENCY_BONUS_8_14_DAYS", "10"))
-    RECENCY_BONUS_15_30_DAYS = int(os.getenv("RECENCY_BONUS_15_30_DAYS", "5"))
+    RECENCY_BONUS_0_3_DAYS = _cfg("RECENCY_BONUS_0_3_DAYS", 25, int)
+    RECENCY_BONUS_4_7_DAYS = _cfg("RECENCY_BONUS_4_7_DAYS", 15, int)
+    RECENCY_BONUS_8_14_DAYS = _cfg("RECENCY_BONUS_8_14_DAYS", 10, int)
+    RECENCY_BONUS_15_30_DAYS = _cfg("RECENCY_BONUS_15_30_DAYS", 5, int)
 
     # Scoring Weights - Inactivity Decay Multipliers
-    # These reduce scores for leads that have gone quiet
-    DECAY_MULTIPLIER_0_7_DAYS = float(os.getenv("DECAY_MULTIPLIER_0_7_DAYS", "1.0"))      # No decay
-    DECAY_MULTIPLIER_8_14_DAYS = float(os.getenv("DECAY_MULTIPLIER_8_14_DAYS", "0.95"))   # 5% decay
-    DECAY_MULTIPLIER_15_30_DAYS = float(os.getenv("DECAY_MULTIPLIER_15_30_DAYS", "0.85")) # 15% decay
-    DECAY_MULTIPLIER_31_60_DAYS = float(os.getenv("DECAY_MULTIPLIER_31_60_DAYS", "0.70")) # 30% decay
-    DECAY_MULTIPLIER_61_90_DAYS = float(os.getenv("DECAY_MULTIPLIER_61_90_DAYS", "0.50")) # 50% decay
-    DECAY_MULTIPLIER_90_PLUS_DAYS = float(os.getenv("DECAY_MULTIPLIER_90_PLUS_DAYS", "0.30")) # 70% decay
+    DECAY_MULTIPLIER_0_7_DAYS = _cfg("DECAY_MULTIPLIER_0_7_DAYS", 1.0)
+    DECAY_MULTIPLIER_8_14_DAYS = _cfg("DECAY_MULTIPLIER_8_14_DAYS", 0.95)
+    DECAY_MULTIPLIER_15_30_DAYS = _cfg("DECAY_MULTIPLIER_15_30_DAYS", 0.85)
+    DECAY_MULTIPLIER_31_60_DAYS = _cfg("DECAY_MULTIPLIER_31_60_DAYS", 0.70)
+    DECAY_MULTIPLIER_61_90_DAYS = _cfg("DECAY_MULTIPLIER_61_90_DAYS", 0.50)
+    DECAY_MULTIPLIER_90_PLUS_DAYS = _cfg("DECAY_MULTIPLIER_90_PLUS_DAYS", 0.30)
 
     # Scoring Weights - Priority Composite
-    PRIORITY_WEIGHT_HEAT = float(os.getenv("PRIORITY_WEIGHT_HEAT", "0.50"))
-    PRIORITY_WEIGHT_VALUE = float(os.getenv("PRIORITY_WEIGHT_VALUE", "0.20"))
-    PRIORITY_WEIGHT_RELATIONSHIP = float(os.getenv("PRIORITY_WEIGHT_RELATIONSHIP", "0.30"))
+    PRIORITY_WEIGHT_HEAT = _cfg("PRIORITY_WEIGHT_HEAT", 0.50)
+    PRIORITY_WEIGHT_VALUE = _cfg("PRIORITY_WEIGHT_VALUE", 0.20)
+    PRIORITY_WEIGHT_RELATIONSHIP = _cfg("PRIORITY_WEIGHT_RELATIONSHIP", 0.30)
 
     # Scoring Weights - Stage Multipliers
-    STAGE_MULTIPLIER_HOT_LEAD = float(os.getenv("STAGE_MULTIPLIER_HOT_LEAD", "1.3"))
-    STAGE_MULTIPLIER_ACTIVE_BUYER = float(os.getenv("STAGE_MULTIPLIER_ACTIVE_BUYER", "1.2"))
-    STAGE_MULTIPLIER_ACTIVE_SELLER = float(os.getenv("STAGE_MULTIPLIER_ACTIVE_SELLER", "1.2"))
-    STAGE_MULTIPLIER_NURTURE = float(os.getenv("STAGE_MULTIPLIER_NURTURE", "1.0"))
-    STAGE_MULTIPLIER_NEW_LEAD = float(os.getenv("STAGE_MULTIPLIER_NEW_LEAD", "0.9"))
-    STAGE_MULTIPLIER_COLD = float(os.getenv("STAGE_MULTIPLIER_COLD", "0.7"))
-    STAGE_MULTIPLIER_CLOSED = float(os.getenv("STAGE_MULTIPLIER_CLOSED", "0.0"))
-    STAGE_MULTIPLIER_TRASH = float(os.getenv("STAGE_MULTIPLIER_TRASH", "0.0"))
+    STAGE_MULTIPLIER_HOT_LEAD = _cfg("STAGE_MULTIPLIER_HOT_LEAD", 1.3)
+    STAGE_MULTIPLIER_ACTIVE_BUYER = _cfg("STAGE_MULTIPLIER_ACTIVE_BUYER", 1.2)
+    STAGE_MULTIPLIER_ACTIVE_SELLER = _cfg("STAGE_MULTIPLIER_ACTIVE_SELLER", 1.2)
+    STAGE_MULTIPLIER_NURTURE = _cfg("STAGE_MULTIPLIER_NURTURE", 1.0)
+    STAGE_MULTIPLIER_NEW_LEAD = _cfg("STAGE_MULTIPLIER_NEW_LEAD", 0.9)
+    STAGE_MULTIPLIER_COLD = _cfg("STAGE_MULTIPLIER_COLD", 0.7)
+    STAGE_MULTIPLIER_CLOSED = _cfg("STAGE_MULTIPLIER_CLOSED", 0.0)
+    STAGE_MULTIPLIER_TRASH = _cfg("STAGE_MULTIPLIER_TRASH", 0.0)
 
     # Scoring Weights - Inbound Recency Bonus (additive to priority)
-    # Rewards leads who recently communicated inbound (text, email, call)
-    INBOUND_RECENCY_BONUS_0_2_DAYS = float(os.getenv("INBOUND_RECENCY_BONUS_0_2_DAYS", "15.0"))
-    INBOUND_RECENCY_BONUS_3_7_DAYS = float(os.getenv("INBOUND_RECENCY_BONUS_3_7_DAYS", "10.0"))
-    INBOUND_RECENCY_BONUS_8_14_DAYS = float(os.getenv("INBOUND_RECENCY_BONUS_8_14_DAYS", "5.0"))
+    INBOUND_RECENCY_BONUS_0_2_DAYS = _cfg("INBOUND_RECENCY_BONUS_0_2_DAYS", 15.0)
+    INBOUND_RECENCY_BONUS_3_7_DAYS = _cfg("INBOUND_RECENCY_BONUS_3_7_DAYS", 10.0)
+    INBOUND_RECENCY_BONUS_8_14_DAYS = _cfg("INBOUND_RECENCY_BONUS_8_14_DAYS", 5.0)
 
     # Scoring Weights - Ghost Browser Penalty (multiplicative on heat)
-    # High views + zero inbound after outreach = likely stale cookie or window shopper
-    GHOST_BROWSER_MIN_VIEWS = int(os.getenv("GHOST_BROWSER_MIN_VIEWS", "30"))
-    GHOST_BROWSER_MIN_OUTREACH = int(os.getenv("GHOST_BROWSER_MIN_OUTREACH", "3"))
-    GHOST_BROWSER_HEAT_MULTIPLIER = float(os.getenv("GHOST_BROWSER_HEAT_MULTIPLIER", "0.5"))
+    GHOST_BROWSER_MIN_VIEWS = _cfg("GHOST_BROWSER_MIN_VIEWS", 30, int)
+    GHOST_BROWSER_MIN_OUTREACH = _cfg("GHOST_BROWSER_MIN_OUTREACH", 3, int)
+    GHOST_BROWSER_HEAT_MULTIPLIER = _cfg("GHOST_BROWSER_HEAT_MULTIPLIER", 0.5)
 
     # Scoring Weights - Source Quality Bonuses (additive to priority)
-    # High-quality sources get a bonus; unknown sources get 0 (no penalty)
-    SOURCE_BONUS_REFERRAL = float(os.getenv("SOURCE_BONUS_REFERRAL", "8.0"))
-    SOURCE_BONUS_SPHERE = float(os.getenv("SOURCE_BONUS_SPHERE", "6.0"))
-    SOURCE_BONUS_DIRECT = float(os.getenv("SOURCE_BONUS_DIRECT", "5.0"))
-    SOURCE_BONUS_OPEN_HOUSE = float(os.getenv("SOURCE_BONUS_OPEN_HOUSE", "4.0"))
-    SOURCE_BONUS_WEBSITE = float(os.getenv("SOURCE_BONUS_WEBSITE", "2.0"))
+    SOURCE_BONUS_REFERRAL = _cfg("SOURCE_BONUS_REFERRAL", 8.0)
+    SOURCE_BONUS_SPHERE = _cfg("SOURCE_BONUS_SPHERE", 6.0)
+    SOURCE_BONUS_DIRECT = _cfg("SOURCE_BONUS_DIRECT", 5.0)
+    SOURCE_BONUS_OPEN_HOUSE = _cfg("SOURCE_BONUS_OPEN_HOUSE", 4.0)
+    SOURCE_BONUS_WEBSITE = _cfg("SOURCE_BONUS_WEBSITE", 2.0)
 
     # Scoring Weights - Tag Bonuses (additive to priority)
-    # Scanned case-insensitively from FUB tags array
-    TAG_BONUS_PRE_APPROVED = float(os.getenv("TAG_BONUS_PRE_APPROVED", "10.0"))
-    TAG_BONUS_CASH_BUYER = float(os.getenv("TAG_BONUS_CASH_BUYER", "8.0"))
-    TAG_BONUS_INVESTOR = float(os.getenv("TAG_BONUS_INVESTOR", "5.0"))
-    TAG_BONUS_RELOCATION = float(os.getenv("TAG_BONUS_RELOCATION", "6.0"))
-    TAG_BONUS_BUYER = float(os.getenv("TAG_BONUS_BUYER", "2.0"))
-    TAG_BONUS_SELLER = float(os.getenv("TAG_BONUS_SELLER", "2.0"))
+    TAG_BONUS_PRE_APPROVED = _cfg("TAG_BONUS_PRE_APPROVED", 10.0)
+    TAG_BONUS_CASH_BUYER = _cfg("TAG_BONUS_CASH_BUYER", 8.0)
+    TAG_BONUS_INVESTOR = _cfg("TAG_BONUS_INVESTOR", 5.0)
+    TAG_BONUS_RELOCATION = _cfg("TAG_BONUS_RELOCATION", 6.0)
+    TAG_BONUS_BUYER = _cfg("TAG_BONUS_BUYER", 2.0)
+    TAG_BONUS_SELLER = _cfg("TAG_BONUS_SELLER", 2.0)
 
     # Call List Settings
     CALL_LIST_MIN_PRIORITY = int(os.getenv("CALL_LIST_MIN_PRIORITY", "45"))
