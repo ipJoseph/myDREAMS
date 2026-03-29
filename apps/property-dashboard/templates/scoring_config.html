@@ -455,9 +455,12 @@
         .preview-score-pill {
             font-size: 10px;
             font-weight: 600;
-            padding: 2px 6px;
+            padding: 2px 0;
             border-radius: 4px;
             font-family: var(--font-mono);
+            width: 36px;
+            text-align: center;
+            display: inline-block;
         }
 
         .pill-heat { background: rgba(239,68,68,0.1); color: #dc2626; }
@@ -1186,11 +1189,11 @@
                 html += '<div class="preview-stage">' + escHtml(c.stage || 'Unknown') + '</div>';
                 html += '</div>';
                 html += '<div class="preview-scores">';
-                html += '<span class="preview-score-pill pill-heat">' + c.heat + '</span>';
-                html += '<span class="preview-score-pill pill-value">' + c.value + '</span>';
-                html += '<span class="preview-score-pill pill-rel">' + c.relationship + '</span>';
+                html += '<span class="preview-score-pill pill-heat">' + c.heat.toFixed(1) + '</span>';
+                html += '<span class="preview-score-pill pill-value">' + c.value.toFixed(1) + '</span>';
+                html += '<span class="preview-score-pill pill-rel">' + c.relationship.toFixed(1) + '</span>';
                 html += '</div>';
-                html += '<span class="preview-priority">' + c.projected + '</span>';
+                html += '<span class="preview-priority">' + c.projected.toFixed(1) + '</span>';
                 html += '</div>';
             });
 
