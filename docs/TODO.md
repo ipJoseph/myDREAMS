@@ -72,6 +72,7 @@ Last updated: February 26, 2026 (Collections bridge, buyer activity, agent notif
 |---|------|--------|----------|-------|
 | 21 | **Add test suite** | Pending | Tech Debt | `/tests/` directory is empty - no tests |
 | 31 | **Settings page test plan** | Pending | Tech Debt | Develop comprehensive test plan for the new Settings page (env vars, DB settings, secret masking, collapsible sections, save flow, category mapping) |
+| 32 | **Photo architecture efficiency review** | Pending | Tech Debt | Review after gallery download runs a few days. Items: (1) localize_photo does per-file stat calls on every page view, should cache or trust DB; (2) backfill disk scan is slow (256k+ files), use DB query instead; (3) on-demand download blocks the request for large galleries, consider async/placeholder; (4) photos column has multiple writers (sync, on-demand, backfill) with potential race conditions; (5) no cleanup for sold/expired listing photos. Added 2026-03-29. |
 | 22 | ~~Zillow scraper fix~~ | Retired | Tech Debt | Navica MLS replaces all scrapers |
 | 23 | **Realtor.com scraper** | DONE | Tech Debt | Dedicated scraper with __NEXT_DATA__ + DOM extraction |
 | 24 | **Standardize error handling** | Pending | Tech Debt | Inconsistent patterns across apps |
