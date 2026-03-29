@@ -206,13 +206,18 @@ def _find_local_primary(mls: str, photos_dir: Path) -> str | None:
     return None
 
 
-def localize_photo(listing: dict) -> None:
+def localize_photo(listing: dict, on_demand: bool = False) -> None:
     """Rewrite primary_photo and photos array to local URLs where files exist.
 
     Checks disk for primary ({mls}.ext) and gallery ({mls}_{NN}.ext) files.
     CDN URLs (especially MLS Grid tokens) expire, so local paths are
     always preferred. For listings with no local files, sets primary_photo
     to None and clears the photos array to avoid broken images.
+
+    Args:
+        listing: Dict with listing data (modified in place).
+        on_demand: If True, fetch missing Canopy photos from the API using
+            the throttle. Use for detail page views only, not bulk lists.
     """
     mls, photos_dir = _resolve_photos_dir(listing)
     if not mls:
@@ -225,33 +230,13 @@ def localize_photo(listing: dict) -> None:
 
     # Localize primary photo
     local_primary = _find_local_primary(mls, photos_dir)
-    if local_primary:
-        listing['primary_photo'] = local_primary
-    else:
-        source_lower = (listing.get('mls_source') or '').lower()
-        if 'canopy' in source_lower or 'mlsgrid' in source_lower:
-            listing['primary_photo'] = None
-        else:
-            cdn_url = listing.get('primary_photo') or ''
-            if cdn_url.startswith('http') and 'mlsgrid.com' not in cdn_url:
-                local_path = _download_photo_url(mls, cdn_url, photos_dir)
-                listing['primary_photo'] = local_path
-            else:
-                listing['primary_photo'] = None
 
-    # Localize the full photos array
-    photos = listing.get('photos')
-    if not isinstance(photos, list):
-        return
-
+    # Build local gallery URLs from disk
     dir_name = photos_dir.name
     local_urls = []
-
-    # Check primary first
     if local_primary:
         local_urls.append(local_primary)
 
-    # Check gallery files: {mls}_{01}.ext, {mls}_{02}.ext, ...
     idx = 1
     while True:
         suffix = f"_{idx:02d}"
@@ -267,33 +252,66 @@ def localize_photo(listing: dict) -> None:
         idx += 1
 
     if local_urls:
-        listing['photos'] = local_urls
-    elif any(('mlsgrid.com' in (p or '')) for p in photos):
-        # All CDN URLs with no local files; clear to avoid broken images
-        listing['photos'] = []
-    # else: leave photos as-is (non-MLSGrid URLs that may still work)
+        # We have local files; use them
+        listing['primary_photo'] = local_urls[0]
+        photos = listing.get('photos')
+        if isinstance(photos, list):
+            listing['photos'] = local_urls
+        return
+
+    # No local files found.
+    source_lower = (listing.get('mls_source') or '').lower()
+    is_canopy = 'canopy' in source_lower or 'mlsgrid' in source_lower
+
+    if is_canopy and on_demand:
+        # Single throttled API request to fetch and download all photos.
+        # Safe for one-off misses on detail page views.
+        fetched = _fetch_and_download_photos_from_api(mls, photos_dir)
+        if fetched:
+            listing['primary_photo'] = fetched[0]
+            listing['photos'] = fetched
+            return
+
+    if is_canopy:
+        # Canopy with no local files and no on-demand: show nothing
+        listing['primary_photo'] = None
+        photos = listing.get('photos')
+        if isinstance(photos, list) and any('mlsgrid.com' in (p or '') for p in photos):
+            listing['photos'] = []
+        return
+
+    # Non-Canopy (Navica): CDN URLs don't expire, try download
+    cdn_url = listing.get('primary_photo') or ''
+    if cdn_url.startswith('http') and 'mlsgrid.com' not in cdn_url:
+        local_path = _download_photo_url(mls, cdn_url, photos_dir)
+        listing['primary_photo'] = local_path
+    else:
+        listing['primary_photo'] = None
 
 
-def _fetch_primary_photo_from_api(mls: str, photos_dir: Path) -> Optional[str]:
-    """Fetch a fresh photo URL from MLS Grid API and download it.
+def _fetch_and_download_photos_from_api(mls: str, photos_dir: Path) -> List[str]:
+    """Fetch fresh photo URLs from MLS Grid API and download all photos.
 
-    MLS Grid CDN URLs are time-limited tokens that expire. The stored
-    primary_photo URL in the DB is often stale. This fetches a fresh
-    URL directly from the API, downloads the photo, and saves it locally.
-
-    Adds ~300-500ms on first view. Subsequent views serve from disk.
+    Uses the throttle to stay within rate limits. Safe for small-scale
+    on-demand fetches (a few missing listings), not for bulk operations.
+    Returns list of local URLs for downloaded photos, or empty list.
     """
     try:
         import requests as req
+        from urllib.parse import urlparse
+        from src.core.mlsgrid_throttle import get_throttle
 
         token = os.getenv('MLSGRID_TOKEN')
         if not token:
-            return None
+            return []
 
-        # Fetch fresh media URL from API
+        throttle = get_throttle()
+        throttle.wait()
+
         headers = {
             'Authorization': f'Bearer {token}',
-            'Accept-Encoding': 'gzip',
+            'Accept': 'application/json',
+            'Accept-Encoding': 'gzip,deflate',
         }
         api_url = (
             f"https://api.mlsgrid.com/v2/Property"
@@ -301,27 +319,87 @@ def _fetch_primary_photo_from_api(mls: str, photos_dir: Path) -> Optional[str]:
             f"&$expand=Media"
             f"&$top=1"
         )
-        api_resp = req.get(api_url, headers=headers, timeout=5)
+        api_resp = req.get(api_url, headers=headers, timeout=10)
+        throttle.record()
+
         if api_resp.status_code != 200:
-            return None
+            return []
 
         listings = api_resp.json().get('value', [])
         if not listings:
-            return None
+            return []
 
         media = listings[0].get('Media', [])
         if not media:
-            return None
+            return []
 
-        fresh_url = media[0].get('MediaURL')
-        if not fresh_url:
-            return None
+        # Extract and sort photos
+        photos = []
+        for m in media:
+            cat = m.get('MediaCategory', '')
+            if cat and cat != 'Photo':
+                continue
+            url = m.get('MediaURL')
+            if url:
+                order = m.get('Order', m.get('MediaOrder', 999))
+                photos.append((order, url))
+        photos.sort(key=lambda x: x[0])
 
-        return _download_photo_url(mls, fresh_url, photos_dir)
+        if not photos:
+            return []
+
+        # Download all photos to disk
+        photos_dir.mkdir(parents=True, exist_ok=True)
+        local_urls = []
+        dir_name = photos_dir.name
+
+        for idx, (_, photo_url) in enumerate(photos):
+            path_lower = urlparse(photo_url).path.lower()
+            ext = '.png' if path_lower.endswith('.png') else \
+                  '.webp' if path_lower.endswith('.webp') else '.jpg'
+            filename = f"{mls}{ext}" if idx == 0 else f"{mls}_{idx:02d}{ext}"
+            filepath = photos_dir / filename
+
+            if filepath.exists() and filepath.stat().st_size > 0:
+                local_urls.append(f"/api/public/photos/{dir_name}/{filename}")
+                continue
+
+            try:
+                resp = req.get(photo_url, timeout=30, stream=True)
+                resp.raise_for_status()
+                with open(filepath, 'wb') as f:
+                    for chunk in resp.iter_content(chunk_size=8192):
+                        f.write(chunk)
+                if filepath.stat().st_size > 0:
+                    local_urls.append(f"/api/public/photos/{dir_name}/{filename}")
+                else:
+                    filepath.unlink(missing_ok=True)
+            except Exception as e:
+                logger.debug(f"CDN download failed for {mls} [{idx}]: {e}")
+
+        # Update DB with local paths
+        if local_urls:
+            try:
+                import sqlite3 as _sql
+                db_path = PROJECT_ROOT / 'data' / 'dreams.db'
+                conn = _sql.connect(str(db_path), timeout=10)
+                conn.execute('PRAGMA busy_timeout=10000')
+                primary_path = str(photos_dir / f"{mls}.jpg")
+                conn.execute(
+                    "UPDATE listings SET photos = ?, photo_local_path = ? "
+                    "WHERE mls_number = ?",
+                    [json.dumps(local_urls), primary_path, mls]
+                )
+                conn.commit()
+                conn.close()
+            except Exception as e:
+                logger.debug(f"DB update failed for {mls}: {e}")
+
+        return local_urls
 
     except Exception as e:
         logger.debug(f"On-demand API photo fetch failed for {mls}: {e}")
-    return None
+    return []
 
 
 def _download_photo_url(mls: str, url: str, photos_dir: Path) -> Optional[str]:

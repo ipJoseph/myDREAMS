@@ -1,30 +1,34 @@
 #!/usr/bin/env python3
 """
-Download full photo galleries for listings in WNC zones (1+2).
+Download full photo galleries for Canopy MLS listings in WNC Zone 1 & 2.
 
-Downloads all photos from the `photos` JSON array (not just the primary).
-Files are stored as: data/photos/{source}/{mls_number}_{index:02d}.{ext}
+Uses the MLS Grid replication pattern: paginated $expand=Media queries
+(same approach as incremental sync, zero extra per-listing API calls).
+The API returns fresh CDN URLs inline; we download them in parallel.
 
-The primary photo (index 00) is skipped if already downloaded by the
-primary-photo downloaders. Only gallery photos (index 01+) are new.
+Rate controls:
+  - API requests: uses mlsgrid_throttle (3s between requests, 3000/hr cap)
+  - CDN downloads: parallel workers (CDN is separate from API rate limits)
+  - 429 handling: respects Retry-After header
+  - Daily cap: stops if approaching 20k API requests/day
 
-After downloading, updates the `photos_local` column in the DB with a
-JSON array of local filenames so the API can serve them without CDN tokens.
+Storage estimate: ~14 GB for ~30k gallery photos at ~481 KB avg.
 
 Usage:
-    python3 scripts/download_gallery_photos.py                  # dry-run
-    python3 scripts/download_gallery_photos.py --apply          # download
-    python3 scripts/download_gallery_photos.py --apply --max 50 # limit
-    python3 scripts/download_gallery_photos.py --apply --zone 1 # zone 1 only
+    python3 scripts/download_gallery_photos.py
+    python3 scripts/download_gallery_photos.py --dry-run
+    python3 scripts/download_gallery_photos.py --max-pages 50
+    python3 scripts/download_gallery_photos.py --workers 5
+    python3 scripts/download_gallery_photos.py --counties Buncombe Henderson
 """
 
 import argparse
 import json
+import logging
 import os
 import sqlite3
 import sys
 import time
-from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from urllib.parse import urlparse
@@ -33,20 +37,30 @@ import requests
 
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
+
+from src.core.mlsgrid_throttle import get_throttle
+
 DB_PATH = PROJECT_ROOT / 'data' / 'dreams.db'
+PHOTOS_DIR = PROJECT_ROOT / 'data' / 'photos' / 'mlsgrid'
+MLS_SOURCE = 'CanopyMLS'
 
-PHOTOS_DIRS = {
-    'CanopyMLS': PROJECT_ROOT / 'data' / 'photos' / 'mlsgrid',
-    'NavicaMLS': PROJECT_ROOT / 'data' / 'photos' / 'navica',
-    'MountainLakesMLS': PROJECT_ROOT / 'data' / 'photos' / 'navica',
-}
+# WNC Zone 1 (core service area)
+ZONE_1 = [
+    'Buncombe', 'Henderson', 'Haywood', 'Transylvania', 'Madison',
+]
 
-# Map source names to URL path segment for serving
-SOURCE_NAMES = {
-    'CanopyMLS': 'mlsgrid',
-    'NavicaMLS': 'navica',
-    'MountainLakesMLS': 'navica',
-}
+# WNC Zone 2 (extended service area)
+ZONE_2 = [
+    'McDowell', 'Rutherford', 'Burke', 'Yancey', 'Jackson', 'Polk',
+    'Caldwell', 'Mitchell', 'Avery', 'Watauga', 'Swain', 'Graham',
+    'Macon', 'Clay', 'Cherokee',
+]
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(message)s',
+)
+logger = logging.getLogger(__name__)
 
 
 def load_env():
@@ -60,351 +74,350 @@ def load_env():
                     os.environ.setdefault(key.strip(), value.strip().strip('"\''))
 
 
-def detect_ext(url: str) -> str:
-    """Detect image extension from URL path."""
-    parsed = urlparse(url)
-    path_lower = parsed.path.lower()
-    if path_lower.endswith('.png'):
-        return '.png'
-    elif path_lower.endswith('.webp'):
-        return '.webp'
-    return '.jpg'
+def get_target_mls_numbers(counties: list) -> dict:
+    """Get MLS numbers of active Canopy listings in target counties.
+    Returns dict of mls_number -> photo_count."""
+    conn = sqlite3.connect(str(DB_PATH))
+    placeholders = ','.join(['?' for _ in counties])
+    rows = conn.execute(f"""
+        SELECT mls_number, COALESCE(photo_count, 0)
+        FROM listings
+        WHERE mls_source = ? AND UPPER(status) = 'ACTIVE'
+        AND county IN ({placeholders})
+    """, [MLS_SOURCE] + counties).fetchall()
+    conn.close()
+    return {r[0]: r[1] for r in rows}
 
 
-def file_exists(dest_dir: Path, mls_number: str, index: int) -> Path | None:
-    """Check if a gallery photo already exists (any extension)."""
-    prefix = f"{mls_number}_{index:02d}"
-    for ext in ('.jpg', '.jpeg', '.png', '.webp'):
-        fp = dest_dir / f"{prefix}{ext}"
-        if fp.exists() and fp.stat().st_size > 0:
-            return fp
-    return None
+def scan_existing_photos(mls_numbers: set) -> dict:
+    """Scan disk to find which listings already have gallery photos.
+    Returns dict of mls_number -> set of existing filenames."""
+    PHOTOS_DIR.mkdir(parents=True, exist_ok=True)
+    all_files = set(os.listdir(PHOTOS_DIR))
+
+    existing = {}
+    for mls in mls_numbers:
+        files = set()
+        for f in all_files:
+            if f.startswith(mls) and (f.endswith('.jpg') or f.endswith('.jpeg')
+                                      or f.endswith('.png') or f.endswith('.webp')):
+                files.add(f)
+        if files:
+            existing[mls] = files
+    return existing
 
 
-def primary_exists(dest_dir: Path, mls_number: str) -> Path | None:
-    """Check if the primary photo already exists (no index suffix)."""
-    for ext in ('.jpg', '.jpeg', '.png', '.webp'):
-        fp = dest_dir / f"{mls_number}{ext}"
-        if fp.exists() and fp.stat().st_size > 0:
-            return fp
-    return None
+def download_single_photo(mls: str, url: str, filename: str) -> dict:
+    """Download one photo from CDN. Returns status dict."""
+    filepath = PHOTOS_DIR / filename
+    if filepath.exists() and filepath.stat().st_size > 0:
+        return {'mls': mls, 'file': filename, 'status': 'exists'}
+
+    try:
+        resp = requests.get(url, timeout=30, stream=True)
+        resp.raise_for_status()
+
+        with open(filepath, 'wb') as f:
+            for chunk in resp.iter_content(chunk_size=8192):
+                f.write(chunk)
+
+        if filepath.stat().st_size > 0:
+            return {'mls': mls, 'file': filename, 'status': 'downloaded'}
+        else:
+            filepath.unlink(missing_ok=True)
+            return {'mls': mls, 'file': filename, 'status': 'empty'}
+
+    except Exception as e:
+        return {'mls': mls, 'file': filename, 'status': 'error', 'error': str(e)}
 
 
-def download_one(mls_number: str, url: str, index: int, dest_dir: Path) -> dict:
-    """Download a single gallery photo with retry on rate limiting."""
-    ext = detect_ext(url)
-    filename = f"{mls_number}_{index:02d}{ext}"
-    filepath = dest_dir / filename
-
-    # Skip if already downloaded
-    existing = file_exists(dest_dir, mls_number, index)
-    if existing:
-        return {
-            'mls': mls_number, 'index': index,
-            'status': 'skipped', 'path': existing.name,
-        }
-
-    max_retries = 3
-    for attempt in range(max_retries):
-        try:
-            resp = requests.get(url, timeout=30, stream=True)
-
-            # Handle rate limiting with exponential backoff
-            if resp.status_code == 429:
-                wait = 2 ** (attempt + 1)
-                time.sleep(wait)
-                continue
-
-            resp.raise_for_status()
-
-            content_type = resp.headers.get('Content-Type', '')
-            if 'image' not in content_type and content_type:
-                return {
-                    'mls': mls_number, 'index': index,
-                    'status': 'error', 'error': f'Not an image: {content_type}',
-                }
-
-            with open(filepath, 'wb') as f:
-                for chunk in resp.iter_content(chunk_size=8192):
-                    f.write(chunk)
-
-            size = filepath.stat().st_size
-            if size == 0:
-                filepath.unlink()
-                return {
-                    'mls': mls_number, 'index': index,
-                    'status': 'error', 'error': 'Empty file',
-                }
-
-            return {
-                'mls': mls_number, 'index': index,
-                'status': 'downloaded', 'size': size, 'path': filename,
-            }
-
-        except requests.RequestException as e:
-            if filepath.exists():
-                filepath.unlink()
-            if attempt < max_retries - 1 and '429' in str(e):
-                time.sleep(2 ** (attempt + 1))
-                continue
-            return {
-                'mls': mls_number, 'index': index,
-                'status': 'error', 'error': str(e),
-            }
-
-    return {
-        'mls': mls_number, 'index': index,
-        'status': 'error', 'error': 'Max retries exceeded (rate limited)',
-    }
-
-
-def build_local_photos_list(dest_dir: Path, mls_number: str, photo_count: int) -> list[str]:
-    """Build a list of local filenames for all gallery photos of a listing."""
-    local = []
-    # Index 00 = primary photo (stored without index suffix by primary downloader)
-    primary = primary_exists(dest_dir, mls_number)
-    if primary:
-        local.append(primary.name)
-    else:
-        # Check if index 00 exists with suffix
-        p00 = file_exists(dest_dir, mls_number, 0)
-        local.append(p00.name if p00 else None)
-
-    # Index 01+ = gallery photos
-    for i in range(1, photo_count):
-        fp = file_exists(dest_dir, mls_number, i)
-        local.append(fp.name if fp else None)
-
-    return local
+def update_photos_column(updates: list):
+    """Update the photos column with local URLs so templates render correctly."""
+    if not updates:
+        return
+    conn = sqlite3.connect(str(DB_PATH), timeout=60)
+    conn.execute('PRAGMA busy_timeout=60000')
+    for mls, local_files in updates:
+        local_urls = [f"/api/public/photos/mlsgrid/{Path(p).name}" for p in local_files]
+        primary_path = str(local_files[0]) if local_files else None
+        conn.execute(
+            "UPDATE listings SET photos = ?, photo_local_path = COALESCE(photo_local_path, ?) "
+            "WHERE mls_source = ? AND mls_number = ?",
+            [json.dumps(local_urls), primary_path, MLS_SOURCE, mls]
+        )
+    conn.commit()
+    conn.close()
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Download gallery photos for WNC listings")
-    parser.add_argument('--apply', action='store_true', help='Actually download (default is dry-run)')
-    parser.add_argument('--max', type=int, help='Max listings to process')
-    parser.add_argument('--workers', type=int, default=2, help='Parallel workers (default: 2, keep low to avoid CDN rate limits)')
-    parser.add_argument('--zone', default='1,2', help='Zones to download for (default: 1,2)')
-    parser.add_argument('--min-photos', type=int, default=2, help='Min photos to qualify (default: 2)')
-    parser.add_argument('--db', type=str, default=str(DB_PATH), help='Database path')
+    parser = argparse.ArgumentParser(
+        description="Download full photo galleries for Canopy MLS listings in WNC"
+    )
+    parser.add_argument('--dry-run', action='store_true',
+                        help='Show what would be done without downloading')
+    parser.add_argument('--max-pages', type=int, default=500,
+                        help='Max API pages to fetch (default: 500)')
+    parser.add_argument('--workers', type=int, default=8,
+                        help='Parallel CDN download workers (default: 8)')
+    parser.add_argument('--counties', nargs='+', default=None,
+                        help='Specific counties (default: Zone 1+2)')
+    parser.add_argument('--zone', type=int, choices=[1, 2], default=None,
+                        help='Download only Zone 1 or Zone 2 (default: both)')
     args = parser.parse_args()
 
     load_env()
 
-    # Parse zones
-    zones = [int(z.strip()) for z in args.zone.split(',') if z.strip().isdigit()]
-    if not zones:
-        print("Error: no valid zones specified")
+    token = os.environ.get('MLSGRID_TOKEN')
+    if not token:
+        logger.error("MLSGRID_TOKEN not set in environment")
         return 1
 
-    conn = sqlite3.connect(args.db)
-    conn.row_factory = sqlite3.Row
-
-    # Ensure photos_local column exists
-    existing_cols = {row[1] for row in conn.execute("PRAGMA table_info(listings)").fetchall()}
-    if 'photos_local' not in existing_cols:
-        print("Adding 'photos_local' column to listings table...")
-        if args.apply:
-            conn.execute("ALTER TABLE listings ADD COLUMN photos_local TEXT")
-            conn.commit()
-            print("  Column added.")
-        else:
-            print("  [dry-run] Would add column.")
-
-    # Get listings with gallery photos in target zones
-    placeholders = ','.join(['?'] * len(zones))
-    query = f"""
-        SELECT mls_number, mls_source, listing_key, photos, photo_count
-        FROM listings
-        WHERE zone IN ({placeholders})
-        AND UPPER(status) = 'ACTIVE'
-        AND photos IS NOT NULL
-        AND photo_count >= ?
-        ORDER BY list_price DESC
-    """
-    rows = conn.execute(query, zones + [args.min_photos]).fetchall()
-
-    if args.max:
-        rows = rows[:args.max]
-
-    # For CanopyMLS listings, we must fetch fresh photo URLs from the API
-    # because the stored CDN tokens expire in ~1 hour.
-    # Navica/Mountain Lakes CDN URLs don't expire, so we use them directly.
-    print("Preparing photo URLs...")
-    canopy_listings = [r for r in rows if r['mls_source'] == 'CanopyMLS' and r['listing_key']]
-    other_listings = [r for r in rows if r['mls_source'] != 'CanopyMLS']
-
-    # Refresh CanopyMLS photo URLs in batches via the API
-    fresh_photos = {}  # mls_number -> [url, url, ...]
-    if canopy_listings and args.apply:
-        print(f"  Fetching fresh URLs for {len(canopy_listings):,} CanopyMLS listings...")
-        try:
-            from apps.mlsgrid.client import MLSGridClient
-            from apps.navica.field_mapper import extract_photos
-            client = MLSGridClient.from_env()
-
-            for i, row in enumerate(canopy_listings):
-                lk = row['listing_key']
-                mls = row['mls_number']
-                try:
-                    result = client.get(f"/Property('{lk}')", {'$expand': 'Media'})
-                    media = result.get('Media', [])
-                    _, photo_urls, _ = extract_photos(media)
-                    if photo_urls:
-                        fresh_photos[mls] = photo_urls
-                        # Update DB with fresh URLs
-                        conn.execute(
-                            "UPDATE listings SET photos = ?, photos_refreshed_at = ? WHERE mls_number = ?",
-                            [json.dumps(photo_urls), datetime.now().isoformat(), mls]
-                        )
-                except Exception as e:
-                    if i < 5:
-                        print(f"    Warning: {mls}: {e}")
-
-                if (i + 1) % 100 == 0 or (i + 1) == len(canopy_listings):
-                    conn.commit()
-                    print(f"    Refreshed {i + 1:,}/{len(canopy_listings):,} ({len(fresh_photos):,} OK)")
-
-                # Rate limit: MLS Grid allows 2 req/sec
-                time.sleep(0.6)
-
-        except ImportError as e:
-            print(f"  Warning: Could not load MLS Grid client: {e}")
-            print("  Will use stored URLs (may be expired)")
-    elif canopy_listings:
-        print(f"  [dry-run] Would refresh {len(canopy_listings):,} CanopyMLS URLs")
-
-    conn.close()
-
-    # Build download queue: (mls_number, url, index, dest_dir)
-    queue = []
-    listings_info = {}  # mls_number -> (mls_source, photo_count)
-
-    for row in rows:
-        mls = row['mls_number']
-        source = row['mls_source']
-        dest_dir = PHOTOS_DIRS.get(source)
-        if not dest_dir:
-            continue
-
-        # Use fresh URLs for CanopyMLS, stored URLs for others
-        if mls in fresh_photos:
-            photos = fresh_photos[mls]
-        else:
-            try:
-                photos = json.loads(row['photos'])
-            except (json.JSONDecodeError, TypeError):
-                continue
-
-        if not photos or len(photos) < 2:
-            continue
-
-        listings_info[mls] = (source, len(photos))
-
-        # Skip index 0 (primary photo already downloaded separately)
-        for i, url in enumerate(photos[1:], start=1):
-            if url and isinstance(url, str):
-                queue.append((mls, url, i, dest_dir))
-
-    # Check how many are already downloaded
-    already = 0
-    to_download = []
-    for mls, url, idx, dest_dir in queue:
-        if file_exists(dest_dir, mls, idx):
-            already += 1
-        else:
-            to_download.append((mls, url, idx, dest_dir))
-
-    print(f"Zones:                {args.zone}")
-    print(f"Listings with 2+ photos: {len(listings_info):,}")
-    print(f"Total gallery photos: {len(queue):,}")
-    print(f"Already downloaded:   {already:,}")
-    print(f"To download:          {len(to_download):,}")
-    print(f"Workers:              {args.workers}")
-    print()
-
-    if not args.apply:
-        print("[dry-run] No downloads. Use --apply to download.")
-        return
-
-    # Ensure directories exist
-    for d in PHOTOS_DIRS.values():
-        d.mkdir(parents=True, exist_ok=True)
-
-    if not to_download:
-        print("Nothing to download. Updating DB...")
+    # Determine target counties
+    if args.counties:
+        counties = args.counties
+    elif args.zone == 1:
+        counties = ZONE_1
+    elif args.zone == 2:
+        counties = ZONE_2
     else:
-        start = time.time()
-        downloaded = 0
-        errors = 0
-        total_bytes = 0
+        counties = ZONE_1 + ZONE_2
 
-        with ThreadPoolExecutor(max_workers=args.workers) as executor:
-            futures = {
-                executor.submit(download_one, mls, url, idx, dest_dir): (mls, idx)
-                for mls, url, idx, dest_dir in to_download
+    logger.info(f"Target counties: {', '.join(counties)}")
+
+    # Step 1: Find target listings
+    targets = get_target_mls_numbers(counties)
+    logger.info(f"Active Canopy listings in target area: {len(targets)}")
+
+    # Step 2: Scan existing photos on disk
+    existing = scan_existing_photos(set(targets.keys()))
+    needs_gallery = {}
+    for mls, expected_count in targets.items():
+        on_disk = existing.get(mls, set())
+        # Count gallery files (excluding primary)
+        gallery_on_disk = sum(1 for f in on_disk if '_' in f.rsplit('.', 1)[0])
+        gallery_expected = max(0, expected_count - 1)
+        if gallery_expected > gallery_on_disk:
+            needs_gallery[mls] = {
+                'expected': expected_count,
+                'has_primary': any(
+                    f.startswith(mls) and '_' not in f.rsplit('.', 1)[0]
+                    for f in on_disk
+                ),
+                'gallery_on_disk': gallery_on_disk,
             }
 
-            for i, future in enumerate(as_completed(futures), 1):
-                result = future.result()
+    logger.info(f"Listings needing gallery photos: {len(needs_gallery)}")
+    total_needed = sum(
+        max(0, v['expected'] - v['gallery_on_disk'] - (1 if v['has_primary'] else 0))
+        for v in needs_gallery.values()
+    )
+    logger.info(f"Estimated photos to download: {total_needed}")
+    logger.info(f"Estimated storage: {total_needed * 481 / 1024 / 1024:.1f} GB")
 
-                if result['status'] == 'downloaded':
-                    downloaded += 1
-                    total_bytes += result.get('size', 0)
-                elif result['status'] == 'error':
-                    errors += 1
-                    if errors <= 20:
-                        print(f"  Error {result['mls']}[{result['index']}]: {result['error']}")
+    if not needs_gallery:
+        logger.info("All gallery photos already downloaded. Nothing to do.")
+        return 0
 
-                if i % 500 == 0 or i == len(to_download):
-                    elapsed = time.time() - start
-                    rate = i / elapsed if elapsed > 0 else 0
-                    mb = total_bytes / (1024 * 1024)
-                    print(f"  Progress: {i:,}/{len(to_download):,} ({rate:.0f}/sec, {mb:.1f} MB downloaded)")
+    if args.dry_run:
+        logger.info("DRY RUN: would fetch API pages and download gallery photos")
+        # Show top 10 listings needing most photos
+        by_need = sorted(needs_gallery.items(),
+                         key=lambda x: x[1]['expected'] - x[1]['gallery_on_disk'],
+                         reverse=True)
+        for mls, info in by_need[:10]:
+            need = info['expected'] - info['gallery_on_disk'] - (1 if info['has_primary'] else 0)
+            logger.info(f"  {mls}: need {need} of {info['expected']} photos")
+        return 0
 
-        elapsed = time.time() - start
-        mb = total_bytes / (1024 * 1024)
-        print()
-        print(f"  Downloaded: {downloaded:,} ({mb:.1f} MB)")
-        print(f"  Errors:     {errors:,}")
-        print(f"  Duration:   {elapsed:.1f}s")
-        if downloaded > 0:
-            print(f"  Rate:       {downloaded / elapsed:.1f} photos/sec")
-        print()
+    # Step 3: Fetch from API using replication pattern
+    throttle = get_throttle()
+    session = requests.Session()
+    session.headers.update({
+        'Authorization': f'Bearer {token}',
+        'Accept': 'application/json',
+        'Accept-Encoding': 'gzip,deflate',
+    })
 
-    # Update photos_local in DB for all processed listings
-    print("Updating photos_local in database...")
-    conn = sqlite3.connect(args.db)
-    updates = []
+    base_url = (
+        "https://api.mlsgrid.com/v2/Property"
+        "?$filter=OriginatingSystemName eq 'carolina' and MlgCanView eq true"
+        " and StandardStatus eq 'Active'"
+        "&$expand=Media"
+        "&$top=500"
+    )
 
-    for mls, (source, count) in listings_info.items():
-        dest_dir = PHOTOS_DIRS.get(source)
-        if not dest_dir:
+    stats = {
+        'api_pages': 0,
+        'listings_processed': 0,
+        'photos_downloaded': 0,
+        'photos_skipped': 0,
+        'photos_error': 0,
+        'db_updates': 0,
+    }
+    db_update_batch = []
+    start_time = time.time()
+    url = base_url
+
+    while url and stats['api_pages'] < args.max_pages:
+        stats['api_pages'] += 1
+
+        # Rate limit via throttle
+        throttle.wait()
+
+        try:
+            resp = session.get(url, timeout=60)
+            throttle.record()
+
+            if resp.status_code == 429:
+                retry_after = int(resp.headers.get('Retry-After', 60))
+                logger.warning(f"Rate limited. Waiting {retry_after}s...")
+                time.sleep(retry_after)
+                continue
+
+            if resp.status_code != 200:
+                logger.error(f"API error {resp.status_code}: {resp.text[:200]}")
+                break
+
+            data = resp.json()
+            records = data.get('value', [])
+
+            # Collect download tasks for this page
+            download_tasks = []
+
+            for prop in records:
+                mls = prop.get('ListingId', '')
+                if mls not in needs_gallery:
+                    continue
+
+                media = prop.get('Media', [])
+                if not media:
+                    continue
+
+                # Extract all photo URLs in order
+                photos = []
+                for m in media:
+                    cat = m.get('MediaCategory', '')
+                    if cat and cat != 'Photo':
+                        continue
+                    media_url = m.get('MediaURL')
+                    if media_url:
+                        order = m.get('Order', m.get('MediaOrder', 999))
+                        photos.append((order, media_url))
+
+                if not photos:
+                    continue
+
+                photos.sort(key=lambda x: x[0])
+
+                # Build download list: primary + gallery
+                for idx, (_, photo_url) in enumerate(photos):
+                    parsed = urlparse(photo_url)
+                    path_lower = parsed.path.lower()
+                    ext = '.png' if path_lower.endswith('.png') else \
+                          '.webp' if path_lower.endswith('.webp') else '.jpg'
+
+                    if idx == 0:
+                        filename = f"{mls}{ext}"
+                    else:
+                        filename = f"{mls}_{idx:02d}{ext}"
+
+                    # Skip if already on disk
+                    filepath = PHOTOS_DIR / filename
+                    if filepath.exists() and filepath.stat().st_size > 0:
+                        stats['photos_skipped'] += 1
+                        continue
+
+                    download_tasks.append((mls, photo_url, filename))
+
+                stats['listings_processed'] += 1
+
+            # Download in parallel (CDN, not API, so parallelism is safe)
+            if download_tasks:
+                local_paths_by_mls = {}
+                with ThreadPoolExecutor(max_workers=args.workers) as executor:
+                    futures = {
+                        executor.submit(download_single_photo, mls, purl, fname): (mls, fname)
+                        for mls, purl, fname in download_tasks
+                    }
+                    for future in as_completed(futures):
+                        result = future.result()
+                        if result['status'] == 'downloaded':
+                            stats['photos_downloaded'] += 1
+                            mls = result['mls']
+                            if mls not in local_paths_by_mls:
+                                local_paths_by_mls[mls] = []
+                            local_paths_by_mls[mls].append(
+                                str(PHOTOS_DIR / result['file'])
+                            )
+                        elif result['status'] == 'error':
+                            stats['photos_error'] += 1
+
+                # Collect DB updates
+                for mls, paths in local_paths_by_mls.items():
+                    # Get ALL files on disk for this listing (including pre-existing)
+                    all_files = sorted([
+                        str(PHOTOS_DIR / f)
+                        for f in os.listdir(PHOTOS_DIR)
+                        if f.startswith(mls) and (
+                            f.endswith('.jpg') or f.endswith('.jpeg')
+                            or f.endswith('.png') or f.endswith('.webp')
+                        )
+                    ])
+                    db_update_batch.append((mls, all_files))
+                    needs_gallery.pop(mls, None)
+
+                # Batch DB update every 200 listings
+                if len(db_update_batch) >= 200:
+                    update_photos_column(db_update_batch)
+                    stats['db_updates'] += len(db_update_batch)
+                    db_update_batch = []
+
+            # Progress
+            elapsed = time.time() - start_time
+            logger.info(
+                f"Page {stats['api_pages']}: {len(records)} records, "
+                f"{stats['photos_downloaded']} downloaded, "
+                f"{len(needs_gallery)} listings remaining "
+                f"({elapsed:.0f}s elapsed)"
+            )
+
+            # All done?
+            if not needs_gallery:
+                logger.info("All target gallery photos downloaded!")
+                break
+
+            # Follow pagination
+            url = data.get('@odata.nextLink')
+
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Request error on page {stats['api_pages']}: {e}")
+            stats['photos_error'] += 1
+            time.sleep(5)
             continue
-        local_files = build_local_photos_list(dest_dir, mls, count)
-        # Only store if we have at least the primary photo
-        if local_files and local_files[0]:
-            source_name = SOURCE_NAMES.get(source, 'mlsgrid')
-            # Convert filenames to API-servable paths
-            api_paths = []
-            for fname in local_files:
-                if fname:
-                    api_paths.append(f"/api/public/photos/{source_name}/{fname}")
-                else:
-                    api_paths.append(None)
-            updates.append((json.dumps(api_paths), mls))
 
-    if updates:
-        conn.executemany(
-            "UPDATE listings SET photos_local = ? WHERE mls_number = ?",
-            updates
-        )
-        conn.commit()
-        print(f"  Updated photos_local for {len(updates):,} listings.")
-    else:
-        print("  No updates needed.")
+    # Final DB update
+    if db_update_batch:
+        update_photos_column(db_update_batch)
+        stats['db_updates'] += len(db_update_batch)
 
-    conn.close()
-    print("Done.")
+    elapsed = time.time() - start_time
+
+    print()
+    print("=" * 60)
+    print("GALLERY PHOTO DOWNLOAD SUMMARY")
+    print("=" * 60)
+    print(f"  Counties:           {', '.join(counties)}")
+    print(f"  API pages fetched:  {stats['api_pages']}")
+    print(f"  Listings processed: {stats['listings_processed']}")
+    print(f"  Photos downloaded:  {stats['photos_downloaded']}")
+    print(f"  Photos skipped:     {stats['photos_skipped']} (already on disk)")
+    print(f"  Photos errored:     {stats['photos_error']}")
+    print(f"  DB records updated: {stats['db_updates']}")
+    print(f"  Listings remaining: {len(needs_gallery)}")
+    print(f"  Duration:           {elapsed:.0f}s ({elapsed/60:.1f}m)")
+    print("=" * 60)
+
+    return 0
 
 
 if __name__ == '__main__':

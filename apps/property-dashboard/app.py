@@ -3850,8 +3850,10 @@ def property_detail(property_id):
             elif not raw:
                 prop_dict[field] = []
 
-        # Rewrite photo URLs to local paths where files exist on disk
-        localize_photo(prop_dict)
+        # Rewrite photo URLs to local paths where files exist on disk.
+        # on_demand=True: if photos are missing, make one throttled API
+        # request to fetch and download them (safe for detail page views).
+        localize_photo(prop_dict, on_demand=True)
 
         # Query agents table for enriched listing agent info
         agent_info = {

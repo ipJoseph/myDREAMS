@@ -423,65 +423,80 @@ class MLSGridSyncEngine:
 
             return 'created'
 
-    def _download_primary_photo(self, mls_number: str, media_list: list) -> bool:
-        """Download primary photo from Media array during sync.
+    def _download_listing_photos(self, mls_number: str, media_list: list) -> bool:
+        """Download all photos from Media array during sync.
 
         Called after upsert for new/photo-changed listings. Uses the fresh
-        MediaURL from the replication response (zero additional API calls).
+        MediaURLs from the replication response (zero additional API calls).
+        Downloads primary + all gallery photos, updates both photo_local_path
+        and the photos JSON column with local paths.
 
-        Returns True if a photo was downloaded or already exists on disk.
+        Returns True if at least one photo was downloaded or already exists.
         """
         if not media_list or not mls_number:
             return False
 
         PHOTOS_DIR.mkdir(parents=True, exist_ok=True)
 
-        # Check if already on disk
-        for ext in ('.jpg', '.jpeg', '.png', '.webp'):
-            filepath = PHOTOS_DIR / f"{mls_number}{ext}"
-            if filepath.exists() and filepath.stat().st_size > 0:
-                return True
-
-        # Find primary photo URL from media
-        primary_url, _, _ = extract_photos(media_list)
-        if not primary_url:
+        primary_url, all_urls, count = extract_photos(media_list)
+        if not all_urls:
             return False
 
-        try:
-            import requests as req
-            from urllib.parse import urlparse
+        import requests as req
+        from urllib.parse import urlparse
 
-            path_lower = urlparse(primary_url).path.lower()
-            ext = '.png' if path_lower.endswith('.png') else '.webp' if path_lower.endswith('.webp') else '.jpg'
-            filename = f"{mls_number}{ext}"
+        local_paths = []
+        any_downloaded = False
+
+        for idx, photo_url in enumerate(all_urls):
+            path_lower = urlparse(photo_url).path.lower()
+            ext = '.png' if path_lower.endswith('.png') else \
+                  '.webp' if path_lower.endswith('.webp') else '.jpg'
+
+            if idx == 0:
+                filename = f"{mls_number}{ext}"
+            else:
+                filename = f"{mls_number}_{idx:02d}{ext}"
+
             filepath = PHOTOS_DIR / filename
 
-            resp = req.get(primary_url, timeout=30, stream=True)
-            resp.raise_for_status()
+            # Skip if already on disk
+            if filepath.exists() and filepath.stat().st_size > 0:
+                local_paths.append(f"/api/public/photos/mlsgrid/{filename}")
+                continue
 
-            with open(filepath, 'wb') as f:
-                for chunk in resp.iter_content(chunk_size=8192):
-                    f.write(chunk)
+            try:
+                resp = req.get(photo_url, timeout=30, stream=True)
+                resp.raise_for_status()
 
-            if filepath.stat().st_size > 0:
-                # Update photo_local_path in DB
-                conn = self._get_connection()
-                try:
-                    conn.execute(
-                        "UPDATE listings SET photo_local_path = ? WHERE mls_source = ? AND mls_number = ?",
-                        [str(filepath), self.mls_source, mls_number]
-                    )
-                    conn.commit()
-                finally:
-                    conn.close()
-                return True
-            else:
-                filepath.unlink(missing_ok=True)
+                with open(filepath, 'wb') as f:
+                    for chunk in resp.iter_content(chunk_size=8192):
+                        f.write(chunk)
 
-        except Exception as e:
-            logger.debug(f"Photo download failed for {mls_number}: {e}")
+                if filepath.stat().st_size > 0:
+                    local_paths.append(f"/api/public/photos/mlsgrid/{filename}")
+                    any_downloaded = True
+                else:
+                    filepath.unlink(missing_ok=True)
 
-        return False
+            except Exception as e:
+                logger.debug(f"Photo download failed for {mls_number} [{idx}]: {e}")
+
+        if local_paths:
+            import json as _json
+            conn = self._get_connection()
+            try:
+                conn.execute(
+                    "UPDATE listings SET photo_local_path = ?, photos = ? "
+                    "WHERE mls_source = ? AND mls_number = ?",
+                    [str(PHOTOS_DIR / f"{mls_number}.jpg"), _json.dumps(local_paths),
+                     self.mls_source, mls_number]
+                )
+                conn.commit()
+            finally:
+                conn.close()
+
+        return any_downloaded or bool(local_paths)
 
     def _upsert_agent(self, conn: sqlite3.Connection, agent: Dict):
         """Upsert an agent/member record."""
@@ -769,12 +784,14 @@ class MLSGridSyncEngine:
                         conn, listing, raw_prop=prop, dry_run=dry_run
                     )
 
-                    # Download primary photo for new or photo-changed listings.
+                    # Download all photos for new or photo-changed listings.
                     # Media data is already in the replication response
                     # ($expand=Media), so this costs zero additional API calls.
+                    # CDN downloads are parallel-safe and don't count against
+                    # API rate limits.
                     if result in ('created', 'updated') and not dry_run:
                         media = prop.get('Media', [])
-                        if media and self._download_primary_photo(
+                        if media and self._download_listing_photos(
                             listing.get('mls_number'), media
                         ):
                             photos_downloaded += 1
