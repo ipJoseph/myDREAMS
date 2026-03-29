@@ -3850,6 +3850,9 @@ def property_detail(property_id):
             elif not raw:
                 prop_dict[field] = []
 
+        # Rewrite photo URLs to local paths where files exist on disk
+        localize_photo(prop_dict)
+
         # Query agents table for enriched listing agent info
         agent_info = {
             'name': prop_dict.get('listing_agent_name', ''),

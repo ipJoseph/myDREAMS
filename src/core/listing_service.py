@@ -184,23 +184,38 @@ class SearchResult:
 # Shared utility functions
 # ---------------------------------------------------------------------------
 
-def localize_photo(listing: dict) -> None:
-    """Rewrite primary_photo to local URL if we have the file downloaded.
-
-    For Canopy (MLS Grid) listings where the local photo is missing,
-    attempts an on-demand fetch of the primary photo from the CDN URL
-    stored in the database. This adds ~200ms for a single missing photo
-    but ensures listings always display with an image when possible.
-    """
+def _resolve_photos_dir(listing: dict) -> tuple:
+    """Determine photos directory for a listing. Returns (mls, photos_dir) or (None, None)."""
     mls = listing.get('mls_number')
     if not mls:
-        return
+        return None, None
     source = (listing.get('photo_source') or listing.get('mls_source', '')).lower()
     if 'canopy' in source or 'mlsgrid' in source:
-        photos_dir = PHOTOS_DIRS.get('mlsgrid')
+        return mls, PHOTOS_DIRS.get('mlsgrid')
     elif 'navica' in source or 'mountain' in source:
-        photos_dir = PHOTOS_DIRS.get('navica')
-    else:
+        return mls, PHOTOS_DIRS.get('navica')
+    return mls, None
+
+
+def _find_local_primary(mls: str, photos_dir: Path) -> str | None:
+    """Find the primary photo file on disk, return local URL or None."""
+    for ext in ('.jpg', '.jpeg', '.png', '.webp'):
+        filepath = photos_dir / f"{mls}{ext}"
+        if filepath.exists() and filepath.stat().st_size > 0:
+            return f"/api/public/photos/{photos_dir.name}/{mls}{ext}"
+    return None
+
+
+def localize_photo(listing: dict) -> None:
+    """Rewrite primary_photo and photos array to local URLs where files exist.
+
+    Checks disk for primary ({mls}.ext) and gallery ({mls}_{NN}.ext) files.
+    CDN URLs (especially MLS Grid tokens) expire, so local paths are
+    always preferred. For listings with no local files, sets primary_photo
+    to None and clears the photos array to avoid broken images.
+    """
+    mls, photos_dir = _resolve_photos_dir(listing)
+    if not mls:
         return
 
     if not photos_dir:
@@ -208,31 +223,55 @@ def localize_photo(listing: dict) -> None:
             listing['primary_photo'] = None
         return
 
-    for ext in ('.jpg', '.jpeg', '.png', '.webp'):
-        filepath = photos_dir / f"{mls}{ext}"
-        if filepath.exists() and filepath.stat().st_size > 0:
-            listing['primary_photo'] = f"/api/public/photos/{photos_dir.name}/{mls}{ext}"
-            return
+    # Localize primary photo
+    local_primary = _find_local_primary(mls, photos_dir)
+    if local_primary:
+        listing['primary_photo'] = local_primary
+    else:
+        source_lower = (listing.get('mls_source') or '').lower()
+        if 'canopy' in source_lower or 'mlsgrid' in source_lower:
+            listing['primary_photo'] = None
+        else:
+            cdn_url = listing.get('primary_photo') or ''
+            if cdn_url.startswith('http') and 'mlsgrid.com' not in cdn_url:
+                local_path = _download_photo_url(mls, cdn_url, photos_dir)
+                listing['primary_photo'] = local_path
+            else:
+                listing['primary_photo'] = None
 
-    # Local file not found. Photos are downloaded during replication sync,
-    # not on demand. Individual API lookups per listing violate MLS Grid
-    # Best Practices (rules #3, #4) and burn through rate limits.
-    # Show no photo until the next sync backfills it.
-    source_lower = (listing.get('mls_source') or '').lower()
-    if 'canopy' in source_lower or 'mlsgrid' in source_lower:
-        listing['primary_photo'] = None
+    # Localize the full photos array
+    photos = listing.get('photos')
+    if not isinstance(photos, list):
         return
 
-    # For non-API sources, try the stored URL directly
-    cdn_url = listing.get('primary_photo') or ''
-    if cdn_url.startswith('http') and 'mlsgrid.com' not in cdn_url:
-        local_path = _download_photo_url(mls, cdn_url, photos_dir)
-        if local_path:
-            listing['primary_photo'] = local_path
-            return
+    dir_name = photos_dir.name
+    local_urls = []
 
-    # No local file and no fetchable URL
-    listing['primary_photo'] = None
+    # Check primary first
+    if local_primary:
+        local_urls.append(local_primary)
+
+    # Check gallery files: {mls}_{01}.ext, {mls}_{02}.ext, ...
+    idx = 1
+    while True:
+        suffix = f"_{idx:02d}"
+        found = False
+        for ext in ('.jpg', '.jpeg', '.png', '.webp'):
+            filepath = photos_dir / f"{mls}{suffix}{ext}"
+            if filepath.exists() and filepath.stat().st_size > 0:
+                local_urls.append(f"/api/public/photos/{dir_name}/{mls}{suffix}{ext}")
+                found = True
+                break
+        if not found:
+            break
+        idx += 1
+
+    if local_urls:
+        listing['photos'] = local_urls
+    elif any(('mlsgrid.com' in (p or '')) for p in photos):
+        # All CDN URLs with no local files; clear to avoid broken images
+        listing['photos'] = []
+    # else: leave photos as-is (non-MLSGrid URLs that may still work)
 
 
 def _fetch_primary_photo_from_api(mls: str, photos_dir: Path) -> Optional[str]:
