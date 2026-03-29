@@ -6695,7 +6695,8 @@ def api_scoring_preview():
         with db._get_connection() as conn:
             rows = conn.execute("""
                 SELECT id, first_name, last_name, stage,
-                       heat_score, value_score, relationship_score, priority_score
+                       heat_score, value_score, relationship_score, priority_score,
+                       fub_id
                 FROM leads
                 WHERE priority_score > 0 AND stage NOT IN ('Closed', 'Trash', '')
                 ORDER BY priority_score DESC
@@ -6712,6 +6713,7 @@ def api_scoring_preview():
                 'value': round(row[5] or 0, 1),
                 'relationship': round(row[6] or 0, 1),
                 'priority': round(row[7] or 0, 1),
+                'fub_id': row[8],
             })
 
         return jsonify({'success': True, 'contacts': contacts})

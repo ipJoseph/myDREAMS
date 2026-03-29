@@ -406,6 +406,8 @@
 
         .preview-contact:hover {
             background: var(--bg-header);
+            text-decoration: none;
+            color: inherit;
         }
 
         .preview-rank {
@@ -995,6 +997,7 @@
     // Defaults from schema (injected once)
     var DEFAULTS = {{ config|tojson }};
     var SCHEMA = {{ schema|tojson }};
+    var FUB_URL = {{ fub_url|tojson }};
 
     // Store original values to detect modifications
     var originalConfig = JSON.parse(JSON.stringify(DEFAULTS));
@@ -1182,7 +1185,9 @@
 
             var html = '';
             data.contacts.forEach(function(c, i) {
-                html += '<div class="preview-contact">';
+                var fubLink = (c.fub_id && FUB_URL) ? FUB_URL + '/2/people/view/' + c.fub_id : null;
+                var tag = fubLink ? 'a' : 'div';
+                html += '<' + tag + ' class="preview-contact"' + (fubLink ? ' href="' + fubLink + '" target="_blank"' : '') + '>';
                 html += '<span class="preview-rank ' + (i < 3 ? 'top3' : '') + '">' + (i + 1) + '</span>';
                 html += '<div class="preview-info">';
                 html += '<div class="preview-name">' + escHtml(c.name) + '</div>';
@@ -1194,7 +1199,7 @@
                 html += '<span class="preview-score-pill pill-rel">' + c.relationship.toFixed(1) + '</span>';
                 html += '</div>';
                 html += '<span class="preview-priority">' + c.projected.toFixed(1) + '</span>';
-                html += '</div>';
+                html += '</' + tag + '>';
             });
 
             body.innerHTML = html;
