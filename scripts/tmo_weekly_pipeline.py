@@ -289,11 +289,18 @@ def main():
         print("\nNo TMO data in database. Nothing to generate.")
         sys.exit(0)
 
-    # Check if we already processed this date
+    # Guard: don't re-email old reports.
+    # If no new PDFs were parsed this run, the report_date comes from
+    # whatever is already in the DB (which may be stale if the DB was
+    # overwritten by a PRD sync). Only proceed if:
+    #   (a) new PDFs were actually parsed this run, OR
+    #   (b) --force flag is set
     if not args.force and not args.dry_run:
         last_processed = state.get("last_report_date")
-        if last_processed == report_date and parse_result is None:
-            print(f"\nAlready processed for {report_date}. Use --force to rerun.")
+        if parse_result is None:
+            # No new data this run. Don't re-send anything.
+            print(f"\nNo new TMO data parsed. Latest in DB is {report_date} "
+                  f"(last sent: {last_processed}). Skipping.")
             sys.exit(0)
 
     print(f"\nReport date: {report_date}")
