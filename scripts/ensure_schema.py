@@ -48,6 +48,16 @@ PROPERTY_PACKAGES_COLUMNS = {
     'viewed_at': 'TEXT',
 }
 
+# Email detail columns added to contact_communications
+CONTACT_COMMUNICATIONS_COLUMNS = {
+    'email_from': 'TEXT',           # Sender address
+    'email_to': 'TEXT',             # Recipient address
+    'subject': 'TEXT',              # Email subject line
+    'snippet': 'TEXT',              # Body preview / first ~500 chars
+    'email_type': 'TEXT',           # 'manual', 'drip', 'bulk', etc.
+    'fub_email_id': 'TEXT',         # FUB email ID for dedup
+}
+
 
 def ensure_columns(conn, table, columns):
     """Add missing columns to a table. Returns count of columns added."""
@@ -82,6 +92,7 @@ def main():
     total += ensure_columns(conn, 'showings', SHOWINGS_COLUMNS)
     total += ensure_columns(conn, 'showing_properties', SHOWING_PROPERTIES_COLUMNS)
     total += ensure_columns(conn, 'property_packages', PROPERTY_PACKAGES_COLUMNS)
+    total += ensure_columns(conn, 'contact_communications', CONTACT_COMMUNICATIONS_COLUMNS)
     ensure_indexes(conn)
 
     conn.commit()

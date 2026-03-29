@@ -2688,7 +2688,13 @@ class DREAMSDatabase:
         duration_seconds: Optional[int] = None,
         fub_id: Optional[str] = None,
         fub_user_name: Optional[str] = None,
-        status: Optional[str] = None
+        status: Optional[str] = None,
+        email_from: Optional[str] = None,
+        email_to: Optional[str] = None,
+        subject: Optional[str] = None,
+        snippet: Optional[str] = None,
+        email_type: Optional[str] = None,
+        fub_email_id: Optional[str] = None,
     ) -> bool:
         """Insert a communication record if it doesn't already exist."""
         if self.communication_exists(comm_id):
@@ -2698,11 +2704,13 @@ class DREAMSDatabase:
             conn.execute('''
                 INSERT INTO contact_communications
                 (id, contact_id, comm_type, direction, occurred_at,
-                 duration_seconds, fub_id, fub_user_name, status)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 duration_seconds, fub_id, fub_user_name, status,
+                 email_from, email_to, subject, snippet, email_type, fub_email_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 comm_id, contact_id, comm_type, direction, occurred_at,
-                duration_seconds, fub_id, fub_user_name, status
+                duration_seconds, fub_id, fub_user_name, status,
+                email_from, email_to, subject, snippet, email_type, fub_email_id
             ))
 
             # Update total_communications count on lead

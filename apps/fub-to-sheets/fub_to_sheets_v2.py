@@ -2382,6 +2382,17 @@ def sync_communications_to_sqlite(
             # Get agent name from userId (no nested user object in FUB emails)
             agent_name = None
 
+            # Extract email detail fields (from/to/subject/body/type)
+            email_from = email.get("from") or email.get("fromAddress") or ""
+            email_to = email.get("to") or email.get("toAddress") or ""
+            subject = email.get("subject") or ""
+            # Body: take first 500 chars as snippet
+            body = email.get("body") or email.get("snippet") or email.get("textBody") or ""
+            if len(body) > 500:
+                body = body[:500]
+            # Type: manual, drip, action_plan, bulk, etc.
+            email_type = email.get("type") or email.get("emailType") or ""
+
             if db.insert_communication(
                 comm_id=comm_id,
                 contact_id=person_id,
@@ -2390,7 +2401,13 @@ def sync_communications_to_sqlite(
                 occurred_at=occurred_at,
                 fub_id=str(fub_id) if fub_id else None,
                 fub_user_name=agent_name,
-                status="delivered"
+                status="delivered",
+                email_from=email_from if email_from else None,
+                email_to=email_to if email_to else None,
+                subject=subject if subject else None,
+                snippet=body if body else None,
+                email_type=email_type if email_type else None,
+                fub_email_id=str(fub_id) if fub_id else None,
             ):
                 emails_synced += 1
 
