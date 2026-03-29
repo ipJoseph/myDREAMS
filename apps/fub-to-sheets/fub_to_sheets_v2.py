@@ -178,6 +178,23 @@ class Config:
     STAGE_MULTIPLIER_CLOSED = float(os.getenv("STAGE_MULTIPLIER_CLOSED", "0.0"))
     STAGE_MULTIPLIER_TRASH = float(os.getenv("STAGE_MULTIPLIER_TRASH", "0.0"))
 
+    # Scoring Weights - Source Quality Bonuses (additive to priority)
+    # High-quality sources get a bonus; unknown sources get 0 (no penalty)
+    SOURCE_BONUS_REFERRAL = float(os.getenv("SOURCE_BONUS_REFERRAL", "8.0"))
+    SOURCE_BONUS_SPHERE = float(os.getenv("SOURCE_BONUS_SPHERE", "6.0"))
+    SOURCE_BONUS_DIRECT = float(os.getenv("SOURCE_BONUS_DIRECT", "5.0"))
+    SOURCE_BONUS_OPEN_HOUSE = float(os.getenv("SOURCE_BONUS_OPEN_HOUSE", "4.0"))
+    SOURCE_BONUS_WEBSITE = float(os.getenv("SOURCE_BONUS_WEBSITE", "2.0"))
+
+    # Scoring Weights - Tag Bonuses (additive to priority)
+    # Scanned case-insensitively from FUB tags array
+    TAG_BONUS_PRE_APPROVED = float(os.getenv("TAG_BONUS_PRE_APPROVED", "10.0"))
+    TAG_BONUS_CASH_BUYER = float(os.getenv("TAG_BONUS_CASH_BUYER", "8.0"))
+    TAG_BONUS_INVESTOR = float(os.getenv("TAG_BONUS_INVESTOR", "5.0"))
+    TAG_BONUS_RELOCATION = float(os.getenv("TAG_BONUS_RELOCATION", "6.0"))
+    TAG_BONUS_BUYER = float(os.getenv("TAG_BONUS_BUYER", "2.0"))
+    TAG_BONUS_SELLER = float(os.getenv("TAG_BONUS_SELLER", "2.0"))
+
     # Call List Settings
     CALL_LIST_MIN_PRIORITY = int(os.getenv("CALL_LIST_MIN_PRIORITY", "45"))
     CALL_LIST_MAX_ROWS = int(os.getenv("CALL_LIST_MAX_ROWS", "50"))
@@ -286,6 +303,21 @@ class Config:
                 "cold": cls.STAGE_MULTIPLIER_COLD,
                 "closed": cls.STAGE_MULTIPLIER_CLOSED,
                 "trash": cls.STAGE_MULTIPLIER_TRASH,
+            },
+            "source_bonuses": {
+                "referral": cls.SOURCE_BONUS_REFERRAL,
+                "sphere": cls.SOURCE_BONUS_SPHERE,
+                "direct": cls.SOURCE_BONUS_DIRECT,
+                "open_house": cls.SOURCE_BONUS_OPEN_HOUSE,
+                "website": cls.SOURCE_BONUS_WEBSITE,
+            },
+            "tag_bonuses": {
+                "pre_approved": cls.TAG_BONUS_PRE_APPROVED,
+                "cash_buyer": cls.TAG_BONUS_CASH_BUYER,
+                "investor": cls.TAG_BONUS_INVESTOR,
+                "relocation": cls.TAG_BONUS_RELOCATION,
+                "buyer": cls.TAG_BONUS_BUYER,
+                "seller": cls.TAG_BONUS_SELLER,
             },
             "call_list": {
                 "min_priority": cls.CALL_LIST_MIN_PRIORITY,
@@ -397,6 +429,7 @@ class ScoringConfig:
     }
 
     # Stage Multipliers - loaded from Config
+    # Lookup is fuzzy: normalized to lowercase with whitespace stripped
     STAGE_MULTIPLIERS = {
         "Hot Lead": Config.STAGE_MULTIPLIER_HOT_LEAD,
         "Active Buyer": Config.STAGE_MULTIPLIER_ACTIVE_BUYER,
@@ -407,6 +440,55 @@ class ScoringConfig:
         "Closed": Config.STAGE_MULTIPLIER_CLOSED,
         "Trash": Config.STAGE_MULTIPLIER_TRASH,
     }
+
+    # Build case-insensitive stage lookup so "hot lead", "Hot Lead",
+    # "HOT LEAD", "Hot", "hot" all resolve correctly. Unrecognized
+    # stages get 1.0 (neutral). Also map common variants/abbreviations.
+    _STAGE_LOOKUP = {}
+    for _name, _mult in STAGE_MULTIPLIERS.items():
+        _STAGE_LOOKUP[_name.lower().strip()] = _mult
+    # Common variants the team might use inconsistently
+    _STAGE_LOOKUP.update({
+        "hot": Config.STAGE_MULTIPLIER_HOT_LEAD,
+        "warm": Config.STAGE_MULTIPLIER_ACTIVE_BUYER,
+        "active": Config.STAGE_MULTIPLIER_ACTIVE_BUYER,
+        "new": Config.STAGE_MULTIPLIER_NEW_LEAD,
+        "prospect": Config.STAGE_MULTIPLIER_NEW_LEAD,
+        "past client": Config.STAGE_MULTIPLIER_NURTURE,
+        "past-client": Config.STAGE_MULTIPLIER_NURTURE,
+        "sphere": Config.STAGE_MULTIPLIER_NURTURE,
+    })
+
+    # Source quality bonuses (keyword matched, case-insensitive)
+    # Each entry: (substring_to_match, bonus_points)
+    SOURCE_BONUSES = [
+        ("referral", Config.SOURCE_BONUS_REFERRAL),
+        ("sphere", Config.SOURCE_BONUS_SPHERE),
+        ("direct", Config.SOURCE_BONUS_DIRECT),
+        ("open house", Config.SOURCE_BONUS_OPEN_HOUSE),
+        ("openhouse", Config.SOURCE_BONUS_OPEN_HOUSE),
+        ("sign-in", Config.SOURCE_BONUS_OPEN_HOUSE),
+        ("website", Config.SOURCE_BONUS_WEBSITE),
+        ("idx", Config.SOURCE_BONUS_WEBSITE),
+    ]
+
+    # Tag bonuses (keyword matched, case-insensitive against FUB tags)
+    # Each entry: (substring_to_match, bonus_points)
+    # Only the highest matching bonus applies per category to avoid stacking
+    TAG_BONUSES = [
+        ("pre-approved", Config.TAG_BONUS_PRE_APPROVED),
+        ("pre approved", Config.TAG_BONUS_PRE_APPROVED),
+        ("preapproved", Config.TAG_BONUS_PRE_APPROVED),
+        ("cash buyer", Config.TAG_BONUS_CASH_BUYER),
+        ("cash", Config.TAG_BONUS_CASH_BUYER),
+        ("investor", Config.TAG_BONUS_INVESTOR),
+        ("investment", Config.TAG_BONUS_INVESTOR),
+        ("relocation", Config.TAG_BONUS_RELOCATION),
+        ("relocating", Config.TAG_BONUS_RELOCATION),
+        ("relo", Config.TAG_BONUS_RELOCATION),
+        ("buyer", Config.TAG_BONUS_BUYER),
+        ("seller", Config.TAG_BONUS_SELLER),
+    ]
 
 class LeadScorer:
     """Enhanced lead scoring engine"""
@@ -562,17 +644,70 @@ class LeadScorer:
         heat_score: float,
         value_score: float,
         relationship_score: float,
-        stage: str = ""
+        stage: str = "",
+        source: str = "",
+        tags: list = None,
+        lead_type_tags: list = None,
     ) -> Tuple[float, Dict]:
-        """Calculate composite priority score with stage multiplier"""
+        """Calculate composite priority score with stage multiplier and bonuses.
+
+        Bonuses from source quality and tags are additive (they can only
+        help, never hurt). Fuzzy stage matching handles inconsistent
+        labeling across the team.
+        """
         w = self.config.PRIORITY_WEIGHTS
-        stage_mult = self.config.STAGE_MULTIPLIERS.get(stage, 1.0)
+
+        # Fuzzy stage lookup: normalize to lowercase, fall back to 1.0
+        stage_key = (stage or "").lower().strip()
+        stage_mult = self.config._STAGE_LOOKUP.get(stage_key, 1.0)
 
         raw_score = (
             heat_score * w["heat"]
             + value_score * w["value"]
             + relationship_score * w["relationship"]
         ) * stage_mult
+
+        # Source quality bonus (additive, best match wins)
+        source_bonus = 0.0
+        source_match = ""
+        if source:
+            source_lower = source.lower()
+            for keyword, bonus in self.config.SOURCE_BONUSES:
+                if keyword in source_lower and bonus > source_bonus:
+                    source_bonus = bonus
+                    source_match = keyword
+        raw_score += source_bonus
+
+        # Tag bonus (additive, best match per tag wins, no double-counting)
+        tag_bonus = 0.0
+        tag_matches = []
+        all_tags = []
+        if tags:
+            if isinstance(tags, str):
+                all_tags = [t.strip() for t in tags.split(",")]
+            elif isinstance(tags, list):
+                for t in tags:
+                    if isinstance(t, dict):
+                        all_tags.append(t.get("name", ""))
+                    else:
+                        all_tags.append(str(t))
+
+        # Also check leadTypeTags (buyer/seller/renter)
+        if lead_type_tags:
+            if isinstance(lead_type_tags, str):
+                all_tags.extend([t.strip() for t in lead_type_tags.split(",")])
+            elif isinstance(lead_type_tags, list):
+                all_tags.extend(lead_type_tags)
+
+        if all_tags:
+            tags_lower = " ".join(t.lower() for t in all_tags if t)
+            seen_bonuses = set()
+            for keyword, bonus in self.config.TAG_BONUSES:
+                if keyword in tags_lower and bonus not in seen_bonuses:
+                    tag_bonus += bonus
+                    tag_matches.append(keyword)
+                    seen_bonuses.add(bonus)
+        raw_score += tag_bonus
 
         final_score = max(0, min(100, round(raw_score, 1)))
 
@@ -581,6 +716,10 @@ class LeadScorer:
             "value_contribution": round(value_score * w["value"], 1),
             "relationship_contribution": round(relationship_score * w["relationship"], 1),
             "stage_multiplier": stage_mult,
+            "source_bonus": source_bonus,
+            "source_match": source_match,
+            "tag_bonus": tag_bonus,
+            "tag_matches": tag_matches,
             "final_score": final_score
         }
 
@@ -1412,7 +1551,10 @@ def build_contact_rows(
                 heat_score=heat_score,
                 value_score=value_score,
                 relationship_score=relationship_score,
-                stage=base.get("stage", "")
+                stage=base.get("stage", ""),
+                source=base.get("source", ""),
+                tags=person.get("tags"),
+                lead_type_tags=person.get("leadTypeTags"),
             )
         else:
             heat_score = 0
