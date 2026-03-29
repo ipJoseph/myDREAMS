@@ -3940,7 +3940,7 @@ def property_detail(property_id):
             price_per_sqft = round(prop_dict['price'] / prop_dict['sqft'])
 
         # Google Maps API key
-        google_maps_key = os.environ.get('GOOGLE_MAPS_KEY', '')
+        google_maps_key = os.environ.get('GOOGLE_MAPS_API_KEY', '')
 
         # Price history and changes are not yet tracked for listings
         # (will be rebuilt by Navica sync change detection)
