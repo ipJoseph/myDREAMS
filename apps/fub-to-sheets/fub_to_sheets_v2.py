@@ -2329,6 +2329,28 @@ def sync_communications_to_sqlite(
             # Get agent name (FUB texts have userName as a string, not nested object)
             agent_name = text.get("userName")
 
+            # Extract text detail fields
+            from_number = text.get("fromNumber") or ""
+            to_number = text.get("toNumber") or ""
+            message_body = text.get("message") or ""
+            if message_body == "* Body is hidden for privacy reasons *":
+                message_body = ""
+            if len(message_body) > 500:
+                message_body = message_body[:500]
+            delivery_status = text.get("deliveryStatus") or ""
+
+            # Determine if automated: actionPlanId or groupTextId present
+            action_plan_id = text.get("actionPlanId")
+            group_text_id = text.get("groupTextId")
+            if action_plan_id:
+                text_type = f"auto:action_plan:{action_plan_id}"
+            elif group_text_id:
+                text_type = f"auto:group:{group_text_id}"
+            elif direction == "inbound":
+                text_type = "inbound"
+            else:
+                text_type = "manual"
+
             if db.insert_communication(
                 comm_id=comm_id,
                 contact_id=person_id,
@@ -2337,7 +2359,11 @@ def sync_communications_to_sqlite(
                 occurred_at=occurred_at,
                 fub_id=str(fub_id) if fub_id else None,
                 fub_user_name=agent_name,
-                status="delivered"
+                status=delivery_status or "delivered",
+                email_from=str(from_number) if from_number else None,
+                email_to=str(to_number) if to_number else None,
+                snippet=message_body if message_body else None,
+                email_type=text_type if text_type else None,
             ):
                 texts_synced += 1
 
