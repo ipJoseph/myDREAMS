@@ -156,18 +156,18 @@
         .print-header {
             display: none;
             text-align: center;
-            padding-bottom: 12px;
-            margin-bottom: 16px;
+            padding-bottom: 14px;
+            margin-bottom: 14px;
             border-bottom: 3px solid #ddab4a;
         }
-        .print-header .print-logo { height: 44px; width: auto; margin-bottom: 6px; }
+        .print-header .print-logo { height: 44px; width: auto; margin-bottom: 8px; }
         .print-header h2 {
-            font-size: 22px; font-weight: 800; color: #082d40;
-            letter-spacing: 2px; text-transform: uppercase; margin: 0;
+            font-size: 28px; font-weight: 800; color: #082d40;
+            letter-spacing: 3px; text-transform: uppercase; margin: 0 0 4px 0;
         }
         .print-header .print-subtitle {
-            font-size: 12px; font-weight: 600; color: #ddab4a;
-            letter-spacing: 1.5px; text-transform: uppercase;
+            font-size: 14px; font-weight: 600; color: #ddab4a;
+            letter-spacing: 2px; text-transform: uppercase;
         }
 
         /* Branded footer (print only) */
@@ -175,30 +175,77 @@
             display: none;
             text-align: center;
             padding-top: 10px;
-            margin-top: 20px;
+            margin-top: auto;
             border-top: 2px solid #ddab4a;
             font-size: 10px;
             color: #4e4e4e;
+            letter-spacing: 0.5px;
         }
 
         /* Print styles */
         @media print {
+            @page { margin: 0.4in 0.5in 0.6in 0.5in; }
+
+            body { background: white !important; }
             .sidebar, .sidebar-toggle, .sidebar-overlay { display: none !important; }
             .main-content { margin-left: 0 !important; }
-            .header-actions, .add-row-btn, .delete-btn, .link-bar select, .no-print { display: none !important; }
+            .header-actions, .add-row-btn, .no-print { display: none !important; }
             .expense-page { padding: 0; max-width: 100%; }
-            .expense-title-input { border-bottom: none !important; font-size: 18px; }
-            .expense-header { margin-bottom: 8px; }
-            .cell-input, .cell-select { padding: 6px 8px; }
-            .link-bar { border: none; padding: 0 0 4px 0; margin-bottom: 8px; font-size: 12px; }
+
+            /* Hide the on-screen header (replaced by branded print header) */
+            .expense-header { display: none !important; }
+            .save-banner { display: none !important; }
 
             .print-header { display: block !important; }
-            .print-footer { display: block !important; }
+            .print-footer { display: block !important; position: fixed; bottom: 0; left: 0; right: 0; }
 
-            .totals-bar { border: 2px solid #082d40; }
+            /* Link bar: show as centered text, no border */
+            .link-bar {
+                border: none; padding: 0; margin-bottom: 12px;
+                justify-content: center; font-size: 13px; color: #082d40;
+            }
+            .link-bar select { display: none !important; }
+            .link-bar .link-label-input {
+                border: none; font-weight: 600; font-size: 14px; color: #082d40;
+                text-align: center; background: transparent;
+            }
+
+            /* Table: match open house navy header + gold row numbers */
+            .expense-table th {
+                background: #082d40 !important; color: white !important;
+                -webkit-print-color-adjust: exact; print-color-adjust: exact;
+                font-size: 11px; padding: 10px 12px;
+                letter-spacing: 1px;
+            }
+            .expense-table td { padding: 0; border: 1px solid #e5e5e5; }
+            .expense-table tr:nth-child(even) td { background: #fafbfc; }
+            .cell-input, .cell-select {
+                padding: 8px 10px; font-size: 12px; border: none;
+            }
+            .cell-input.amount { font-size: 13px; }
+            .delete-btn { display: none !important; }
+
+            /* Totals bar: navy border, clean look */
+            .totals-bar {
+                border: 2px solid #082d40; margin-top: 16px;
+                -webkit-print-color-adjust: exact; print-color-adjust: exact;
+            }
+            .total-amount { font-size: 24px; }
+
+            /* Category chips */
+            .cat-chip {
+                -webkit-print-color-adjust: exact; print-color-adjust: exact;
+            }
+
+            /* Receipts */
             .receipt-upload-label { display: none !important; }
-            .receipt-thumb { width: 40px; height: 40px; }
+            .receipt-thumb { width: 36px; height: 36px; }
             .receipt-lightbox { display: none !important; }
+
+            /* Expense table wrapper: clean border */
+            .expense-table-wrap {
+                border: 1px solid #d0d0d0; overflow: visible;
+            }
         }
     </style>
 </head>
@@ -209,13 +256,15 @@
     <div class="main-content">
         <div class="expense-page">
 
-            <!-- Print-only branded header -->
+            <!-- Print-only branded header (matches open house sign-in style) -->
             <div class="print-header">
                 {% if logo_b64 %}
                 <img src="{{ logo_b64 }}" class="print-logo" alt="JTH">
                 {% endif %}
                 <h2>Expense Report</h2>
                 <div class="print-subtitle">Jon Tharp Homes</div>
+                <div style="font-size: 15px; font-weight: 700; color: #082d40; margin-top: 10px;">{{ report.title }}</div>
+                <div style="font-size: 12px; color: #4e4e4e; margin-top: 2px;">{{ report.created_at[:10] }}</div>
             </div>
 
             <div class="expense-header">
@@ -339,9 +388,9 @@
                     <div class="total-label">Total</div>
                     <div class="total-amount" id="grandTotal">$0.00</div>
                 </div>
-            <!-- Print-only branded footer -->
+            <!-- Print-only branded footer (matches open house sign-in style) -->
             <div class="print-footer">
-                {{ agent.name }} | {{ agent.phone }} | {{ agent.email }} | {{ agent.website }}
+                {{ agent.name }} &nbsp;|&nbsp; {{ agent.phone }} &nbsp;|&nbsp; {{ agent.email }} &nbsp;|&nbsp; {{ agent.website }}
             </div>
 
             </div>
