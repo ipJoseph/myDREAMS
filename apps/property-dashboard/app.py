@@ -1444,9 +1444,19 @@ def _ensure_expense_tables():
                 description TEXT,
                 amount REAL NOT NULL DEFAULT 0,
                 category TEXT,
+                receipt_data BLOB,
+                receipt_mime TEXT,
+                receipt_name TEXT,
                 created_at TEXT NOT NULL
             )
         """)
+        # Add receipt columns if table already exists without them
+        try:
+            conn.execute("ALTER TABLE expense_items ADD COLUMN receipt_data BLOB")
+            conn.execute("ALTER TABLE expense_items ADD COLUMN receipt_mime TEXT")
+            conn.execute("ALTER TABLE expense_items ADD COLUMN receipt_name TEXT")
+        except sqlite3.OperationalError:
+            pass
         conn.commit()
 
 
@@ -1504,9 +1514,15 @@ def expense_form(report_id):
         if not report:
             return "Expense report not found", 404
 
-        items = conn.execute(
-            "SELECT * FROM expense_items WHERE report_id = ? ORDER BY id", [report_id]
+        items_raw = conn.execute(
+            "SELECT id, report_id, name, description, amount, category, receipt_mime, receipt_name, created_at "
+            "FROM expense_items WHERE report_id = ? ORDER BY id", [report_id]
         ).fetchall()
+        items = []
+        for row in items_raw:
+            d = dict(row)
+            d['has_receipt'] = bool(d.get('receipt_mime'))
+            items.append(d)
 
         # Get contacts for linking dropdown
         contacts = conn.execute(
@@ -1593,6 +1609,74 @@ def api_delete_expense_report(report_id):
     with db._get_connection() as conn:
         conn.execute("DELETE FROM expense_items WHERE report_id=?", [report_id])
         conn.execute("DELETE FROM expense_reports WHERE id=?", [report_id])
+        conn.commit()
+    return jsonify({'success': True})
+
+
+@app.route('/api/expenses/<report_id>/items/<int:item_id>/receipt', methods=['POST'])
+@requires_auth
+def api_upload_receipt(report_id, item_id):
+    """Upload a receipt image for an expense item."""
+    if 'receipt' not in request.files:
+        return jsonify({'success': False, 'error': 'No file uploaded'}), 400
+
+    f = request.files['receipt']
+    if not f.filename:
+        return jsonify({'success': False, 'error': 'Empty filename'}), 400
+
+    # Limit to 10 MB
+    data = f.read()
+    if len(data) > 10 * 1024 * 1024:
+        return jsonify({'success': False, 'error': 'File too large (10 MB max)'}), 400
+
+    mime = f.content_type or 'application/octet-stream'
+    now = datetime.now(tz=ET).isoformat()
+
+    with db._get_connection() as conn:
+        conn.execute(
+            "UPDATE expense_items SET receipt_data=?, receipt_mime=?, receipt_name=? "
+            "WHERE id=? AND report_id=?",
+            [sqlite3.Binary(data), mime, f.filename, item_id, report_id]
+        )
+        conn.execute("UPDATE expense_reports SET updated_at=? WHERE id=?", [now, report_id])
+        conn.commit()
+
+    return jsonify({'success': True, 'filename': f.filename, 'size': len(data)})
+
+
+@app.route('/api/expenses/<report_id>/items/<int:item_id>/receipt', methods=['GET'])
+@requires_auth
+def api_get_receipt(report_id, item_id):
+    """Serve a receipt image."""
+    with db._get_connection() as conn:
+        row = conn.execute(
+            "SELECT receipt_data, receipt_mime, receipt_name FROM expense_items "
+            "WHERE id=? AND report_id=?",
+            [item_id, report_id]
+        ).fetchone()
+
+    if not row or not row['receipt_data']:
+        return "No receipt", 404
+
+    return Response(
+        row['receipt_data'],
+        mimetype=row['receipt_mime'] or 'image/jpeg',
+        headers={'Content-Disposition': f'inline; filename="{row["receipt_name"] or "receipt"}"'}
+    )
+
+
+@app.route('/api/expenses/<report_id>/items/<int:item_id>/receipt', methods=['DELETE'])
+@requires_auth
+def api_delete_receipt(report_id, item_id):
+    """Remove a receipt from an expense item."""
+    now = datetime.now(tz=ET).isoformat()
+    with db._get_connection() as conn:
+        conn.execute(
+            "UPDATE expense_items SET receipt_data=NULL, receipt_mime=NULL, receipt_name=NULL "
+            "WHERE id=? AND report_id=?",
+            [item_id, report_id]
+        )
+        conn.execute("UPDATE expense_reports SET updated_at=? WHERE id=?", [now, report_id])
         conn.commit()
     return jsonify({'success': True})
 

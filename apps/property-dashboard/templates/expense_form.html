@@ -82,6 +82,33 @@
         .delete-btn:hover { color: var(--color-error); background: rgba(220,38,38,0.08); }
         .delete-btn svg { width: 15px; height: 15px; }
 
+        /* Receipt */
+        .receipt-cell { text-align: center; padding: 4px !important; }
+        .receipt-upload-label {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 30px; height: 30px; border-radius: 6px; cursor: pointer;
+            color: var(--text-muted); border: 1px dashed var(--border-color);
+            transition: all 0.15s;
+        }
+        .receipt-upload-label:hover { border-color: var(--color-accent); color: var(--color-accent); }
+        .receipt-upload-label svg { width: 14px; height: 14px; }
+        .receipt-upload-label input { display: none; }
+        .receipt-thumb {
+            width: 30px; height: 30px; border-radius: 6px; object-fit: cover;
+            cursor: pointer; border: 1px solid var(--border-color);
+        }
+        .receipt-thumb:hover { border-color: var(--color-accent); }
+        .receipt-actions { display: flex; gap: 2px; align-items: center; justify-content: center; }
+
+        /* Receipt lightbox */
+        .receipt-lightbox {
+            display: none; position: fixed; inset: 0; z-index: 1000;
+            background: rgba(0,0,0,0.85); align-items: center; justify-content: center;
+            cursor: pointer;
+        }
+        .receipt-lightbox.open { display: flex; }
+        .receipt-lightbox img { max-width: 90vw; max-height: 90vh; border-radius: 8px; }
+
         /* Add row button */
         .add-row-btn {
             display: flex; align-items: center; gap: 6px;
@@ -133,6 +160,9 @@
             .print-sub { font-size: 11px; color: var(--text-muted); }
 
             .totals-bar { border: 2px solid var(--color-primary); }
+            .receipt-upload-label { display: none !important; }
+            .receipt-thumb { width: 40px; height: 40px; }
+            .receipt-lightbox { display: none !important; }
         }
         .print-header { display: none; }
     </style>
@@ -192,11 +222,12 @@
                 <table class="expense-table">
                     <thead>
                         <tr>
-                            <th style="width: 22%;">Name</th>
-                            <th style="width: 30%;">Description</th>
-                            <th style="width: 18%;">Category</th>
-                            <th style="width: 15%; text-align: right;">Amount</th>
-                            <th style="width: 40px;"></th>
+                            <th style="width: 20%;">Name</th>
+                            <th style="width: 26%;">Description</th>
+                            <th style="width: 15%;">Category</th>
+                            <th style="width: 13%; text-align: right;">Amount</th>
+                            <th style="width: 50px; text-align: center;">Receipt</th>
+                            <th style="width: 36px;"></th>
                         </tr>
                     </thead>
                     <tbody id="expenseBody">
@@ -224,6 +255,21 @@
                                 </select>
                             </td>
                             <td><input type="number" class="cell-input amount" data-field="amount" value="{{ '%.2f'|format(item.amount) }}" step="0.01" min="0" placeholder="0.00" onblur="saveItem(this)" oninput="recalcTotal()"></td>
+                            <td class="receipt-cell">
+                                {% if item.has_receipt %}
+                                <div class="receipt-actions">
+                                    <img src="/api/expenses/{{ report.id }}/items/{{ item.id }}/receipt" class="receipt-thumb" onclick="viewReceipt(this.src)" title="{{ item.receipt_name }}">
+                                    <button class="delete-btn no-print" onclick="deleteReceipt(this, {{ item.id }})" title="Remove receipt" style="padding:2px;">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                    </button>
+                                </div>
+                                {% else %}
+                                <label class="receipt-upload-label" title="Attach receipt">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
+                                    <input type="file" accept="image/*,.pdf" onchange="uploadReceipt(this, {{ item.id }})">
+                                </label>
+                                {% endif %}
+                            </td>
                             <td><button class="delete-btn no-print" onclick="deleteItem(this)" title="Remove">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                             </button></td>
@@ -326,6 +372,10 @@
                 + '<option value="Insurance">Insurance</option><option value="Other">Other</option>'
                 + '</select></td>'
                 + '<td><input type="number" class="cell-input amount" data-field="amount" value="0.00" step="0.01" min="0" placeholder="0.00" onblur="saveItem(this)" oninput="recalcTotal()"></td>'
+                + '<td class="receipt-cell"><label class="receipt-upload-label" title="Attach receipt">'
+                + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>'
+                + '<input type="file" accept="image/*,.pdf" onchange="uploadReceipt(this, ' + data.id + ')">'
+                + '</label></td>'
                 + '<td><button class="delete-btn no-print" onclick="deleteItem(this)" title="Remove">'
                 + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
                 + '</button></td>';
@@ -369,8 +419,62 @@
         document.getElementById('catBreakdown').innerHTML = html;
     }
 
+    // Receipt upload
+    function uploadReceipt(input, itemId) {
+        var file = input.files[0];
+        if (!file) return;
+        var form = new FormData();
+        form.append('receipt', file);
+        showSaving();
+        fetch('/api/expenses/' + REPORT_ID + '/items/' + itemId + '/receipt', {
+            method: 'POST', body: form
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.success) {
+                // Replace upload label with thumbnail
+                var cell = input.closest('.receipt-cell');
+                var url = '/api/expenses/' + REPORT_ID + '/items/' + itemId + '/receipt';
+                cell.innerHTML = '<div class="receipt-actions">'
+                    + '<img src="' + url + '" class="receipt-thumb" onclick="viewReceipt(this.src)" title="' + (data.filename || 'receipt') + '">'
+                    + '<button class="delete-btn no-print" onclick="deleteReceipt(this, ' + itemId + ')" title="Remove receipt" style="padding:2px;">'
+                    + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
+                    + '</button></div>';
+                showSaved();
+            }
+        });
+    }
+
+    function deleteReceipt(btn, itemId) {
+        showSaving();
+        fetch('/api/expenses/' + REPORT_ID + '/items/' + itemId + '/receipt', { method: 'DELETE' })
+        .then(function() {
+            var cell = btn.closest('.receipt-cell');
+            cell.innerHTML = '<label class="receipt-upload-label" title="Attach receipt">'
+                + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>'
+                + '<input type="file" accept="image/*,.pdf" onchange="uploadReceipt(this, ' + itemId + ')">'
+                + '</label>';
+            showSaved();
+        });
+    }
+
+    function viewReceipt(src) {
+        var lb = document.getElementById('receiptLightbox');
+        document.getElementById('receiptLightboxImg').src = src;
+        lb.classList.add('open');
+    }
+
+    function closeReceiptLightbox() {
+        document.getElementById('receiptLightbox').classList.remove('open');
+    }
+
     // Initial calculation
     document.addEventListener('DOMContentLoaded', recalcTotal);
     </script>
+
+    <!-- Receipt lightbox -->
+    <div class="receipt-lightbox" id="receiptLightbox" onclick="closeReceiptLightbox()">
+        <img id="receiptLightboxImg" src="">
+    </div>
 </body>
 </html>
