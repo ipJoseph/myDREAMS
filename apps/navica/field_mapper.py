@@ -575,9 +575,10 @@ def _generate_mls_url(mls_source: str, mls_number: str, listing_key: str) -> Opt
     if mls_source in ('NavicaMLS', 'MountainLakesMLS'):
         return f"https://navicamls.net/#/listing/{mls_number}"
     elif mls_source == 'CanopyMLS':
-        # Strip "CAR" prefix to get the numeric MLS number for Matrix search
-        numeric_mls = mls_number.replace('CAR', '') if mls_number.startswith('CAR') else mls_number
-        return f"https://matrix.canopymls.com/Matrix/Public/IDXSearch.aspx?count=1&listings={numeric_mls}"
+        # Matrix does not support stable deep links to individual listings.
+        # All Portal.aspx and IDXSearch formats either expire or error.
+        # Link to Matrix homepage; agent uses speed bar to search by MLS#.
+        return "https://matrix.canopymls.com/Matrix/"
     return None
 
 

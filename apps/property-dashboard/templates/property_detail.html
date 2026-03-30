@@ -925,7 +925,7 @@
                 </button>
                 {% endif %}
                 {% if property.mls_url %}
-                <a href="{{ property.mls_url }}" target="_blank" class="action-btn">Open in MLS</a>
+                <a href="{{ property.mls_url }}" target="_blank" class="action-btn" {% if 'canopymls.com' in (property.mls_url or '') %}onclick="navigator.clipboard.writeText('{{ property.mls_number|replace('CAR','') }}')"title="Opens Matrix; MLS# copied for speed bar search"{% endif %}>Open in MLS</a>
                 {% endif %}
                 {% if directions_url %}
                 <a href="{{ directions_url }}" target="_blank" class="action-btn">
