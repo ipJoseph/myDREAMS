@@ -918,21 +918,30 @@
                 })();
 
                 function copyAndOpen(mlsNum, url) {
-                    // Copy MLS# first, then open Matrix
-                    navigator.clipboard.writeText(mlsNum).then(function() {
-                        window.open(url, '_blank');
-                    }).catch(function() {
-                        // Fallback: execCommand for older browsers / non-HTTPS
+                    // Copy MLS# to clipboard using synchronous execCommand
+                    // (navigator.clipboard requires HTTPS, doesn't work on localhost)
+                    var copied = false;
+                    try {
                         var ta = document.createElement('textarea');
                         ta.value = mlsNum;
-                        ta.style.position = 'fixed';
-                        ta.style.left = '-9999px';
+                        ta.setAttribute('readonly', '');
+                        ta.style.cssText = 'position:fixed;left:-9999px;top:-9999px';
                         document.body.appendChild(ta);
+                        ta.focus();
                         ta.select();
-                        document.execCommand('copy');
+                        copied = document.execCommand('copy');
                         document.body.removeChild(ta);
-                        window.open(url, '_blank');
-                    });
+                    } catch(e) {}
+
+                    // Open Matrix
+                    window.open(url, '_blank');
+
+                    // Show confirmation toast
+                    var toast = document.createElement('div');
+                    toast.textContent = copied ? 'MLS# ' + mlsNum + ' copied! Paste in Matrix speed bar.' : 'MLS#: ' + mlsNum;
+                    toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#082d40;color:white;padding:10px 20px;border-radius:8px;font-size:14px;font-weight:600;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.3)';
+                    document.body.appendChild(toast);
+                    setTimeout(function() { toast.remove(); }, 4000);
                 }
             </script>
             <div class="action-buttons">
