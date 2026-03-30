@@ -18,7 +18,19 @@
             border: 1px solid var(--border-color); border-radius: var(--border-radius-lg);
             text-decoration: none; color: inherit; transition: border-color 0.15s;
         }
-        .report-card:hover { border-color: var(--color-accent); }
+        .report-card:hover { border-color: var(--color-accent); cursor: pointer; }
+
+        .report-actions {
+            display: flex; gap: 4px; flex-shrink: 0; margin-left: 8px;
+        }
+        .report-action-btn {
+            width: 30px; height: 30px; border-radius: 6px; border: none;
+            background: none; cursor: pointer; color: var(--text-muted);
+            display: flex; align-items: center; justify-content: center;
+        }
+        .report-action-btn:hover { background: var(--bg-secondary); color: var(--text-primary); }
+        .report-action-btn.delete:hover { background: rgba(220,38,38,0.08); color: #dc2626; }
+        .report-action-btn svg { width: 15px; height: 15px; }
 
         .report-icon {
             width: 36px; height: 36px; border-radius: 8px;
@@ -60,7 +72,7 @@
             {% if reports %}
             <div class="report-list">
                 {% for r in reports %}
-                <a href="/expenses/{{ r.id }}" class="report-card">
+                <div class="report-card" onclick="window.location='/expenses/{{ r.id }}'">
                     <div class="report-icon">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
@@ -79,7 +91,15 @@
                         <div class="report-total">${{ "{:,.2f}".format(r.total) }}</div>
                         <div class="report-items">{{ r.item_count }} item{{ 's' if r.item_count != 1 else '' }}</div>
                     </div>
-                </a>
+                    <div class="report-actions" onclick="event.stopPropagation()">
+                        <button class="report-action-btn" onclick="quickPrint('{{ r.id }}')" title="Quick Print">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                        </button>
+                        <button class="report-action-btn delete" onclick="deleteReport('{{ r.id }}', '{{ r.title }}')" title="Delete">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                        </button>
+                    </div>
+                </div>
                 {% endfor %}
             </div>
             {% else %}
@@ -94,5 +114,23 @@
             {% endif %}
         </div>
     </div>
+
+    <script>
+    function deleteReport(id, title) {
+        if (!confirm('Delete "' + title + '"? This cannot be undone.')) return;
+        fetch('/api/expenses/' + id, { method: 'DELETE' })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.success) window.location.reload();
+        });
+    }
+
+    function quickPrint(id) {
+        var w = window.open('/expenses/' + id, '_blank');
+        w.addEventListener('load', function() {
+            setTimeout(function() { w.printReport ? w.printReport() : w.print(); }, 300);
+        });
+    }
+    </script>
 </body>
 </html>
