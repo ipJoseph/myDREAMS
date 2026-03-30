@@ -239,6 +239,12 @@
 - [ ] Memory usage optimization
 
 ### User Experience
+- [ ] **Smart Search Bar** (Cloud MLX-inspired, planned) - See [smart-search-plan.md](smart-search-plan.md)
+  - Natural language query parsing ("3 bed cabin under 400k in Sylva")
+  - Single Google-style search bar on homepage + listings page
+  - Deterministic regex parser (not LLM), sub-millisecond
+  - Autocomplete for cities, counties, addresses, MLS numbers
+  - Three phases: Parser MVP, Autocomplete, LLM fallback
 - [ ] Dark mode support
 - [ ] Keyboard shortcuts
 - [ ] Bulk actions interface
