@@ -916,6 +916,24 @@
                     var saved = sessionStorage.getItem('propertiesFilterUrl');
                     if (saved) document.getElementById('backToProperties').href = saved;
                 })();
+
+                function copyAndOpen(mlsNum, url) {
+                    // Copy MLS# first, then open Matrix
+                    navigator.clipboard.writeText(mlsNum).then(function() {
+                        window.open(url, '_blank');
+                    }).catch(function() {
+                        // Fallback: execCommand for older browsers / non-HTTPS
+                        var ta = document.createElement('textarea');
+                        ta.value = mlsNum;
+                        ta.style.position = 'fixed';
+                        ta.style.left = '-9999px';
+                        document.body.appendChild(ta);
+                        ta.select();
+                        document.execCommand('copy');
+                        document.body.removeChild(ta);
+                        window.open(url, '_blank');
+                    });
+                }
             </script>
             <div class="action-buttons">
                 {% if property.mls_number %}
@@ -925,7 +943,11 @@
                 </button>
                 {% endif %}
                 {% if property.mls_url %}
-                <a href="{{ property.mls_url }}" target="_blank" class="action-btn" {% if 'canopymls.com' in (property.mls_url or '') %}onclick="navigator.clipboard.writeText('{{ property.mls_number|replace('CAR','') }}')"title="Opens Matrix; MLS# copied for speed bar search"{% endif %}>Open in MLS</a>
+                {% if 'canopymls.com' in (property.mls_url or '') %}
+                <a href="#" class="action-btn" onclick="copyAndOpen('{{ property.mls_number|replace('CAR','') }}', '{{ property.mls_url }}'); return false;" title="Copies MLS# to clipboard, then opens Matrix">Open in MLS</a>
+                {% else %}
+                <a href="{{ property.mls_url }}" target="_blank" class="action-btn">Open in MLS</a>
+                {% endif %}
                 {% endif %}
                 {% if directions_url %}
                 <a href="{{ directions_url }}" target="_blank" class="action-btn">
