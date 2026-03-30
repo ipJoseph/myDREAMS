@@ -1549,6 +1549,7 @@ def expense_form(report_id):
                            report=dict(report),
                            items=[dict(i) for i in items],
                            contacts=contacts,
+                           categories=EXPENSE_CATEGORIES,
                            logo_b64=logo_b64,
                            agent=agent_info)
 
@@ -1698,23 +1699,57 @@ def api_delete_receipt(report_id, item_id):
     return jsonify({'success': True})
 
 
-# IRS Schedule C category mapping for our expense categories
+# IRS Schedule C category mapping for real estate agent expense categories
 SCHEDULE_C_MAP = {
-    'Marketing':    {'line': '8',  'label': 'Advertising'},
-    'Signs':        {'line': '8',  'label': 'Advertising'},
-    'Photography':  {'line': '8',  'label': 'Advertising'},
-    'Travel':       {'line': '24a', 'label': 'Travel'},
-    'Mileage':      {'line': '9',  'label': 'Car and truck expenses'},
-    'Meals':        {'line': '24b', 'label': 'Meals (50% deductible)'},
-    'Office':       {'line': '18', 'label': 'Office expense'},
-    'Technology':   {'line': '18', 'label': 'Office expense'},
-    'Insurance':    {'line': '15', 'label': 'Insurance'},
-    'Licensing':    {'line': '23', 'label': 'Taxes and licenses'},
-    'Education':    {'line': '27a', 'label': 'Other expenses'},
-    'Gifts':        {'line': '27a', 'label': 'Other expenses (gifts max $25/person)'},
-    'Staging':      {'line': '27a', 'label': 'Other expenses'},
-    'Other':        {'line': '27a', 'label': 'Other expenses'},
+    # Line 8 - Advertising
+    'Marketing':      {'line': '8',   'label': 'Advertising'},
+    'Signs':          {'line': '8',   'label': 'Advertising'},
+    'Photography':    {'line': '8',   'label': 'Advertising'},
+    # Line 9 - Car and truck expenses
+    'Mileage':        {'line': '9',   'label': 'Car and truck expenses'},
+    # Line 10 - Commissions and fees
+    'Commissions':    {'line': '10',  'label': 'Commissions and fees'},
+    # Line 11 - Contract labor
+    'Contract Labor': {'line': '11',  'label': 'Contract labor'},
+    # Line 15 - Insurance
+    'Insurance':      {'line': '15',  'label': 'Insurance (E&O, liability)'},
+    # Line 17 - Legal and professional services
+    'Professional':   {'line': '17',  'label': 'Legal and professional services'},
+    # Line 18 - Office expense
+    'Office':         {'line': '18',  'label': 'Office expense'},
+    'Technology':     {'line': '18',  'label': 'Office expense'},
+    # Line 20b - Rent (other business property)
+    'Desk Fees':      {'line': '20b', 'label': 'Rent or lease (desk fees, storage)'},
+    # Line 23 - Taxes and licenses
+    'Licensing':      {'line': '23',  'label': 'Taxes and licenses (MLS, NAR, state)'},
+    'Dues':           {'line': '23',  'label': 'Taxes and licenses (MLS, NAR, state)'},
+    # Line 24a - Travel
+    'Travel':         {'line': '24a', 'label': 'Travel'},
+    # Line 24b - Meals (50% deductible)
+    'Meals':          {'line': '24b', 'label': 'Meals (50% deductible)'},
+    # Line 27a - Other expenses
+    'Education':      {'line': '27a', 'label': 'Other expenses'},
+    'Gifts':          {'line': '27a', 'label': 'Other expenses (gifts max $25/person)'},
+    'Staging':        {'line': '27a', 'label': 'Other expenses'},
+    'Other':          {'line': '27a', 'label': 'Other expenses'},
+    # Line 30 - Home office (Form 8829)
+    'Home Office':    {'line': '30',  'label': 'Business use of home'},
 }
+
+# Ordered category list for dropdown menus
+EXPENSE_CATEGORIES = [
+    'Marketing', 'Signs', 'Photography',
+    'Mileage',
+    'Commissions', 'Contract Labor',
+    'Insurance',
+    'Professional',
+    'Office', 'Technology',
+    'Desk Fees',
+    'Licensing', 'Dues',
+    'Travel', 'Meals',
+    'Education', 'Gifts', 'Staging', 'Home Office',
+    'Other',
+]
 
 
 @app.route('/expenses/tax-summary')

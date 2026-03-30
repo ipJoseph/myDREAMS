@@ -335,20 +335,9 @@
                             <td>
                                 <select class="cell-select" data-field="category" onchange="saveItem(this)">
                                     <option value="">Select...</option>
-                                    <option value="Marketing" {% if item.category == 'Marketing' %}selected{% endif %}>Marketing</option>
-                                    <option value="Signs" {% if item.category == 'Signs' %}selected{% endif %}>Signs</option>
-                                    <option value="Photography" {% if item.category == 'Photography' %}selected{% endif %}>Photography</option>
-                                    <option value="Staging" {% if item.category == 'Staging' %}selected{% endif %}>Staging</option>
-                                    <option value="Travel" {% if item.category == 'Travel' %}selected{% endif %}>Travel</option>
-                                    <option value="Mileage" {% if item.category == 'Mileage' %}selected{% endif %}>Mileage</option>
-                                    <option value="Office" {% if item.category == 'Office' %}selected{% endif %}>Office</option>
-                                    <option value="Meals" {% if item.category == 'Meals' %}selected{% endif %}>Meals</option>
-                                    <option value="Technology" {% if item.category == 'Technology' %}selected{% endif %}>Technology</option>
-                                    <option value="Education" {% if item.category == 'Education' %}selected{% endif %}>Education</option>
-                                    <option value="Gifts" {% if item.category == 'Gifts' %}selected{% endif %}>Gifts</option>
-                                    <option value="Licensing" {% if item.category == 'Licensing' %}selected{% endif %}>Licensing</option>
-                                    <option value="Insurance" {% if item.category == 'Insurance' %}selected{% endif %}>Insurance</option>
-                                    <option value="Other" {% if item.category == 'Other' %}selected{% endif %}>Other</option>
+                                    {% for cat in categories %}
+                                    <option value="{{ cat }}" {% if item.category == cat %}selected{% endif %}>{{ cat }}</option>
+                                    {% endfor %}
                                 </select>
                             </td>
                             <td><input type="number" class="cell-input amount" data-field="amount" value="{{ '%.2f'|format(item.amount) }}" step="0.01" min="0" placeholder="0.00" onblur="saveItem(this)" oninput="recalcTotal()"></td>
@@ -400,6 +389,7 @@
     <script>
     var REPORT_ID = {{ report.id | tojson }};
     var saveTimer = null;
+    var CATEGORY_OPTIONS = {{ categories | tojson }}.map(function(c) { return '<option value="' + c + '">' + c + '</option>'; }).join('');
 
     function fmtUSD(n) {
         return '$' + Number(n).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
@@ -484,13 +474,7 @@
                 + '<td><input type="text" class="cell-input" data-field="description" value="" placeholder="Details..." onblur="saveItem(this)"></td>'
                 + '<td><select class="cell-select" data-field="category" onchange="saveItem(this)">'
                 + '<option value="">Select...</option>'
-                + '<option value="Marketing">Marketing</option><option value="Signs">Signs</option>'
-                + '<option value="Photography">Photography</option><option value="Staging">Staging</option>'
-                + '<option value="Travel">Travel</option><option value="Mileage">Mileage</option>'
-                + '<option value="Office">Office</option><option value="Meals">Meals</option>'
-                + '<option value="Technology">Technology</option><option value="Education">Education</option>'
-                + '<option value="Gifts">Gifts</option><option value="Licensing">Licensing</option>'
-                + '<option value="Insurance">Insurance</option><option value="Other">Other</option>'
+                + CATEGORY_OPTIONS
                 + '</select></td>'
                 + '<td><input type="number" class="cell-input amount" data-field="amount" value="0.00" step="0.01" min="0" placeholder="0.00" onblur="saveItem(this)" oninput="recalcTotal()"></td>'
                 + '<td class="receipt-cell"><label class="receipt-upload-label" title="Attach receipt">'
