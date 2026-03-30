@@ -1418,6 +1418,185 @@ def open_house_signin():
     )
 
 
+# ==========================================
+# Expense Report Routes
+# ==========================================
+
+def _ensure_expense_tables():
+    """Create expense tables if they don't exist."""
+    with db._get_connection() as conn:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS expense_reports (
+                id TEXT PRIMARY KEY,
+                title TEXT NOT NULL DEFAULT 'Expense Report',
+                link_type TEXT,
+                link_id TEXT,
+                link_label TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS expense_items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                report_id TEXT NOT NULL REFERENCES expense_reports(id),
+                name TEXT NOT NULL,
+                description TEXT,
+                amount REAL NOT NULL DEFAULT 0,
+                category TEXT,
+                created_at TEXT NOT NULL
+            )
+        """)
+        conn.commit()
+
+
+@app.route('/expenses')
+@requires_auth
+def expense_list():
+    """List all expense reports."""
+    _ensure_expense_tables()
+    with db._get_connection() as conn:
+        reports = conn.execute("""
+            SELECT r.id, r.title, r.link_type, r.link_label, r.created_at, r.updated_at,
+                   COUNT(i.id) as item_count, COALESCE(SUM(i.amount), 0) as total
+            FROM expense_reports r
+            LEFT JOIN expense_items i ON i.report_id = r.id
+            GROUP BY r.id
+            ORDER BY r.updated_at DESC
+        """).fetchall()
+
+    return render_template('expense_list.html', reports=reports)
+
+
+@app.route('/expenses/new')
+@requires_auth
+def expense_new():
+    """New expense report form."""
+    _ensure_expense_tables()
+    import uuid
+    report_id = str(uuid.uuid4())[:8]
+    now = datetime.now(tz=ET).isoformat()
+
+    link_type = request.args.get('link_type', '')
+    link_id = request.args.get('link_id', '')
+    link_label = request.args.get('link_label', '')
+
+    with db._get_connection() as conn:
+        conn.execute(
+            "INSERT INTO expense_reports (id, title, link_type, link_id, link_label, created_at, updated_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            [report_id, 'Expense Report', link_type or None, link_id or None, link_label or None, now, now]
+        )
+        conn.commit()
+
+    return redirect(f'/expenses/{report_id}')
+
+
+@app.route('/expenses/<report_id>')
+@requires_auth
+def expense_form(report_id):
+    """Interactive expense form."""
+    _ensure_expense_tables()
+    with db._get_connection() as conn:
+        report = conn.execute(
+            "SELECT * FROM expense_reports WHERE id = ?", [report_id]
+        ).fetchone()
+        if not report:
+            return "Expense report not found", 404
+
+        items = conn.execute(
+            "SELECT * FROM expense_items WHERE report_id = ? ORDER BY id", [report_id]
+        ).fetchall()
+
+        # Get contacts for linking dropdown
+        contacts = conn.execute(
+            "SELECT id, first_name, last_name FROM leads "
+            "WHERE first_name IS NOT NULL ORDER BY first_name LIMIT 200"
+        ).fetchall()
+
+    return render_template('expense_form.html',
+                           report=dict(report),
+                           items=[dict(i) for i in items],
+                           contacts=contacts)
+
+
+@app.route('/api/expenses/<report_id>', methods=['PUT'])
+@requires_auth
+def api_update_expense_report(report_id):
+    """Update expense report header."""
+    _ensure_expense_tables()
+    data = request.get_json()
+    now = datetime.now(tz=ET).isoformat()
+    with db._get_connection() as conn:
+        conn.execute(
+            "UPDATE expense_reports SET title=?, link_type=?, link_id=?, link_label=?, updated_at=? WHERE id=?",
+            [data.get('title', 'Expense Report'), data.get('link_type'), data.get('link_id'),
+             data.get('link_label'), now, report_id]
+        )
+        conn.commit()
+    return jsonify({'success': True})
+
+
+@app.route('/api/expenses/<report_id>/items', methods=['POST'])
+@requires_auth
+def api_add_expense_item(report_id):
+    """Add an expense item."""
+    _ensure_expense_tables()
+    data = request.get_json()
+    now = datetime.now(tz=ET).isoformat()
+    with db._get_connection() as conn:
+        cursor = conn.execute(
+            "INSERT INTO expense_items (report_id, name, description, amount, category, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            [report_id, data.get('name', ''), data.get('description', ''),
+             float(data.get('amount', 0)), data.get('category', ''), now]
+        )
+        conn.execute("UPDATE expense_reports SET updated_at=? WHERE id=?", [now, report_id])
+        conn.commit()
+        item_id = cursor.lastrowid
+    return jsonify({'success': True, 'id': item_id})
+
+
+@app.route('/api/expenses/<report_id>/items/<int:item_id>', methods=['PUT'])
+@requires_auth
+def api_update_expense_item(report_id, item_id):
+    """Update an expense item."""
+    data = request.get_json()
+    now = datetime.now(tz=ET).isoformat()
+    with db._get_connection() as conn:
+        conn.execute(
+            "UPDATE expense_items SET name=?, description=?, amount=?, category=? WHERE id=? AND report_id=?",
+            [data.get('name', ''), data.get('description', ''),
+             float(data.get('amount', 0)), data.get('category', ''), item_id, report_id]
+        )
+        conn.execute("UPDATE expense_reports SET updated_at=? WHERE id=?", [now, report_id])
+        conn.commit()
+    return jsonify({'success': True})
+
+
+@app.route('/api/expenses/<report_id>/items/<int:item_id>', methods=['DELETE'])
+@requires_auth
+def api_delete_expense_item(report_id, item_id):
+    """Delete an expense item."""
+    now = datetime.now(tz=ET).isoformat()
+    with db._get_connection() as conn:
+        conn.execute("DELETE FROM expense_items WHERE id=? AND report_id=?", [item_id, report_id])
+        conn.execute("UPDATE expense_reports SET updated_at=? WHERE id=?", [now, report_id])
+        conn.commit()
+    return jsonify({'success': True})
+
+
+@app.route('/api/expenses/<report_id>', methods=['DELETE'])
+@requires_auth
+def api_delete_expense_report(report_id):
+    """Delete an expense report and all its items."""
+    with db._get_connection() as conn:
+        conn.execute("DELETE FROM expense_items WHERE report_id=?", [report_id])
+        conn.execute("DELETE FROM expense_reports WHERE id=?", [report_id])
+        conn.commit()
+    return jsonify({'success': True})
+
+
 @app.route('/reports/<path:filename>')
 @requires_auth
 def serve_report(filename):

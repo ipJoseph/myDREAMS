@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ report.title }} | DREAMS</title>
+    <link rel="icon" type="image/svg+xml" href="{{ favicon }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='shared/css/dreams.css') }}">
+    <style>
+        .expense-page { padding: 24px 32px; max-width: 960px; margin: 0 auto; }
+
+        /* Header */
+        .expense-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; gap: 16px; flex-wrap: wrap; }
+        .header-left { flex: 1; min-width: 200px; }
+        .expense-title-input {
+            font-family: var(--font-heading); font-size: 24px; font-weight: 700;
+            border: none; background: transparent; color: var(--text-primary);
+            width: 100%; padding: 0; outline: none;
+            border-bottom: 2px solid transparent;
+        }
+        .expense-title-input:focus { border-bottom-color: var(--color-accent); }
+        .header-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+        .save-indicator { font-size: 12px; color: var(--text-muted); }
+        .save-indicator.saved { color: var(--color-success); }
+
+        /* Link bar */
+        .link-bar {
+            display: flex; gap: 10px; align-items: center; margin-bottom: 20px;
+            padding: 10px 14px; background: var(--bg-surface);
+            border: 1px solid var(--border-color); border-radius: var(--border-radius);
+            font-size: 13px;
+        }
+        .link-bar label { color: var(--text-secondary); font-weight: 500; white-space: nowrap; }
+        .link-bar select, .link-bar input {
+            border: 1px solid var(--border-color); border-radius: 4px;
+            padding: 4px 8px; font-size: 13px; font-family: var(--font-family);
+            background: white;
+        }
+        .link-bar select { max-width: 140px; }
+        .link-bar .link-label-input { flex: 1; min-width: 120px; }
+
+        /* Expense table */
+        .expense-table-wrap {
+            background: var(--bg-surface); border: 1px solid var(--border-color);
+            border-radius: var(--border-radius-lg); overflow: hidden; margin-bottom: 16px;
+        }
+        .expense-table { width: 100%; border-collapse: collapse; }
+        .expense-table th {
+            background: var(--color-primary); color: white;
+            text-align: left; padding: 10px 12px; font-size: 12px;
+            font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .expense-table th:last-child { text-align: center; }
+        .expense-table td {
+            padding: 0; border-bottom: 1px solid var(--border-color);
+            vertical-align: middle;
+        }
+        .expense-table tr:last-child td { border-bottom: none; }
+        .expense-table tr:hover td { background: rgba(221,171,74,0.04); }
+
+        .cell-input {
+            width: 100%; border: none; padding: 10px 12px;
+            font-size: 13px; font-family: var(--font-family);
+            background: transparent; outline: none; box-sizing: border-box;
+        }
+        .cell-input:focus { background: rgba(221,171,74,0.06); }
+        .cell-input.amount {
+            text-align: right; font-family: var(--font-mono); font-weight: 600;
+        }
+
+        .cell-select {
+            width: 100%; border: none; padding: 10px 8px;
+            font-size: 13px; font-family: var(--font-family);
+            background: transparent; outline: none; cursor: pointer;
+        }
+
+        .delete-btn {
+            background: none; border: none; cursor: pointer;
+            color: var(--text-muted); padding: 6px; border-radius: 4px;
+            display: flex; align-items: center; justify-content: center; margin: 0 auto;
+        }
+        .delete-btn:hover { color: var(--color-error); background: rgba(220,38,38,0.08); }
+        .delete-btn svg { width: 15px; height: 15px; }
+
+        /* Add row button */
+        .add-row-btn {
+            display: flex; align-items: center; gap: 6px;
+            padding: 8px 14px; background: none; border: 1px dashed var(--border-color);
+            border-radius: var(--border-radius); color: var(--text-secondary);
+            font-size: 13px; cursor: pointer; width: 100%; justify-content: center;
+            margin-bottom: 20px;
+        }
+        .add-row-btn:hover { border-color: var(--color-accent); color: var(--color-accent); background: rgba(221,171,74,0.04); }
+
+        /* Totals */
+        .totals-bar {
+            display: flex; justify-content: flex-end; align-items: center; gap: 20px;
+            padding: 16px 20px; background: var(--bg-surface);
+            border: 1px solid var(--border-color); border-radius: var(--border-radius-lg);
+            margin-bottom: 20px;
+        }
+        .total-label { font-size: 14px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
+        .total-amount { font-size: 28px; font-weight: 700; font-family: var(--font-mono); color: var(--text-primary); }
+
+        /* Category breakdown */
+        .category-breakdown {
+            display: flex; gap: 10px; flex-wrap: wrap; margin-right: auto;
+        }
+        .cat-chip {
+            font-size: 12px; padding: 4px 10px; border-radius: 12px;
+            background: var(--bg-secondary); color: var(--text-secondary);
+            font-family: var(--font-mono);
+        }
+        .cat-chip .cat-name { font-family: var(--font-family); font-weight: 500; }
+
+        /* Print styles */
+        @media print {
+            .sidebar, .sidebar-toggle, .sidebar-overlay { display: none !important; }
+            .main-content { margin-left: 0 !important; }
+            .header-actions, .add-row-btn, .delete-btn, .link-bar select, .no-print { display: none !important; }
+            .expense-page { padding: 0; max-width: 100%; }
+            .expense-title-input { border-bottom: none !important; }
+            .cell-input, .cell-select { padding: 6px 8px; }
+            .link-bar { border: none; padding: 0; margin-bottom: 10px; }
+
+            .print-header {
+                display: flex !important; align-items: center; gap: 12px;
+                padding-bottom: 12px; border-bottom: 2px solid var(--color-primary);
+                margin-bottom: 16px;
+            }
+            .print-logo { width: 40px; height: 40px; }
+            .print-brand { font-family: var(--font-heading); font-size: 18px; font-weight: 700; color: var(--color-primary); }
+            .print-sub { font-size: 11px; color: var(--text-muted); }
+
+            .totals-bar { border: 2px solid var(--color-primary); }
+        }
+        .print-header { display: none; }
+    </style>
+</head>
+<body style="background: var(--bg-page); margin: 0; font-family: var(--font-family);">
+    {% set active_nav = 'expenses' %}
+    {% include 'partials/sidebar.html' %}
+
+    <div class="main-content">
+        <div class="expense-page">
+
+            <!-- Print-only header -->
+            <div class="print-header">
+                <div>
+                    <div class="print-brand">WNC Mountain Homes</div>
+                    <div class="print-sub">Expense Report</div>
+                </div>
+            </div>
+
+            <div class="expense-header">
+                <div class="header-left">
+                    <input type="text" class="expense-title-input" id="reportTitle"
+                           value="{{ report.title }}" placeholder="Expense Report Title"
+                           onblur="saveHeader()">
+                    <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+                        Created {{ report.created_at[:10] }}
+                    </div>
+                </div>
+                <div class="header-actions">
+                    <span class="save-indicator" id="saveIndicator"></span>
+                    <button class="dreams-btn dreams-btn-secondary" onclick="window.print()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -2px;"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                        Print
+                    </button>
+                    <a href="/expenses" class="dreams-btn dreams-btn-secondary">All Reports</a>
+                </div>
+            </div>
+
+            <!-- Link to contact/project/open house -->
+            <div class="link-bar">
+                <label>Linked to:</label>
+                <select id="linkType" onchange="saveHeader()">
+                    <option value="">None</option>
+                    <option value="Contact" {% if report.link_type == 'Contact' %}selected{% endif %}>Contact</option>
+                    <option value="Project" {% if report.link_type == 'Project' %}selected{% endif %}>Project</option>
+                    <option value="Open House" {% if report.link_type == 'Open House' %}selected{% endif %}>Open House</option>
+                    <option value="Listing" {% if report.link_type == 'Listing' %}selected{% endif %}>Listing</option>
+                </select>
+                <input type="text" class="link-label-input" id="linkLabel"
+                       value="{{ report.link_label or '' }}"
+                       placeholder="Name or reference..."
+                       onblur="saveHeader()">
+            </div>
+
+            <!-- Expense items table -->
+            <div class="expense-table-wrap">
+                <table class="expense-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 22%;">Name</th>
+                            <th style="width: 30%;">Description</th>
+                            <th style="width: 18%;">Category</th>
+                            <th style="width: 15%; text-align: right;">Amount</th>
+                            <th style="width: 40px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="expenseBody">
+                        {% for item in items %}
+                        <tr data-id="{{ item.id }}">
+                            <td><input type="text" class="cell-input" data-field="name" value="{{ item.name }}" placeholder="Expense name" onblur="saveItem(this)"></td>
+                            <td><input type="text" class="cell-input" data-field="description" value="{{ item.description or '' }}" placeholder="Details..." onblur="saveItem(this)"></td>
+                            <td>
+                                <select class="cell-select" data-field="category" onchange="saveItem(this)">
+                                    <option value="">Select...</option>
+                                    <option value="Marketing" {% if item.category == 'Marketing' %}selected{% endif %}>Marketing</option>
+                                    <option value="Signs" {% if item.category == 'Signs' %}selected{% endif %}>Signs</option>
+                                    <option value="Photography" {% if item.category == 'Photography' %}selected{% endif %}>Photography</option>
+                                    <option value="Staging" {% if item.category == 'Staging' %}selected{% endif %}>Staging</option>
+                                    <option value="Travel" {% if item.category == 'Travel' %}selected{% endif %}>Travel</option>
+                                    <option value="Mileage" {% if item.category == 'Mileage' %}selected{% endif %}>Mileage</option>
+                                    <option value="Office" {% if item.category == 'Office' %}selected{% endif %}>Office</option>
+                                    <option value="Meals" {% if item.category == 'Meals' %}selected{% endif %}>Meals</option>
+                                    <option value="Technology" {% if item.category == 'Technology' %}selected{% endif %}>Technology</option>
+                                    <option value="Education" {% if item.category == 'Education' %}selected{% endif %}>Education</option>
+                                    <option value="Gifts" {% if item.category == 'Gifts' %}selected{% endif %}>Gifts</option>
+                                    <option value="Licensing" {% if item.category == 'Licensing' %}selected{% endif %}>Licensing</option>
+                                    <option value="Insurance" {% if item.category == 'Insurance' %}selected{% endif %}>Insurance</option>
+                                    <option value="Other" {% if item.category == 'Other' %}selected{% endif %}>Other</option>
+                                </select>
+                            </td>
+                            <td><input type="number" class="cell-input amount" data-field="amount" value="{{ '%.2f'|format(item.amount) }}" step="0.01" min="0" placeholder="0.00" onblur="saveItem(this)" oninput="recalcTotal()"></td>
+                            <td><button class="delete-btn no-print" onclick="deleteItem(this)" title="Remove">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                            </button></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <button class="add-row-btn no-print" onclick="addItem()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Add Expense
+            </button>
+
+            <!-- Totals -->
+            <div class="totals-bar">
+                <div class="category-breakdown" id="catBreakdown"></div>
+                <div>
+                    <div class="total-label">Total</div>
+                    <div class="total-amount" id="grandTotal">$0.00</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    var REPORT_ID = {{ report.id | tojson }};
+    var saveTimer = null;
+
+    function showSaved() {
+        var el = document.getElementById('saveIndicator');
+        el.textContent = 'Saved';
+        el.className = 'save-indicator saved';
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(function() { el.textContent = ''; }, 2000);
+    }
+
+    function showSaving() {
+        var el = document.getElementById('saveIndicator');
+        el.textContent = 'Saving...';
+        el.className = 'save-indicator';
+    }
+
+    function saveHeader() {
+        showSaving();
+        fetch('/api/expenses/' + REPORT_ID, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                title: document.getElementById('reportTitle').value,
+                link_type: document.getElementById('linkType').value || null,
+                link_label: document.getElementById('linkLabel').value || null,
+            })
+        }).then(function() { showSaved(); });
+    }
+
+    function getRowData(tr) {
+        return {
+            name: tr.querySelector('[data-field="name"]').value,
+            description: tr.querySelector('[data-field="description"]').value,
+            amount: parseFloat(tr.querySelector('[data-field="amount"]').value) || 0,
+            category: tr.querySelector('[data-field="category"]').value,
+        };
+    }
+
+    function saveItem(el) {
+        var tr = el.closest('tr');
+        var itemId = tr.dataset.id;
+        if (!itemId) return;
+        showSaving();
+        fetch('/api/expenses/' + REPORT_ID + '/items/' + itemId, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(getRowData(tr))
+        }).then(function() { showSaved(); recalcTotal(); });
+    }
+
+    function addItem() {
+        showSaving();
+        fetch('/api/expenses/' + REPORT_ID + '/items', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({name: '', description: '', amount: 0, category: ''})
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var tbody = document.getElementById('expenseBody');
+            var tr = document.createElement('tr');
+            tr.dataset.id = data.id;
+            tr.innerHTML = '<td><input type="text" class="cell-input" data-field="name" value="" placeholder="Expense name" onblur="saveItem(this)"></td>'
+                + '<td><input type="text" class="cell-input" data-field="description" value="" placeholder="Details..." onblur="saveItem(this)"></td>'
+                + '<td><select class="cell-select" data-field="category" onchange="saveItem(this)">'
+                + '<option value="">Select...</option>'
+                + '<option value="Marketing">Marketing</option><option value="Signs">Signs</option>'
+                + '<option value="Photography">Photography</option><option value="Staging">Staging</option>'
+                + '<option value="Travel">Travel</option><option value="Mileage">Mileage</option>'
+                + '<option value="Office">Office</option><option value="Meals">Meals</option>'
+                + '<option value="Technology">Technology</option><option value="Education">Education</option>'
+                + '<option value="Gifts">Gifts</option><option value="Licensing">Licensing</option>'
+                + '<option value="Insurance">Insurance</option><option value="Other">Other</option>'
+                + '</select></td>'
+                + '<td><input type="number" class="cell-input amount" data-field="amount" value="0.00" step="0.01" min="0" placeholder="0.00" onblur="saveItem(this)" oninput="recalcTotal()"></td>'
+                + '<td><button class="delete-btn no-print" onclick="deleteItem(this)" title="Remove">'
+                + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
+                + '</button></td>';
+            tbody.appendChild(tr);
+            tr.querySelector('[data-field="name"]').focus();
+            showSaved();
+        });
+    }
+
+    function deleteItem(btn) {
+        var tr = btn.closest('tr');
+        var itemId = tr.dataset.id;
+        if (!itemId) return;
+        tr.style.opacity = '0.4';
+        fetch('/api/expenses/' + REPORT_ID + '/items/' + itemId, { method: 'DELETE' })
+        .then(function() {
+            tr.remove();
+            recalcTotal();
+            showSaved();
+        });
+    }
+
+    function recalcTotal() {
+        var rows = document.querySelectorAll('#expenseBody tr');
+        var total = 0;
+        var cats = {};
+        rows.forEach(function(tr) {
+            var amt = parseFloat(tr.querySelector('[data-field="amount"]').value) || 0;
+            var cat = tr.querySelector('[data-field="category"]').value || 'Uncategorized';
+            total += amt;
+            cats[cat] = (cats[cat] || 0) + amt;
+        });
+        document.getElementById('grandTotal').textContent = '$' + total.toFixed(2);
+
+        // Category breakdown chips
+        var html = '';
+        var sorted = Object.entries(cats).filter(function(e) { return e[1] > 0; }).sort(function(a, b) { return b[1] - a[1]; });
+        sorted.forEach(function(entry) {
+            html += '<span class="cat-chip"><span class="cat-name">' + entry[0] + '</span> $' + entry[1].toFixed(2) + '</span>';
+        });
+        document.getElementById('catBreakdown').innerHTML = html;
+    }
+
+    // Initial calculation
+    document.addEventListener('DOMContentLoaded', recalcTotal);
+    </script>
+</body>
+</html>

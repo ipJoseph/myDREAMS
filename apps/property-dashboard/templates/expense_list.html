@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Expense Reports | DREAMS</title>
+    <link rel="icon" type="image/svg+xml" href="{{ favicon }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='shared/css/dreams.css') }}">
+    <style>
+        .expense-page { padding: 24px 32px; max-width: 900px; margin: 0 auto; }
+        .expense-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+        .expense-header h1 { font-family: var(--font-heading); font-size: 24px; margin: 0; color: var(--text-primary); }
+
+        .report-list { display: flex; flex-direction: column; gap: 8px; }
+        .report-card {
+            display: flex; align-items: center; gap: 16px;
+            padding: 14px 18px; background: var(--bg-surface);
+            border: 1px solid var(--border-color); border-radius: var(--border-radius-lg);
+            text-decoration: none; color: inherit; transition: border-color 0.15s;
+        }
+        .report-card:hover { border-color: var(--color-accent); }
+
+        .report-icon {
+            width: 36px; height: 36px; border-radius: 8px;
+            background: rgba(221,171,74,0.12); color: #b8922e;
+            display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+        }
+        .report-icon svg { width: 18px; height: 18px; }
+        .report-info { flex: 1; min-width: 0; }
+        .report-title { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+        .report-meta { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+        .report-link-badge {
+            font-size: 11px; padding: 2px 8px; border-radius: 4px;
+            background: rgba(8,45,64,0.08); color: var(--color-primary);
+        }
+        .report-total {
+            font-size: 16px; font-weight: 700; font-family: var(--font-mono);
+            color: var(--text-primary); flex-shrink: 0;
+        }
+        .report-items { font-size: 12px; color: var(--text-muted); text-align: right; }
+
+        .empty-state {
+            text-align: center; padding: 60px 20px; color: var(--text-muted);
+        }
+        .empty-state svg { width: 48px; height: 48px; opacity: 0.3; margin-bottom: 12px; }
+        .empty-state p { font-size: 14px; margin: 8px 0; }
+    </style>
+</head>
+<body style="background: var(--bg-page); margin: 0; font-family: var(--font-family);">
+    {% set active_nav = 'expenses' %}
+    {% include 'partials/sidebar.html' %}
+
+    <div class="main-content">
+        <div class="expense-page">
+            <div class="expense-header">
+                <h1>Expense Reports</h1>
+                <a href="/expenses/new" class="dreams-btn dreams-btn-primary">+ New Report</a>
+            </div>
+
+            {% if reports %}
+            <div class="report-list">
+                {% for r in reports %}
+                <a href="/expenses/{{ r.id }}" class="report-card">
+                    <div class="report-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
+                        </svg>
+                    </div>
+                    <div class="report-info">
+                        <div class="report-title">{{ r.title }}</div>
+                        <div class="report-meta">
+                            {{ r.created_at[:10] }}
+                            {% if r.link_label %}
+                            <span class="report-link-badge">{{ r.link_type }}: {{ r.link_label }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div class="report-total">${{ "%.2f"|format(r.total) }}</div>
+                        <div class="report-items">{{ r.item_count }} item{{ 's' if r.item_count != 1 else '' }}</div>
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <rect x="2" y="3" width="20" height="18" rx="2"/><line x1="2" y1="9" x2="22" y2="9"/>
+                    <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
+                </svg>
+                <p>No expense reports yet</p>
+                <a href="/expenses/new" class="dreams-btn dreams-btn-primary" style="margin-top: 12px;">Create Your First Report</a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>
