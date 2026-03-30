@@ -572,10 +572,8 @@ def _generate_mls_url(mls_source: str, mls_number: str, listing_key: str) -> Opt
     """
     if not mls_number:
         return None
-    if mls_source == 'NavicaMLS':
-        return f"https://navicamls.net/listing/{listing_key}" if listing_key else None
-    elif mls_source == 'MountainLakesMLS':
-        return f"https://navicamls.net/listing/{listing_key}" if listing_key else None
+    if mls_source in ('NavicaMLS', 'MountainLakesMLS'):
+        return f"https://navicamls.net/#/listing/{mls_number}"
     elif mls_source == 'CanopyMLS':
         return f"https://matrix.canopymls.com/Matrix/Public/Portal.aspx?k={listing_key}" if listing_key else None
     return None
