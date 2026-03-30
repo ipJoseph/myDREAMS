@@ -575,7 +575,9 @@ def _generate_mls_url(mls_source: str, mls_number: str, listing_key: str) -> Opt
     if mls_source in ('NavicaMLS', 'MountainLakesMLS'):
         return f"https://navicamls.net/#/listing/{mls_number}"
     elif mls_source == 'CanopyMLS':
-        return f"https://matrix.canopymls.com/Matrix/Public/Portal.aspx?k={listing_key}" if listing_key else None
+        # Strip "CAR" prefix to get the numeric MLS number for Matrix search
+        numeric_mls = mls_number.replace('CAR', '') if mls_number.startswith('CAR') else mls_number
+        return f"https://matrix.canopymls.com/Matrix/Public/IDXSearch.aspx?count=1&listings={numeric_mls}"
     return None
 
 
