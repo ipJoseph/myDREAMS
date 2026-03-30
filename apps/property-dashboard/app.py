@@ -1698,6 +1698,108 @@ def api_delete_receipt(report_id, item_id):
     return jsonify({'success': True})
 
 
+# IRS Schedule C category mapping for our expense categories
+SCHEDULE_C_MAP = {
+    'Marketing':    {'line': '8',  'label': 'Advertising'},
+    'Signs':        {'line': '8',  'label': 'Advertising'},
+    'Photography':  {'line': '8',  'label': 'Advertising'},
+    'Travel':       {'line': '24a', 'label': 'Travel'},
+    'Mileage':      {'line': '9',  'label': 'Car and truck expenses'},
+    'Meals':        {'line': '24b', 'label': 'Meals (50% deductible)'},
+    'Office':       {'line': '18', 'label': 'Office expense'},
+    'Technology':   {'line': '18', 'label': 'Office expense'},
+    'Insurance':    {'line': '15', 'label': 'Insurance'},
+    'Licensing':    {'line': '23', 'label': 'Taxes and licenses'},
+    'Education':    {'line': '27a', 'label': 'Other expenses'},
+    'Gifts':        {'line': '27a', 'label': 'Other expenses (gifts max $25/person)'},
+    'Staging':      {'line': '27a', 'label': 'Other expenses'},
+    'Other':        {'line': '27a', 'label': 'Other expenses'},
+}
+
+
+@app.route('/expenses/tax-summary')
+@requires_auth
+def expense_tax_summary():
+    """Tax documentation summary: expenses grouped by IRS Schedule C categories."""
+    _ensure_expense_tables()
+
+    year = request.args.get('year', str(datetime.now().year))
+
+    import base64
+    logo_path = PROJECT_ROOT / 'assets' / 'branding' / 'jth-icon.jpg'
+    logo_b64 = ''
+    if logo_path.exists():
+        logo_data = logo_path.read_bytes()
+        logo_b64 = f"data:image/jpeg;base64,{base64.b64encode(logo_data).decode()}"
+
+    agent_info = {
+        'name': os.environ.get('AGENT_NAME', 'Joseph Williams'),
+        'phone': os.environ.get('AGENT_PHONE', '(828) 347-9363'),
+        'email': os.environ.get('AGENT_EMAIL', 'Joseph@JonTharpHomes.com'),
+        'website': os.environ.get('AGENT_WEBSITE', 'www.JonTharpHomes.com'),
+    }
+
+    with db._get_connection() as conn:
+        # All expense items for the selected year, joined with report info
+        items = conn.execute("""
+            SELECT i.id, i.name, i.description, i.amount, i.category,
+                   i.receipt_mime, i.created_at,
+                   r.id as report_id, r.title as report_title,
+                   r.link_type, r.link_label
+            FROM expense_items i
+            JOIN expense_reports r ON r.id = i.report_id
+            WHERE i.created_at LIKE ? || '%'
+            ORDER BY i.category, i.created_at
+        """, [year]).fetchall()
+
+        # Available years for dropdown
+        years = conn.execute("""
+            SELECT DISTINCT SUBSTR(created_at, 1, 4) as yr
+            FROM expense_items ORDER BY yr DESC
+        """).fetchall()
+
+    # Group by Schedule C line
+    schedule_c = {}
+    for item in items:
+        d = dict(item)
+        cat = d['category'] or 'Other'
+        mapping = SCHEDULE_C_MAP.get(cat, {'line': '27a', 'label': 'Other expenses'})
+        line_key = mapping['line']
+
+        if line_key not in schedule_c:
+            schedule_c[line_key] = {
+                'line': line_key,
+                'label': mapping['label'],
+                'expenses': [],
+                'total': 0,
+                'categories': set(),
+            }
+        schedule_c[line_key]['expenses'].append(d)
+        schedule_c[line_key]['total'] += d['amount']
+        schedule_c[line_key]['categories'].add(cat)
+
+    # Sort by line number
+    sorted_lines = sorted(schedule_c.values(), key=lambda x: x['line'])
+
+    grand_total = sum(line['total'] for line in sorted_lines)
+    total_items = sum(len(line['expenses']) for line in sorted_lines)
+    total_with_receipts = sum(
+        1 for line in sorted_lines for item in line['expenses'] if item.get('receipt_mime')
+    )
+
+    available_years = [r['yr'] for r in years] if years else [str(datetime.now().year)]
+
+    return render_template('expense_tax_summary.html',
+                           schedule_c=sorted_lines,
+                           grand_total=grand_total,
+                           total_items=total_items,
+                           total_with_receipts=total_with_receipts,
+                           year=year,
+                           available_years=available_years,
+                           logo_b64=logo_b64,
+                           agent=agent_info)
+
+
 @app.route('/reports/<path:filename>')
 @requires_auth
 def serve_report(filename):

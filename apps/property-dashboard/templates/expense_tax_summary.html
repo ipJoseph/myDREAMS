@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tax Summary {{ year }} | DREAMS</title>
+    <link rel="icon" type="image/svg+xml" href="{{ favicon }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='shared/css/dreams.css') }}">
+    <style>
+        .tax-page { padding: 24px 32px; max-width: 960px; margin: 0 auto; }
+
+        .tax-toolbar {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 24px; flex-wrap: wrap; gap: 12px;
+        }
+        .tax-toolbar h1 { font-family: var(--font-heading); font-size: 24px; margin: 0; color: var(--text-primary); }
+        .toolbar-right { display: flex; gap: 8px; align-items: center; }
+        .year-select {
+            border: 1px solid var(--border-color); border-radius: 6px;
+            padding: 6px 10px; font-size: 14px; font-family: var(--font-family);
+            font-weight: 600; background: white;
+        }
+
+        /* Stats bar */
+        .tax-stats {
+            display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap;
+        }
+        .tax-stat {
+            flex: 1; min-width: 140px; padding: 14px 18px;
+            background: var(--bg-surface); border: 1px solid var(--border-color);
+            border-radius: var(--border-radius-lg);
+        }
+        .tax-stat-value {
+            font-size: 22px; font-weight: 700; font-family: var(--font-mono);
+            color: var(--text-primary);
+        }
+        .tax-stat-label { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+        /* Schedule C sections */
+        .sc-section {
+            background: var(--bg-surface); border: 1px solid var(--border-color);
+            border-radius: var(--border-radius-lg); margin-bottom: 16px; overflow: hidden;
+        }
+        .sc-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 12px 18px; background: var(--bg-header);
+            border-bottom: 1px solid var(--border-color);
+            cursor: pointer; user-select: none;
+        }
+        .sc-header:hover { background: var(--bg-secondary); }
+        .sc-line-badge {
+            font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px;
+            background: #082d40; color: white; margin-right: 10px;
+            font-family: var(--font-mono);
+        }
+        .sc-label { font-size: 14px; font-weight: 600; color: var(--text-primary); flex: 1; }
+        .sc-cats {
+            font-size: 11px; color: var(--text-muted); margin-left: 8px;
+        }
+        .sc-total {
+            font-size: 16px; font-weight: 700; font-family: var(--font-mono);
+            color: var(--text-primary); margin-left: 16px;
+        }
+        .sc-chevron { color: var(--text-muted); transition: transform 0.2s; }
+        .sc-section.collapsed .sc-chevron { transform: rotate(-90deg); }
+        .sc-section.collapsed .sc-body { display: none; }
+
+        .sc-body { padding: 0; }
+        .sc-table { width: 100%; border-collapse: collapse; }
+        .sc-table th {
+            text-align: left; padding: 8px 14px; font-size: 11px;
+            font-weight: 600; color: var(--text-muted); text-transform: uppercase;
+            letter-spacing: 0.5px; border-bottom: 1px solid var(--border-color);
+        }
+        .sc-table th.amt { text-align: right; }
+        .sc-table td {
+            padding: 8px 14px; font-size: 13px; color: var(--text-primary);
+            border-bottom: 1px solid rgba(0,0,0,0.04);
+        }
+        .sc-table tr:last-child td { border-bottom: none; }
+        .sc-table td.amt {
+            text-align: right; font-family: var(--font-mono); font-weight: 600;
+        }
+        .sc-table td.date { color: var(--text-muted); font-size: 12px; }
+        .sc-table td.desc { color: var(--text-secondary); font-size: 12px; }
+        .receipt-badge {
+            display: inline-flex; align-items: center; gap: 3px;
+            font-size: 10px; padding: 1px 6px; border-radius: 3px;
+            background: rgba(16,185,129,0.1); color: #059669;
+        }
+        .receipt-badge svg { width: 10px; height: 10px; }
+        .no-receipt { color: var(--text-muted); font-size: 11px; }
+
+        /* Grand total */
+        .grand-total-bar {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 18px 22px; background: #082d40; color: white;
+            border-radius: var(--border-radius-lg); margin-bottom: 24px;
+        }
+        .grand-total-label {
+            font-size: 14px; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .grand-total-amount {
+            font-size: 28px; font-weight: 700; font-family: var(--font-mono);
+        }
+
+        /* Note */
+        .tax-note {
+            font-size: 12px; color: var(--text-muted); line-height: 1.6;
+            padding: 12px 16px; background: var(--bg-secondary);
+            border-radius: var(--border-radius); margin-bottom: 16px;
+        }
+
+        /* Print branded header/footer */
+        .print-header {
+            display: none; text-align: center;
+            padding-bottom: 14px; margin-bottom: 16px;
+            border-bottom: 3px solid #ddab4a;
+        }
+        .print-header .print-logo { height: 44px; width: auto; margin-bottom: 8px; }
+        .print-header h2 {
+            font-size: 28px; font-weight: 800; color: #082d40;
+            letter-spacing: 3px; text-transform: uppercase; margin: 0 0 4px 0;
+        }
+        .print-header .print-subtitle {
+            font-size: 14px; font-weight: 600; color: #ddab4a;
+            letter-spacing: 2px; text-transform: uppercase;
+        }
+        .print-footer {
+            display: none; text-align: center;
+            padding-top: 10px; border-top: 2px solid #ddab4a;
+            font-size: 10px; color: #4e4e4e; letter-spacing: 0.5px;
+        }
+
+        @media print {
+            @page { size: letter; margin: 0.5in 0.5in 0.7in 0.5in; }
+            body { background: white !important; }
+            .sidebar, .sidebar-toggle, .sidebar-overlay { display: none !important; }
+            .main-content { margin-left: 0 !important; }
+            .tax-toolbar { display: none !important; }
+            .tax-page { padding: 0; max-width: 100%; }
+
+            .print-header { display: block !important; }
+            .print-footer { display: block !important; position: fixed; bottom: 0; left: 0; right: 0; }
+
+            .sc-section { break-inside: avoid; }
+            .sc-section.collapsed .sc-body { display: table !important; }
+            .sc-section.collapsed .sc-chevron { display: none; }
+            .sc-header { background: #f5f2ed !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .sc-line-badge { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .grand-total-bar { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .tax-note { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .receipt-badge { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        }
+    </style>
+</head>
+<body style="background: var(--bg-page); margin: 0; font-family: var(--font-family);">
+    {% set active_nav = 'expenses' %}
+    {% include 'partials/sidebar.html' %}
+
+    <div class="main-content">
+        <div class="tax-page">
+
+            <!-- Print header -->
+            <div class="print-header">
+                {% if logo_b64 %}<img src="{{ logo_b64 }}" class="print-logo" alt="JTH">{% endif %}
+                <h2>Tax Summary</h2>
+                <div class="print-subtitle">Jon Tharp Homes</div>
+                <div style="font-size: 15px; font-weight: 700; color: #082d40; margin-top: 10px;">
+                    Schedule C Expense Detail: {{ year }}
+                </div>
+            </div>
+
+            <!-- Toolbar -->
+            <div class="tax-toolbar">
+                <h1>Tax Summary: {{ year }}</h1>
+                <div class="toolbar-right">
+                    <select class="year-select" onchange="window.location='/expenses/tax-summary?year='+this.value">
+                        {% for y in available_years %}
+                        <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+                        {% endfor %}
+                    </select>
+                    <button class="dreams-btn dreams-btn-secondary" onclick="expandAll()">Expand All</button>
+                    <button class="dreams-btn dreams-btn-secondary" onclick="printTax()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -2px;"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                        Print
+                    </button>
+                    <a href="/expenses" class="dreams-btn dreams-btn-secondary">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -2px;"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                        Back
+                    </a>
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="tax-stats">
+                <div class="tax-stat">
+                    <div class="tax-stat-value">${{ "{:,.2f}".format(grand_total) }}</div>
+                    <div class="tax-stat-label">Total Expenses</div>
+                </div>
+                <div class="tax-stat">
+                    <div class="tax-stat-value">{{ total_items }}</div>
+                    <div class="tax-stat-label">Line Items</div>
+                </div>
+                <div class="tax-stat">
+                    <div class="tax-stat-value">{{ schedule_c|length }}</div>
+                    <div class="tax-stat-label">Schedule C Lines</div>
+                </div>
+                <div class="tax-stat">
+                    <div class="tax-stat-value">{{ total_with_receipts }}/{{ total_items }}</div>
+                    <div class="tax-stat-label">Receipts Attached</div>
+                </div>
+            </div>
+
+            <!-- Grand total bar -->
+            <div class="grand-total-bar">
+                <div class="grand-total-label">Schedule C Total Expenses ({{ year }})</div>
+                <div class="grand-total-amount">${{ "{:,.2f}".format(grand_total) }}</div>
+            </div>
+
+            {% if not schedule_c %}
+            <div style="text-align: center; padding: 40px; color: var(--text-muted);">
+                No expenses recorded for {{ year }}.
+                <a href="/expenses/new" style="color: var(--color-primary);">Create an expense report</a>
+            </div>
+            {% endif %}
+
+            <!-- Schedule C sections -->
+            {% for line in schedule_c %}
+            <div class="sc-section" id="sc-{{ line.line }}">
+                <div class="sc-header" onclick="this.parentElement.classList.toggle('collapsed')">
+                    <div style="display: flex; align-items: center; flex: 1;">
+                        <span class="sc-line-badge">Line {{ line.line }}</span>
+                        <span class="sc-label">{{ line.label }}</span>
+                        <span class="sc-cats">({{ line.categories|join(', ') }})</span>
+                    </div>
+                    <span class="sc-total">${{ "{:,.2f}".format(line.total) }}</span>
+                    <svg class="sc-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left: 10px;"><polyline points="6 9 12 15 18 9"/></svg>
+                </div>
+                <div class="sc-body">
+                    <table class="sc-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 12%;">Date</th>
+                                <th style="width: 20%;">Name</th>
+                                <th style="width: 28%;">Description</th>
+                                <th style="width: 12%;">Category</th>
+                                <th style="width: 10%;">Report</th>
+                                <th style="width: 8%;">Receipt</th>
+                                <th class="amt" style="width: 10%;">Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in line.expenses %}
+                            <tr>
+                                <td class="date">{{ item.created_at[:10] }}</td>
+                                <td>{{ item.name }}</td>
+                                <td class="desc">{{ item.description or '' }}</td>
+                                <td>{{ item.category }}</td>
+                                <td class="desc">
+                                    <a href="/expenses/{{ item.report_id }}" style="color: var(--color-primary); text-decoration: none; font-size: 12px;">
+                                        {{ item.report_title[:20] }}
+                                    </a>
+                                </td>
+                                <td>
+                                    {% if item.receipt_mime %}
+                                    <span class="receipt-badge">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                                        Yes
+                                    </span>
+                                    {% else %}
+                                    <span class="no-receipt">No</span>
+                                    {% endif %}
+                                </td>
+                                <td class="amt">${{ "{:,.2f}".format(item.amount) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endfor %}
+
+            <!-- Tax notes -->
+            <div class="tax-note">
+                <strong>Notes for filing:</strong><br>
+                Meals (Line 24b): Generally 50% deductible for business meals. Track date, location, attendees, and business purpose.<br>
+                Gifts (Line 27a): Limited to $25 per recipient per year.<br>
+                Mileage (Line 9): Standard rate for {{ year }}. Log date, destination, business purpose, and miles for each trip.<br>
+                All expenses should have receipts for amounts over $75 or for meals/entertainment regardless of amount.
+            </div>
+
+            <!-- Print footer -->
+            <div class="print-footer">
+                {{ agent.name }} &nbsp;|&nbsp; {{ agent.phone }} &nbsp;|&nbsp; {{ agent.email }} &nbsp;|&nbsp; {{ agent.website }}
+            </div>
+        </div>
+    </div>
+
+    <script>
+    function expandAll() {
+        document.querySelectorAll('.sc-section.collapsed').forEach(function(s) {
+            s.classList.remove('collapsed');
+        });
+    }
+
+    function printTax() {
+        // Expand all sections before printing
+        expandAll();
+        var origTitle = document.title;
+        document.title = ' ';
+        setTimeout(function() {
+            window.print();
+            document.title = origTitle;
+        }, 100);
+    }
+    </script>
+</body>
+</html>
