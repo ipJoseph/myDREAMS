@@ -1530,10 +1530,27 @@ def expense_form(report_id):
             "WHERE first_name IS NOT NULL ORDER BY first_name LIMIT 200"
         ).fetchall()
 
+    # Load JTH branding for print header
+    import base64
+    logo_path = PROJECT_ROOT / 'assets' / 'branding' / 'jth-icon.jpg'
+    logo_b64 = ''
+    if logo_path.exists():
+        logo_data = logo_path.read_bytes()
+        logo_b64 = f"data:image/jpeg;base64,{base64.b64encode(logo_data).decode()}"
+
+    agent_info = {
+        'name': os.environ.get('AGENT_NAME', 'Joseph Williams'),
+        'phone': os.environ.get('AGENT_PHONE', '(828) 347-9363'),
+        'email': os.environ.get('AGENT_EMAIL', 'Joseph@JonTharpHomes.com'),
+        'website': os.environ.get('AGENT_WEBSITE', 'www.JonTharpHomes.com'),
+    }
+
     return render_template('expense_form.html',
                            report=dict(report),
                            items=[dict(i) for i in items],
-                           contacts=contacts)
+                           contacts=contacts,
+                           logo_b64=logo_b64,
+                           agent=agent_info)
 
 
 @app.route('/api/expenses/<report_id>', methods=['PUT'])

@@ -140,31 +140,54 @@
         }
         .cat-chip .cat-name { font-family: var(--font-family); font-weight: 500; }
 
+        /* Branded header (print only) */
+        .print-header {
+            display: none;
+            text-align: center;
+            padding-bottom: 12px;
+            margin-bottom: 16px;
+            border-bottom: 3px solid #ddab4a;
+        }
+        .print-header .print-logo { height: 44px; width: auto; margin-bottom: 6px; }
+        .print-header h2 {
+            font-size: 22px; font-weight: 800; color: #082d40;
+            letter-spacing: 2px; text-transform: uppercase; margin: 0;
+        }
+        .print-header .print-subtitle {
+            font-size: 12px; font-weight: 600; color: #ddab4a;
+            letter-spacing: 1.5px; text-transform: uppercase;
+        }
+
+        /* Branded footer (print only) */
+        .print-footer {
+            display: none;
+            text-align: center;
+            padding-top: 10px;
+            margin-top: 20px;
+            border-top: 2px solid #ddab4a;
+            font-size: 10px;
+            color: #4e4e4e;
+        }
+
         /* Print styles */
         @media print {
             .sidebar, .sidebar-toggle, .sidebar-overlay { display: none !important; }
             .main-content { margin-left: 0 !important; }
             .header-actions, .add-row-btn, .delete-btn, .link-bar select, .no-print { display: none !important; }
             .expense-page { padding: 0; max-width: 100%; }
-            .expense-title-input { border-bottom: none !important; }
+            .expense-title-input { border-bottom: none !important; font-size: 18px; }
+            .expense-header { margin-bottom: 8px; }
             .cell-input, .cell-select { padding: 6px 8px; }
-            .link-bar { border: none; padding: 0; margin-bottom: 10px; }
+            .link-bar { border: none; padding: 0 0 4px 0; margin-bottom: 8px; font-size: 12px; }
 
-            .print-header {
-                display: flex !important; align-items: center; gap: 12px;
-                padding-bottom: 12px; border-bottom: 2px solid var(--color-primary);
-                margin-bottom: 16px;
-            }
-            .print-logo { width: 40px; height: 40px; }
-            .print-brand { font-family: var(--font-heading); font-size: 18px; font-weight: 700; color: var(--color-primary); }
-            .print-sub { font-size: 11px; color: var(--text-muted); }
+            .print-header { display: block !important; }
+            .print-footer { display: block !important; }
 
-            .totals-bar { border: 2px solid var(--color-primary); }
+            .totals-bar { border: 2px solid #082d40; }
             .receipt-upload-label { display: none !important; }
             .receipt-thumb { width: 40px; height: 40px; }
             .receipt-lightbox { display: none !important; }
         }
-        .print-header { display: none; }
     </style>
 </head>
 <body style="background: var(--bg-page); margin: 0; font-family: var(--font-family);">
@@ -174,12 +197,13 @@
     <div class="main-content">
         <div class="expense-page">
 
-            <!-- Print-only header -->
+            <!-- Print-only branded header -->
             <div class="print-header">
-                <div>
-                    <div class="print-brand">WNC Mountain Homes</div>
-                    <div class="print-sub">Expense Report</div>
-                </div>
+                {% if logo_b64 %}
+                <img src="{{ logo_b64 }}" class="print-logo" alt="JTH">
+                {% endif %}
+                <h2>Expense Report</h2>
+                <div class="print-subtitle">Jon Tharp Homes</div>
             </div>
 
             <div class="expense-header">
@@ -291,6 +315,11 @@
                     <div class="total-label">Total</div>
                     <div class="total-amount" id="grandTotal">$0.00</div>
                 </div>
+            <!-- Print-only branded footer -->
+            <div class="print-footer">
+                {{ agent.name }} | {{ agent.phone }} | {{ agent.email }} | {{ agent.website }}
+            </div>
+
             </div>
         </div>
     </div>
