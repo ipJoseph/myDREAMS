@@ -76,7 +76,7 @@
                         </div>
                     </div>
                     <div style="text-align: right;">
-                        <div class="report-total">${{ "%.2f"|format(r.total) }}</div>
+                        <div class="report-total">${{ "{:,.2f}".format(r.total) }}</div>
                         <div class="report-items">{{ r.item_count }} item{{ 's' if r.item_count != 1 else '' }}</div>
                     </div>
                 </a>

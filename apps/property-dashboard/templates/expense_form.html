@@ -299,6 +299,10 @@
     var REPORT_ID = {{ report.id | tojson }};
     var saveTimer = null;
 
+    function fmtUSD(n) {
+        return '$' + Number(n).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    }
+
     function showSaved() {
         var el = document.getElementById('saveIndicator');
         el.textContent = 'Saved';
@@ -408,13 +412,13 @@
             total += amt;
             cats[cat] = (cats[cat] || 0) + amt;
         });
-        document.getElementById('grandTotal').textContent = '$' + total.toFixed(2);
+        document.getElementById('grandTotal').textContent = fmtUSD(total);
 
         // Category breakdown chips
         var html = '';
         var sorted = Object.entries(cats).filter(function(e) { return e[1] > 0; }).sort(function(a, b) { return b[1] - a[1]; });
         sorted.forEach(function(entry) {
-            html += '<span class="cat-chip"><span class="cat-name">' + entry[0] + '</span> $' + entry[1].toFixed(2) + '</span>';
+            html += '<span class="cat-chip"><span class="cat-name">' + entry[0] + '</span> ' + fmtUSD(entry[1]) + '</span>';
         });
         document.getElementById('catBreakdown').innerHTML = html;
     }
