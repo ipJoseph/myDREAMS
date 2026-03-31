@@ -107,7 +107,7 @@ export default function SmartSearchBar({ variant, defaultValue = "" }: SmartSear
 
         // MLS lookup: redirect to listing detail
         if (result.redirect) {
-          router.push(result.redirect);
+          window.location.href = result.redirect;
           return;
         }
 
@@ -137,7 +137,8 @@ export default function SmartSearchBar({ variant, defaultValue = "" }: SmartSear
           }
         }
 
-        router.push(`/listings?${params.toString()}`);
+        // Full page navigation (not router.push) to trigger SSR fetch
+        window.location.href = `/listings?${params.toString()}`;
       }
     } catch {
       // Fallback: plain text search
@@ -147,15 +148,15 @@ export default function SmartSearchBar({ variant, defaultValue = "" }: SmartSear
     }
   };
 
-  // Handle suggestion selection
+  // Handle suggestion selection (full navigation to trigger SSR)
   const selectSuggestion = (suggestion: Suggestion) => {
     setShowDropdown(false);
     if (suggestion.type === "address" && suggestion.listing_id) {
-      router.push(`/listings/${suggestion.listing_id}`);
+      window.location.href = `/listings/${suggestion.listing_id}`;
     } else if (suggestion.type === "city") {
-      router.push(`/listings?city=${encodeURIComponent(suggestion.value)}`);
+      window.location.href = `/listings?city=${encodeURIComponent(suggestion.value)}`;
     } else if (suggestion.type === "county") {
-      router.push(`/listings?county=${encodeURIComponent(suggestion.value)}`);
+      window.location.href = `/listings?county=${encodeURIComponent(suggestion.value)}`;
     }
   };
 
