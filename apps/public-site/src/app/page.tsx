@@ -4,6 +4,7 @@ import { searchListings, getStats, getAreas, getFeaturedCollections, formatPrice
 import PropertyCard from "@/components/PropertyCard";
 import AreaCard from "@/components/AreaCard";
 import NewOnMarket from "@/components/NewOnMarket";
+import SmartSearchBar from "@/components/SmartSearchBar";
 
 export default async function HomePage() {
   const [listingsResult, stats, areas, collections] = await Promise.all([
@@ -49,23 +50,10 @@ export default async function HomePage() {
                 Great Smoky Mountains and Blue Ridge.
               </p>
 
-              {/* Search bar */}
-              <form action="/listings" method="get" className="mb-8">
-                <div className="flex gap-0">
-                  <input
-                    type="text"
-                    name="q"
-                    placeholder="Search by city, address, or keyword..."
-                    className="flex-1 px-6 py-4 bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder-white/50 focus:outline-none focus:border-[var(--color-accent)] transition"
-                  />
-                  <button
-                    type="submit"
-                    className="px-8 py-4 bg-[var(--color-accent)] text-[var(--color-primary)] font-semibold uppercase tracking-wider text-sm hover:bg-[var(--color-accent-hover)] transition"
-                  >
-                    Search
-                  </button>
-                </div>
-              </form>
+              {/* Smart Search bar */}
+              <div className="mb-8 max-w-2xl">
+                <SmartSearchBar variant="hero" />
+              </div>
             </div>
           </div>
         </div>

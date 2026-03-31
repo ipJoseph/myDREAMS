@@ -62,9 +62,9 @@ PHOTOS_DIRS = {
 # Sort columns whitelisted against SQL injection
 ALLOWED_SORT_COLUMNS = {
     'list_price', 'days_on_market', 'list_date', 'beds', 'baths',
-    'sqft', 'acreage', 'elevation_feet', 'year_built', 'updated_at', 'city',
-    'sold_date', 'sold_price', 'address', 'county', 'status',
-    'captured_at', 'mls_number',
+    'sqft', 'acreage', 'elevation_feet', 'view_potential', 'year_built',
+    'updated_at', 'city', 'sold_date', 'sold_price', 'address', 'county',
+    'status', 'captured_at', 'mls_number',
 }
 
 # Cross-MLS dedup subquery: for listings sharing the same address_key AND
@@ -111,6 +111,10 @@ class ListingFilters:
     min_sqft: Optional[int] = None
     min_acreage: Optional[float] = None
     max_dom: Optional[int] = None
+    min_elevation: Optional[int] = None
+    max_elevation: Optional[int] = None
+    min_view_score: Optional[int] = None  # 1-5 from view_potential column
+    has_view: Optional[bool] = None       # view_yn = 1
     property_type: Optional[str] = None
     mls_source: Optional[str] = None
     q: Optional[str] = None             # free-text search
@@ -155,6 +159,10 @@ class ListingFilters:
             min_sqft=get('min_sqft', int),
             min_acreage=get('min_acreage', float),
             max_dom=get('max_dom', int),
+            min_elevation=get('min_elevation', int),
+            max_elevation=get('max_elevation', int),
+            min_view_score=get('min_view_score', int),
+            has_view=get('has_view') in ('1', 'true', 'yes') if get('has_view') else None,
             property_type=get('property_type'),
             mls_source=get('mls_source'),
             q=get('q'),
@@ -651,6 +659,21 @@ class ListingService:
         if filters.min_acreage is not None:
             conditions.append("acreage >= ?")
             params.append(filters.min_acreage)
+
+        # Elevation (use COALESCE to check both Navica and Canopy columns)
+        if filters.min_elevation is not None:
+            conditions.append("COALESCE(elevation_feet, elevation) >= ?")
+            params.append(filters.min_elevation)
+        if filters.max_elevation is not None:
+            conditions.append("COALESCE(elevation_feet, elevation) <= ?")
+            params.append(filters.max_elevation)
+
+        # View score (1-5 from view_potential) and has_view flag
+        if filters.min_view_score is not None:
+            conditions.append("view_potential >= ?")
+            params.append(filters.min_view_score)
+        if filters.has_view is True:
+            conditions.append("view_yn = 1")
 
         # DOM filter (use list_date for accuracy)
         if filters.max_dom is not None:

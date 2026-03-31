@@ -674,6 +674,148 @@ def listing_stats():
         }), 500
 
 
+# ── Smart Search: Query Parser + Autocomplete ──
+
+# Lazy-loaded parser singleton (loads city/county lists from DB once)
+_parser = None
+_parser_lock = threading.Lock()
+
+def _get_parser():
+    global _parser
+    if _parser is None:
+        with _parser_lock:
+            if _parser is None:
+                from src.core.query_parser import QueryParser
+                conn = sqlite3.connect(DB_PATH)
+                cities = [r[0] for r in conn.execute(
+                    "SELECT DISTINCT city FROM listings WHERE city IS NOT NULL AND city != '' ORDER BY city"
+                ).fetchall()]
+                counties = [r[0] for r in conn.execute(
+                    "SELECT DISTINCT county FROM listings WHERE county IS NOT NULL AND county != '' ORDER BY county"
+                ).fetchall()]
+                conn.close()
+                _parser = QueryParser(cities=cities, counties=counties)
+    return _parser
+
+
+@public_bp.route('/search/parse', methods=['GET'])
+def parse_search_query():
+    """Parse a natural language search query into structured filters.
+
+    GET /api/public/search/parse?q=3+bed+cabin+under+400k+in+Sylva
+
+    Returns structured filters compatible with ListingFilters, plus
+    human-readable interpretations for display as filter chips.
+    """
+    q = request.args.get('q', '').strip()
+    if not q:
+        return jsonify({'success': True, 'data': {
+            'filters': {}, 'remainder': '', 'interpretations': [],
+            'redirect': None,
+        }})
+
+    parser = _get_parser()
+    result = parser.parse(q)
+
+    # For MLS lookups, check if listing exists and provide redirect URL
+    redirect_url = None
+    if result.is_mls_lookup and result.filters.get('mls_number'):
+        mls = result.filters['mls_number']
+        conn = sqlite3.connect(DB_PATH)
+        row = conn.execute(
+            "SELECT id FROM listings WHERE mls_number = ? OR mls_number = ?",
+            [mls, f'CAR{mls}']
+        ).fetchone()
+        conn.close()
+        if row:
+            redirect_url = f'/listings/{row[0]}'
+
+    return jsonify({
+        'success': True,
+        'data': {
+            'filters': result.filters,
+            'remainder': result.remainder,
+            'interpretations': result.interpretations,
+            'redirect': redirect_url,
+            'is_mls_lookup': result.is_mls_lookup,
+            'is_address_lookup': result.is_address_lookup,
+        }
+    })
+
+
+@public_bp.route('/autocomplete', methods=['GET'])
+def autocomplete():
+    """Autocomplete suggestions for the smart search bar.
+
+    GET /api/public/autocomplete?q=syl&limit=8
+
+    Returns city, county, and address matches.
+    """
+    q = request.args.get('q', '').strip()
+    limit = min(int(request.args.get('limit', 8)), 20)
+
+    if len(q) < 2:
+        return jsonify({'success': True, 'data': {'suggestions': []}})
+
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    suggestions = []
+
+    try:
+        q_lower = q.lower()
+        q_like = f'{q}%'
+
+        # Cities matching prefix
+        cities = conn.execute(
+            "SELECT city, COUNT(*) as cnt FROM listings "
+            "WHERE city IS NOT NULL AND LOWER(city) LIKE LOWER(?) "
+            "AND status = 'ACTIVE' AND zone IN (1,2,3) "
+            "GROUP BY city ORDER BY cnt DESC LIMIT ?",
+            [q_like, limit]
+        ).fetchall()
+        for row in cities:
+            suggestions.append({
+                'type': 'city', 'value': row['city'],
+                'label': row['city'], 'count': row['cnt'],
+            })
+
+        # Counties matching prefix
+        counties = conn.execute(
+            "SELECT county, COUNT(*) as cnt FROM listings "
+            "WHERE county IS NOT NULL AND LOWER(county) LIKE LOWER(?) "
+            "AND status = 'ACTIVE' AND zone IN (1,2,3) "
+            "GROUP BY county ORDER BY cnt DESC LIMIT ?",
+            [q_like, limit]
+        ).fetchall()
+        for row in counties:
+            suggestions.append({
+                'type': 'county', 'value': row['county'],
+                'label': f"{row['county']} County", 'count': row['cnt'],
+            })
+
+        # Address matches (only if 3+ chars)
+        if len(q) >= 3:
+            addresses = conn.execute(
+                "SELECT id, address, city, list_price FROM listings "
+                "WHERE address IS NOT NULL AND LOWER(address) LIKE LOWER(?) "
+                "AND status = 'ACTIVE' AND zone IN (1,2,3) "
+                "ORDER BY list_price DESC LIMIT ?",
+                [f'%{q}%', limit]
+            ).fetchall()
+            for row in addresses:
+                suggestions.append({
+                    'type': 'address', 'value': row['address'],
+                    'label': f"{row['address']}, {row['city'] or ''}".strip(', '),
+                    'listing_id': row['id'],
+                    'price': row['list_price'],
+                })
+
+    finally:
+        conn.close()
+
+    return jsonify({'success': True, 'data': {'suggestions': suggestions[:limit]}})
+
+
 @public_bp.route('/listings/<listing_id>/brochure', methods=['GET'])
 def get_listing_brochure(listing_id):
     """
