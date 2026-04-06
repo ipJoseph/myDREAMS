@@ -93,6 +93,7 @@ config/config.yaml
 .env
 *.env
 .env.*
+.secrets/
 apps/property-extension-v3.zip
 *.zip
 
