@@ -3,7 +3,12 @@
 # Runs at 6:30 AM daily — verifies today's sync completed successfully.
 # Sends an alert email if the sync log is missing or shows failure.
 
-PROJECT_DIR="/home/bigeug/myDREAMS"
+# Auto-detect environment
+if [ -d "/opt/mydreams" ]; then
+    PROJECT_DIR="/opt/mydreams"
+else
+    PROJECT_DIR="/home/bigeug/myDREAMS"
+fi
 CRON_LOG_DIR="$PROJECT_DIR/apps/fub-to-sheets/cron_logs"
 TODAY=$(date +%Y%m%d)
 RECIPIENT="joseph@integritypursuits.com"
