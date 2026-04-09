@@ -83,16 +83,82 @@ myDREAMS (Desktop Real Estate Agent Management System) is a local-first platform
 ### Key Apps
 | App | Port | Purpose |
 |-----|------|---------|
-| property-api | 5000 | REST API for property data |
-| property-dashboard | 5001 | Web UI for properties |
+| property-api | 5000 | REST API for property data + public IDX endpoints |
+| property-dashboard | 5001 | Mission Control: briefing, calling, property management |
+| public-site | 3000 | Next.js public site at wncmountain.homes |
 | property-extension-v3 | - | Chrome extension (current) |
 | fub-to-sheets | - | CRM to Sheets sync |
+| navica | - | Carolina Smokies MLS sync (RESO API) |
+| mlsgrid | - | Canopy MLS sync (pending credentials) |
 
 ### Important Paths
-- Database: `data/` (SQLite)
+- Database: `data/dreams.db` (SQLite, single canonical store; `listings` is the property table)
+- Photos: `data/photos/navica/` (DEV) → `/mnt/dreams-photos/` (PRD volume)
 - Secrets: `.env` (git-ignored)
 - Shared CSS: `shared/css/dreams.css`
 - Archive: `archive/` (deprecated code)
+- Tests: `tests/` (pytest, with `conftest.py` providing `test_db`, `sample_lead`, `sample_property`, `mock_fub_api`, `env_vars` fixtures)
+- Python venv: `.venv/` (Python 3.13)
+
+## Common Commands
+
+**Run apps locally:**
+```bash
+cd apps/property-api      && python3 app.py     # :5000
+cd apps/property-dashboard && python3 app.py    # :5001
+cd apps/public-site       && npx next dev       # :3000
+```
+
+**Build / lint public-site:**
+```bash
+cd apps/public-site && npx next build
+cd apps/public-site && npx next lint            # eslint via next
+```
+
+**Tests (pytest, run from repo root):**
+```bash
+python3 -m pytest                                          # all tests
+python3 -m pytest tests/test_integration/                  # one folder
+python3 -m pytest tests/test_integration/test_public_api_bbo_guard.py   # one file
+python3 -m pytest tests/test_integration/test_public_api_bbo_guard.py::test_name -v   # one test
+```
+
+**MLS sync engines:**
+```bash
+python3 -m apps.navica.sync_engine --full --status Active
+python3 -m apps.navica.download_photos --status ALL --workers 10
+python3 -m apps.mlsgrid.sync_engine --test           # demo API (set MLSGRID_USE_DEMO=true)
+python3 -m apps.mlsgrid.sync_engine --full --status Active
+```
+
+**Database sync (PRD is canonical):**
+```bash
+scripts/sync-from-prd.sh         # pull PRD db to DEV
+```
+
+## High-Level Architecture
+
+The system is built around **one SQLite database (`data/dreams.db`)** that all apps share. There is no microservice mesh — apps connect to the same file via `src/core/database.py` (`DREAMSDatabase` class). Understanding this is the key to the project:
+
+**Ingestion → Storage → Surfaces:**
+
+1. **Ingestion** writes to the same `listings`, `agents`, and `contacts` tables regardless of source:
+   - `apps/navica/sync_engine.py` — Carolina Smokies MLS (Navica REST API, not OData; see `apps/navica/client.py`)
+   - `apps/mlsgrid/sync_engine.py` — Canopy MLS (OData; reuses Navica's `field_mapper.py`)
+   - `apps/fub-to-sheets/` — Follow Up Boss leads + behavioral signals → `contacts` + scoring
+   - `apps/property-extension-v3/` — Chrome extension for ad-hoc property capture
+   - PropStream CSV imports (lower trust; missing fields)
+
+2. **Storage** is `data/dreams.db`. The `listings` table is the **single canonical property table** — there is no separate `properties` table. `mls_source` distinguishes origins (`'Navica'`, `'CanopyMLS'`). Photos are stored locally and referenced via `photo_local_path`.
+
+3. **Surfaces** all read from the same DB:
+   - `apps/property-api` (Flask, :5000) — REST API. Public IDX endpoints under `/api/public` are registered as `public_bp` and respect `idx_opt_in` / `idx_address_display`.
+   - `apps/property-dashboard` (Flask, :5001) — Mission Control internal UI.
+   - `apps/public-site` (Next.js 16, :3000) — wncmountain.homes; calls property-api via Next.js rewrites.
+
+**Lead scoring** is multi-dimensional: HEAT (IDX activity), VALUE (revenue opportunity), RELATIONSHIP (comm frequency), PRIORITY (weighted blend). Scores live on the `contacts` table and drive the daily call list.
+
+**Production** runs on a single Hetzner VPS via systemd + gunicorn + Caddy. There is no staging environment between DEV and PRD.
 
 ## Documentation
 
