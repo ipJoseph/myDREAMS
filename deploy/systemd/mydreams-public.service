@@ -1,0 +1,16 @@
+[Unit]
+Description=myDREAMS Public Website (Next.js)
+After=network.target mydreams-api.service
+Wants=mydreams-api.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/mydreams/apps/public-site
+ExecStart=/usr/bin/npx next start -p 3000
+Restart=on-failure
+RestartSec=5
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target

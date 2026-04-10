@@ -62,5 +62,27 @@ if ! grep -q "SYNC COMPLETED SUCCESSFULLY" "$LOG_FILE"; then
     exit 1
 fi
 
+# Sync completed, but did the EUG Morning FUB Brief email actually go out?
+# The Python script swallows SMTP errors and still logs SYNC COMPLETED SUCCESSFULLY,
+# so we have to inspect the log for email-send failures explicitly.
+if grep -q "Failed to send email" "$LOG_FILE"; then
+    EMAIL_ERR=$(grep "Failed to send email" "$LOG_FILE" | head -1)
+    # Log to syslog too, since the alert email will likely also fail
+    # (healthcheck shares the same SMTP credentials that just broke).
+    logger -t fub-healthcheck "EUG daily email NOT delivered: $EMAIL_ERR"
+    send_alert \
+        "[DREAMS ALERT] FUB sync OK but EUG daily email did not send" \
+        "FUB sync completed on $(date +%Y-%m-%d) and all sheet/DB data is updated, but the EUG Morning FUB Brief email failed to deliver.
+
+Error: $EMAIL_ERR
+
+Most likely cause: Gmail App Password was revoked.
+Fix:
+  1. Regenerate at https://myaccount.google.com/apppasswords
+  2. Update SMTP_PASSWORD in /opt/mydreams/.env
+  3. Re-send today's report: /opt/mydreams/apps/fub-to-sheets/run_fub_sync.sh"
+    exit 1
+fi
+
 # All good — silent success
 exit 0

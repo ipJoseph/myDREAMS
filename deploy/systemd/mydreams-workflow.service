@@ -1,0 +1,28 @@
+[Unit]
+Description=DREAMS Buyer Workflow
+After=network.target
+
+[Service]
+Type=simple
+User=dreams
+Group=dreams
+WorkingDirectory=/opt/mydreams/apps/buyer-workflow
+Environment="PATH=/opt/mydreams/venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="PYTHONUNBUFFERED=1"
+ExecStart=/opt/mydreams/venv/bin/python app.py
+Restart=always
+RestartSec=5
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=mydreams-workflow
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/opt/mydreams/data /opt/mydreams/logs /opt/mydreams/apps/buyer-workflow
+
+[Install]
+WantedBy=multi-user.target

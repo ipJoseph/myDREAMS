@@ -7,9 +7,10 @@
         "DREAMS_DB_PATH": "/home/bigeug/myDREAMS/data/dreams.db"
       }
     },
-    "fub": {
+    "_fub_DISABLED_2026_04_10_pivot": {
       "command": "bash",
-      "args": ["/home/bigeug/myDREAMS/mcp-servers/fub/run.sh"]
+      "args": ["/home/bigeug/myDREAMS/mcp-servers/fub/run.sh"],
+      "_note": "Disabled during pivot away from JTH-FUB. Rename key back to 'fub' after Phase D (FUB repointing). See plans/rustling-finding-goblet.md"
     }
   }
 }

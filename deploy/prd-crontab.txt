@@ -21,3 +21,13 @@
 
 # Schema check (ensure columns exist after any manual DB operations)
 0 4 * * * cd /opt/mydreams && python3 scripts/ensure_schema.py >> /opt/mydreams/data/logs/schema.log 2>&1
+
+# ============================================================================
+# DISABLED 2026-04-10 — JTH-FUB API access revoked, pivoting to Eugy's personal FUB
+# Re-enable after Phase D (FUB repointing). See plans/rustling-finding-goblet.md
+# ============================================================================
+# FUB to Sheets daily sync (6 AM EDT = 10 UTC)
+# 0 10 * * * /opt/mydreams/apps/fub-to-sheets/run_fub_sync.sh
+#
+# FUB sync health check (6:30 AM EDT = 10:30 UTC)
+# 30 10 * * * /opt/mydreams/scripts/healthcheck_fub_sync.sh
