@@ -22,8 +22,25 @@ from routes.properties import properties_bp
 from routes.health import health_bp
 from routes.contacts import contacts_bp
 from routes.public import public_bp
+from routes.public_writes import public_writes_bp
 from routes.user import user_bp
 from routes.admin import admin_bp
+
+# Flask-Limiter is optional: if it's not installed, we log a warning and
+# the public write endpoints run without per-IP rate limiting. The endpoint
+# still has validation, Turnstile (if configured), and logging — this just
+# removes one defense layer. We prefer degraded-but-running over hard-fail.
+try:
+    from flask_limiter import Limiter
+    from flask_limiter.util import get_remote_address
+    _LIMITER_AVAILABLE = True
+except ImportError:
+    _LIMITER_AVAILABLE = False
+    import logging as _logging
+    _logging.getLogger('dreams.limiter').warning(
+        "flask-limiter not installed; /api/public write endpoints will run without rate limiting. "
+        "Install with: pip install flask-limiter"
+    )
 from services.notion_sync_service import NotionSyncService
 from services.idx_validation_service import IDXValidationService
 
@@ -109,8 +126,29 @@ app.register_blueprint(health_bp)
 app.register_blueprint(properties_bp, url_prefix='/api/v1')
 app.register_blueprint(contacts_bp, url_prefix='/api/v1')
 app.register_blueprint(public_bp, url_prefix='/api/public')
+app.register_blueprint(public_writes_bp, url_prefix='/api/public')
 app.register_blueprint(user_bp, url_prefix='/api/user')
 app.register_blueprint(admin_bp, url_prefix='/api/v1/admin')
+
+# Rate limiting for the public write endpoints (unauthenticated).
+# Only the contact form endpoint is limited — other /api/public/* reads
+# are not rate-limited by this limiter.
+#
+# NOTE: Flask-Limiter's `limiter.limit(...)(func)` returns a wrapped function
+# but does NOT mutate app.view_functions — we have to do that explicitly so
+# Flask's router actually calls the limited version.
+if _LIMITER_AVAILABLE:
+    limiter = Limiter(
+        key_func=get_remote_address,
+        app=app,
+        default_limits=[],  # No global default — opt in per-route
+        storage_uri="memory://",  # Good enough for single-process; swap to redis:// if we scale out
+        headers_enabled=True,  # Send X-RateLimit-* headers on responses
+    )
+    _contact_endpoint = 'public_writes.create_public_contact'
+    _original_view = app.view_functions[_contact_endpoint]
+    _limited_view = limiter.limit("10 per hour")(_original_view)
+    app.view_functions[_contact_endpoint] = _limited_view
 
 # Initialize services
 notion_sync_service = None

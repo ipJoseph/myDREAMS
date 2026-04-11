@@ -500,6 +500,189 @@ class FUBClient:
                            success=False, error_message=str(e))
             return None
 
+    # Valid event types accepted by POST /v1/events.
+    # Source: https://docs.followupboss.com/reference/events-post
+    # If FUB adds new types, expand this set rather than removing the validation.
+    VALID_EVENT_TYPES = frozenset({
+        "Registration",
+        "Inquiry",
+        "Seller Inquiry",
+        "Property Inquiry",
+        "General Inquiry",
+        "Viewed Property",
+        "Saved Property",
+        "Visited Website",
+        "Incoming Call",
+        "Unsubscribed",
+        "Property Search",
+        "Saved Property Search",
+        "Visited Open House",
+        "Viewed Page",
+    })
+
+    def create_event(
+        self,
+        event_type: str,
+        source: str,
+        person: Optional[Dict] = None,
+        property: Optional[Dict] = None,
+        property_search: Optional[Dict] = None,
+        message: Optional[str] = None,
+        description: Optional[str] = None,
+        system: Optional[str] = None,
+        page_url: Optional[str] = None,
+        page_title: Optional[str] = None,
+        page_referrer: Optional[str] = None,
+        page_duration: Optional[int] = None,
+        occurred_at: Optional[str] = None,
+        campaign: Optional[Dict] = None,
+        custom_fields: Optional[Dict[str, Any]] = None,
+    ) -> Optional[Dict]:
+        """
+        Create an event in Follow Up Boss via POST /v1/events.
+
+        This is the same endpoint that Real Geeks, Sierra Interactive, and
+        every other IDX vendor uses to push website activity into FUB. The
+        endpoint auto-creates the person if it doesn't exist (deduping on
+        email or phone), so we don't need a separate person-create call.
+
+        Args:
+            event_type: One of VALID_EVENT_TYPES (raises ValueError otherwise).
+            source: Lead source identifier — used by FUB for attribution.
+                    For our public site this is typically "wncmountain.homes".
+            person: Person data dict. At minimum {"emails": [{"value": "..."}]}
+                    or {"phones": [{"value": "..."}]} for dedup. Other fields:
+                    firstName, lastName, tags, stage.
+            property: Property data dict. Fields: street, city, state, code
+                    (zipcode as string), mlsNumber, price, forRent, url, type,
+                    bedrooms, bathrooms, area, lot.
+            property_search: Search criteria dict for Property Search events.
+            message: User inquiry message text (the "what they wrote" field).
+            description: Additional context.
+            system: System identifier — for our use, "myDREAMS".
+            page_url, page_title, page_referrer, page_duration: Page view metadata.
+            occurred_at: ISO 8601 timestamp. Defaults to now on the FUB side.
+            campaign: Marketing attribution dict.
+            custom_fields: Dict of custom field values. Keys must start with
+                    "custom" per FUB's convention; values are the field values.
+
+        Returns:
+            Created event dict (with FUB-assigned id) on success, None on failure.
+            Audit logging happens in both cases.
+        """
+        if event_type not in self.VALID_EVENT_TYPES:
+            raise ValueError(
+                f"Invalid event_type {event_type!r}. "
+                f"Must be one of: {sorted(self.VALID_EVENT_TYPES)}"
+            )
+
+        url = f"{self.base_url}/events"
+        payload: Dict[str, Any] = {
+            "source": source,
+            "type": event_type,
+        }
+
+        if system:
+            payload["system"] = system
+        if person:
+            payload["person"] = person
+        if property:
+            payload["property"] = property
+        if property_search:
+            payload["propertySearch"] = property_search
+        if message:
+            payload["message"] = message
+        if description:
+            payload["description"] = description
+        if page_url:
+            payload["pageUrl"] = page_url
+        if page_title:
+            payload["pageTitle"] = page_title
+        if page_referrer:
+            payload["pageReferrer"] = page_referrer
+        if page_duration is not None:
+            payload["pageDuration"] = page_duration
+        if occurred_at:
+            payload["occurredAt"] = occurred_at
+        if campaign:
+            payload["campaign"] = campaign
+        if custom_fields:
+            # Per FUB convention, custom field keys are passed at the top level
+            # with names beginning with "custom".
+            for key, value in custom_fields.items():
+                if not key.startswith("custom"):
+                    key = f"custom{key[0].upper()}{key[1:]}"
+                payload[key] = value
+
+        # Build a short audit summary that doesn't dump PII into logs
+        person_email = None
+        person_phone = None
+        if isinstance(person, dict):
+            emails = person.get("emails") or []
+            phones = person.get("phones") or []
+            if emails and isinstance(emails[0], dict):
+                person_email = emails[0].get("value")
+            if phones and isinstance(phones[0], dict):
+                person_phone = phones[0].get("value")
+        audit_summary = f"type={event_type} source={source}"
+        if person_email:
+            audit_summary += f" email={person_email}"
+        elif person_phone:
+            audit_summary += f" phone={person_phone}"
+
+        try:
+            if self.logger:
+                self.logger.debug(f"Creating FUB event: {audit_summary}")
+
+            response = self.session.post(url, json=payload, timeout=30)
+
+            if response.status_code == 429:
+                retry_after = response.headers.get("Retry-After", "5")
+                if self.logger:
+                    self.logger.warning(f"Rate limited creating event. Retry after {retry_after}s")
+                self._audit_log('create_event', 'events', 'POST',
+                                payload_summary=audit_summary,
+                                success=False,
+                                error_message=f"Rate limited (429), retry after {retry_after}",
+                                response_status=429)
+                return None
+
+            response.raise_for_status()
+            result = response.json() if response.content else {}
+
+            if self.logger:
+                self.logger.info(f"Created FUB event: {audit_summary}")
+
+            entity_id = result.get('id') if isinstance(result, dict) else None
+            self._audit_log('create_event', 'events', 'POST',
+                            fub_entity_id=entity_id,
+                            payload_summary=audit_summary,
+                            response_status=response.status_code)
+            return result
+
+        except requests.exceptions.HTTPError as e:
+            if self.logger:
+                self.logger.error(f"HTTP error creating FUB event: {e}")
+            self._audit_log('create_event', 'events', 'POST',
+                            payload_summary=audit_summary,
+                            success=False, error_message=str(e),
+                            response_status=getattr(e.response, 'status_code', None))
+            return None
+        except requests.exceptions.RequestException as e:
+            if self.logger:
+                self.logger.error(f"Request error creating FUB event: {e}")
+            self._audit_log('create_event', 'events', 'POST',
+                            payload_summary=audit_summary,
+                            success=False, error_message=str(e))
+            return None
+        except Exception as e:
+            if self.logger:
+                self.logger.error(f"Unexpected error creating FUB event: {e}")
+            self._audit_log('create_event', 'events', 'POST',
+                            payload_summary=audit_summary,
+                            success=False, error_message=str(e))
+            return None
+
     def fetch_smart_lists(self) -> List[Dict]:
         """
         Fetch all smart lists from Follow Up Boss.
