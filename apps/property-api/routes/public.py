@@ -326,7 +326,10 @@ def get_listing(listing_id):
                         daemon=True
                     ).start()
 
-                listing['photos'] = local_only
+                # Prefer local photos; fall back to CDN URLs if no local
+                # copies exist. CDN tokens may expire, but showing something
+                # (or triggering the on-demand download) beats an empty gallery.
+                listing['photos'] = local_only if local_only else photos
             except json.JSONDecodeError:
                 listing['photos'] = []
 
