@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import ContactForm from "@/components/ContactForm";
 
 export const metadata: Metadata = {
   title: "Contact Us",
@@ -39,107 +40,7 @@ export default async function ContactPage({ searchParams }: PageProps) {
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
             {/* Contact form */}
-            <div className="bg-white border border-gray-200/60 p-8">
-              <form
-                action={`mailto:Joseph@IntegrityPursuits.com?subject=${encodeURIComponent(
-                  listingRef
-                    ? `Inquiry about MLS# ${listingRef}`
-                    : "Website Inquiry"
-                )}`}
-                method="post"
-                encType="text/plain"
-                className="space-y-5"
-              >
-                {listingRef && (
-                  <div className="bg-[var(--color-primary)]/5 border border-[var(--color-primary)]/10 p-4 mb-2">
-                    <p className="text-xs text-[var(--color-text-light)] uppercase tracking-wider">Inquiring about</p>
-                    <p className="text-sm text-[var(--color-primary)] font-medium mt-1">
-                      {addressRef || `MLS# ${listingRef}`}
-                    </p>
-                  </div>
-                )}
-
-                <div>
-                  <label
-                    htmlFor="name"
-                    className="block text-xs font-medium text-[var(--color-text-light)] uppercase tracking-wider mb-2"
-                  >
-                    Name *
-                  </label>
-                  <input
-                    type="text"
-                    id="name"
-                    name="name"
-                    required
-                    className="w-full px-4 py-3 border border-gray-200/60 bg-[var(--color-eggshell)] text-[var(--color-text)] text-sm focus:outline-none focus:border-[var(--color-accent)] transition"
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="email"
-                    className="block text-xs font-medium text-[var(--color-text-light)] uppercase tracking-wider mb-2"
-                  >
-                    Email *
-                  </label>
-                  <input
-                    type="email"
-                    id="email"
-                    name="email"
-                    required
-                    className="w-full px-4 py-3 border border-gray-200/60 bg-[var(--color-eggshell)] text-[var(--color-text)] text-sm focus:outline-none focus:border-[var(--color-accent)] transition"
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="phone"
-                    className="block text-xs font-medium text-[var(--color-text-light)] uppercase tracking-wider mb-2"
-                  >
-                    Phone
-                  </label>
-                  <input
-                    type="tel"
-                    id="phone"
-                    name="phone"
-                    className="w-full px-4 py-3 border border-gray-200/60 bg-[var(--color-eggshell)] text-[var(--color-text)] text-sm focus:outline-none focus:border-[var(--color-accent)] transition"
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="message"
-                    className="block text-xs font-medium text-[var(--color-text-light)] uppercase tracking-wider mb-2"
-                  >
-                    Message *
-                  </label>
-                  <textarea
-                    id="message"
-                    name="message"
-                    rows={5}
-                    required
-                    defaultValue={
-                      listingRef
-                        ? `I'm interested in the property at ${addressRef || ""} (MLS# ${listingRef}). Please send me more information.`
-                        : ""
-                    }
-                    className="w-full px-4 py-3 border border-gray-200/60 bg-[var(--color-eggshell)] text-[var(--color-text)] text-sm focus:outline-none focus:border-[var(--color-accent)] transition"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  className="w-full py-4 bg-[var(--color-accent)] text-[var(--color-primary)] font-semibold text-sm uppercase tracking-wider hover:bg-[var(--color-accent-hover)] transition"
-                >
-                  Send Message
-                </button>
-
-                <p className="text-xs text-[var(--color-text-light)]">
-                  Your information is kept private and never shared with third
-                  parties.
-                </p>
-              </form>
-            </div>
+            <ContactForm listingRef={listingRef} addressRef={addressRef} />
 
             {/* Contact info sidebar */}
             <div className="space-y-6">

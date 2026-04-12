@@ -193,3 +193,43 @@ export function formatNumber(n: number | null | undefined): string {
   if (n == null) return "N/A";
   return new Intl.NumberFormat("en-US").format(n);
 }
+
+// ---------------------------------------------------------------------------
+// Public write endpoints (contact form, event tracking)
+// ---------------------------------------------------------------------------
+
+export interface ContactFormPayload {
+  name: string;
+  email: string;
+  phone?: string;
+  message?: string;
+  listing_id?: string;
+  source?: string;
+  turnstile_token?: string;
+}
+
+export interface ContactFormResult {
+  ok: boolean;
+  contact_id?: string;
+  error?: string;
+  fub?: string;
+}
+
+export async function submitContactForm(
+  payload: ContactFormPayload
+): Promise<ContactFormResult> {
+  try {
+    const res = await fetch(apiUrl("/contacts"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      return { ok: false, error: data.error || `Server error (${res.status})` };
+    }
+    return data as ContactFormResult;
+  } catch (e) {
+    return { ok: false, error: "Network error. Please try again." };
+  }
+}
