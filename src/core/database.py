@@ -57,9 +57,19 @@ class DREAMSDatabase:
             conn.executescript(indexes_schema)
             conn.commit()
 
-            # Seed default system settings
-            self._seed_default_settings(conn)
-            conn.commit()
+            # Seed default system settings. This is a write operation that
+            # can fail when the MLS sync holds a write lock. Since the settings
+            # are only seeded once and already exist in production, we skip
+            # gracefully rather than crashing the entire API on startup.
+            try:
+                self._seed_default_settings(conn)
+                conn.commit()
+            except Exception as e:
+                if "locked" in str(e).lower():
+                    logger.warning(f"Skipped _seed_default_settings (DB locked by another process). "
+                                   f"Settings already exist from prior runs. Error: {e}")
+                else:
+                    raise
 
             logger.info(f"Database initialized at {self.db_path}")
 
