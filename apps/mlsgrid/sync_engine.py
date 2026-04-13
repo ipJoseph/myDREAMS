@@ -103,10 +103,9 @@ class MLSGridSyncEngine:
     def _get_connection(self) -> sqlite3.Connection:
         """Get a database connection."""
         conn = sqlite3.connect(str(self.db_path), timeout=60)
-        conn.execute('PRAGMA busy_timeout=60000')
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA journal_mode = WAL")
-        conn.execute("PRAGMA busy_timeout = 5000")
+        conn.execute("PRAGMA busy_timeout = 30000")
         return conn
 
     def _ensure_tables(self):
