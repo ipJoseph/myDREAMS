@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Script from "next/script";
 import SessionWrapper from "@/components/SessionWrapper";
 import UserMenu from "@/components/UserMenu";
 import "./globals.css";
@@ -187,9 +188,15 @@ function Footer() {
 
         <div className="border-t border-white/10 mt-12 pt-8 flex flex-col md:flex-row items-center justify-between text-xs">
           <span>&copy; {new Date().getFullYear()} WNC Mountain Homes. All rights reserved.</span>
-          <span className="mt-2 md:mt-0 uppercase tracking-widest text-white/40">
-            Residential &middot; Land &middot; Investment &middot; Commercial
-          </span>
+          <div className="mt-2 md:mt-0 flex items-center gap-4">
+            <Link href="/privacy" className="hover:text-white transition">
+              Privacy Policy
+            </Link>
+            <span className="text-white/20">&middot;</span>
+            <span className="uppercase tracking-widest text-white/40">
+              Residential &middot; Land &middot; Investment &middot; Commercial
+            </span>
+          </div>
         </div>
       </div>
     </footer>
@@ -209,6 +216,24 @@ export default function RootLayout({
           <main className="flex-1">{children}</main>
           <Footer />
         </SessionWrapper>
+        {/* Follow Up Boss Pixel — tracks visitor behavior for lead scoring.
+            Installed 2026-04-13 as part of the JTH-independence pivot.
+            Tracker ID: WT-OFZVWHMW (tied to integritypursuits.followupboss.com) */}
+        <Script
+          id="fub-pixel"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function(w,i,d,g,e,t){w["WidgetTrackerObject"]=g;(w[g]=w[g]||function()
+              {(w[g].q=w[g].q||[]).push(arguments);}),(w[g].ds=1*new Date());(e="script"),
+              (t=d.createElement(e)),(e=d.getElementsByTagName(e)[0]);t.async=1;t.src=i;
+              e.parentNode.insertBefore(t,e);})
+              (window,"https://widgetbe.com/agent",document,"widgetTracker");
+              window.widgetTracker("create", "WT-OFZVWHMW");
+              window.widgetTracker("send", "pageview");
+            `,
+          }}
+        />
       </body>
     </html>
   );
