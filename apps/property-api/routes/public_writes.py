@@ -240,8 +240,28 @@ def create_public_contact():
         logger.info("public_contact: validation failed ip=%s err=%s", remote_ip, err)
         return jsonify({"ok": False, "error": err}), 400
 
-    # 3. Local DB write (source of truth)
-    contact_id = _upsert_public_contact(clean, remote_ip)
+    # 3. Local DB write (source of truth) — retry on DB lock
+    #    The MLS Grid sync holds write locks for 2-5 min every 30 min.
+    #    Retrying with short sleeps catches the brief gaps between batch commits.
+    import time as _time
+    import sqlite3 as _sqlite3
+
+    contact_id = None
+    db_retries = 5
+    for attempt in range(db_retries):
+        try:
+            contact_id = _upsert_public_contact(clean, remote_ip)
+            break
+        except _sqlite3.OperationalError as e:
+            if "locked" in str(e).lower() and attempt < db_retries - 1:
+                logger.warning("public_contact: DB locked, retry %d/%d", attempt + 1, db_retries)
+                _time.sleep(3)
+            else:
+                logger.error("public_contact: DB write failed after %d attempts: %s", db_retries, e)
+                return jsonify({
+                    "ok": False,
+                    "error": "Server is busy. Please try again in a moment.",
+                }), 503
 
     # 4. Best-effort FUB push
     fub_result = _push_to_fub(clean)
