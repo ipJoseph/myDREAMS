@@ -41,7 +41,7 @@ class DREAMSDatabase:
             # Enable WAL mode for better concurrency and crash recovery
             conn.execute("PRAGMA journal_mode = WAL")
             conn.execute("PRAGMA foreign_keys = ON")
-            conn.execute("PRAGMA busy_timeout = 5000")
+            conn.execute("PRAGMA busy_timeout = 30000")
 
             # First create tables only (without indexes that depend on new columns)
             tables_schema = self._get_tables_schema()
