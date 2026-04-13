@@ -43,33 +43,32 @@ class DREAMSDatabase:
             conn.execute("PRAGMA foreign_keys = ON")
             conn.execute("PRAGMA busy_timeout = 30000")
 
-            # First create tables only (without indexes that depend on new columns)
+            # In production the schema already exists. Check with a cheap read
+            # before attempting any writes, so the API can start even when the
+            # MLS Grid sync holds a write lock.
+            row = conn.execute(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='leads'"
+            ).fetchone()
+            schema_exists = row and row[0] > 0
+
+            if schema_exists:
+                logger.info(f"Database schema already exists at {self.db_path}, skipping init writes")
+                return
+
+            # Fresh database — run the full schema creation
             tables_schema = self._get_tables_schema()
             conn.executescript(tables_schema)
             conn.commit()
 
-            # Apply migrations to add missing columns to existing tables
             self._apply_migrations(conn)
             conn.commit()
 
-            # Now create indexes (columns will exist)
             indexes_schema = self._get_indexes_schema()
             conn.executescript(indexes_schema)
             conn.commit()
 
-            # Seed default system settings. This is a write operation that
-            # can fail when the MLS sync holds a write lock. Since the settings
-            # are only seeded once and already exist in production, we skip
-            # gracefully rather than crashing the entire API on startup.
-            try:
-                self._seed_default_settings(conn)
-                conn.commit()
-            except Exception as e:
-                if "locked" in str(e).lower():
-                    logger.warning(f"Skipped _seed_default_settings (DB locked by another process). "
-                                   f"Settings already exist from prior runs. Error: {e}")
-                else:
-                    raise
+            self._seed_default_settings(conn)
+            conn.commit()
 
             logger.info(f"Database initialized at {self.db_path}")
 
