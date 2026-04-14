@@ -8,6 +8,7 @@ import PropertyMap from "@/components/PropertyMap";
 import PropertyHistory from "@/components/PropertyHistory";
 import FavoriteButton from "@/components/FavoriteButton";
 import AddToCollectionButton from "@/components/AddToCollectionButton";
+import TrackPropertyView from "@/components/TrackPropertyView";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -85,6 +86,9 @@ export default async function ListingDetailPage({ params }: PageProps) {
 
   return (
     <div className="bg-[var(--color-eggshell)]">
+      {/* Event tracking: fires "Viewed Property" to /api/public/events */}
+      <TrackPropertyView listingId={listing.id} />
+
       {/* Schema.org JSON-LD */}
       <script
         type="application/ld+json"

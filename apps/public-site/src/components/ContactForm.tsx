@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { submitContactForm } from "@/lib/api";
+import { setTrackingEmail } from "@/lib/track";
 
 interface ContactFormProps {
   listingRef?: string;
@@ -31,6 +32,9 @@ export default function ContactForm({ listingRef, addressRef }: ContactFormProps
 
     if (result.ok) {
       setStatus("success");
+      // Store email so future page views in this session are tracked
+      const submittedEmail = (formData.get("email") as string) || "";
+      if (submittedEmail) setTrackingEmail(submittedEmail);
       form.reset();
     } else {
       setStatus("error");

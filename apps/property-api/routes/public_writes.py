@@ -470,6 +470,133 @@ def _lookup_listing_for_fub(listing_id: str) -> Optional[Dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
+# Event tracking endpoint (Phase C — "be our own Real Geeks")
+# ---------------------------------------------------------------------------
+
+# Valid event types the client may send. Mapped to FUB event types.
+_VALID_CLIENT_EVENTS = {
+    "viewed_property": "Viewed Property",
+    "saved_property": "Saved Property",
+    "property_search": "Property Search",
+    "saved_search": "Saved Property Search",
+    "visited_website": "Visited Website",
+    "viewed_page": "Viewed Page",
+    "registration": "Registration",
+}
+
+
+@public_writes_bp.route("/events", methods=["POST"])
+def track_public_event():
+    """
+    Ingest a behavioral event from the public website.
+
+    This is the Real Geeks replacement. The public site fires events for
+    property views, saves, searches, and page visits. We store locally
+    AND forward to FUB's /v1/events endpoint.
+
+    Request body:
+        {
+          "event": "viewed_property",         # required, one of _VALID_CLIENT_EVENTS
+          "email": "jane@example.com",        # required for FUB dedup
+          "listing_id": "lst_abc123",         # optional, for property events
+          "page_url": "/listings/lst_abc123", # optional
+          "page_title": "1040 Soquili Dr",    # optional
+        }
+
+    Response:
+        200: {ok: true}
+        400: {ok: false, error: "..."}
+    """
+    data = request.get_json(silent=True) or {}
+
+    event_key = (data.get("event") or "").strip().lower()
+    email = (data.get("email") or "").strip().lower()
+    listing_id = data.get("listing_id")
+    page_url = data.get("page_url")
+    page_title = data.get("page_title")
+
+    if event_key not in _VALID_CLIENT_EVENTS:
+        return jsonify({"ok": False, "error": f"Unknown event type: {event_key}"}), 400
+
+    if not email:
+        # Anonymous events are still valuable for FUB pixel tracking,
+        # but we can't store them locally without an identifier.
+        # Accept silently — the FUB pixel handles anonymous tracking.
+        return jsonify({"ok": True, "anonymous": True}), 200
+
+    fub_event_type = _VALID_CLIENT_EVENTS[event_key]
+
+    # Look up property data if listing_id provided
+    property_obj = None
+    property_address = None
+    property_price = None
+    property_mls = None
+    if listing_id:
+        property_obj = _lookup_listing_for_fub(listing_id)
+        if property_obj:
+            property_address = property_obj.get("street")
+            property_price = property_obj.get("price")
+            property_mls = property_obj.get("mlsNumber")
+
+    # Match email to existing contact
+    contact_id = None
+    try:
+        db = _get_db()
+        with db._get_connection() as conn:
+            row = conn.execute(
+                "SELECT id FROM leads WHERE LOWER(email) = ? LIMIT 1", (email,)
+            ).fetchone()
+            if row:
+                contact_id = row[0]
+    except Exception:
+        pass
+
+    # Store locally in contact_events (with retry for DB lock)
+    import time as _time
+    import sqlite3 as _sqlite3
+    now = datetime.now().isoformat()
+    event_id = f"web_{uuid.uuid4().hex[:12]}"
+
+    for attempt in range(5):
+        try:
+            db = _get_db()
+            with db._get_connection() as conn:
+                conn.execute(
+                    """INSERT INTO contact_events
+                       (id, contact_id, event_type, occurred_at,
+                        property_address, property_price, property_mls, imported_at)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (event_id, contact_id, fub_event_type, now,
+                     property_address, property_price, property_mls, now),
+                )
+                conn.commit()
+            break
+        except _sqlite3.OperationalError as e:
+            if "locked" in str(e).lower() and attempt < 4:
+                _time.sleep(3)
+            else:
+                logger.warning("Event store failed after retries: %s", e)
+                # Don't fail the request — still try FUB push
+                break
+
+    # Forward to FUB (best-effort)
+    fub_result = _get_fub().create_event(
+        event_type=fub_event_type,
+        source="wncmountain.homes",
+        person=FUBAdapter.build_person_dict(email=email),
+        property=property_obj,
+        page_url=page_url,
+        page_title=page_title,
+    )
+
+    fub_status = "skipped" if fub_result.skipped else ("ok" if fub_result.ok else "failed")
+    logger.info("track_event: %s email=%s listing=%s fub=%s",
+                fub_event_type, email[:20], listing_id, fub_status)
+
+    return jsonify({"ok": True, "fub": fub_status}), 200
+
+
+# ---------------------------------------------------------------------------
 # Health
 # ---------------------------------------------------------------------------
 
