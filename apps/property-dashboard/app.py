@@ -254,6 +254,19 @@ def inject_globals():
     except Exception:
         pass
 
+    # Count unworked web-form leads for inbox badge
+    inbox_new = 0
+    try:
+        db2 = get_db()
+        with db2._get_connection() as conn2:
+            row2 = conn2.execute(
+                "SELECT COUNT(*) FROM leads WHERE contact_group = 'web_form' AND stage = 'Lead'"
+            ).fetchone()
+            if row2:
+                inbox_new = row2[0]
+    except Exception:
+        pass
+
     return {
         'dreams_env': DREAMS_ENV,
         'favicon': f'/static/favicon-{DREAMS_ENV}.svg',
@@ -261,6 +274,7 @@ def inject_globals():
         'contact_views': CONTACT_VIEWS,
         'fub_url': FUB_APP_URL,
         'showing_request_count': showing_count,
+        'inbox_new_count': inbox_new,
     }
 
 
@@ -2184,6 +2198,60 @@ def api_live_activity():
     db = get_db()
     events = db.get_live_activity_feed(hours=8, limit=20)
     return jsonify({'events': events})
+
+
+@app.route('/inbox')
+@requires_auth
+def web_inbox():
+    """Web lead inbox — newest contact-form submissions, unworked first."""
+    db = get_db()
+    filter_status = request.args.get('status', 'all')
+
+    with db._get_connection() as conn:
+        if filter_status == 'new':
+            where = "AND l.stage = 'Lead'"
+        elif filter_status == 'worked':
+            where = "AND l.stage != 'Lead'"
+        else:
+            where = ""
+
+        leads = conn.execute(f'''
+            SELECT l.id, l.first_name, l.last_name, l.email, l.phone,
+                   l.source, l.stage, l.notes, l.created_at, l.updated_at
+            FROM leads l
+            WHERE l.contact_group = 'web_form' {where}
+            ORDER BY l.created_at DESC
+            LIMIT 100
+        ''').fetchall()
+        leads = [dict(r) for r in leads]
+
+        counts = {}
+        for key, cond in [('all', ''), ('new', "AND stage = 'Lead'"), ('worked', "AND stage != 'Lead'")]:
+            row = conn.execute(f"SELECT COUNT(*) FROM leads WHERE contact_group = 'web_form' {cond}").fetchone()
+            counts[key] = row[0] if row else 0
+
+    return render_template('inbox.html',
+                           leads=leads,
+                           counts=counts,
+                           filter_status=filter_status)
+
+
+@app.route('/api/inbox/<lead_id>/stage', methods=['POST'])
+@requires_auth
+def update_inbox_lead_stage(lead_id):
+    """Mark a web lead as worked (change stage from Lead to another)."""
+    db = get_db()
+    data = request.get_json() or {}
+    new_stage = data.get('stage', 'Nurture')
+
+    with db._get_connection() as conn:
+        conn.execute(
+            'UPDATE leads SET stage = ?, updated_at = ? WHERE id = ? AND contact_group = ?',
+            (new_stage, datetime.now().isoformat(), lead_id, 'web_form')
+        )
+        conn.commit()
+
+    return jsonify({'ok': True, 'stage': new_stage})
 
 
 @app.route('/call-list')

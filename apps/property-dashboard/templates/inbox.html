@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Lead Inbox | DREAMS</title>
+    <link rel="icon" type="image/svg+xml" href="{{ favicon }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='shared/css/dreams.css') }}">
+    <style>
+        .inbox-header {
+            background: white;
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .inbox-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        .inbox-subtitle {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .filter-tabs {
+            display: flex;
+            gap: 4px;
+            padding: 12px 16px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+        }
+        .filter-tab {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 500;
+            text-decoration: none;
+            color: var(--text-secondary);
+            background: transparent;
+            border: 1px solid transparent;
+            transition: all 0.15s;
+        }
+        .filter-tab:hover { background: white; border-color: var(--border); }
+        .filter-tab.active {
+            background: white;
+            color: var(--text-primary);
+            border-color: var(--border);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+        .filter-tab .count {
+            display: inline-block;
+            min-width: 18px;
+            text-align: center;
+            padding: 1px 6px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 700;
+            margin-left: 4px;
+        }
+        .filter-tab.active .count { background: var(--accent, #ddab4a); color: #082d40; }
+
+        .lead-table { width: 100%; border-collapse: collapse; }
+        .lead-table th {
+            text-align: left;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-secondary);
+        }
+        .lead-table td {
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border);
+            font-size: 14px;
+            vertical-align: top;
+        }
+        .lead-table tr:hover { background: rgba(221, 171, 74, 0.04); }
+
+        .lead-name {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        .lead-email { color: var(--text-secondary); font-size: 13px; }
+        .lead-phone { color: var(--text-secondary); font-size: 13px; }
+        .lead-source {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            background: #e8f4fd;
+            color: #1a6fa3;
+        }
+        .lead-source.request_info { background: #fef3c7; color: #92400e; }
+        .lead-source.save_listing { background: #d1fae5; color: #065f46; }
+        .lead-source.schedule_showing { background: #ede9fe; color: #5b21b6; }
+
+        .lead-message {
+            font-size: 13px;
+            color: var(--text-secondary);
+            max-width: 300px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .lead-date {
+            font-size: 12px;
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }
+        .lead-stage {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .lead-stage.new { background: #dcfce7; color: #166534; }
+        .lead-stage.worked { background: #f3f4f6; color: #6b7280; }
+
+        .action-btn {
+            padding: 5px 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            background: white;
+            color: var(--text-primary);
+            transition: all 0.15s;
+        }
+        .action-btn:hover { background: var(--bg-secondary); border-color: var(--accent, #ddab4a); }
+        .action-btn.worked { opacity: 0.5; cursor: default; }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+        .empty-state svg { width: 48px; height: 48px; margin-bottom: 16px; opacity: 0.3; }
+        .empty-state h3 { font-size: 18px; color: var(--text-primary); margin-bottom: 8px; }
+        .empty-state p { font-size: 14px; max-width: 400px; margin: 0 auto; }
+    </style>
+    {% set active_nav = 'inbox' %}
+</head>
+<body>
+    {% include 'partials/sidebar.html' %}
+    <div class="main-content">
+    {% include 'partials/pivot_banner.html' %}
+
+    <div class="inbox-header">
+        <div>
+            <div class="inbox-title">Web Lead Inbox</div>
+            <div class="inbox-subtitle">Contact form submissions from wncmountain.homes</div>
+        </div>
+    </div>
+
+    <div class="filter-tabs">
+        <a href="/inbox?status=all" class="filter-tab {{ 'active' if filter_status == 'all' else '' }}">
+            All <span class="count">{{ counts.all }}</span>
+        </a>
+        <a href="/inbox?status=new" class="filter-tab {{ 'active' if filter_status == 'new' else '' }}">
+            New <span class="count">{{ counts.new }}</span>
+        </a>
+        <a href="/inbox?status=worked" class="filter-tab {{ 'active' if filter_status == 'worked' else '' }}">
+            Worked <span class="count">{{ counts.worked }}</span>
+        </a>
+    </div>
+
+    {% if leads %}
+    <table class="lead-table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Contact</th>
+                <th>Source</th>
+                <th>Message</th>
+                <th>Received</th>
+                <th>Status</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for lead in leads %}
+            <tr id="lead-{{ lead.id }}">
+                <td>
+                    <div class="lead-name">{{ lead.first_name or '' }} {{ lead.last_name or '' }}</div>
+                </td>
+                <td>
+                    {% if lead.email %}<div class="lead-email">{{ lead.email }}</div>{% endif %}
+                    {% if lead.phone %}<div class="lead-phone">{{ lead.phone }}</div>{% endif %}
+                </td>
+                <td>
+                    <span class="lead-source {{ lead.source or '' }}">{{ (lead.source or 'web').replace('_', ' ') }}</span>
+                </td>
+                <td>
+                    <div class="lead-message" title="{{ (lead.notes or '')|e }}">
+                        {{ (lead.notes or '')|truncate(80) }}
+                    </div>
+                </td>
+                <td>
+                    <div class="lead-date">{{ lead.created_at[:16] if lead.created_at else '' }}</div>
+                </td>
+                <td>
+                    {% if lead.stage == 'Lead' %}
+                    <span class="lead-stage new">New</span>
+                    {% else %}
+                    <span class="lead-stage worked">{{ lead.stage }}</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if lead.stage == 'Lead' %}
+                    <button class="action-btn" onclick="markWorked('{{ lead.id }}', this)">
+                        Mark Worked
+                    </button>
+                    {% else %}
+                    <button class="action-btn worked" disabled>Done</button>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/>
+            <path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z"/>
+        </svg>
+        <h3>No leads yet</h3>
+        <p>When someone fills out the contact form on wncmountain.homes, they will appear here.</p>
+    </div>
+    {% endif %}
+
+    </div><!-- /main-content -->
+
+    <script>
+    async function markWorked(leadId, btn) {
+        btn.disabled = true;
+        btn.textContent = 'Saving...';
+        try {
+            const resp = await fetch('/api/inbox/' + leadId + '/stage', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({stage: 'Nurture'})
+            });
+            if (resp.ok) {
+                btn.textContent = 'Done';
+                btn.classList.add('worked');
+                const row = document.getElementById('lead-' + leadId);
+                const stageSpan = row.querySelector('.lead-stage');
+                if (stageSpan) {
+                    stageSpan.textContent = 'Nurture';
+                    stageSpan.classList.remove('new');
+                    stageSpan.classList.add('worked');
+                }
+                // Update badge count in sidebar
+                const badge = document.querySelector('.nav-item[data-nav="inbox"] .nav-badge');
+                if (badge) {
+                    const n = parseInt(badge.textContent) - 1;
+                    if (n <= 0) badge.remove();
+                    else badge.textContent = n;
+                }
+            } else {
+                btn.textContent = 'Error';
+                setTimeout(() => { btn.textContent = 'Mark Worked'; btn.disabled = false; }, 2000);
+            }
+        } catch(e) {
+            btn.textContent = 'Error';
+            setTimeout(() => { btn.textContent = 'Mark Worked'; btn.disabled = false; }, 2000);
+        }
+    }
+    </script>
+</body>
+</html>
