@@ -58,7 +58,9 @@ if echo "$COMMAND" | grep -qE "ssh\s+root@${PRD_HOST}\s+.*(systemctl status|syst
 fi
 
 # Check for time-limited authorization token (valid for 10 minutes)
-AUTH_TOKEN="/tmp/mydreams-prd-deploy-auth"
+# Token lives in the project dir (not /tmp) so it's visible from both
+# the Bash sandbox and the hook process.
+AUTH_TOKEN="$PROJECT_ROOT/.claude/prd-deploy-auth"
 if [ -f "$AUTH_TOKEN" ]; then
     TOKEN_AGE=$(( $(date +%s) - $(stat -c %Y "$AUTH_TOKEN" 2>/dev/null || echo 0) ))
     if [ "$TOKEN_AGE" -lt 600 ]; then

@@ -218,38 +218,50 @@ def register():
     if len(password) < 8:
         return jsonify({'success': False, 'error': 'Password must be at least 8 characters'}), 400
 
-    try:
-        db = get_db()
+    import time as _time
+    import sqlite3 as _sqlite3
 
-        # Check for existing user
-        existing = db.execute('SELECT id FROM users WHERE email = ?', [email]).fetchone()
-        if existing:
+    # Hash password outside the DB transaction (CPU-bound, no lock needed)
+    pw_hash = _hash_password(password)
+    user_id = str(uuid.uuid4())
+    now = datetime.now().isoformat()
+
+    # Retry on DB lock (MLS sync holds write lock 2-5 min every 30 min)
+    for attempt in range(5):
+        try:
+            db = get_db()
+
+            existing = db.execute('SELECT id FROM users WHERE email = ?', [email]).fetchone()
+            if existing:
+                db.close()
+                return jsonify({'success': False, 'error': 'An account with this email already exists'}), 409
+
+            db.execute(
+                'INSERT INTO users (id, email, name, password_hash, created_at, last_login) '
+                'VALUES (?, ?, ?, ?, ?, ?)',
+                [user_id, email, name, pw_hash, now, now]
+            )
+            db.commit()
+
+            _ensure_lead_for_user(db, user_id)
+
+            user = db.execute('SELECT * FROM users WHERE id = ?', [user_id]).fetchone()
             db.close()
-            return jsonify({'success': False, 'error': 'An account with this email already exists'}), 409
 
-        user_id = str(uuid.uuid4())
-        now = datetime.now().isoformat()
+            return jsonify({
+                'success': True,
+                'data': _user_dict(user),
+            }), 201
 
-        db.execute(
-            'INSERT INTO users (id, email, name, password_hash, created_at, last_login) '
-            'VALUES (?, ?, ?, ?, ?, ?)',
-            [user_id, email, name, _hash_password(password), now, now]
-        )
-        db.commit()
-
-        # Auto-create a lead for this new website user
-        _ensure_lead_for_user(db, user_id)
-
-        user = db.execute('SELECT * FROM users WHERE id = ?', [user_id]).fetchone()
-        db.close()
-
-        return jsonify({
-            'success': True,
-            'data': _user_dict(user),
-        }), 201
-
-    except Exception:
-        return jsonify({'success': False, 'error': 'Registration failed'}), 500
+        except _sqlite3.OperationalError as e:
+            if 'locked' in str(e).lower() and attempt < 4:
+                _time.sleep(3)
+                continue
+            logger.error('Registration failed (DB locked after retries): %s', e)
+            return jsonify({'success': False, 'error': 'Server is busy. Please try again in a moment.'}), 503
+        except Exception as e:
+            logger.error('Registration failed: %s', e)
+            return jsonify({'success': False, 'error': 'Registration failed'}), 500
 
 
 @user_bp.route('/login', methods=['POST'])
