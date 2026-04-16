@@ -138,7 +138,7 @@ def _ensure_lead_for_user(db, user_id: str) -> str | None:
 
     # No existing lead found; create one
     user = db.execute(
-        'SELECT id, email, name FROM users WHERE id = ?', [user_id]
+        'SELECT id, email, name, phone FROM users WHERE id = ?', [user_id]
     ).fetchone()
     if not user or not user['email']:
         return None
@@ -147,18 +147,23 @@ def _ensure_lead_for_user(db, user_id: str) -> str | None:
     parts = name.split(None, 1)
     first_name = parts[0] if parts else ''
     last_name = parts[1] if len(parts) > 1 else ''
+    phone = None
+    try:
+        phone = user['phone']
+    except (IndexError, KeyError):
+        pass  # Older DBs without the phone column
 
     new_lead_id = str(uuid.uuid4())
     now = datetime.now().isoformat()
 
     try:
         db.execute(
-            '''INSERT INTO leads (id, email, first_name, last_name,
+            '''INSERT INTO leads (id, email, phone, first_name, last_name,
                    source, external_source, external_id, stage,
-                   type, created_at, updated_at)
-               VALUES (?, ?, ?, ?, 'Website', 'website', ?, 'Lead',
-                   'buyer', ?, ?)''',
-            [new_lead_id, user['email'], first_name, last_name,
+                   type, contact_group, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, 'Website', 'website', ?, 'Lead',
+                   'buyer', 'web_form', ?, ?)''',
+            [new_lead_id, user['email'], phone, first_name, last_name,
              user_id, now, now]
         )
         db.execute('UPDATE users SET lead_id = ? WHERE id = ?',
@@ -212,6 +217,17 @@ def register():
     email = (data.get('email') or '').strip().lower()
     password = data.get('password', '')
     name = (data.get('name') or '').strip()
+    # Phone is optional but a valuable signal: users willing to share it are
+    # warmer leads. We normalize to digits + optional leading +.
+    phone_raw = (data.get('phone') or '').strip()
+    phone = None
+    if phone_raw:
+        import re as _re
+        has_plus = phone_raw.startswith('+')
+        digits = _re.sub(r'[^\d]', '', phone_raw)
+        if digits:
+            phone = ('+' + digits) if has_plus else digits
+            phone = phone[:20]
 
     if not email or not password:
         return jsonify({'success': False, 'error': 'Email and password are required'}), 400
@@ -238,9 +254,9 @@ def register():
                 return jsonify({'success': False, 'error': 'An account with this email already exists'}), 409
 
             db.execute(
-                'INSERT INTO users (id, email, name, password_hash, created_at, last_login) '
-                'VALUES (?, ?, ?, ?, ?, ?)',
-                [user_id, email, name, pw_hash, now, now]
+                'INSERT INTO users (id, email, name, phone, password_hash, created_at, last_login) '
+                'VALUES (?, ?, ?, ?, ?, ?, ?)',
+                [user_id, email, name, phone, pw_hash, now, now]
             )
             db.commit()
 

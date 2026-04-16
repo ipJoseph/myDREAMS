@@ -14,6 +14,7 @@ export default function AuthModal({ isOpen, onClose, defaultTab = "login" }: Aut
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -30,7 +31,7 @@ export default function AuthModal({ isOpen, onClose, defaultTab = "login" }: Aut
         const res = await fetch("/api/user/register", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password, name }),
+          body: JSON.stringify({ email, password, name, phone }),
         });
         const data = await res.json();
         if (!data.success) {
@@ -155,6 +156,22 @@ export default function AuthModal({ isOpen, onClose, defaultTab = "login" }: Aut
                   onChange={(e) => setName(e.target.value)}
                   className="w-full px-4 py-3 border border-gray-300 text-sm focus:outline-none focus:border-[var(--color-accent)] transition"
                   placeholder="Your name"
+                />
+              </div>
+            )}
+
+            {tab === "register" && (
+              <div className="mb-4">
+                <label className="block text-xs text-[var(--color-text-light)] uppercase tracking-wider mb-1">
+                  Phone <span className="normal-case text-gray-400 tracking-normal">(optional, helps us reach you faster)</span>
+                </label>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 text-sm focus:outline-none focus:border-[var(--color-accent)] transition"
+                  placeholder="(828) 555-1234"
+                  autoComplete="tel"
                 />
               </div>
             )}

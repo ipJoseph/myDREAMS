@@ -208,6 +208,13 @@ class DREAMSDatabase:
             except sqlite3.OperationalError:
                 pass
 
+        if 'phone' not in existing_user_cols:
+            try:
+                conn.execute("ALTER TABLE users ADD COLUMN phone TEXT")
+                logger.info("Added column phone to users table")
+            except sqlite3.OperationalError:
+                pass
+
     @contextmanager
     def _get_connection(self):
         """Get database connection with context manager."""
