@@ -655,10 +655,18 @@ class MLSGridSyncEngine:
                     else:
                         stats['skipped'] += 1
 
+                    # Commit every 10 records (was 100) and yield briefly
+                    # so other writers (public contact form, event
+                    # tracking) can grab the lock. With the public site
+                    # now accepting real-time submissions, we need the
+                    # sync to be a polite citizen of the DB.
+                    if not dry_run and (i + 1) % 10 == 0:
+                        conn.commit()
+                        import time as _time_mod
+                        _time_mod.sleep(0.05)  # 50ms yield for other writers
+
                     if (i + 1) % 100 == 0:
                         logger.info(f"Processed {i + 1}/{len(properties)}...")
-                        if not dry_run:
-                            conn.commit()
 
                 except Exception as e:
                     logger.error(f"Error processing {prop.get('ListingId')}: {e}")
@@ -804,10 +812,14 @@ class MLSGridSyncEngine:
                     else:
                         stats['skipped'] += 1
 
+                    # Commit every 10 records (was 100) so other writers
+                    # (public contact form, event tracking) can grab the
+                    # lock during brief gaps.
+                    if not dry_run and (i + 1) % 10 == 0:
+                        conn.commit()
+
                     if (i + 1) % 100 == 0:
                         logger.info(f"Processed {i + 1}/{len(properties)}...")
-                        if not dry_run:
-                            conn.commit()
 
                 except Exception as e:
                     logger.error(f"Error processing {prop.get('ListingId')}: {e}")
