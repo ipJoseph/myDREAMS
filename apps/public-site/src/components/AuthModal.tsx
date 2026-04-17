@@ -18,6 +18,17 @@ export default function AuthModal({ isOpen, onClose, defaultTab = "login" }: Aut
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // Pre-fill email from localStorage if the user submitted a contact form
+  // earlier in this session (Tier A → Tier B upgrade path)
+  useState(() => {
+    if (typeof window !== "undefined") {
+      const savedEmail = localStorage.getItem("dreams_track_email");
+      if (savedEmail && !email) {
+        setEmail(savedEmail);
+      }
+    }
+  });
+
   if (!isOpen) return null;
 
   const handleCredentialsSubmit = async (e: React.FormEvent) => {
@@ -143,8 +154,9 @@ export default function AuthModal({ isOpen, onClose, defaultTab = "login" }: Aut
             </>
           )}
 
-          {/* Credentials form */}
-          <form onSubmit={handleCredentialsSubmit}>
+          {/* Credentials form — autocomplete="off" on form prevents browser
+              from auto-filling another user's saved credentials */}
+          <form onSubmit={handleCredentialsSubmit} autoComplete="off">
             {tab === "register" && (
               <div className="mb-4">
                 <label className="block text-xs text-[var(--color-text-light)] uppercase tracking-wider mb-1">
@@ -154,6 +166,7 @@ export default function AuthModal({ isOpen, onClose, defaultTab = "login" }: Aut
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
+                  autoComplete="name"
                   className="w-full px-4 py-3 border border-gray-300 text-sm focus:outline-none focus:border-[var(--color-accent)] transition"
                   placeholder="Your name"
                 />
@@ -169,9 +182,9 @@ export default function AuthModal({ isOpen, onClose, defaultTab = "login" }: Aut
                   type="tel"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
+                  autoComplete="tel"
                   className="w-full px-4 py-3 border border-gray-300 text-sm focus:outline-none focus:border-[var(--color-accent)] transition"
                   placeholder="(828) 555-1234"
-                  autoComplete="tel"
                 />
               </div>
             )}
@@ -185,6 +198,7 @@ export default function AuthModal({ isOpen, onClose, defaultTab = "login" }: Aut
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                autoComplete={tab === "register" ? "off" : "email"}
                 className="w-full px-4 py-3 border border-gray-300 text-sm focus:outline-none focus:border-[var(--color-accent)] transition"
                 placeholder="you@example.com"
               />
@@ -200,6 +214,7 @@ export default function AuthModal({ isOpen, onClose, defaultTab = "login" }: Aut
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 minLength={8}
+                autoComplete={tab === "register" ? "new-password" : "current-password"}
                 className="w-full px-4 py-3 border border-gray-300 text-sm focus:outline-none focus:border-[var(--color-accent)] transition"
                 placeholder={tab === "register" ? "At least 8 characters" : "Your password"}
               />
