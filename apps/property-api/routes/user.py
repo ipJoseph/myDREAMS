@@ -117,9 +117,25 @@ def _resolve_lead_id(db, user_id: str) -> str | None:
     ).fetchone()
 
     if lead:
+        # Link user to existing lead (Tier A → Tier B upgrade).
+        # Also update the lead with any new info from registration
+        # (phone, archive_status) without overwriting existing data.
         db.execute('UPDATE users SET lead_id = ? WHERE id = ?',
                    [lead['id'], user_id])
+        # Get user phone to update lead if lead doesn't have one
+        user_full = db.execute(
+            'SELECT phone FROM users WHERE id = ?', [user_id]
+        ).fetchone()
+        if user_full and user_full['phone']:
+            db.execute(
+                'UPDATE leads SET phone = COALESCE(phone, ?), '
+                'archive_status = COALESCE(archive_status, ?), '
+                'updated_at = ? WHERE id = ?',
+                [user_full['phone'], 'active',
+                 datetime.now().isoformat(), lead['id']]
+            )
         db.commit()
+        logger.info(f"Linked user {user_id} to existing lead {lead['id']} (email match)")
         return lead['id']
 
     return None

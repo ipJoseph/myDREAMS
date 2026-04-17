@@ -283,16 +283,18 @@ def _upsert_public_contact(clean: Dict[str, Any], remote_ip: str) -> str:
     """
     Upsert a web-form contact into the `leads` table.
 
-    Dedupe strategy: look up by email (lowercased). If found, update the
-    existing row's name/phone/source/updated_at. Otherwise create a new
-    row with a fresh UUID. This is intentionally simpler than the FUB
-    sync path which dedupes by fub_id — here we don't have a FUB id yet.
+    Dedupe strategy: EMAIL ONLY. Never auto-merge on phone alone.
+    If a phone matches a different lead, flag as potential duplicate
+    for agent review (never merge automatically).
+
+    This prevents false merges when one person uses the same phone
+    number for personal and business accounts (different emails).
     """
     db = _get_db()
 
-    # Try to find an existing lead by email first, phone as fallback.
     existing_id: Optional[str] = None
     with db._get_connection() as conn:
+        # Match on email only (primary identity key)
         if clean["email"]:
             row = conn.execute(
                 "SELECT id FROM leads WHERE LOWER(email) = ? LIMIT 1",
@@ -300,18 +302,24 @@ def _upsert_public_contact(clean: Dict[str, Any], remote_ip: str) -> str:
             ).fetchone()
             if row:
                 existing_id = row[0]
+
+        # If no email match but phone matches a DIFFERENT lead, flag as
+        # potential duplicate for agent review. Never auto-merge.
         if not existing_id and clean["phone"]:
-            row = conn.execute(
-                "SELECT id FROM leads WHERE phone = ? LIMIT 1",
+            phone_match = conn.execute(
+                "SELECT id, first_name, last_name, email FROM leads "
+                "WHERE phone = ? AND archive_status = 'active' LIMIT 1",
                 (clean["phone"],),
             ).fetchone()
-            if row:
-                existing_id = row[0]
+            if phone_match:
+                _flag_potential_duplicate(
+                    conn, phone_match[0],
+                    clean["email"], clean["first_name"], clean["last_name"],
+                    clean["phone"], "phone_match"
+                )
 
     contact_id = existing_id or str(uuid.uuid4())
 
-    # Build the lead dict using ONLY columns in LEADS_COLUMNS. upsert_contact_dict
-    # will filter anything else with a warning, but filtering here is cleaner.
     lead_data: Dict[str, Any] = {
         "id": contact_id,
         "first_name": clean["first_name"],
@@ -322,6 +330,7 @@ def _upsert_public_contact(clean: Dict[str, Any], remote_ip: str) -> str:
         "stage": "Lead",
         "type": "lead",
         "contact_group": "web_form",
+        "archive_status": "active",
     }
     if not existing_id:
         lead_data["created_at"] = datetime.now().isoformat()
@@ -337,6 +346,37 @@ def _upsert_public_contact(clean: Dict[str, Any], remote_ip: str) -> str:
 
     db.upsert_contact_dict(lead_data)
     return contact_id
+
+
+def _flag_potential_duplicate(
+    conn, existing_lead_id: str,
+    new_email: Optional[str], new_first: Optional[str], new_last: Optional[str],
+    shared_phone: str, match_type: str,
+) -> None:
+    """
+    Record a potential duplicate flag on an existing lead.
+
+    Stored in a separate table so we can query/dismiss them from the
+    dashboard without polluting the leads table with JSON columns.
+    """
+    try:
+        conn.execute("""
+            INSERT OR IGNORE INTO potential_duplicates
+            (id, existing_lead_id, new_email, new_first_name, new_last_name,
+             shared_value, match_type, status, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?)
+        """, (
+            str(uuid.uuid4()), existing_lead_id,
+            new_email, new_first, new_last,
+            shared_phone, match_type,
+            datetime.now().isoformat(),
+        ))
+        conn.commit()
+        logger.info("Flagged potential duplicate: phone=%s matches lead=%s",
+                     shared_phone, existing_lead_id)
+    except Exception as e:
+        # Table might not exist yet; log and continue
+        logger.warning("Could not flag duplicate (table may not exist): %s", e)
 
 
 def _compose_notes_field(

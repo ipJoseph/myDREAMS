@@ -2230,10 +2230,45 @@ def web_inbox():
             row = conn.execute(f"SELECT COUNT(*) FROM leads WHERE contact_group = 'web_form' {cond}").fetchone()
             counts[key] = row[0] if row else 0
 
+    # Potential duplicates
+    duplicates = []
+    try:
+        with db._get_connection() as conn2:
+            dup_rows = conn2.execute('''
+                SELECT d.id, d.existing_lead_id, d.new_email, d.new_first_name,
+                       d.new_last_name, d.shared_value, d.match_type, d.created_at,
+                       l.first_name AS existing_first, l.last_name AS existing_last,
+                       l.email AS existing_email
+                FROM potential_duplicates d
+                LEFT JOIN leads l ON l.id = d.existing_lead_id
+                WHERE d.status = 'pending'
+                ORDER BY d.created_at DESC
+                LIMIT 20
+            ''').fetchall()
+            duplicates = [dict(r) for r in dup_rows]
+    except Exception:
+        pass  # Table may not exist yet
+
     return render_template('inbox.html',
                            leads=leads,
                            counts=counts,
-                           filter_status=filter_status)
+                           filter_status=filter_status,
+                           duplicates=duplicates)
+
+
+@app.route('/api/inbox/duplicate/<dup_id>/dismiss', methods=['POST'])
+@requires_auth
+def dismiss_duplicate(dup_id):
+    """Dismiss a potential duplicate flag (agent reviewed, not a real dup)."""
+    db = get_db()
+    with db._get_connection() as conn:
+        conn.execute(
+            "UPDATE potential_duplicates SET status = 'dismissed', "
+            "resolved_action = 'dismissed', resolved_at = ? WHERE id = ?",
+            (datetime.now().isoformat(), dup_id)
+        )
+        conn.commit()
+    return jsonify({'ok': True})
 
 
 @app.route('/api/inbox/<lead_id>/stage', methods=['POST'])

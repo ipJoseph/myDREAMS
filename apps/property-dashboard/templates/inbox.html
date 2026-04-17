@@ -244,6 +244,33 @@
     </div>
     {% endif %}
 
+    {% if duplicates %}
+    <div style="margin-top: 24px; padding: 16px 16px 0;">
+        <h3 style="font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-secondary); margin-bottom: 12px;">
+            Potential Duplicates
+            <span style="background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 10px; font-size: 11px; margin-left: 8px;">{{ duplicates|length }}</span>
+        </h3>
+        <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 16px;">
+            These contacts share a phone number with an existing lead. Review and dismiss if they are separate people.
+        </p>
+        {% for dup in duplicates %}
+        <div id="dup-{{ dup.id }}" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: #fffbeb; border: 1px solid #fde68a; margin-bottom: 8px;">
+            <div>
+                <strong>{{ dup.new_first_name or '' }} {{ dup.new_last_name or '' }}</strong>
+                <span style="color: #6b7280; font-size: 13px;">({{ dup.new_email or 'no email' }})</span>
+                <span style="margin: 0 8px; color: #d97706;">shares phone</span>
+                <strong>{{ dup.existing_first or '' }} {{ dup.existing_last or '' }}</strong>
+                <span style="color: #6b7280; font-size: 13px;">({{ dup.existing_email or 'no email' }})</span>
+                <span style="color: #9ca3af; font-size: 12px; margin-left: 8px;">phone: {{ dup.shared_value }}</span>
+            </div>
+            <button onclick="dismissDuplicate('{{ dup.id }}', this)" class="action-btn" style="white-space: nowrap;">
+                Not a Duplicate
+            </button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
     </div><!-- /main-content -->
 
     <script>
@@ -280,6 +307,26 @@
         } catch(e) {
             btn.textContent = 'Error';
             setTimeout(() => { btn.textContent = 'Mark Worked'; btn.disabled = false; }, 2000);
+        }
+    }
+
+    async function dismissDuplicate(dupId, btn) {
+        btn.disabled = true;
+        btn.textContent = 'Dismissing...';
+        try {
+            const resp = await fetch('/api/inbox/duplicate/' + dupId + '/dismiss', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+            });
+            if (resp.ok) {
+                document.getElementById('dup-' + dupId).style.display = 'none';
+            } else {
+                btn.textContent = 'Error';
+                setTimeout(() => { btn.textContent = 'Not a Duplicate'; btn.disabled = false; }, 2000);
+            }
+        } catch(e) {
+            btn.textContent = 'Error';
+            setTimeout(() => { btn.textContent = 'Not a Duplicate'; btn.disabled = false; }, 2000);
         }
     }
     </script>

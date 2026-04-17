@@ -9,6 +9,8 @@ import PropertyHistory from "@/components/PropertyHistory";
 import FavoriteButton from "@/components/FavoriteButton";
 import AddToCollectionButton from "@/components/AddToCollectionButton";
 import TrackPropertyView from "@/components/TrackPropertyView";
+import RequestInfoButton from "@/components/RequestInfoButton";
+import IdentityGate from "@/components/IdentityGate";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -349,12 +351,13 @@ export default async function ListingDetailPage({ params }: PageProps) {
                 style={{ fontFamily: "Georgia, serif" }}>
                 Interested in this property?
               </h3>
-              <Link
-                href={`/contact?listing=${listing.mls_number}&address=${encodeURIComponent(listing.address)}`}
-                className="block w-full text-center py-3 bg-[var(--color-accent)] text-[var(--color-primary)] font-semibold text-sm uppercase tracking-wider hover:bg-[var(--color-accent-hover)] transition mb-4"
-              >
-                Request Information
-              </Link>
+              <div className="mb-4">
+                <RequestInfoButton
+                  listingId={listing.id}
+                  address={`${listing.address}, ${listing.city}`}
+                  mlsNumber={listing.mls_number}
+                />
+              </div>
 
               <a
                 href="tel:8282839003"
@@ -363,10 +366,14 @@ export default async function ListingDetailPage({ params }: PageProps) {
                 Call (828) 283-9003
               </a>
 
-              {/* Save actions */}
+              {/* Save actions — require login (Tier B) */}
               <div className="flex items-center gap-3 mt-4 pt-4 border-t border-gray-200/60">
-                <FavoriteButton listingId={listing.id} size="md" />
-                <AddToCollectionButton listingId={listing.id} variant="button" />
+                <IdentityGate requireAuth defaultTab="register">
+                  <FavoriteButton listingId={listing.id} size="md" />
+                </IdentityGate>
+                <IdentityGate requireAuth defaultTab="register">
+                  <AddToCollectionButton listingId={listing.id} variant="button" />
+                </IdentityGate>
               </div>
 
               {/* Download Brochure */}
