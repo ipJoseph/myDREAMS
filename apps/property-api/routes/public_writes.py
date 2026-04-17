@@ -247,15 +247,16 @@ def create_public_contact():
     import sqlite3 as _sqlite3
 
     contact_id = None
-    db_retries = 5
+    db_retries = 15
     for attempt in range(db_retries):
         try:
             contact_id = _upsert_public_contact(clean, remote_ip)
             break
         except _sqlite3.OperationalError as e:
             if "locked" in str(e).lower() and attempt < db_retries - 1:
-                logger.warning("public_contact: DB locked, retry %d/%d", attempt + 1, db_retries)
-                _time.sleep(3)
+                if attempt % 5 == 0:
+                    logger.warning("public_contact: DB locked, retry %d/%d", attempt + 1, db_retries)
+                _time.sleep(1)
             else:
                 logger.error("public_contact: DB write failed after %d attempts: %s", db_retries, e)
                 return jsonify({
@@ -613,7 +614,7 @@ def track_public_event():
             break
         except _sqlite3.OperationalError as e:
             if "locked" in str(e).lower() and attempt < 4:
-                _time.sleep(3)
+                _time.sleep(1)
             else:
                 logger.warning("Event store failed after retries: %s", e)
                 # Don't fail the request — still try FUB push

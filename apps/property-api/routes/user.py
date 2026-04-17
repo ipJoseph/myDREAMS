@@ -288,7 +288,7 @@ def register():
 
         except _sqlite3.OperationalError as e:
             if 'locked' in str(e).lower() and attempt < 4:
-                _time.sleep(3)
+                _time.sleep(1)
                 continue
             logger.error('Registration failed (DB locked after retries): %s', e)
             return jsonify({'success': False, 'error': 'Server is busy. Please try again in a moment.'}), 503

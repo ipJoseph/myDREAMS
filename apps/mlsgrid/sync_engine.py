@@ -663,7 +663,7 @@ class MLSGridSyncEngine:
                     if not dry_run and (i + 1) % 10 == 0:
                         conn.commit()
                         import time as _time_mod
-                        _time_mod.sleep(0.05)  # 50ms yield for other writers
+                        _time_mod.sleep(0.2)  # 200ms yield for other writers
 
                     if (i + 1) % 100 == 0:
                         logger.info(f"Processed {i + 1}/{len(properties)}...")
