@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { signIn } from "next-auth/react";
 
 interface AuthModalProps {
@@ -18,16 +18,22 @@ export default function AuthModal({ isOpen, onClose, defaultTab = "login" }: Aut
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Pre-fill email from localStorage if the user submitted a contact form
-  // earlier in this session (Tier A → Tier B upgrade path)
-  useState(() => {
-    if (typeof window !== "undefined") {
-      const savedEmail = localStorage.getItem("dreams_track_email");
-      if (savedEmail && !email) {
-        setEmail(savedEmail);
+  // When the modal opens, pre-fill email from the most recent contact
+  // form submission (Tier A → Tier B upgrade). Only runs when the modal
+  // transitions from closed to open, not on every render.
+  useEffect(() => {
+    if (isOpen && !email) {
+      try {
+        const savedEmail = localStorage.getItem("dreams_track_email");
+        if (savedEmail) {
+          setEmail(savedEmail);
+          setTab("register"); // They already gave us their email, go straight to register
+        }
+      } catch {
+        // localStorage unavailable
       }
     }
-  });
+  }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!isOpen) return null;
 
