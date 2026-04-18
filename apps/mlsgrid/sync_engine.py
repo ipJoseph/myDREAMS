@@ -691,6 +691,13 @@ class MLSGridSyncEngine:
                 except Exception as e:
                     logger.error(f"Error processing {prop.get('ListingId')}: {e}")
                     stats['errors'] += 1
+                    # PostgreSQL requires rollback after a failed query before
+                    # the next query can execute (unlike SQLite which continues).
+                    # See docs/DECISIONS.md D1.
+                    try:
+                        conn.rollback()
+                    except Exception:
+                        pass
 
             stats['photos_updated'] = self._photos_updated_count
 
@@ -844,6 +851,10 @@ class MLSGridSyncEngine:
                 except Exception as e:
                     logger.error(f"Error processing {prop.get('ListingId')}: {e}")
                     stats['errors'] += 1
+                    try:
+                        conn.rollback()
+                    except Exception:
+                        pass
 
             stats['photos_updated'] = self._photos_updated_count
             stats['photos_downloaded'] = photos_downloaded
