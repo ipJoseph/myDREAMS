@@ -675,15 +675,29 @@ class MLSGridSyncEngine:
                     else:
                         stats['skipped'] += 1
 
-                    # Commit every 10 records (was 100) and yield briefly
-                    # so other writers (public contact form, event
-                    # tracking) can grab the lock. With the public site
-                    # now accepting real-time submissions, we need the
-                    # sync to be a polite citizen of the DB.
+                    # Download photos for listings that need them.
+                    # See docs/DECISIONS.md D3: photos download DURING sync.
+                    if result in ('created', 'updated') and not dry_run:
+                        media = prop.get('Media', [])
+                        mls_num = listing.get('mls_number')
+                        # Check if this listing needs photos downloaded
+                        needs_photo = False
+                        if result == 'created':
+                            needs_photo = True
+                        elif mls_num:
+                            # Check if local photo exists on disk
+                            primary_path = PHOTOS_DIR / f"{mls_num}.jpg"
+                            if not primary_path.exists():
+                                needs_photo = True
+                        if needs_photo and media and mls_num:
+                            if self._download_listing_photos(mls_num, media):
+                                self._photos_updated_count += 1
+
+                    # Commit every 10 records and yield briefly
                     if not dry_run and (i + 1) % 10 == 0:
                         conn.commit()
                         import time as _time_mod
-                        _time_mod.sleep(0.2)  # 200ms yield for other writers
+                        _time_mod.sleep(0.05)  # 50ms yield
 
                     if (i + 1) % 100 == 0:
                         logger.info(f"Processed {i + 1}/{len(properties)}...")
