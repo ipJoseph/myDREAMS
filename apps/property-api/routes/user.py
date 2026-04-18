@@ -41,13 +41,9 @@ DB_PATH = os.getenv('DREAMS_DB_PATH', str(PROJECT_ROOT / 'data' / 'dreams.db'))
 
 
 def get_db():
-    """Get a database connection."""
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode = WAL")
-    conn.execute("PRAGMA busy_timeout = 30000")
-    conn.execute("PRAGMA foreign_keys = ON")
-    return conn
+    """Get a database connection (PostgreSQL if DATABASE_URL set, else SQLite)."""
+    from src.core.pg_adapter import get_db as _get_db
+    return _get_db(DB_PATH)
 
 
 def _hash_password(password: str) -> str:
