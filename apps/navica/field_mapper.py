@@ -123,40 +123,41 @@ SKIP_FIELDS = {
 VALID_COLUMN_RE = re.compile(r'^[a-z][a-z0-9_]*$')
 
 
-def ensure_listing_columns(conn: sqlite3.Connection, listing_dict: Dict[str, Any],
+def ensure_listing_columns(conn, listing_dict: Dict[str, Any],
                            known_columns: Set[str] = None) -> Set[str]:
     """
     Ensure all keys in listing_dict exist as columns in the listings table.
     Adds missing columns via ALTER TABLE. Returns the updated set of known columns.
 
-    Args:
-        conn: SQLite connection
-        listing_dict: Dict of column_name -> value from the field mapper
-        known_columns: Cached set of known column names (avoids repeated PRAGMA calls)
-
-    Returns:
-        Updated set of known column names
+    Works on both SQLite and PostgreSQL (see docs/DECISIONS.md D1).
     """
     if known_columns is None:
-        cursor = conn.execute("PRAGMA table_info(listings)")
-        known_columns = {row[1] for row in cursor.fetchall()}
+        from src.core.pg_adapter import is_postgres
+        if is_postgres():
+            cursor = conn.execute(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_name = 'listings'"
+            )
+            known_columns = {row[0] for row in cursor.fetchall()}
+        else:
+            cursor = conn.execute("PRAGMA table_info(listings)")
+            known_columns = {row[1] for row in cursor.fetchall()}
 
     new_cols = set(listing_dict.keys()) - known_columns
     if not new_cols:
         return known_columns
 
     for col_name in sorted(new_cols):
-        # Safety: validate column name format
         if not VALID_COLUMN_RE.match(col_name):
             logger.warning(f"Skipping invalid column name: {col_name!r}")
             continue
 
-        # Infer SQLite type from value
+        # Infer column type (compatible with both SQLite and PostgreSQL)
         value = listing_dict[col_name]
         if isinstance(value, bool) or isinstance(value, int):
             col_type = 'INTEGER'
         elif isinstance(value, float):
-            col_type = 'REAL'
+            col_type = 'DOUBLE PRECISION'
         else:
             col_type = 'TEXT'
 
@@ -164,7 +165,7 @@ def ensure_listing_columns(conn: sqlite3.Connection, listing_dict: Dict[str, Any
             conn.execute(f"ALTER TABLE listings ADD COLUMN {col_name} {col_type}")
             known_columns.add(col_name)
             logger.info(f"Added column {col_name} ({col_type}) to listings table")
-        except sqlite3.OperationalError:
+        except Exception:
             # Column already exists (race condition or cache miss)
             known_columns.add(col_name)
 

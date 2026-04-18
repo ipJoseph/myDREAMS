@@ -97,8 +97,23 @@ class MLSGridSyncEngine:
         self.client = None
         self._photos_updated_count = 0
 
-        # Ensure database tables exist (reuse Navica's table setup)
-        self._ensure_tables()
+        # Ensure database tables exist.
+        # On PostgreSQL, schema is managed by scripts/migrate_to_postgres.py.
+        # On SQLite, _ensure_tables() creates tables if missing.
+        from src.core.pg_adapter import is_postgres
+        if not is_postgres():
+            self._ensure_tables()
+        else:
+            # Just cache known listing columns
+            conn = self._get_connection()
+            try:
+                cursor = conn.execute(
+                    "SELECT column_name FROM information_schema.columns "
+                    "WHERE table_name = 'listings'"
+                )
+                self._known_listing_columns = {row[0] for row in cursor.fetchall()}
+            finally:
+                conn.close()
 
     def _get_connection(self):
         """Get a database connection (PostgreSQL if DATABASE_URL set, else SQLite)."""
@@ -110,8 +125,16 @@ class MLSGridSyncEngine:
         conn = self._get_connection()
         try:
             # Cache known listing columns for dynamic schema expansion
-            cursor = conn.execute("PRAGMA table_info(listings)")
-            self._known_listing_columns = {row[1] for row in cursor.fetchall()}
+            from src.core.pg_adapter import is_postgres
+            if is_postgres():
+                cursor = conn.execute(
+                    "SELECT column_name FROM information_schema.columns "
+                    "WHERE table_name = 'listings'"
+                )
+                self._known_listing_columns = {row[0] for row in cursor.fetchall()}
+            else:
+                cursor = conn.execute("PRAGMA table_info(listings)")
+                self._known_listing_columns = {row[1] for row in cursor.fetchall()}
 
             # The Navica sync engine already creates the listings table schema.
             # We just need to make sure our indexes exist.
@@ -131,7 +154,7 @@ class MLSGridSyncEngine:
             # Create sync_log table if missing
             conn.execute('''
                 CREATE TABLE IF NOT EXISTS sync_log (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    id SERIAL PRIMARY KEY,
                     sync_type TEXT,
                     source TEXT,
                     direction TEXT DEFAULT 'inbound',
@@ -149,7 +172,7 @@ class MLSGridSyncEngine:
             # Create property_changes table if missing
             conn.execute('''
                 CREATE TABLE IF NOT EXISTS property_changes (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    id SERIAL PRIMARY KEY,
                     property_id TEXT,
                     change_type TEXT,
                     old_value TEXT,
@@ -192,7 +215,7 @@ class MLSGridSyncEngine:
 
     def _detect_changes(
         self,
-        conn: sqlite3.Connection,
+        conn,
         listing: Dict,
         existing: Optional[Dict],
     ) -> List[Dict]:
@@ -277,7 +300,7 @@ class MLSGridSyncEngine:
 
     def _upsert_listing(
         self,
-        conn: sqlite3.Connection,
+        conn,
         listing: Dict,
         raw_prop: Dict = None,
         dry_run: bool = False,
@@ -533,7 +556,7 @@ class MLSGridSyncEngine:
 
     def _log_sync(
         self,
-        conn: sqlite3.Connection,
+        conn,
         sync_type: str,
         stats: Dict,
         error: str = None,
