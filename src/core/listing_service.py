@@ -232,8 +232,7 @@ def localize_photo(listing: dict, on_demand: bool = False) -> None:
         return
 
     if not photos_dir:
-        if 'mlsgrid.com' in (listing.get('primary_photo') or ''):
-            listing['primary_photo'] = None
+        # Unknown source; keep whatever CDN URL the DB has rather than nullifying
         return
 
     # Localize primary photo
@@ -284,21 +283,18 @@ def localize_photo(listing: dict, on_demand: bool = False) -> None:
             listing['photos'] = fetched
             return
 
-    if is_canopy:
-        # Canopy with no local files and no on-demand: show nothing
-        listing['primary_photo'] = None
-        photos = listing.get('photos')
-        if isinstance(photos, list) and any('mlsgrid.com' in (p or '') for p in photos):
-            listing['photos'] = []
-        return
-
-    # Non-Canopy (Navica): CDN URLs don't expire, try download
-    cdn_url = listing.get('primary_photo') or ''
-    if cdn_url.startswith('http') and 'mlsgrid.com' not in cdn_url:
-        local_path = _download_photo_url(mls, cdn_url, photos_dir)
-        listing['primary_photo'] = local_path
-    else:
-        listing['primary_photo'] = None
+    # No local files found. Instead of showing a placeholder, keep the
+    # CDN URL as a fallback. The frontend renders CDN URLs fine (Next.js
+    # Image with unoptimized flag). A listing with photo_count > 0 should
+    # NEVER show a house-icon placeholder.
+    #
+    # CDN URLs may expire (MLS Grid tokens), but showing a broken image
+    # that triggers an on-demand re-download on next page view is better
+    # than showing a placeholder that tells the user "we have no photos"
+    # when we actually have 32 of them.
+    #
+    # For non-Canopy (Navica): CDN URLs don't expire, so this always works.
+    return  # Keep whatever primary_photo and photos the DB has
 
 
 def _fetch_and_download_photos_from_api(mls: str, photos_dir: Path) -> List[str]:
@@ -580,11 +576,10 @@ class ListingService:
             str(PROJECT_ROOT / 'data' / 'dreams.db')
         )
 
-    def _get_connection(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA busy_timeout = 5000")
-        return conn
+    def _get_connection(self):
+        """Get database connection (PostgreSQL if DATABASE_URL set, else SQLite)."""
+        from src.core.pg_adapter import get_db
+        return get_db(self.db_path)
 
     def _build_conditions(self, filters: ListingFilters) -> tuple:
         """Build WHERE conditions and params from ListingFilters.
