@@ -672,8 +672,13 @@ class ListingService:
 
         # DOM filter (use list_date for accuracy)
         if filters.max_dom is not None:
-            conditions.append("list_date >= date('now', ? || ' days')")
-            params.append(str(-filters.max_dom))
+            from src.core.pg_adapter import is_postgres
+            if is_postgres():
+                conditions.append("list_date >= CURRENT_DATE - CAST(? AS INTEGER) * INTERVAL '1 day'")
+                params.append(filters.max_dom)
+            else:
+                conditions.append("list_date >= date('now', ? || ' days')")
+                params.append(str(-filters.max_dom))
 
         # Property type
         if filters.property_type:
