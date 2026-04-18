@@ -1032,8 +1032,8 @@ def api_generate_property_views_report():
         return jsonify({'success': False, 'error': 'Invalid date format (expected YYYY-MM-DD)'}), 400
 
     # Query all property events (views, favorites, shares) in the date range
-    conn = sqlite3.connect(str(DB_PATH))
-    conn.row_factory = sqlite3.Row
+    from src.core.pg_adapter import get_db as _pg_get_db
+    conn = _pg_get_db(str(DB_PATH))
     try:
         rows = conn.execute("""
             SELECT
@@ -1334,8 +1334,8 @@ def api_generate_buyer_activity_report():
     end_date = date_type.today()
     start_date = end_date - timedelta(days=days)
 
-    conn = sqlite3.connect(str(DB_PATH))
-    conn.row_factory = sqlite3.Row
+    from src.core.pg_adapter import get_db as _pg_get_db
+    conn = _pg_get_db(str(DB_PATH))
     try:
         # Get activities in range
         activities = conn.execute('''
@@ -2373,8 +2373,8 @@ def pursuits_list():
         p['collection_source'] = 'pursuit'
 
     # Get collections from property_packages (buyer-created + agent-created)
-    conn = sqlite3.connect(str(DB_PATH))
-    conn.row_factory = sqlite3.Row
+    from src.core.pg_adapter import get_db as _pg_get_db
+    conn = _pg_get_db(str(DB_PATH))
     package_collections = conn.execute('''
         SELECT pp.id, pp.name, pp.status, pp.user_id, pp.share_token,
                pp.lead_id, pp.collection_type, pp.description,
@@ -3044,8 +3044,8 @@ def collection_save_showing(collection_id):
     """Save a route planner session as a showing record."""
     import uuid
 
-    conn = sqlite3.connect(str(DB_PATH))
-    conn.row_factory = sqlite3.Row
+    from src.core.pg_adapter import get_db as _pg_get_db
+    conn = _pg_get_db(str(DB_PATH))
 
     collection = conn.execute(
         'SELECT id, lead_id, name FROM property_packages WHERE id = ?', [collection_id]
@@ -3306,8 +3306,8 @@ def collection_itinerary_pdf(collection_id):
     except ImportError:
         return "Tour schedule generator not available", 500
 
-    conn = sqlite3.connect(str(DB_PATH))
-    conn.row_factory = sqlite3.Row
+    from src.core.pg_adapter import get_db as _pg_get_db
+    conn = _pg_get_db(str(DB_PATH))
     collection = conn.execute(
         'SELECT id, lead_id, name FROM property_packages WHERE id = ?', [collection_id]
     ).fetchone()
@@ -3362,8 +3362,8 @@ def showings_plan_route():
     import csv
     import io as _io
 
-    conn = sqlite3.connect(str(DB_PATH))
-    conn.row_factory = sqlite3.Row
+    from src.core.pg_adapter import get_db as _pg_get_db
+    conn = _pg_get_db(str(DB_PATH))
     stops = []
 
     # Check for CSV file upload
@@ -3545,8 +3545,8 @@ def showings_plan_route():
 @requires_auth
 def buyer_collection_brochure(collection_id):
     """Generate and download a PDF brochure for a buyer collection."""
-    conn = sqlite3.connect(str(DB_PATH))
-    conn.row_factory = sqlite3.Row
+    from src.core.pg_adapter import get_db as _pg_get_db
+    conn = _pg_get_db(str(DB_PATH))
     collection = conn.execute(
         'SELECT share_token, name FROM property_packages WHERE id = ?',
         [collection_id]
@@ -3639,8 +3639,8 @@ def pursuit_brochure(pursuit_id):
 def templates_list():
     """List all templates and featured collections."""
     filter_type = request.args.get('type', '')
-    conn = sqlite3.connect(str(DB_PATH))
-    conn.row_factory = sqlite3.Row
+    from src.core.pg_adapter import get_db as _pg_get_db
+    conn = _pg_get_db(str(DB_PATH))
 
     query = '''
         SELECT pp.id, pp.name, pp.description, pp.status, pp.collection_type,
@@ -3691,8 +3691,8 @@ def template_create():
     slug = re.sub(r'[^\w\s-]', '', name.lower().strip())
     slug = re.sub(r'[\s_]+', '-', slug).strip('-')
 
-    conn = sqlite3.connect(str(DB_PATH))
-    conn.row_factory = sqlite3.Row
+    from src.core.pg_adapter import get_db as _pg_get_db
+    conn = _pg_get_db(str(DB_PATH))
     now = datetime.now(ET).isoformat()
 
     # Ensure unique slug
@@ -3725,8 +3725,8 @@ def template_create():
 @requires_auth
 def template_detail(template_id):
     """Template detail with properties."""
-    conn = sqlite3.connect(str(DB_PATH))
-    conn.row_factory = sqlite3.Row
+    from src.core.pg_adapter import get_db as _pg_get_db
+    conn = _pg_get_db(str(DB_PATH))
 
     template = conn.execute('''
         SELECT * FROM property_packages
@@ -3790,8 +3790,8 @@ def template_add_property(template_id):
     if not search_term:
         return redirect(f'/templates/{template_id}')
 
-    conn = sqlite3.connect(str(DB_PATH))
-    conn.row_factory = sqlite3.Row
+    from src.core.pg_adapter import get_db as _pg_get_db
+    conn = _pg_get_db(str(DB_PATH))
 
     # Try to find the listing by ID, MLS number, or address
     listing = conn.execute(
@@ -3836,7 +3836,8 @@ def template_remove_property(template_id):
     if not listing_id:
         return redirect(f'/templates/{template_id}')
 
-    conn = sqlite3.connect(str(DB_PATH))
+    from src.core.pg_adapter import get_db as _pg_get_db
+    conn = _pg_get_db(str(DB_PATH))
     conn.execute('DELETE FROM package_properties WHERE package_id = ? AND listing_id = ?',
                  (template_id, listing_id))
     conn.execute('UPDATE property_packages SET updated_at = ? WHERE id = ?',
@@ -3858,8 +3859,8 @@ def template_clone(template_id):
     if not lead_id:
         return redirect(f'/templates/{template_id}')
 
-    conn = sqlite3.connect(str(DB_PATH))
-    conn.row_factory = sqlite3.Row
+    from src.core.pg_adapter import get_db as _pg_get_db
+    conn = _pg_get_db(str(DB_PATH))
 
     template = conn.execute(
         'SELECT id, name, description FROM property_packages WHERE id = ?',
@@ -3903,7 +3904,8 @@ def template_clone(template_id):
 @requires_auth
 def template_delete(template_id):
     """Delete a template."""
-    conn = sqlite3.connect(str(DB_PATH))
+    from src.core.pg_adapter import get_db as _pg_get_db
+    conn = _pg_get_db(str(DB_PATH))
     conn.execute('DELETE FROM package_properties WHERE package_id = ?', (template_id,))
     conn.execute(
         'DELETE FROM property_packages WHERE id = ? AND collection_type IN (?, ?)',
@@ -3922,8 +3924,8 @@ def template_delete(template_id):
 @requires_auth
 def smart_collections_queue():
     """Smart collections awaiting agent review."""
-    conn = sqlite3.connect(str(DB_PATH))
-    conn.row_factory = sqlite3.Row
+    from src.core.pg_adapter import get_db as _pg_get_db
+    conn = _pg_get_db(str(DB_PATH))
 
     # Get pending smart collections
     pending_rows = conn.execute('''
@@ -3997,7 +3999,8 @@ def smart_collections_queue():
 def smart_collection_review(collection_id):
     """Accept or reject a smart collection."""
     action = request.form.get('action', '')
-    conn = sqlite3.connect(str(DB_PATH))
+    from src.core.pg_adapter import get_db as _pg_get_db
+    conn = _pg_get_db(str(DB_PATH))
     now = datetime.now(ET).isoformat()
 
     if action == 'accept':
@@ -5039,7 +5042,8 @@ def photo_status():
     import json as json_mod
     from pathlib import Path
 
-    db_conn = sqlite3.connect(DB_PATH)
+    from src.core.pg_adapter import get_db as _pg_get_db
+    db_conn = _pg_get_db(str(DB_PATH))
     db_conn.row_factory = sqlite3.Row
 
     # Per-source stats

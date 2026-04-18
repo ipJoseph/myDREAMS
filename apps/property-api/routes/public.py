@@ -158,12 +158,11 @@ def _download_gallery_on_demand(mls_number: str, photos_json: str) -> None:
             except Exception:
                 filepath.unlink(missing_ok=True)
 
-        # Update DB with local paths (short-lived connection, WAL-friendly)
+        # Update DB with local paths
         if local_paths:
             try:
-                conn = sqlite3.connect(str(DB_PATH), timeout=10)
-                conn.execute('PRAGMA journal_mode=WAL')
-                conn.execute('PRAGMA busy_timeout=10000')
+                from src.core.pg_adapter import get_db as _pg_get_db
+                conn = _pg_get_db(str(DB_PATH))
                 conn.execute(
                     "UPDATE listings SET photos = ? WHERE mls_number = ?",
                     [json.dumps(local_paths), mls_number]

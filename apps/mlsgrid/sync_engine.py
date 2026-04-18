@@ -100,13 +100,10 @@ class MLSGridSyncEngine:
         # Ensure database tables exist (reuse Navica's table setup)
         self._ensure_tables()
 
-    def _get_connection(self) -> sqlite3.Connection:
-        """Get a database connection."""
-        conn = sqlite3.connect(str(self.db_path), timeout=60)
-        conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA journal_mode = WAL")
-        conn.execute("PRAGMA busy_timeout = 30000")
-        return conn
+    def _get_connection(self):
+        """Get a database connection (PostgreSQL if DATABASE_URL set, else SQLite)."""
+        from src.core.pg_adapter import get_db
+        return get_db(str(self.db_path))
 
     def _ensure_tables(self):
         """Ensure required tables and indexes exist."""
