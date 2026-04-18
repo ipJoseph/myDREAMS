@@ -628,11 +628,14 @@ class MLSGridSyncEngine:
 
         try:
             # Full sync: MlgCanView=true only (no deletion signals needed)
+            # expand_media=True to include Media URLs for photo downloads.
+            # See docs/DECISIONS.md D3: photos download DURING sync.
             properties = self.client.fetch_properties(
                 status=status,
                 property_types=property_types,
                 max_records=max_records,
                 include_deleted=False,
+                expand_media=True,
             )
         except MLSGridAPIError as e:
             logger.error(f"Failed to fetch properties: {e}")
@@ -795,6 +798,7 @@ class MLSGridSyncEngine:
                 modified_since=modified_since,
                 max_records=max_records,
                 include_deleted=True,
+                expand_media=True,
             )
         except MLSGridAPIError as e:
             logger.error(f"Failed to fetch properties: {e}")
