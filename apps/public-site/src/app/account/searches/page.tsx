@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
+import { useUser } from "@/hooks/useUser";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -42,7 +42,7 @@ const ALERT_OPTIONS = [
 ];
 
 export default function SavedSearchesPage() {
-  const { data: session, status } = useSession();
+  const { user, loading: authLoading, session } = useUser();
   const router = useRouter();
   const [searches, setSearches] = useState<SavedSearch[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,11 +52,11 @@ export default function SavedSearchesPage() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (status === "unauthenticated") {
+    if (!user && !authLoading) {
       router.push("/listings");
       return;
     }
-    if (status !== "authenticated") return;
+    if (!user) return;
 
     async function fetchSearches() {
       try {
@@ -72,7 +72,7 @@ export default function SavedSearchesPage() {
       }
     }
     fetchSearches();
-  }, [status, router]);
+  }, [user, authLoading, router]);
 
   const startEditing = (search: SavedSearch) => {
     setEditingId(search.id);
@@ -120,7 +120,7 @@ export default function SavedSearchesPage() {
     setSearches((prev) => prev.filter((s) => s.id !== searchId));
   };
 
-  if (status === "loading" || loading) {
+  if (authLoading || loading) {
     return (
       <div className="bg-[var(--color-eggshell)] min-h-screen">
         <div className="h-20 bg-[var(--color-primary)]" />

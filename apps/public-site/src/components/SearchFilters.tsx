@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useRef, useState } from "react";
-import { useSession } from "next-auth/react";
+import { useUser } from "@/hooks/useUser";
 import ViewToggle from "./ViewToggle";
 import AuthModal from "./AuthModal";
 
@@ -58,7 +58,7 @@ export default function SearchFilters() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const { data: session } = useSession();
+  const { user, loading: authLoading, session } = useUser();
   const [showAuth, setShowAuth] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
 

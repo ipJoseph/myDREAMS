@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useSession } from "next-auth/react";
+import { useUser } from "@/hooks/useUser";
 import AuthModal from "./AuthModal";
 
 interface FavoriteButtonProps {
@@ -15,7 +15,7 @@ export default function FavoriteButton({
   initialFavorited = false,
   size = "sm",
 }: FavoriteButtonProps) {
-  const { data: session } = useSession();
+  const { user, loading: authLoading, session } = useUser();
   const [isFavorited, setIsFavorited] = useState(initialFavorited);
   const [loading, setLoading] = useState(false);
   const [showAuth, setShowAuth] = useState(false);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
+import { useUser } from "@/hooks/useUser";
 import AuthModal from "./AuthModal";
 
 interface Collection {
@@ -19,7 +19,7 @@ export default function AddToCollectionButton({
   listingId,
   variant = "icon",
 }: AddToCollectionButtonProps) {
-  const { data: session } = useSession();
+  const { user, loading: authLoading, session } = useUser();
   const [showDropdown, setShowDropdown] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
   const [collections, setCollections] = useState<Collection[]>([]);

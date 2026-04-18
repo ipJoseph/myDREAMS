@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
+import { useUser } from "@/hooks/useUser";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -29,17 +29,17 @@ interface FavoriteListing {
 }
 
 export default function FavoritesPage() {
-  const { data: session, status } = useSession();
+  const { user, loading: authLoading, session } = useUser();
   const router = useRouter();
   const [favorites, setFavorites] = useState<FavoriteListing[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (status === "unauthenticated") {
+    if (!user && !authLoading) {
       router.push("/listings");
       return;
     }
-    if (status !== "authenticated") return;
+    if (!user) return;
 
     async function fetchFavorites() {
       try {
@@ -55,14 +55,14 @@ export default function FavoritesPage() {
       }
     }
     fetchFavorites();
-  }, [status, router]);
+  }, [user, authLoading, router]);
 
   const removeFavorite = async (listingId: string) => {
     await fetch(`/api/user/favorites/${listingId}`, { method: "DELETE" });
     setFavorites((prev) => prev.filter((f) => f.id !== listingId));
   };
 
-  if (status === "loading" || loading) {
+  if (authLoading || loading) {
     return (
       <div className="bg-[var(--color-eggshell)] min-h-screen">
         <div className="h-20 bg-[var(--color-primary)]" />

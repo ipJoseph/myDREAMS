@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
+import { useUser } from "@/hooks/useUser";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -20,7 +20,7 @@ interface Collection {
 }
 
 export default function CollectionsPage() {
-  const { data: session, status } = useSession();
+  const { user, loading: authLoading, session } = useUser();
   const router = useRouter();
   const [collections, setCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,13 +30,13 @@ export default function CollectionsPage() {
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
-    if (status === "unauthenticated") {
+    if (!user && !authLoading) {
       router.push("/listings");
       return;
     }
-    if (status !== "authenticated") return;
+    if (!user) return;
     fetchCollections();
-  }, [status, router]);
+  }, [user, authLoading, router]);
 
   async function fetchCollections() {
     try {
@@ -80,7 +80,7 @@ export default function CollectionsPage() {
     setCollections((prev) => prev.filter((c) => c.id !== id));
   };
 
-  if (status === "loading" || loading) {
+  if (authLoading || loading) {
     return (
       <div className="bg-[var(--color-eggshell)] min-h-screen">
         <div className="h-20 bg-[var(--color-primary)]" />

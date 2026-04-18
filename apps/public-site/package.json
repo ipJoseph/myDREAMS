@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@googlemaps/markerclusterer": "^2.6.2",
+    "@supabase/ssr": "^0.10.2",
+    "@supabase/supabase-js": "^2.103.3",
     "@types/bcryptjs": "^3.0.0",
     "@vis.gl/react-google-maps": "^1.7.1",
     "bcryptjs": "^3.0.3",

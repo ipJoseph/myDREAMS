@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { signIn } from "next-auth/react";
+import { createClient } from "@/lib/supabase";
+import { setTrackingEmail } from "@/lib/track";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -9,25 +10,32 @@ interface AuthModalProps {
   defaultTab?: "login" | "register";
 }
 
+/**
+ * Authentication modal using Supabase Auth.
+ *
+ * Replaces the old NextAuth + Flask dual-auth system. Supabase handles
+ * registration, login, OAuth, password reset, and email verification.
+ *
+ * See docs/DECISIONS.md #0.
+ */
 export default function AuthModal({ isOpen, onClose, defaultTab = "login" }: AuthModalProps) {
-  const [tab, setTab] = useState<"login" | "register">(defaultTab);
+  const [tab, setTab] = useState<"login" | "register" | "reset">(defaultTab);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // When the modal opens, pre-fill email from the most recent contact
-  // form submission (Tier A → Tier B upgrade). Only runs when the modal
-  // transitions from closed to open, not on every render.
+  // Pre-fill email from contact form submission (Tier A → Tier B upgrade)
   useEffect(() => {
     if (isOpen && !email) {
       try {
         const savedEmail = localStorage.getItem("dreams_track_email");
         if (savedEmail) {
           setEmail(savedEmail);
-          setTab("register"); // They already gave us their email, go straight to register
+          setTab("register");
         }
       } catch {
         // localStorage unavailable
@@ -37,42 +45,93 @@ export default function AuthModal({ isOpen, onClose, defaultTab = "login" }: Aut
 
   if (!isOpen) return null;
 
-  const handleCredentialsSubmit = async (e: React.FormEvent) => {
+  const supabase = createClient();
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setMessage("");
     setLoading(true);
 
     try {
       if (tab === "register") {
-        // Register first, then sign in
-        const res = await fetch("/api/user/register", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password, name, phone }),
+        const { data, error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              name,
+              phone: phone || undefined,
+            },
+          },
         });
-        const data = await res.json();
-        if (!data.success) {
-          setError(data.error || "Registration failed");
+
+        if (signUpError) {
+          setError(signUpError.message);
           setLoading(false);
           return;
         }
-      }
 
-      // Sign in with credentials
-      const result = await signIn("credentials", {
-        email,
-        password,
-        redirect: false,
-      });
+        // Store email for tracking (Tier A → Tier B path)
+        if (email) setTrackingEmail(email);
 
-      if (result?.error) {
-        setError("Invalid email or password");
+        // Link to local lead via the API (best-effort)
+        try {
+          await fetch("/api/public/contacts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              name,
+              email,
+              phone: phone || undefined,
+              source: "registration",
+            }),
+          });
+        } catch {
+          // Best-effort; don't block auth on lead creation
+        }
+
+        if (data.session) {
+          // Auto-confirmed (email verification disabled or already verified)
+          onClose();
+          window.location.reload();
+        } else {
+          // Email verification required
+          setMessage("Check your email for a verification link. You can close this dialog.");
+          setLoading(false);
+        }
+        return;
+
+      } else if (tab === "login") {
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (signInError) {
+          setError(signInError.message);
+          setLoading(false);
+          return;
+        }
+
+        onClose();
+        window.location.reload();
+        return;
+
+      } else if (tab === "reset") {
+        const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+          email,
+          { redirectTo: `${window.location.origin}/account` }
+        );
+
+        if (resetError) {
+          setError(resetError.message);
+        } else {
+          setMessage("Check your email for a password reset link.");
+        }
         setLoading(false);
         return;
       }
-
-      onClose();
-      window.location.reload();
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {
@@ -80,8 +139,14 @@ export default function AuthModal({ isOpen, onClose, defaultTab = "login" }: Aut
     }
   };
 
-  const handleGoogleSignIn = () => {
-    signIn("google", { callbackUrl: window.location.href });
+  const handleGoogleSignIn = async () => {
+    const supabase = createClient();
+    await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
   };
 
   return (
@@ -106,35 +171,37 @@ export default function AuthModal({ isOpen, onClose, defaultTab = "login" }: Aut
             className="text-2xl text-[var(--color-primary)] mb-6"
             style={{ fontFamily: "Georgia, serif" }}
           >
-            {tab === "login" ? "Welcome Back" : "Create Account"}
+            {tab === "login" ? "Welcome Back" : tab === "register" ? "Create Account" : "Reset Password"}
           </h2>
 
-          {/* Tab switcher */}
-          <div className="flex border-b border-gray-200 mb-6">
-            <button
-              onClick={() => { setTab("login"); setError(""); }}
-              className={`pb-3 px-4 text-sm font-medium uppercase tracking-wider transition ${
-                tab === "login"
-                  ? "text-[var(--color-primary)] border-b-2 border-[var(--color-accent)]"
-                  : "text-gray-400 hover:text-gray-600"
-              }`}
-            >
-              Sign In
-            </button>
-            <button
-              onClick={() => { setTab("register"); setError(""); }}
-              className={`pb-3 px-4 text-sm font-medium uppercase tracking-wider transition ${
-                tab === "register"
-                  ? "text-[var(--color-primary)] border-b-2 border-[var(--color-accent)]"
-                  : "text-gray-400 hover:text-gray-600"
-              }`}
-            >
-              Register
-            </button>
-          </div>
+          {/* Tab switcher (hide on reset) */}
+          {tab !== "reset" && (
+            <div className="flex border-b border-gray-200 mb-6">
+              <button
+                onClick={() => { setTab("login"); setError(""); setMessage(""); }}
+                className={`pb-3 px-4 text-sm font-medium uppercase tracking-wider transition ${
+                  tab === "login"
+                    ? "text-[var(--color-primary)] border-b-2 border-[var(--color-accent)]"
+                    : "text-gray-400 hover:text-gray-600"
+                }`}
+              >
+                Sign In
+              </button>
+              <button
+                onClick={() => { setTab("register"); setError(""); setMessage(""); }}
+                className={`pb-3 px-4 text-sm font-medium uppercase tracking-wider transition ${
+                  tab === "register"
+                    ? "text-[var(--color-primary)] border-b-2 border-[var(--color-accent)]"
+                    : "text-gray-400 hover:text-gray-600"
+                }`}
+              >
+                Register
+              </button>
+            </div>
+          )}
 
-          {/* Google OAuth (only shown when configured) */}
-          {process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED === "true" && (
+          {/* Google OAuth */}
+          {tab !== "reset" && (
             <>
               <button
                 onClick={handleGoogleSignIn}
@@ -160,9 +227,8 @@ export default function AuthModal({ isOpen, onClose, defaultTab = "login" }: Aut
             </>
           )}
 
-          {/* Credentials form — autocomplete="off" on form prevents browser
-              from auto-filling another user's saved credentials */}
-          <form onSubmit={handleCredentialsSubmit} autoComplete="off">
+          {/* Form */}
+          <form onSubmit={handleSubmit} autoComplete="off">
             {tab === "register" && (
               <div className="mb-4">
                 <label className="block text-xs text-[var(--color-text-light)] uppercase tracking-wider mb-1">
@@ -210,24 +276,30 @@ export default function AuthModal({ isOpen, onClose, defaultTab = "login" }: Aut
               />
             </div>
 
-            <div className="mb-6">
-              <label className="block text-xs text-[var(--color-text-light)] uppercase tracking-wider mb-1">
-                Password
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={8}
-                autoComplete={tab === "register" ? "new-password" : "current-password"}
-                className="w-full px-4 py-3 border border-gray-300 text-sm focus:outline-none focus:border-[var(--color-accent)] transition"
-                placeholder={tab === "register" ? "At least 8 characters" : "Your password"}
-              />
-            </div>
+            {tab !== "reset" && (
+              <div className="mb-6">
+                <label className="block text-xs text-[var(--color-text-light)] uppercase tracking-wider mb-1">
+                  Password
+                </label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={6}
+                  autoComplete={tab === "register" ? "new-password" : "current-password"}
+                  className="w-full px-4 py-3 border border-gray-300 text-sm focus:outline-none focus:border-[var(--color-accent)] transition"
+                  placeholder={tab === "register" ? "At least 6 characters" : "Your password"}
+                />
+              </div>
+            )}
 
             {error && (
-              <p className="text-red-600 text-sm mb-4">{error}</p>
+              <p className="text-red-600 text-sm mb-4 uppercase tracking-wide">{error}</p>
+            )}
+
+            {message && (
+              <p className="text-green-600 text-sm mb-4">{message}</p>
             )}
 
             <button
@@ -239,9 +311,31 @@ export default function AuthModal({ isOpen, onClose, defaultTab = "login" }: Aut
                 ? "Please wait..."
                 : tab === "login"
                   ? "Sign In"
-                  : "Create Account"}
+                  : tab === "register"
+                    ? "Create Account"
+                    : "Send Reset Link"}
             </button>
           </form>
+
+          {/* Footer links */}
+          <div className="mt-4 text-center">
+            {tab === "login" && (
+              <button
+                onClick={() => { setTab("reset"); setError(""); setMessage(""); }}
+                className="text-xs text-gray-400 hover:text-[var(--color-accent)] transition"
+              >
+                Forgot your password?
+              </button>
+            )}
+            {tab === "reset" && (
+              <button
+                onClick={() => { setTab("login"); setError(""); setMessage(""); }}
+                className="text-xs text-gray-400 hover:text-[var(--color-accent)] transition"
+              >
+                Back to Sign In
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
