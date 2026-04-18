@@ -24,28 +24,37 @@ class DREAMSDatabase:
     This is the canonical data store. All external systems sync through this.
     """
     
-    def __init__(self, db_path: str):
+    def __init__(self, db_path: str = None):
         """
         Initialize database connection.
-        
-        Args:
-            db_path: Path to SQLite database file
+
+        If DATABASE_URL is set, uses PostgreSQL via pg_adapter (concurrent writes,
+        connection pooling). Otherwise falls back to SQLite at db_path.
         """
-        self.db_path = Path(db_path)
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._init_database()
-    
+        from src.core.pg_adapter import is_postgres
+        self._use_postgres = is_postgres()
+
+        if self._use_postgres:
+            self.db_path = None
+            logger.info("DREAMSDatabase using PostgreSQL (DATABASE_URL is set)")
+        else:
+            if db_path is None:
+                project_root = Path(__file__).parent.parent.parent
+                db_path = str(project_root / "data" / "dreams.db")
+            self.db_path = Path(db_path)
+            self.db_path.parent.mkdir(parents=True, exist_ok=True)
+            self._init_database()
+
     def _init_database(self) -> None:
-        """Create tables if they don't exist."""
+        """Create tables if they don't exist (SQLite only; PostgreSQL uses migration script)."""
+        if self._use_postgres:
+            return  # Schema managed by scripts/migrate_to_postgres.py
+
         with self._get_connection() as conn:
-            # Enable WAL mode for better concurrency and crash recovery
             conn.execute("PRAGMA journal_mode = WAL")
             conn.execute("PRAGMA foreign_keys = ON")
             conn.execute("PRAGMA busy_timeout = 30000")
 
-            # In production the schema already exists. Check with a cheap read
-            # before attempting any writes, so the API can start even when the
-            # MLS Grid sync holds a write lock.
             row = conn.execute(
                 "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='leads'"
             ).fetchone()
@@ -55,7 +64,6 @@ class DREAMSDatabase:
                 logger.info(f"Database schema already exists at {self.db_path}, skipping init writes")
                 return
 
-            # Fresh database — run the full schema creation
             tables_schema = self._get_tables_schema()
             conn.executescript(tables_schema)
             conn.commit()
@@ -73,7 +81,12 @@ class DREAMSDatabase:
             logger.info(f"Database initialized at {self.db_path}")
 
     def _apply_migrations(self, conn) -> None:
-        """Add missing columns to existing tables (for schema updates)."""
+        """Add missing columns to existing tables (for schema updates).
+        Only runs for SQLite (PostgreSQL schema is managed by migrate_to_postgres.py).
+        """
+        if self._use_postgres:
+            return
+
         # Get existing columns in leads table
         cursor = conn.execute("PRAGMA table_info(leads)")
         existing_cols = {row[1] for row in cursor.fetchall()}
@@ -217,9 +230,17 @@ class DREAMSDatabase:
 
     @contextmanager
     def _get_connection(self):
-        """Get database connection with context manager."""
-        conn = sqlite3.connect(str(self.db_path))
-        conn.row_factory = sqlite3.Row
+        """Get database connection with context manager.
+
+        PostgreSQL: returns PgConnectionWrapper from the connection pool.
+        SQLite: returns sqlite3 connection with Row factory.
+        """
+        if self._use_postgres:
+            from src.core.pg_adapter import get_connection
+            conn = get_connection()
+        else:
+            conn = sqlite3.connect(str(self.db_path))
+            conn.row_factory = sqlite3.Row
         try:
             yield conn
         finally:
