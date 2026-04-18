@@ -200,8 +200,9 @@ export default function AuthModal({ isOpen, onClose, defaultTab = "login" }: Aut
             </div>
           )}
 
-          {/* Google OAuth */}
-          {tab !== "reset" && (
+          {/* Google OAuth — only shown when configured in Supabase dashboard.
+              Set NEXT_PUBLIC_GOOGLE_AUTH_ENABLED=true in .env to show. */}
+          {tab !== "reset" && process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED === "true" && (
             <>
               <button
                 onClick={handleGoogleSignIn}
