@@ -105,7 +105,8 @@ def batch_update_photo_paths(db_path: Path, updates: list):
     """Batch update photo_local_path for downloaded photos."""
     if not updates:
         return
-    conn = sqlite3.connect(str(db_path))
+    from src.core.pg_adapter import get_db
+    conn = get_db(str(db_path))
     conn.executemany(
         "UPDATE listings SET photo_local_path = ? WHERE mls_number = ?",
         updates
@@ -116,7 +117,8 @@ def batch_update_photo_paths(db_path: Path, updates: list):
 
 def update_db_only(photos_dir: Path, db_path: Path):
     """Set photo_local_path for files already downloaded but not recorded in DB."""
-    conn = sqlite3.connect(str(db_path))
+    from src.core.pg_adapter import get_db
+    conn = get_db(str(db_path))
     conn.row_factory = sqlite3.Row
 
     rows = conn.execute(
@@ -160,8 +162,8 @@ def main():
         return
 
     # Get listings needing photos
-    conn = sqlite3.connect(str(DB_PATH))
-    conn.row_factory = sqlite3.Row
+    from src.core.pg_adapter import get_db
+    conn = get_db(str(DB_PATH))
 
     if args.status == 'ALL':
         query = """
