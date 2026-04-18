@@ -670,15 +670,14 @@ class ListingService:
         if filters.has_view is True:
             conditions.append("view_yn = 1")
 
-        # DOM filter (use list_date for accuracy)
+        # DOM filter (use list_date for accuracy).
+        # Compute cutoff date in Python so it works on both SQLite and PostgreSQL
+        # without database-specific date functions.
         if filters.max_dom is not None:
-            from src.core.pg_adapter import is_postgres
-            if is_postgres():
-                conditions.append("list_date >= CURRENT_DATE - CAST(? AS INTEGER) * INTERVAL '1 day'")
-                params.append(filters.max_dom)
-            else:
-                conditions.append("list_date >= date('now', ? || ' days')")
-                params.append(str(-filters.max_dom))
+            from datetime import date as _date, timedelta as _td
+            cutoff = (_date.today() - _td(days=filters.max_dom)).isoformat()
+            conditions.append("list_date >= ?")
+            params.append(cutoff)
 
         # Property type
         if filters.property_type:
