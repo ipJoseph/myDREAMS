@@ -266,8 +266,12 @@ class MLSGridSyncEngine:
 
         return changes
 
-    def _record_changes(self, conn: sqlite3.Connection, changes: List[Dict]):
-        """Insert change records into property_changes table."""
+    def _record_changes(self, conn, changes: List[Dict]):
+        """Insert change records into property_changes table.
+
+        Best-effort: errors here must NEVER cascade to the listing upsert
+        or photo download. A failed change record is logged and skipped.
+        """
         for change in changes:
             try:
                 conn.execute('''
@@ -283,8 +287,15 @@ class MLSGridSyncEngine:
                     change.get('pct_change'),
                     change['detected_at'],
                 ])
-            except sqlite3.OperationalError as e:
+                conn.commit()
+            except Exception as e:
+                # Catch ALL exceptions (sqlite3 or psycopg2) so this
+                # never cascades. See docs/DECISIONS.md D1.
                 logger.debug(f"Could not record change: {e}")
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
 
     # ---------------------------------------------------------------
     # Upsert logic
