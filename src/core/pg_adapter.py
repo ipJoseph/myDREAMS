@@ -169,9 +169,16 @@ class PgConnectionWrapper:
         """Execute a query with sqlite3-style ? placeholders."""
         pg_query = _translate_placeholders(query)
 
-        # Convert list params to tuple (psycopg2 expects tuple)
-        if isinstance(params, list):
-            params = tuple(params)
+        # Convert params: list→tuple, booleans→int (PostgreSQL is strict
+        # about boolean vs integer; SQLite treats them interchangeably).
+        # See docs/DECISIONS.md D1.
+        if params is not None:
+            if isinstance(params, (list, tuple)):
+                params = tuple(
+                    int(p) if isinstance(p, bool) else p for p in params
+                )
+            elif isinstance(params, bool):
+                params = int(params)
 
         cursor = self._conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         try:
