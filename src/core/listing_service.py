@@ -593,8 +593,9 @@ class ListingService:
         if filters.require_idx:
             conditions.append("idx_opt_in = 1")
             # Only show listings with photos ready (no placeholders).
-            # Use CAST for compatibility: PostgreSQL BOOLEAN can't compare with integer.
-            conditions.append("photo_ready = true")
+            # Cast to integer for cross-database compatibility
+            # (PostgreSQL BOOLEAN, SQLite INTEGER both match CAST(x AS INTEGER) = 1)
+            conditions.append("CAST(photo_ready AS INTEGER) = 1")
 
         # Zone filtering (public site)
         if filters.zone is not None:
