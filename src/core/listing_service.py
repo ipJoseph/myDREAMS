@@ -592,6 +592,8 @@ class ListingService:
         # IDX compliance (public site)
         if filters.require_idx:
             conditions.append("idx_opt_in = 1")
+            # Only show listings with photos ready (no placeholders)
+            conditions.append("photo_ready = 1")
 
         # Zone filtering (public site)
         if filters.zone is not None:

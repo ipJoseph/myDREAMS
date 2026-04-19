@@ -32,6 +32,14 @@ and enforces these rules.
 - Therefore: download primary photo inline after each listing upsert
 - Gallery photos can be deferred to a nightly sweep but must use the MLS Grid Media API for fresh URLs, not the expired ones in the database
 
+### D3b: No listing goes live without photos (2026-04-19)
+- The `photo_ready` column controls visibility on the public site
+- `photo_ready = false` → listing is invisible to users (no placeholder ever shown)
+- `photo_ready = true` when photos are downloaded locally OR when `photo_count = 0` (genuinely no photos in MLS)
+- The public API enforces this via `AND photo_ready = 1` in all queries where `require_idx = true`
+- The dashboard can still see all listings regardless of `photo_ready`
+- New listings start as `photo_ready = false` and become visible after photos download
+
 ### D4: Identity resolution rules (2026-04-17)
 - **Email is the primary identity key.** Always auto-merge on email match.
 - **Phone NEVER auto-merges.** Phone match on different emails → flag as potential duplicate for agent review.

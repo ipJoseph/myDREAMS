@@ -176,11 +176,12 @@ def update_db_photo_paths(
         conn = get_db()
         conn.execute(
             "UPDATE listings SET photo_local_path = ?, photos = ?, "
-            "photo_verified_at = CURRENT_TIMESTAMP "
+            "photo_verified_at = CURRENT_TIMESTAMP, photo_ready = ? "
             "WHERE mls_source = ? AND mls_number = ?",
             [
                 str(storage.primary_path(mls_source, mls_number)),
                 json.dumps(result.local_urls),
+                True,
                 mls_source,
                 mls_number,
             ],

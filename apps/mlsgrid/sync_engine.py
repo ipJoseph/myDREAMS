@@ -517,10 +517,10 @@ class MLSGridSyncEngine:
             conn = self._get_connection()
             try:
                 conn.execute(
-                    "UPDATE listings SET photo_local_path = ?, photos = ? "
+                    "UPDATE listings SET photo_local_path = ?, photos = ?, photo_ready = ? "
                     "WHERE mls_source = ? AND mls_number = ?",
                     [str(PHOTOS_DIR / f"{mls_number}.jpg"), _json.dumps(local_paths),
-                     self.mls_source, mls_number]
+                     True, self.mls_source, mls_number]
                 )
                 conn.commit()
             finally:
