@@ -1,0 +1,1 @@
+"""Per-MLS photo adapters."""
