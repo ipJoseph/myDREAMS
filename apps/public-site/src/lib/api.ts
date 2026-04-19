@@ -194,6 +194,37 @@ export function formatNumber(n: number | null | undefined): string {
   return new Intl.NumberFormat("en-US").format(n);
 }
 
+/**
+ * Get filtered stats (avg price, median, sqft, DOM, etc.) for the current search.
+ */
+export async function getFilteredStats(
+  params: Record<string, string>
+): Promise<import("./types").FilteredStats | null> {
+  try {
+    const qs = new URLSearchParams(params).toString();
+    const url = apiUrl(`/filtered-stats?${qs}`);
+    const data = await fetchApi<ApiResponse<import("./types").FilteredStats>>(url);
+    return data.data;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Get areas (cities or counties) for client-side dropdowns.
+ */
+export async function getAreasClient(
+  type: "city" | "county" = "city"
+): Promise<import("./types").Area[]> {
+  try {
+    const url = apiUrl(`/areas?type=${type}`);
+    const data = await fetchApi<ApiResponse<import("./types").Area[]>>(url);
+    return data.data;
+  } catch {
+    return [];
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Public write endpoints (contact form, event tracking)
 // ---------------------------------------------------------------------------

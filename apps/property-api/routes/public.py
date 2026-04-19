@@ -584,6 +584,91 @@ def list_areas():
         }), 500
 
 
+@public_bp.route('/filtered-stats', methods=['GET'])
+def filtered_stats():
+    """
+    Get stats for the current search filters.
+
+    Returns avg price, median price, avg sqft, avg $/sqft, avg DOM, avg lot size
+    filtered by all search params (city, county, price range, beds, type, etc.)
+    """
+    try:
+        filters = ListingFilters.from_request(request.args, require_idx=True)
+        conditions, params = _service._build_conditions(filters)
+        where = " AND ".join(conditions) if conditions else "1=1"
+
+        conn = _service._get_connection()
+        try:
+            row = conn.execute(f"""
+                SELECT
+                    COUNT(*) as count,
+                    AVG(list_price) as avg_price,
+                    AVG(sqft) as avg_sqft,
+                    AVG(CASE WHEN sqft > 0 THEN CAST(list_price AS FLOAT) / sqft END) as avg_price_per_sqft,
+                    AVG(CASE WHEN acreage > 0 THEN acreage END) as avg_lot_acres
+                FROM listings
+                WHERE {where}
+            """, params).fetchone()
+
+            count = row[0] if row else 0
+            avg_price = round(row[1]) if row and row[1] else None
+            avg_sqft = round(row[2]) if row and row[2] else None
+            avg_ppsf = round(row[3]) if row and row[3] else None
+            avg_lot = round(row[4], 2) if row and row[4] else None
+
+            # Median price (approximate via PERCENTILE or ordered query)
+            median_price = None
+            if count > 0:
+                mid = count // 2
+                med_row = conn.execute(f"""
+                    SELECT list_price FROM listings
+                    WHERE {where} AND list_price IS NOT NULL
+                    ORDER BY list_price
+                    LIMIT 1 OFFSET ?
+                """, params + [mid]).fetchone()
+                if med_row:
+                    median_price = med_row[0]
+
+            # Avg DOM (computed from list_date)
+            avg_dom = None
+            try:
+                from src.core.pg_adapter import is_postgres
+                if is_postgres():
+                    dom_row = conn.execute(f"""
+                        SELECT AVG(CURRENT_DATE - list_date::date)
+                        FROM listings WHERE {where} AND list_date IS NOT NULL
+                    """, params).fetchone()
+                else:
+                    dom_row = conn.execute(f"""
+                        SELECT AVG(julianday('now') - julianday(list_date))
+                        FROM listings WHERE {where} AND list_date IS NOT NULL
+                    """, params).fetchone()
+                if dom_row and dom_row[0]:
+                    avg_dom = round(float(dom_row[0]))
+            except Exception:
+                pass
+
+            return jsonify({
+                'success': True,
+                'data': {
+                    'count': count,
+                    'avg_price': avg_price,
+                    'median_price': median_price,
+                    'avg_sqft': avg_sqft,
+                    'avg_price_per_sqft': avg_ppsf,
+                    'avg_dom': avg_dom,
+                    'avg_lot_acres': avg_lot,
+                },
+            })
+        finally:
+            conn.close()
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': {'code': 'SERVER_ERROR', 'message': 'Failed to compute stats'},
+        }), 500
+
+
 @public_bp.route('/stats', methods=['GET'])
 def listing_stats():
     """

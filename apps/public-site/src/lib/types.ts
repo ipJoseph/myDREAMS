@@ -106,6 +106,10 @@ export interface ListingSearchParams {
   min_sqft?: number;
   min_acreage?: number;
   max_dom?: number;
+  min_elevation?: number;
+  max_elevation?: number;
+  min_view_score?: number;
+  has_view?: string;
   property_type?: string;
   mls_source?: string;
   q?: string;
@@ -225,4 +229,14 @@ export interface ListingStats {
   counties_served: number;
   by_property_type: { type: string; count: number }[];
   by_mls_source: { source: string; count: number }[];
+}
+
+export interface FilteredStats {
+  count: number;
+  avg_price: number | null;
+  median_price: number | null;
+  avg_sqft: number | null;
+  avg_price_per_sqft: number | null;
+  avg_dom: number | null;
+  avg_lot_acres: number | null;
 }
