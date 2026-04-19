@@ -691,21 +691,16 @@ class MLSGridSyncEngine:
 
                     # Download photos for listings that need them.
                     # See docs/DECISIONS.md D3: photos download DURING sync.
-                    if result in ('created', 'updated') and not dry_run:
+                    # Check REGARDLESS of upsert result — a listing can have
+                    # unchanged data but missing photos (e.g., after migration).
+                    if not dry_run and result != 'deleted':
                         media = prop.get('Media', [])
                         mls_num = listing.get('mls_number')
-                        # Check if this listing needs photos downloaded
-                        needs_photo = False
-                        if result == 'created':
-                            needs_photo = True
-                        elif mls_num:
-                            # Check if local photo exists on disk
+                        if mls_num and media:
                             primary_path = PHOTOS_DIR / f"{mls_num}.jpg"
                             if not primary_path.exists():
-                                needs_photo = True
-                        if needs_photo and media and mls_num:
-                            if self._download_listing_photos(mls_num, media):
-                                self._photos_updated_count += 1
+                                if self._download_listing_photos(mls_num, media):
+                                    self._photos_updated_count += 1
 
                     # Commit every 10 records and yield briefly
                     if not dry_run and (i + 1) % 10 == 0:
@@ -852,12 +847,15 @@ class MLSGridSyncEngine:
                     # ($expand=Media), so this costs zero additional API calls.
                     # CDN downloads are parallel-safe and don't count against
                     # API rate limits.
-                    if result in ('created', 'updated') and not dry_run:
+                    # Download photos if missing on disk (regardless of upsert result)
+                    if not dry_run and result != 'deleted':
                         media = prop.get('Media', [])
-                        if media and self._download_listing_photos(
-                            listing.get('mls_number'), media
-                        ):
-                            photos_downloaded += 1
+                        mls_num = listing.get('mls_number')
+                        if mls_num and media:
+                            primary_path = PHOTOS_DIR / f"{mls_num}.jpg"
+                            if not primary_path.exists():
+                                if self._download_listing_photos(mls_num, media):
+                                    photos_downloaded += 1
 
                     if result == 'created':
                         stats['created'] += 1
