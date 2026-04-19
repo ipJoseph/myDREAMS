@@ -639,14 +639,16 @@ class MLSGridSyncEngine:
 
         try:
             # Full sync: MlgCanView=true only (no deletion signals needed)
-            # expand_media=True to include Media URLs for photo downloads.
-            # See docs/DECISIONS.md D3: photos download DURING sync.
+            # DO NOT use expand_media=True here — it loads 28K Media arrays
+            # into memory (~1.2 GB) and causes the VPS to swap/stall.
+            # Photos are handled separately by apps/photos/cron.py which
+            # fetches Media per-listing (small memory footprint).
             properties = self.client.fetch_properties(
                 status=status,
                 property_types=property_types,
                 max_records=max_records,
                 include_deleted=False,
-                expand_media=True,
+                expand_media=False,
             )
         except MLSGridAPIError as e:
             logger.error(f"Failed to fetch properties: {e}")

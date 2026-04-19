@@ -47,9 +47,30 @@ class MLSGridPhotoAdapter(PhotoAdapter):
     def get_fresh_urls(self, mls_number: str) -> List[str]:
         """Fetch fresh Media URLs from MLS Grid API.
 
-        This requires an API call, so use sparingly (hygiene cron only).
-        During normal sync, URLs come from $expand=Media in the property response.
+        Makes ONE API call per listing. Use for hygiene fill, not bulk sync.
+        Returns list of fresh CDN URLs with valid tokens.
         """
-        # TODO: implement when we build the hygiene cron
-        # For now, the sync-time URLs are the primary path
-        return []
+        import os
+        try:
+            from apps.mlsgrid.client import MLSGridClient
+            from dotenv import load_dotenv
+            load_dotenv()
+            token = os.getenv("MLSGRID_TOKEN")
+            if not token:
+                return []
+            client = MLSGridClient(token=token)
+            media = client.fetch_media_for_listing(mls_number)
+            # Extract photo URLs, sorted by Order
+            photos = [
+                m for m in media
+                if isinstance(m, dict)
+                and m.get("MediaCategory", "").lower() == "photo"
+            ]
+            if not photos:
+                photos = [m for m in media if isinstance(m, dict) and m.get("MediaURL")]
+            photos.sort(key=lambda m: m.get("Order", 999))
+            return [m["MediaURL"] for m in photos if m.get("MediaURL")]
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"get_fresh_urls failed for {mls_number}: {e}")
+            return []

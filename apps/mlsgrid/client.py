@@ -453,6 +453,36 @@ class MLSGridClient:
 
         return self.get_all_pages("/Property", params, max_records=max_records)
 
+    def fetch_media_for_listing(self, mls_number: str) -> List[Dict]:
+        """Fetch fresh Media URLs for a single listing.
+
+        Used by the PhotoManager when CDN URLs in the database are expired.
+        Makes ONE API request per listing, so use sparingly.
+
+        Args:
+            mls_number: The MLS number (e.g., "CAR4363555")
+
+        Returns:
+            List of Media dicts with MediaURL, MediaCategory, Order, etc.
+            Empty list if listing not found or no media.
+        """
+        try:
+            filter_str = (
+                f"OriginatingSystemName eq 'carolina' "
+                f"and ListingId eq '{mls_number}'"
+            )
+            data = self.get("/Property", {
+                "$filter": filter_str,
+                "$expand": "Media",
+                "$top": "1",
+            })
+            props = data.get("value", [])
+            if props:
+                return props[0].get("Media", [])
+        except Exception as e:
+            logger.warning(f"Failed to fetch media for {mls_number}: {e}")
+        return []
+
     def fetch_agents(
         self,
         member_status: Optional[str] = None,

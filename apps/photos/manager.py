@@ -277,6 +277,28 @@ def run_photo_fill(
         if dl_result.primary_downloaded:
             update_db_photo_paths(mls_num, source, dl_result)
             report.downloaded += 1
+        elif dl_result.errors > 0:
+            # DB URLs failed (likely expired CDN tokens).
+            # Try fetching fresh URLs from the MLS API.
+            adapter = get_adapter(source)
+            if adapter.cdn_urls_expire:
+                fresh_urls = adapter.get_fresh_urls(mls_num)
+                if fresh_urls:
+                    dl_result2 = download_for_listing(
+                        mls_number=mls_num,
+                        media_urls=fresh_urls,
+                        mls_source=source,
+                        primary_only=primary_only,
+                    )
+                    if dl_result2.primary_downloaded:
+                        update_db_photo_paths(mls_num, source, dl_result2)
+                        report.downloaded += 1
+                    else:
+                        report.failed += 1
+                else:
+                    report.failed += 1
+            else:
+                report.failed += 1
         else:
             report.failed += 1
 
