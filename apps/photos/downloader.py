@@ -72,15 +72,15 @@ def download_photo(url: str, timeout: int = DEFAULT_TIMEOUT) -> Optional[bytes]:
 
 
 def detect_extension(url: str) -> str:
-    """Detect file extension from URL path. Defaults to .jpg."""
+    """Detect file extension from URL path. Always uses .jpg for JPEG
+    (not .jpeg) for consistency with existing photo files on disk."""
     try:
         path = urlparse(url).path.lower()
         if path.endswith(".png"):
             return ".png"
         if path.endswith(".webp"):
             return ".webp"
-        if path.endswith(".jpeg"):
-            return ".jpeg"
+        # .jpeg → .jpg for consistency
     except Exception:
         pass
     return ".jpg"

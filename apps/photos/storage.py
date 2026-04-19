@@ -138,6 +138,7 @@ def save_atomic(directory: Path, filename: str, data: bytes) -> Path:
         try:
             os.write(fd, data)
             os.close(fd)
+            os.chmod(tmp_path, 0o644)  # World-readable (API serves as different user)
             os.rename(tmp_path, filepath)
             return filepath
         except Exception:
