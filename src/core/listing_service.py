@@ -592,8 +592,9 @@ class ListingService:
         # IDX compliance (public site)
         if filters.require_idx:
             conditions.append("idx_opt_in = 1")
-            # Only show listings with photos ready (no placeholders)
-            conditions.append("photo_ready = 1")
+            # Only show listings with photos ready (no placeholders).
+            # Use CAST for compatibility: PostgreSQL BOOLEAN can't compare with integer.
+            conditions.append("photo_ready = true")
 
         # Zone filtering (public site)
         if filters.zone is not None:
