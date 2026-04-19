@@ -55,6 +55,7 @@ class FUBAdapter(Adapter):
         base_url: Optional[str] = None,
         system: Optional[str] = None,
         client: Optional[FUBClient] = None,
+        is_dev: Optional[bool] = None,
     ):
         """
         Args:
@@ -63,12 +64,15 @@ class FUBAdapter(Adapter):
             system: The "system" field sent on events. Defaults to "myDREAMS".
             client: Pre-built FUBClient. Used in tests to inject a mock.
                     If provided, api_key/base_url are ignored.
+            is_dev: If True, tags all contacts with DEV_TEST and uses
+                    source "localhost" so test data is distinguishable in FUB.
         """
         self.api_key = api_key
         self.base_url = base_url or "https://api.followupboss.com/v1"
         self.system = system or self.DEFAULT_SYSTEM
         self._client_override = client
         self._client: Optional[FUBClient] = None
+        self._is_dev = is_dev if is_dev is not None else False
 
     @classmethod
     def from_env(cls) -> "FUBAdapter":
@@ -77,7 +81,12 @@ class FUBAdapter(Adapter):
             api_key=os.getenv("FUB_API_KEY"),
             base_url=os.getenv("FUB_BASE_URL"),
             system=os.getenv("FUB_SYSTEM_NAME"),
+            is_dev=os.getenv("DREAMS_ENV", "dev").lower() != "prd",
         )
+
+    #: When True, all contacts/events are tagged with DEV_TEST and
+    #: source is set to "localhost" so they're distinguishable in FUB.
+    _is_dev: bool = False
 
     def is_configured(self) -> bool:
         """True iff we have an API key (or a pre-built client for tests)."""
@@ -145,6 +154,17 @@ class FUBAdapter(Adapter):
                 "(event_type=%s, source=%s)", event_type, source
             )
             return AdapterResult.skip("FUB_API_KEY not set")
+
+        # DEV tagging: override source and inject DEV_TEST tag so test
+        # contacts are easily identifiable (and filterable) in FUB.
+        if self._is_dev:
+            source = "localhost"
+            if person is None:
+                person = {}
+            existing_tags = person.get("tags", [])
+            if "DEV_TEST" not in existing_tags:
+                person["tags"] = existing_tags + ["DEV_TEST"]
+            logger.debug("DEV mode: source='localhost', added DEV_TEST tag")
 
         try:
             client = self._get_client()
