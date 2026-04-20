@@ -1,0 +1,9 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+norecursedirs = ["archive", ".venv", "node_modules", "__pycache__", ".next", "apps/public-site"]
+python_files = ["test_*.py"]
+addopts = "-ra --strict-markers"
+markers = [
+    "integration: marks tests as integration tests (hit real DB or network)",
+    "slow: marks tests as slow",
+]

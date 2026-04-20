@@ -5,7 +5,7 @@ python-dotenv>=1.0.0
 pyyaml>=6.0
 
 # Database
-# SQLite is built into Python, no additional package needed
+psycopg2-binary>=2.9.9
 
 # Web Framework
 flask>=3.0.0
