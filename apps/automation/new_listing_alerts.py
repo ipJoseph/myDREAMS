@@ -131,10 +131,13 @@ def push_matches_to_fub(buyer: Dict, properties: List[Dict]) -> bool:
 
 
 def get_db_connection():
-    """Get database connection."""
-    conn = sqlite3.connect(config.DATABASE_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+    """Get database connection.
+
+    Routes through pg_adapter, which returns PostgreSQL when DATABASE_URL
+    is set (both DEV and PRD) and falls back to sqlite3 otherwise.
+    """
+    from src.core.pg_adapter import get_db
+    return get_db(config.DATABASE_PATH)
 
 
 def get_new_listings(hours: int = 24) -> List[Dict[str, Any]]:

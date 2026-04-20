@@ -56,10 +56,9 @@ def hex_to_rgb(hex_color):
 
 
 def get_db():
-    conn = sqlite3.connect(DB_PATH, timeout=30)
-    conn.execute("PRAGMA busy_timeout = 10000")
-    conn.row_factory = sqlite3.Row
-    return conn
+    """Get database connection (PostgreSQL via pg_adapter if DATABASE_URL set)."""
+    from src.core.pg_adapter import get_db as _get_db
+    return _get_db(DB_PATH)
 
 
 def get_market_totals_trend(conn, region):

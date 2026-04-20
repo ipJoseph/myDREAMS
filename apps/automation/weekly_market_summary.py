@@ -22,10 +22,9 @@ logger = logging.getLogger(__name__)
 
 
 def get_db_connection():
-    """Get database connection."""
-    conn = sqlite3.connect(config.DATABASE_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+    """Get database connection (PostgreSQL via pg_adapter if DATABASE_URL set)."""
+    from src.core.pg_adapter import get_db
+    return get_db(config.DATABASE_PATH)
 
 
 def capture_market_snapshot(snapshot_date: Optional[str] = None) -> Dict[str, Any]:
