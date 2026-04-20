@@ -24,13 +24,13 @@ Last updated: April 20, 2026 (post-audit)
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 8 | **Photo architecture efficiency review** | Pending | localize_photo per-file stat on every page view; race conditions; no cleanup for sold photos |
-| 9 | **Supabase Auth email confirmation test** | Pending | SMTP configured but delivery untested |
-| 10 | **Google OAuth end-to-end test** | Pending | Configured in Supabase, needs real login test |
-| 11 | **Favicon: distinct icons per app** | Pending | PRD needs blue icon; public vs dashboard |
-| 12 | **Remove frozen-data pivot banner** | Pending | Dashboard still shows JTH pivot banner |
-| 13 | **FUB daily sync test** | Pending | Untested since PostgreSQL migration |
-| 14 | **Add GitHub Actions CI** | Pending | Run pytest + next build on push; no CI/CD currently |
+| 8 | **Photo architecture efficiency review** | Partial | Hot-path per-file stat replaced with 60s dir-scan cache. Race conditions + sold-photo cleanup deferred |
+| 9 | **Supabase Auth email confirmation test** | Blocked | Supabase returns 500 "Error sending confirmation email"; SMTP creds need rotation |
+| 10 | **Google OAuth end-to-end test** | Partial | Provider configured, Supabase→Google redirect works; needs manual browser click-through |
+| 11 | **Favicon: distinct icons per app** | Done | Dashboard uses mountain silhouette; public-site keeps house. Env-aware dev/prd already wired |
+| 12 | **Remove frozen-data pivot banner** | Done | Removed 4 template includes + deleted partial |
+| 13 | **FUB daily sync test** | Done | Ported 3 SQLite-only code paths to PostgreSQL; sync runs cleanly |
+| 14 | **Add GitHub Actions CI** | Done | pytest + ruff + next build on push; `.github/workflows/ci.yml` |
 
 ---
 
