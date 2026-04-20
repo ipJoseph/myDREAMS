@@ -741,9 +741,13 @@ def map_reso_to_listing(prop: Dict, mls_source: str = 'NavicaMLS') -> Dict[str, 
         'private_remarks': prop.get('PrivateRemarks'),  # BBO only
         'showing_instructions': prop.get('ShowingInstructions'),  # BBO only
 
-        # IDX display rules
-        'idx_opt_in': prop.get('InternetEntireListingDisplayYN', True),
-        'idx_address_display': prop.get('InternetAddressDisplayYN', True),
+        # IDX display rules. These columns are declared INTEGER in the PG
+        # schema (0/1 semantics inherited from the SQLite era), so we cast
+        # the upstream bool to int here. Fixing the schema is a follow-up;
+        # in the meantime the cast keeps the sync from erroring out on
+        # "column X is of type integer but expression is of type boolean".
+        'idx_opt_in': int(bool(prop.get('InternetEntireListingDisplayYN', True))),
+        'idx_address_display': int(bool(prop.get('InternetAddressDisplayYN', True))),
         'vow_opt_in': prop.get('VirtualTourURLUnbranded'),
 
         # Documents
