@@ -1,0 +1,319 @@
+"""Strict-rate-limited gallery downloader for CanopyMLS listings.
+
+MLS Grid suspended us once today for going over rate limits. This
+script is the conservative replacement:
+
+  - SEQUENTIAL. No threading. One request at a time.
+  - A global throttle sleeps to maintain max 1.0 req/sec against
+    mlsgrid.com (both api.mlsgrid.com and media.mlsgrid.com count).
+  - Rolling-window budget: pauses if we've hit the 24-hour request
+    cap (MLS Grid warning: 40,000 requests per 24 hours).
+  - Newest listings first. Default sort list_date DESC so the home
+    page recovers first, older inventory catches up over nights.
+  - Resumable: each listing's state is written to the DB on success;
+    re-running picks up where we left off.
+
+Usage:
+  # Launch-and-forget (overnight):
+  /opt/mydreams/venv/bin/python3 scripts/gallery_backfill_strict.py \
+      --max-rps 1.0 \
+      --daily-budget 35000
+
+  # Continue from where we left off (nightly cron at 23:00 UTC):
+  /opt/mydreams/venv/bin/python3 scripts/gallery_backfill_strict.py --only-stale
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import logging
+import sys
+import threading
+import time
+from collections import deque
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO_ROOT))
+
+from dotenv import load_dotenv  # noqa: E402
+
+load_dotenv(REPO_ROOT / ".env")
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+)
+logger = logging.getLogger("gallery_backfill_strict")
+
+
+class MLSGridThrottle:
+    """Paces every outbound request against mlsgrid.com.
+
+    Enforces:
+      * a minimum gap between requests (1 / max_rps seconds)
+      * a sliding 24-hour budget of total requests
+
+    Thread-safe (we only use one thread today, but keeping it safe
+    means no surprises if future code parallelises).
+    """
+
+    def __init__(self, max_rps: float, daily_budget: int):
+        self._min_gap = 1.0 / max_rps if max_rps > 0 else 0.0
+        self._daily_budget = daily_budget
+        self._last_request_at = 0.0
+        self._recent_24h: deque = deque()  # timestamps
+        self._lock = threading.Lock()
+
+    def acquire(self):
+        """Block until a request can safely be issued."""
+        while True:
+            with self._lock:
+                now = time.monotonic()
+                # Evict timestamps older than 24 h
+                cutoff = now - 86400
+                while self._recent_24h and self._recent_24h[0] < cutoff:
+                    self._recent_24h.popleft()
+
+                # If we're over the 24h budget, sleep until the oldest entry ages out.
+                if len(self._recent_24h) >= self._daily_budget:
+                    oldest = self._recent_24h[0]
+                    wait = max(1.0, (oldest + 86400) - now)
+                    logger.warning(
+                        "24h budget full (%d); sleeping %.0fs for oldest entry to expire",
+                        len(self._recent_24h), wait,
+                    )
+                else:
+                    # Respect per-request minimum gap
+                    since_last = now - self._last_request_at
+                    wait = max(0.0, self._min_gap - since_last)
+
+                    if wait <= 0:
+                        self._last_request_at = now
+                        self._recent_24h.append(now)
+                        return
+
+            time.sleep(wait)
+
+
+def _listing_needs_work(row: Dict[str, Any], photos_dir: Path) -> bool:
+    """True if this listing's gallery is not yet fully local-on-disk."""
+    photos_raw = row.get("photos")
+    if not photos_raw:
+        return True
+    try:
+        urls = json.loads(photos_raw) if isinstance(photos_raw, str) else photos_raw
+    except Exception:
+        return True
+    if not isinstance(urls, list) or not urls:
+        return True
+
+    photo_count = row.get("photo_count") or 0
+    if photo_count > 1 and len(urls) < photo_count - 1:
+        return True
+
+    for u in urls:
+        if not isinstance(u, str):
+            return True
+        if u.startswith("http"):
+            return True
+        filename = u.rsplit("/", 1)[-1] if "/" in u else u
+        if not (photos_dir / filename).exists():
+            return True
+    return False
+
+
+def _process_listing(
+    row: Dict[str, Any],
+    throttle: MLSGridThrottle,
+    client,
+    extract_photos_fn,
+    save_atomic_fn,
+    download_photo_fn,
+    photos_dir: Path,
+    get_db_fn,
+) -> Dict[str, int]:
+    """Fetch fresh Media, download each photo, rewrite DB row to local paths.
+
+    Every MLS Grid HTTP call is preceded by throttle.acquire().
+    Returns {'downloaded': N, 'skipped': N, 'errors': N}.
+    """
+    mls = row["mls_number"]
+    stats = {"downloaded": 0, "skipped": 0, "errors": 0}
+
+    throttle.acquire()
+    try:
+        media = client.fetch_media_for_listing(mls)
+    except Exception as e:
+        logger.warning("%s: fetch_media failed: %s", mls, str(e)[:100])
+        stats["errors"] += 1
+        return stats
+
+    primary_url, all_urls, photo_count = extract_photos_fn(media)
+    if not all_urls:
+        conn = get_db_fn()
+        try:
+            conn.execute(
+                "UPDATE listings SET photo_count = 0 WHERE id = ?", [row["id"]]
+            )
+            conn.commit()
+        finally:
+            try: conn.close()
+            except Exception: pass
+        return stats
+
+    local_urls: List[str] = []
+    for i, url in enumerate(all_urls):
+        path_before_query = url.split("?", 1)[0].lower()
+        if path_before_query.endswith(".jpg"): ext = ".jpg"
+        elif path_before_query.endswith(".png"): ext = ".png"
+        elif path_before_query.endswith(".webp"): ext = ".webp"
+        else: ext = ".jpeg"
+
+        filename = f"{mls}{ext}" if i == 0 else f"{mls}_{i:02d}{ext}"
+        filepath = photos_dir / filename
+
+        if filepath.exists() and filepath.stat().st_size > 100:
+            stats["skipped"] += 1
+            local_urls.append(f"/api/public/photos/mlsgrid/{filename}")
+            continue
+
+        throttle.acquire()
+        data = download_photo_fn(url)
+        if not data:
+            # Keep the CDN URL so something renders
+            local_urls.append(url)
+            stats["errors"] += 1
+            continue
+
+        save_atomic_fn(photos_dir, filename, data)
+        local_urls.append(f"/api/public/photos/mlsgrid/{filename}")
+        stats["downloaded"] += 1
+
+    primary_local = (
+        local_urls[0] if local_urls and local_urls[0].startswith("/api/") else None
+    )
+    conn = get_db_fn()
+    try:
+        if primary_local:
+            conn.execute(
+                "UPDATE listings SET photos = ?, primary_photo = ?, photo_count = ?, "
+                "photo_ready = TRUE, photo_verified_at = CURRENT_TIMESTAMP WHERE id = ?",
+                [json.dumps(local_urls), primary_local, photo_count, row["id"]],
+            )
+        else:
+            conn.execute(
+                "UPDATE listings SET photos = ?, photo_count = ?, "
+                "photo_verified_at = CURRENT_TIMESTAMP WHERE id = ?",
+                [json.dumps(local_urls), photo_count, row["id"]],
+            )
+        conn.commit()
+    finally:
+        try: conn.close()
+        except Exception: pass
+
+    return stats
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument(
+        "--max-rps", type=float, default=1.0,
+        help="Maximum MLS Grid requests per second (safe: 1.0; emergency: 0.5)",
+    )
+    ap.add_argument(
+        "--daily-budget", type=int, default=35000,
+        help="Max total MLS Grid requests in rolling 24h (warning: 40,000)",
+    )
+    ap.add_argument("--limit", type=int, default=None)
+    ap.add_argument(
+        "--only-stale", action="store_true",
+        help="Skip listings already fully local-on-disk.",
+    )
+    ap.add_argument(
+        "--sort", choices=["newest", "oldest"], default="newest",
+        help="Process newest listings first (default) so home page recovers fastest.",
+    )
+    args = ap.parse_args()
+
+    from apps.mlsgrid.client import MLSGridClient
+    from apps.navica.field_mapper import extract_photos
+    from apps.photos import storage
+    from apps.photos.downloader import download_photo
+    from src.core.pg_adapter import get_db
+
+    photos_dir = storage.get_source_dir("CanopyMLS")
+    photos_dir.mkdir(parents=True, exist_ok=True)
+
+    throttle = MLSGridThrottle(args.max_rps, args.daily_budget)
+
+    sort_sql = "DESC" if args.sort == "newest" else "ASC"
+    conn = get_db()
+    rows = conn.execute(
+        f"""
+        SELECT id, mls_source, mls_number, photo_count, photos, list_date
+        FROM listings
+        WHERE status = 'ACTIVE'
+          AND mls_source = 'CanopyMLS'
+        ORDER BY list_date {sort_sql} NULLS LAST
+        """
+    ).fetchall()
+    rows = [dict(r) for r in rows]
+
+    if args.only_stale:
+        before = len(rows)
+        rows = [r for r in rows if _listing_needs_work(r, photos_dir)]
+        logger.info("Filter --only-stale: %d/%d listings need work", len(rows), before)
+    else:
+        logger.info(
+            "Processing %d active CanopyMLS listings (sort=%s, max_rps=%.2f, daily_budget=%d)",
+            len(rows), args.sort, args.max_rps, args.daily_budget,
+        )
+
+    if args.limit:
+        rows = rows[: args.limit]
+
+    if not rows:
+        logger.info("Nothing to do.")
+        return 0
+
+    client = MLSGridClient.from_env()
+    started = time.time()
+    total_dl = 0
+    total_sk = 0
+    total_err = 0
+
+    try:
+        for i, row in enumerate(rows, 1):
+            stats = _process_listing(
+                row, throttle, client, extract_photos, storage.save_atomic,
+                download_photo, photos_dir, get_db,
+            )
+            total_dl += stats["downloaded"]
+            total_sk += stats["skipped"]
+            total_err += stats["errors"]
+
+            if i % 25 == 0 or i == len(rows):
+                elapsed = time.time() - started
+                rate = i / elapsed if elapsed else 0
+                eta = (len(rows) - i) / rate if rate else 0
+                logger.info(
+                    "[%d/%d] %s list/%s downloaded=%d skipped=%d errors=%d rate=%.2f list/s ETA=%.0fs",
+                    i, len(rows), row.get("list_date"), row.get("mls_number"),
+                    total_dl, total_sk, total_err, rate, eta,
+                )
+    except KeyboardInterrupt:
+        logger.warning("Interrupted; partial progress saved in DB.")
+    finally:
+        elapsed = time.time() - started
+        logger.info(
+            "Done in %.0fs (%.1f min): downloaded=%d skipped=%d errors=%d",
+            elapsed, elapsed / 60, total_dl, total_sk, total_err,
+        )
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
