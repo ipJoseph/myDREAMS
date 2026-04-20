@@ -593,7 +593,7 @@ def filtered_stats():
     filtered by all search params (city, county, price range, beds, type, etc.)
     """
     try:
-        filters = ListingFilters.from_request(request.args, require_idx=True)
+        filters = ListingFilters.from_request(request.args)
         conditions, params = _service._build_conditions(filters)
         where = " AND ".join(conditions) if conditions else "1=1"
 

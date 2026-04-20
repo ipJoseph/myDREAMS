@@ -7718,7 +7718,7 @@ def approve_photo(listing_id):
             UPDATE listings
             SET photo_review_status = 'verified',
                 photo_verified_by = 'manual',
-                photo_verified_at = datetime('now')
+                photo_verified_at = CURRENT_TIMESTAMP
             WHERE id = ?
         ''', [listing_id])
         conn.commit()
@@ -7735,7 +7735,7 @@ def reject_photo(listing_id):
             SET photo_review_status = 'rejected',
                 primary_photo = NULL,
                 photo_verified_by = 'manual',
-                photo_verified_at = datetime('now')
+                photo_verified_at = CURRENT_TIMESTAMP
             WHERE id = ?
         ''', [listing_id])
         conn.commit()
@@ -7883,7 +7883,7 @@ def data_quality():
                 mls_source,
                 COUNT(*) as records
             FROM listings
-            WHERE created_at > datetime('now', '-30 days')
+            WHERE CAST(created_at AS timestamp) > CURRENT_TIMESTAMP - INTERVAL '30 days'
             GROUP BY DATE(created_at), mls_source
             ORDER BY import_date DESC
             LIMIT 10

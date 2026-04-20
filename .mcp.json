@@ -2,14 +2,23 @@
   "mcpServers": {
     "dreams-db": {
       "command": "bash",
-      "args": ["/home/bigeug/myDREAMS/mcp-servers/dreams-db/run.sh"],
+      "args": [
+        "/home/bigeug/myDREAMS/mcp-servers/dreams-db/run.sh"
+      ],
       "env": {
-        "DREAMS_DB_PATH": "/home/bigeug/myDREAMS/data/dreams.db"
+        "DREAMS_DB_PATH": "/home/bigeug/myDREAMS/data/dreams.db",
+        "DATABASE_URL": "postgresql://bigeug:dreams_dev@localhost/dreams_dev"
       }
     },
     "fub": {
       "command": "bash",
-      "args": ["/home/bigeug/myDREAMS/mcp-servers/fub/run.sh"]
+      "args": [
+        "/home/bigeug/myDREAMS/mcp-servers/fub/run.sh"
+      ]
+    },
+    "supabase": {
+      "type": "http",
+      "url": "https://skoavtsqckyipqxayjog.supabase.co/mcp/v1"
     }
   }
 }

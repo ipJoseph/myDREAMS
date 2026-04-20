@@ -92,7 +92,7 @@ myDREAMS (Desktop Real Estate Agent Management System) is a local-first platform
 | mlsgrid | - | Canopy MLS sync (pending credentials) |
 
 ### Important Paths
-- Database: `data/dreams.db` (SQLite, single canonical store; `listings` is the property table)
+- Database: PostgreSQL (`DATABASE_URL` in .env; `listings` is the property table). SQLite archived to `archive/sqlite-2026-04-20/`.
 - Photos: `data/photos/navica/` (DEV) → `/mnt/dreams-photos/` (PRD volume)
 - Secrets: `.env` (git-ignored)
 - Shared CSS: `shared/css/dreams.css`
@@ -133,12 +133,13 @@ python3 -m apps.mlsgrid.sync_engine --full --status Active
 
 **Database sync (PRD is canonical):**
 ```bash
-scripts/sync-from-prd.sh         # pull PRD db to DEV
+# Both DEV and PRD use PostgreSQL. Sync via pg_dump/pg_restore if needed.
+# Old SQLite sync script (sync-from-prd.sh) is retired.
 ```
 
 ## High-Level Architecture
 
-The system is built around **one SQLite database (`data/dreams.db`)** that all apps share. There is no microservice mesh — apps connect to the same file via `src/core/database.py` (`DREAMSDatabase` class). Understanding this is the key to the project:
+The system is built around **one PostgreSQL database** that all apps share. Connection is configured via `DATABASE_URL` in `.env`, routed through `src/core/pg_adapter.py` which provides a sqlite3-compatible interface. All apps connect via `src/core/database.py` (`DREAMSDatabase` class) which auto-detects the backend. Understanding this is the key to the project:
 
 **Ingestion → Storage → Surfaces:**
 
@@ -149,7 +150,7 @@ The system is built around **one SQLite database (`data/dreams.db`)** that all a
    - `apps/property-extension-v3/` — Chrome extension for ad-hoc property capture
    - PropStream CSV imports (lower trust; missing fields)
 
-2. **Storage** is `data/dreams.db`. The `listings` table is the **single canonical property table** — there is no separate `properties` table. `mls_source` distinguishes origins (`'Navica'`, `'CanopyMLS'`). Photos are stored locally and referenced via `photo_local_path`.
+2. **Storage** is PostgreSQL (configured via `DATABASE_URL`). The `listings` table is the **single canonical property table** (there is no separate `properties` table). `mls_source` distinguishes origins (`'Navica'`, `'CanopyMLS'`). Photos are stored locally and referenced via `photo_local_path`.
 
 3. **Surfaces** all read from the same DB:
    - `apps/property-api` (Flask, :5000) — REST API. Public IDX endpoints under `/api/public` are registered as `public_bp` and respect `idx_opt_in` / `idx_address_display`.
@@ -195,7 +196,7 @@ Connected MCP servers provide direct tool access. **Prefer MCP tools over raw SQ
 - Versioning: Update CHANGELOG.md when shipping features
 
 ### Code Patterns
-- Database connections: `with db._get_connection() as conn:` (not `conn = get_db()`)
+- Database connections: `from src.core.pg_adapter import get_db; conn = get_db()` (auto-detects PostgreSQL via DATABASE_URL)
 - Photo serving: always local paths, never CDN URLs
 - Address normalization: use `normalizeAddr()` / `isAddressMatch()`
 - Collection/package IDs: UUID strings, not integers

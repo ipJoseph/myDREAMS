@@ -3664,12 +3664,14 @@ class DREAMSDatabase:
                     l.fub_id as buyer_fub_id,
                     COUNT(pp.id) as property_count,
                     SUM(CASE WHEN pp.status = 'favorited' THEN 1 ELSE 0 END) as favorited_count,
-                    SUM(CASE WHEN pp.added_at >= datetime('now', '-7 days') THEN 1 ELSE 0 END) as new_count
+                    SUM(CASE WHEN CAST(pp.added_at AS timestamp) >= CURRENT_TIMESTAMP - INTERVAL '7 days' THEN 1 ELSE 0 END) as new_count
                 FROM pursuits p
                 JOIN leads l ON p.buyer_id = l.id
                 LEFT JOIN pursuit_properties pp ON p.id = pp.pursuit_id
                 WHERE p.status = 'active'
-                GROUP BY p.id
+                GROUP BY p.id, p.name, p.status, p.criteria_summary, p.created_at,
+                         p.updated_at, l.id, l.first_name, l.last_name, l.email,
+                         l.phone, l.fub_id
                 ORDER BY p.updated_at DESC
                 LIMIT ?
             ''', [limit]).fetchall()
@@ -3764,12 +3766,16 @@ class DREAMSDatabase:
                     COUNT(pp.id) as property_count,
                     SUM(CASE WHEN pp.status = 'favorited' THEN 1 ELSE 0 END) as favorited_count,
                     SUM(CASE WHEN pp.status = 'sent' THEN 1 ELSE 0 END) as sent_count,
-                    SUM(CASE WHEN pp.added_at >= datetime('now', '-7 days') THEN 1 ELSE 0 END) as new_count
+                    SUM(CASE WHEN CAST(pp.added_at AS timestamp) >= CURRENT_TIMESTAMP - INTERVAL '7 days' THEN 1 ELSE 0 END) as new_count
                 FROM pursuits p
                 JOIN leads l ON p.buyer_id = l.id
                 LEFT JOIN pursuit_properties pp ON p.id = pp.pursuit_id
                 {status_filter}
-                GROUP BY p.id
+                GROUP BY p.id, p.name, p.status, p.criteria_summary, p.notes,
+                         p.created_at, p.updated_at, p.fub_deal_id,
+                         l.id, l.first_name, l.last_name, l.email, l.phone,
+                         l.stage, l.heat_score, l.fub_id, l.min_price,
+                         l.max_price, l.preferred_cities
                 ORDER BY p.updated_at DESC
             ''', params).fetchall()
 
@@ -3850,8 +3856,11 @@ class DREAMSDatabase:
                 WHERE l.contact_group = 'scored'
                 AND l.stage IN ('Prospect', 'Active Client', 'Active Buyer', 'Qualified', 'Hot Lead')
                 {user_filter}
-                GROUP BY l.id, i.id
-                HAVING last_package_date IS NULL OR last_package_date < ?
+                GROUP BY l.id, l.first_name, l.last_name, l.email, l.phone,
+                         l.stage, l.heat_score, l.priority_score, l.fub_id,
+                         i.id, i.form_name, i.need_type, i.min_price, i.max_price,
+                         i.counties, i.cities, i.created_at
+                HAVING MAX(pp.created_at) IS NULL OR MAX(pp.created_at) < ?
                 ORDER BY l.priority_score DESC, i.created_at ASC
                 LIMIT ?
             ''', user_params + [cutoff, limit]).fetchall()
@@ -6468,7 +6477,7 @@ class DREAMSDatabase:
         with self._get_connection() as conn:
             row = conn.execute('''
                 SELECT 1 FROM automation_log
-                WHERE rule_name = ? AND contact_id = ? AND cooldown_until > datetime('now')
+                WHERE rule_name = ? AND contact_id = ? AND CAST(cooldown_until AS timestamp) > CURRENT_TIMESTAMP
                 LIMIT 1
             ''', (rule_name, contact_id)).fetchone()
             return row is not None
@@ -6521,7 +6530,7 @@ class DREAMSDatabase:
             # Firings in last 24h
             recent = conn.execute('''
                 SELECT COUNT(*) as count FROM automation_log
-                WHERE fired_at >= datetime('now', '-1 day')
+                WHERE CAST(fired_at AS timestamp) >= CURRENT_TIMESTAMP - INTERVAL '1 day'
             ''').fetchone()
 
             # By rule
@@ -6630,7 +6639,7 @@ class DREAMSDatabase:
                     CASE WHEN EXISTS (
                         SELECT 1 FROM packages pk
                         WHERE pk.lead_id = l.id
-                        AND pk.created_at >= datetime('now', '-14 days')
+                        AND CAST(pk.created_at AS timestamp) >= CURRENT_TIMESTAMP - INTERVAL '14 days'
                     ) THEN 1 ELSE 0 END AS has_recent_package,
                     -- Subquery: financing status from intake
                     (SELECT i.financing_status FROM intake_forms i
@@ -6856,7 +6865,7 @@ class DREAMSDatabase:
                 AND NOT EXISTS (
                     SELECT 1 FROM packages pk
                     WHERE pk.lead_id = l.id
-                    AND pk.created_at >= datetime('now', '-14 days')
+                    AND CAST(pk.created_at AS timestamp) >= CURRENT_TIMESTAMP - INTERVAL '14 days'
                 )
                 {user_filter}
             ''', user_params).fetchone()[0]

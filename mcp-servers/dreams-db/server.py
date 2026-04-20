@@ -35,20 +35,65 @@ from mcp.types import (
 # Configuration
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 DB_PATH = os.getenv('DREAMS_DB_PATH', str(PROJECT_ROOT / 'data' / 'dreams.db'))
+DATABASE_URL = os.getenv('DATABASE_URL', '').strip()
 
 # Initialize MCP server
 server = Server("dreams-db")
 
+# Check if psycopg2 is available for PostgreSQL
+_PG_AVAILABLE = False
+try:
+    import psycopg2
+    import psycopg2.extras
+    _PG_AVAILABLE = True
+except ImportError:
+    pass
 
-def get_connection() -> sqlite3.Connection:
-    """Get a read-only database connection."""
+
+def _use_postgres() -> bool:
+    return bool(DATABASE_URL) and _PG_AVAILABLE
+
+
+class PgConnWrapper:
+    """Wraps a psycopg2 connection so conn.execute() works like sqlite3."""
+
+    def __init__(self, conn):
+        self._conn = conn
+
+    def execute(self, query, params=None):
+        # Translate ? placeholders to %s
+        query = query.replace('?', '%s')
+        cur = self._conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(query, params)
+        return cur
+
+    def close(self):
+        self._conn.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.close()
+
+
+def get_connection():
+    """Get a read-only database connection (PostgreSQL or SQLite)."""
+    if _use_postgres():
+        conn = psycopg2.connect(DATABASE_URL, options="-c default_transaction_read_only=on")
+        conn.autocommit = True
+        return PgConnWrapper(conn)
     conn = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)
     conn.row_factory = sqlite3.Row
     return conn
 
 
-def rows_to_dicts(rows: list[sqlite3.Row]) -> list[dict]:
-    """Convert sqlite3.Row objects to dictionaries."""
+def rows_to_dicts(rows) -> list[dict]:
+    """Convert Row objects to dictionaries."""
+    if not rows:
+        return []
+    if _use_postgres():
+        return [dict(row) if hasattr(row, 'keys') else row for row in rows]
     return [dict(row) for row in rows]
 
 

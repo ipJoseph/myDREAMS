@@ -118,16 +118,26 @@ class NavicaSyncEngine:
         # Ensure database tables exist
         self._ensure_tables()
 
-    def _get_connection(self) -> sqlite3.Connection:
-        """Get a database connection."""
-        conn = sqlite3.connect(str(self.db_path))
-        conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA journal_mode = WAL")
-        conn.execute("PRAGMA busy_timeout = 5000")
-        return conn
+    def _get_connection(self):
+        """Get a database connection (PostgreSQL if configured, else SQLite)."""
+        from src.core.pg_adapter import get_db
+        return get_db(str(self.db_path))
 
     def _ensure_tables(self):
-        """Create required tables if they don't exist."""
+        """Create required tables if they don't exist (SQLite only; PostgreSQL uses migration script)."""
+        from src.core.pg_adapter import is_postgres
+        if is_postgres():
+            # On PostgreSQL, cache known columns via information_schema
+            conn = self._get_connection()
+            try:
+                cursor = conn.execute(
+                    "SELECT column_name FROM information_schema.columns WHERE table_name = 'listings'"
+                )
+                self._known_listing_columns = {row[0] if isinstance(row, dict) else row['column_name'] for row in cursor.fetchall()}
+            finally:
+                conn.close()
+            return
+
         conn = self._get_connection()
         try:
             # Cache known listing columns for dynamic schema expansion
@@ -283,7 +293,7 @@ class NavicaSyncEngine:
 
     def _detect_changes(
         self,
-        conn: sqlite3.Connection,
+        conn,
         listing: Dict,
         existing: Optional[Dict],
     ) -> List[Dict]:
@@ -356,7 +366,7 @@ class NavicaSyncEngine:
                     change.get('pct_change'),
                     change['detected_at'],
                 ])
-            except sqlite3.OperationalError as e:
+            except Exception as e:
                 logger.debug(f"Could not record change (table schema mismatch): {e}")
 
     # ---------------------------------------------------------------
@@ -365,7 +375,7 @@ class NavicaSyncEngine:
 
     def _upsert_listing(
         self,
-        conn: sqlite3.Connection,
+        conn,
         listing: Dict,
         dry_run: bool = False,
     ) -> str:
@@ -506,7 +516,7 @@ class NavicaSyncEngine:
 
     def _log_sync(
         self,
-        conn: sqlite3.Connection,
+        conn,
         sync_type: str,
         stats: Dict,
         error: str = None,
