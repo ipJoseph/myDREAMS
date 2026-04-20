@@ -20,39 +20,43 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_TIMEOUT = 10  # seconds — fail fast, don't stall the batch
+DEFAULT_CONNECT_TIMEOUT = 5   # seconds to establish TCP + TLS
+DEFAULT_READ_TIMEOUT = 30     # seconds to receive the full body
 MAX_RETRIES = 2
-CHUNK_SIZE = 8192
+MAX_BYTES = 20_000_000        # 20MB per photo, defensive upper bound
 
 
-def download_photo(url: str, timeout: int = DEFAULT_TIMEOUT) -> Optional[bytes]:
+def download_photo(url: str, timeout: Optional[tuple] = None) -> Optional[bytes]:
     """Download a single photo from a URL. Returns bytes or None on failure.
 
     Never raises exceptions — returns None so the caller can skip and continue.
+
+    Uses a (connect, read) timeout tuple and does NOT use stream=True. The
+    previous implementation streamed with a single scalar `timeout` that
+    only covers connect + headers; the body read via iter_content then had
+    no timeout and could hang indefinitely on a CLOSE-WAIT socket (observed
+    on PRD 2026-04-20, froze a sync for 27+ minutes). Buffering the whole
+    response with a real read timeout is simpler and correct for MLS photos
+    (typically 50KB–2MB).
     """
     if not url or not url.startswith("http"):
         return None
 
+    t = timeout or (DEFAULT_CONNECT_TIMEOUT, DEFAULT_READ_TIMEOUT)
+
     for attempt in range(MAX_RETRIES):
         try:
-            resp = requests.get(url, timeout=timeout, stream=True)
+            resp = requests.get(url, timeout=t)
             if resp.status_code != 200:
                 if attempt == MAX_RETRIES - 1:
                     logger.debug(f"Photo download failed: HTTP {resp.status_code} for {url[:80]}")
                 continue
 
-            # Read into memory (photos are typically 50KB-2MB)
-            chunks = []
-            total = 0
-            for chunk in resp.iter_content(chunk_size=CHUNK_SIZE):
-                chunks.append(chunk)
-                total += len(chunk)
-                if total > 20_000_000:  # 20MB safety limit
-                    logger.warning(f"Photo too large (>20MB), skipping: {url[:80]}")
-                    return None
-
-            data = b"".join(chunks)
-            if len(data) < 100:  # Suspiciously small
+            data = resp.content
+            if len(data) > MAX_BYTES:
+                logger.warning(f"Photo too large ({len(data)} bytes > {MAX_BYTES}), skipping: {url[:80]}")
+                return None
+            if len(data) < 100:
                 logger.debug(f"Photo too small ({len(data)} bytes), skipping: {url[:80]}")
                 return None
 
