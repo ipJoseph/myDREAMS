@@ -65,27 +65,39 @@ These are NOT code bugs but credential/config issues that need human action:
      as authorized redirect URIs in Google Cloud Console OAuth client
      `464039217231-lcbr0i0hq57kupnhtinclrsel9gq63up.apps.googleusercontent.com`.
 
-## Track B: Structural Refactor (next)
+## Track B Progress (items 15-21)
 
-See `docs/TODO.md` items 15-21:
-- #15 Split property-dashboard/app.py (8,555 lines) into blueprints
-- #16 Decompose DREAMSDatabase (7,318 lines, 163 methods) into service classes
-- #17 Standardize all get_db() calls (10 implementations → 1)
-- #18 Add Alembic for database migrations
-- #19 Add Sentry for error monitoring
-- #20 Move route-level raw SQL into service methods
-- #21 Remove SQLite compatibility layer (use native PostgreSQL)
+| # | Task | State |
+|---|------|-------|
+| 15 | Blueprint split | In progress — pattern established (blueprints/__init__.py deps container + blueprints/expenses.py, 14 routes). Monolith 8,555 → 8,153 |
+| 16 | DREAMSDatabase decomposition | In progress — pattern established (src/core/services/contact_service.py, 4 methods). Back-compat delegators keep old callers working |
+| 17 | Standardize get_db() | Done — 5 raw sqlite3.connect sites routed through pg_adapter |
+| 18 | Alembic migrations | Done — DEV stamped at baseline 28957ed21753. **PRD still needs `alembic stamp head` once** |
+| 19 | Sentry error monitoring | Done — wired into both Flask apps as no-op until SENTRY_DSN is set |
+| 20 | Move route-level raw SQL into services | Pending — waits for more service coverage |
+| 21 | Remove pg_adapter bridge | Pending — final step once every caller is on native psycopg2 |
 
-### Recommended order
-1. #17 first — standardising on pg_adapter's `get_db()` is prerequisite for
-   every other refactor. Small, mechanical, low risk.
-2. #16 next — start with ContactService (most methods, most referenced).
-   Peel slice by slice so the god class shrinks incrementally.
-3. #15 after that — route handlers move to blueprints once the service layer
-   they call into is stable.
-4. #18 (Alembic) is independent and can be done any time before #21.
-5. #21 last — removing pg_adapter means every call site is already using
-   native PG, which flows naturally from #17 + #16 + #20.
+## Incremental work for future sessions
+
+#15 and #16 are long-tail refactors rather than single-turn items. The
+patterns are in place; subsequent sessions just keep chipping away:
+
+**Extract another blueprint (#15):** pick a cohesive slice of routes
+(e.g. `/pursuits/*`, `/api/power-hour/*`, `/admin/*`, `/contacts/*`) and
+replicate the expenses model — move routes + helpers + constants into a
+new file under `blueprints/`, register it after the deps are populated.
+
+**Extract another service (#16):** pick a cluster of DREAMSDatabase
+methods that share a table (pursuits, activities, workflow, assignments,
+communications, events, analytics) and move them into a new
+`src/core/services/*_service.py`. Keep the old DREAMSDatabase method
+names as thin delegators during the transition.
+
+**#20 becomes easy** once #15 and #16 progress — each blueprint should
+call services, not raw SQL. Audit the blueprint files after each
+extraction and convert any inline SQL to a service call.
+
+**#21 is gated on #20** being complete across the codebase.
 
 ## Key Files
 - Audit report: `docs/audits/20260420.Audit.myDREAMS.md`

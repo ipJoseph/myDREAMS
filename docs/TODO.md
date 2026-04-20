@@ -38,13 +38,13 @@ Last updated: April 20, 2026 (post-audit)
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 15 | **Split property-dashboard/app.py into blueprints** | Pending | 8,555 lines, 153 routes in one file |
-| 16 | **Decompose DREAMSDatabase into service classes** | Pending | 7,318 lines, 163 methods (God class); split into Contact/Property/Activity/Pursuit/Analytics services |
-| 17 | **Standardize all get_db() calls** | Pending | 10 different implementations; 3 still hardcode sqlite3 |
-| 18 | **Add Alembic for database migrations** | Pending | Currently ad-hoc ALTER TABLE; need version-controlled schema |
-| 19 | **Add Sentry for error monitoring** | Pending | Replace str(e) responses with tracked error reports |
-| 20 | **Move route-level raw SQL into service methods** | Pending | admin.py, public.py, public_writes.py bypass DREAMSDatabase |
-| 21 | **Remove SQLite compatibility layer** | Pending | pg_adapter was a bridge; divorce SQLite fully, use native PostgreSQL |
+| 15 | **Split property-dashboard/app.py into blueprints** | In progress | Pattern established via blueprints/__init__.py deps container + blueprints/expenses.py (14 routes extracted). Monolith 8,555 -> 8,153. ~140 routes remain; extract incrementally per subsystem |
+| 16 | **Decompose DREAMSDatabase into service classes** | In progress | Pattern established via src/core/services/contact_service.py (4 read-only methods extracted + back-compat delegators). ~159 methods remain across future services (Property/Activity/Pursuit/Analytics) |
+| 17 | **Standardize all get_db() calls** | Done | 5 remaining raw sqlite3.connect call sites routed through pg_adapter.get_db() |
+| 18 | **Add Alembic for database migrations** | Done | Scaffold initialized, baseline revision 28957ed21753 committed, DEV stamped. PRD needs `alembic stamp head` once to bootstrap |
+| 19 | **Add Sentry for error monitoring** | Done | src/core/monitoring.py; both Flask apps init_sentry() at startup. No-op until SENTRY_DSN is set in .env |
+| 20 | **Move route-level raw SQL into service methods** | Pending | admin.py, public.py, public_writes.py bypass DREAMSDatabase — awaits more service coverage |
+| 21 | **Remove SQLite compatibility layer** | Pending | pg_adapter still needed; removal is the last step once every caller uses native psycopg2 through services |
 
 ---
 
