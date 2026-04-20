@@ -7,20 +7,18 @@
   </defs>
   <!-- Background circle -->
   <circle cx="32" cy="32" r="30" fill="url(#skyGradDev)"/>
-  <!-- House body -->
-  <rect x="18" y="32" width="28" height="20" rx="2" fill="#ffffff"/>
-  <!-- Roof -->
-  <path d="M12 34 L32 16 L52 34 Z" fill="#ffffff"/>
-  <!-- Door -->
-  <rect x="28" y="40" width="8" height="12" rx="1" fill="#c92a2a"/>
-  <!-- Window left -->
-  <rect x="21" y="36" width="6" height="6" rx="1" fill="#c92a2a"/>
-  <!-- Window right -->
-  <rect x="37" y="36" width="6" height="6" rx="1" fill="#c92a2a"/>
-  <!-- Stars (dream elements) -->
-  <circle cx="14" cy="20" r="2" fill="#ffffff" opacity="0.9"/>
-  <circle cx="50" cy="18" r="1.5" fill="#ffffff" opacity="0.8"/>
+  <!-- Back mountain range -->
+  <path d="M4 46 L16 28 L26 40 L36 22 L48 38 L60 30 L60 54 L4 54 Z" fill="#ffffff" opacity="0.35"/>
+  <!-- Front mountain range -->
+  <path d="M4 54 L14 36 L22 46 L30 30 L40 44 L50 34 L60 46 L60 58 L4 58 Z" fill="#ffffff"/>
+  <!-- Snow caps on front peaks -->
+  <path d="M12 40 L14 36 L16 40 Z" fill="#c92a2a" opacity="0.2"/>
+  <path d="M28 34 L30 30 L32 34 Z" fill="#c92a2a" opacity="0.2"/>
+  <path d="M48 38 L50 34 L52 38 Z" fill="#c92a2a" opacity="0.2"/>
+  <!-- Sun/moon -->
+  <circle cx="46" cy="20" r="5" fill="#ffffff" opacity="0.95"/>
+  <!-- Stars -->
+  <circle cx="14" cy="18" r="1.2" fill="#ffffff" opacity="0.8"/>
   <circle cx="22" cy="12" r="1" fill="#ffffff" opacity="0.7"/>
-  <!-- Crescent moon -->
-  <path d="M46 24 A6 6 0 1 1 46 12 A4.5 4.5 0 1 0 46 24" fill="#ffffff" opacity="0.9"/>
+  <circle cx="32" cy="16" r="0.8" fill="#ffffff" opacity="0.6"/>
 </svg>
