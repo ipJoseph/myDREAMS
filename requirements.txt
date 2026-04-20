@@ -49,6 +49,9 @@ rich>=13.7.0  # Beautiful terminal output
 # Scheduling (optional - can use system cron instead)
 schedule>=1.2.0
 
+# Error monitoring
+sentry-sdk[flask]>=2.0.0
+
 # Development
 pytest>=7.4.0
 pytest-cov>=4.1.0

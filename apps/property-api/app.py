@@ -47,6 +47,11 @@ from services.idx_validation_service import IDXValidationService
 # Load environment variables
 load_dotenv(PROJECT_ROOT / '.env')
 
+# Initialise Sentry before Flask so its integration can hook request handling.
+# No-op when SENTRY_DSN is unset, so this is safe in all environments.
+from src.core.monitoring import init_sentry
+init_sentry("property-api")
+
 app = Flask(__name__)
 
 # Enable CORS for Chrome extension and dashboard

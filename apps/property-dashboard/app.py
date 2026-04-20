@@ -81,6 +81,11 @@ def load_env_file():
 
 load_env_file()
 
+# Initialise Sentry before Flask so its integration can hook request handling.
+# No-op when SENTRY_DSN is unset, so this is safe in all environments.
+from src.core.monitoring import init_sentry
+init_sentry("property-dashboard")
+
 app = Flask(__name__)
 
 # County GIS and document links for WNC counties.
