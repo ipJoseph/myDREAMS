@@ -205,12 +205,48 @@ def _resolve_photos_dir(listing: dict) -> tuple:
     return mls, None
 
 
+# Directory-listing cache to avoid per-file stat() storms in list views.
+# A search results page can touch 25+ listings × up to ~80 stat calls each =
+# 2000+ syscalls under the naive implementation. Scanning a directory once
+# and serving membership lookups from an in-memory set drops that to one
+# scan per photos_dir. TTL is short enough to pick up new downloads quickly.
+_PHOTO_DIR_CACHE: dict = {}
+_PHOTO_DIR_CACHE_TTL_SECONDS = 60
+
+
+def _photo_dir_entries(photos_dir: Path) -> set:
+    """Return set of filenames in photos_dir, with a short TTL cache."""
+    import time
+    key = str(photos_dir)
+    now = time.monotonic()
+    entry = _PHOTO_DIR_CACHE.get(key)
+    if entry and (now - entry[0]) < _PHOTO_DIR_CACHE_TTL_SECONDS:
+        return entry[1]
+    try:
+        names = {e.name for e in os.scandir(photos_dir) if e.is_file()}
+    except FileNotFoundError:
+        names = set()
+    except OSError:
+        names = set()
+    _PHOTO_DIR_CACHE[key] = (now, names)
+    return names
+
+
+def invalidate_photo_dir_cache(photos_dir: Optional[Path] = None) -> None:
+    """Clear the photo-directory cache. Call after bulk downloads."""
+    if photos_dir is None:
+        _PHOTO_DIR_CACHE.clear()
+    else:
+        _PHOTO_DIR_CACHE.pop(str(photos_dir), None)
+
+
 def _find_local_primary(mls: str, photos_dir: Path) -> str | None:
     """Find the primary photo file on disk, return local URL or None."""
+    entries = _photo_dir_entries(photos_dir)
     for ext in ('.jpg', '.jpeg', '.png', '.webp'):
-        filepath = photos_dir / f"{mls}{ext}"
-        if filepath.exists() and filepath.stat().st_size > 0:
-            return f"/api/public/photos/{photos_dir.name}/{mls}{ext}"
+        name = f"{mls}{ext}"
+        if name in entries:
+            return f"/api/public/photos/{photos_dir.name}/{name}"
     return None
 
 
@@ -244,16 +280,18 @@ def localize_photo(listing: dict, on_demand: bool = False) -> None:
     if local_primary:
         local_urls.append(local_primary)
 
-    # Tolerate gaps in numbering (Navica starts at _02, skipping _01).
+    # One directory scan (cached) replaces the previous per-file exists+stat
+    # loop. Tolerate gaps in numbering (Navica starts at _02, skipping _01).
     # Scan up to _99 but stop after 5 consecutive misses.
+    entries = _photo_dir_entries(photos_dir)
     consecutive_misses = 0
     for idx in range(1, 100):
         suffix = f"_{idx:02d}"
         found = False
         for ext in ('.jpg', '.jpeg', '.png', '.webp'):
-            filepath = photos_dir / f"{mls}{suffix}{ext}"
-            if filepath.exists() and filepath.stat().st_size > 0:
-                local_urls.append(f"/api/public/photos/{dir_name}/{mls}{suffix}{ext}")
+            name = f"{mls}{suffix}{ext}"
+            if name in entries:
+                local_urls.append(f"/api/public/photos/{dir_name}/{name}")
                 found = True
                 consecutive_misses = 0
                 break

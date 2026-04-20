@@ -188,6 +188,11 @@ def update_db_photo_paths(
         )
         conn.commit()
         conn.close()
+        try:
+            from src.core.listing_service import invalidate_photo_dir_cache
+            invalidate_photo_dir_cache(storage.get_source_dir(mls_source))
+        except Exception:
+            pass
     except Exception as e:
         logger.warning(f"Failed to update photo paths for {mls_number}: {e}")
 
