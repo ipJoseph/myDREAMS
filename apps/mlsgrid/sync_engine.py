@@ -385,21 +385,51 @@ class MLSGridSyncEngine:
 
         if existing:
             # ----- Improvement 3: PhotosChangeTimestamp tracking -----
-            # Compare new photos_change_timestamp with stored value.
-            # If unchanged, skip photo fields to preserve local photo paths.
+            # Compare new photos_change_timestamp with stored value. If
+            # unchanged AND the stored photos array is actually complete,
+            # skip photo fields to preserve local photo paths.
+            #
+            # The "complete" check matters because the 2026-04-20 PRD
+            # incident left 1,869 listings with photos=[primary] only
+            # (gallery lost during a prior migration bug). With only the
+            # timestamp check, those rows would never refresh — the
+            # optimisation dutifully preserved a broken state forever.
             skip_photo_fields = False
             new_photo_ts = listing.get('photos_change_timestamp')
             old_photo_ts = existing_dict.get('photos_change_timestamp')
             has_local_photo = bool(existing_dict.get('photo_local_path'))
-            if new_photo_ts and old_photo_ts and new_photo_ts == old_photo_ts and has_local_photo:
+
+            existing_photos_len = 0
+            existing_photos_raw = existing_dict.get('photos')
+            if existing_photos_raw:
+                try:
+                    import json as _json_pp
+                    if isinstance(existing_photos_raw, str):
+                        existing_photos_len = len(_json_pp.loads(existing_photos_raw))
+                    elif isinstance(existing_photos_raw, list):
+                        existing_photos_len = len(existing_photos_raw)
+                except Exception:
+                    pass
+            expected_count = existing_dict.get('photo_count') or 0
+            # Allow a small tolerance (photo_count rarely lies by more than a couple).
+            photos_complete = existing_photos_len >= max(1, expected_count - 1)
+
+            if (new_photo_ts and old_photo_ts and new_photo_ts == old_photo_ts
+                    and has_local_photo and photos_complete):
                 skip_photo_fields = True
                 logger.debug(
                     f"Photos unchanged for {mls_number} "
-                    f"(ts={new_photo_ts}), preserving local paths"
+                    f"(ts={new_photo_ts}, len={existing_photos_len}/{expected_count}), "
+                    f"preserving local paths"
                 )
             elif new_photo_ts and old_photo_ts and new_photo_ts == old_photo_ts and not has_local_photo:
                 logger.debug(
                     f"Photos unchanged for {mls_number} but no local file, refreshing URLs"
+                )
+            elif new_photo_ts and old_photo_ts and new_photo_ts == old_photo_ts and not photos_complete:
+                logger.info(
+                    f"Photos array truncated for {mls_number} "
+                    f"(have {existing_photos_len}, expected {expected_count}); refreshing"
                 )
 
             # Update existing: only update non-None values
