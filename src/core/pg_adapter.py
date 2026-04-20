@@ -204,16 +204,17 @@ class PgConnectionWrapper:
         """Execute a query with sqlite3-style ? placeholders."""
         pg_query = _translate_placeholders(query)
 
-        # Convert params: list→tuple, booleans→int (PostgreSQL is strict
-        # about boolean vs integer; SQLite treats them interchangeably).
-        # See docs/DECISIONS.md D1.
-        if params is not None:
-            if isinstance(params, (list, tuple)):
-                params = tuple(
-                    int(p) if isinstance(p, bool) else p for p in params
-                )
-            elif isinstance(params, bool):
-                params = int(params)
+        # Normalise params to a tuple for psycopg2. We DO NOT coerce bool
+        # to int here: psycopg2 maps Python bool -> PostgreSQL boolean
+        # natively, which is what every boolean column in the schema
+        # actually wants (e.g. listings.photo_ready, idx_opt_in, etc.).
+        # The previous bool->int coercion broke every sync UPDATE that
+        # touched a boolean column with "column ... is of type boolean
+        # but expression is of type integer" — that was the second half
+        # of the 2026-04-20 PRD incident. If any caller is passing a
+        # Python bool to an INTEGER column, fix the caller.
+        if isinstance(params, list):
+            params = tuple(params)
 
         cursor = self._conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         try:
