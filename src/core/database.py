@@ -45,6 +45,9 @@ class DREAMSDatabase:
             self.db_path.parent.mkdir(parents=True, exist_ok=True)
             self._init_database()
 
+        from src.core.services import ContactService
+        self.contacts = ContactService(self)
+
     def _init_database(self) -> None:
         """Create tables if they don't exist (SQLite only; PostgreSQL uses migration script)."""
         if self._use_postgres:
@@ -1366,128 +1369,37 @@ class DREAMSDatabase:
             conn.commit()
             return True
 
+    # The four methods below are back-compat delegators. The real
+    # implementation lives in src/core/services/contact_service.py.
+    # New callers should use `db.contacts.*` directly.
+
     def get_contact_by_fub_id(self, fub_id: str) -> Optional[Dict[str, Any]]:
-        """Get contact by Follow Up Boss ID."""
-        with self._get_connection() as conn:
-            row = conn.execute(
-                'SELECT * FROM leads WHERE fub_id = ?',
-                (fub_id,)
-            ).fetchone()
-            return dict(row) if row else None
+        return self.contacts.get_by_fub_id(fub_id)
 
     def get_hot_contacts(
         self,
         min_heat: float = 50.0,
-        limit: int = 50
+        limit: int = 50,
     ) -> List[Dict[str, Any]]:
-        """Get contacts sorted by heat score (scored contacts only)."""
-        with self._get_connection() as conn:
-            rows = conn.execute('''
-                SELECT * FROM leads
-                WHERE contact_group = 'scored'
-                AND heat_score >= ?
-                ORDER BY heat_score DESC, priority_score DESC
-                LIMIT ?
-            ''', (min_heat, limit)).fetchall()
-            return [dict(row) for row in rows]
+        return self.contacts.get_hot(min_heat=min_heat, limit=limit)
 
     def get_contacts_by_priority(
         self,
         min_priority: float = 0,
         limit: int = 100,
         user_id: Optional[int] = None,
-        view: str = 'all'
+        view: str = 'all',
     ) -> List[Dict[str, Any]]:
-        """
-        Get contacts sorted by priority score with optional filtering.
-
-        Args:
-            min_priority: Minimum priority score
-            limit: Maximum contacts to return
-            user_id: Filter by assigned user ID (required for 'my_leads' view)
-            view: Filter view - 'all', 'my_leads', 'brand_new', 'hand_raised', 'warm_pond', 'agents_vendors'
-        """
-        with self._get_connection() as conn:
-            query = 'SELECT * FROM leads WHERE 1=1'
-            params = []
-
-            # Pond views don't filter by priority
-            is_pond_view = view in ('brand_new', 'hand_raised', 'warm_pond', 'agents_vendors')
-            if not is_pond_view:
-                query += ' AND priority_score >= ?'
-                params.append(min_priority)
-
-            # Apply view filter
-            if view == 'my_leads' and user_id:
-                query += ' AND contact_group = ? AND assigned_user_id = ?'
-                params.extend(['scored', user_id])
-            elif view in ('brand_new', 'hand_raised', 'warm_pond', 'agents_vendors'):
-                query += ' AND contact_group = ?'
-                params.append(view)
-            # 'all' = no additional filter
-
-            # Pond views sort by last activity; scored views sort by priority
-            if is_pond_view:
-                query += ' ORDER BY last_activity_at DESC LIMIT ?'
-            else:
-                query += ' ORDER BY priority_score DESC LIMIT ?'
-            params.append(limit)
-
-            rows = conn.execute(query, params).fetchall()
-            return [dict(row) for row in rows]
+        return self.contacts.get_by_priority(
+            min_priority=min_priority, limit=limit, user_id=user_id, view=view,
+        )
 
     def get_contact_stats(
         self,
         user_id: Optional[int] = None,
-        view: str = 'all'
+        view: str = 'all',
     ) -> Dict[str, Any]:
-        """
-        Get aggregate statistics for contacts with optional filtering.
-
-        Args:
-            user_id: Filter by assigned user ID (required for 'my_leads' view)
-            view: Filter view - 'all', 'my_leads', 'brand_new', 'hand_raised', 'warm_pond', 'agents_vendors'
-        """
-        with self._get_connection() as conn:
-            # Build WHERE clause based on view
-            where_clause = '1=1'
-            params = []
-
-            if view == 'my_leads' and user_id:
-                where_clause = 'contact_group = ? AND assigned_user_id = ?'
-                params = ['scored', user_id]
-            elif view in ('brand_new', 'hand_raised', 'warm_pond', 'agents_vendors'):
-                where_clause = 'contact_group = ?'
-                params = [view]
-            # 'all' = no additional filter
-
-            total = conn.execute(
-                f'SELECT COUNT(*) FROM leads WHERE {where_clause}', params
-            ).fetchone()[0]
-            hot = conn.execute(
-                f'SELECT COUNT(*) FROM leads WHERE {where_clause} AND heat_score >= 75', params
-            ).fetchone()[0]
-            high_value = conn.execute(
-                f'SELECT COUNT(*) FROM leads WHERE {where_clause} AND value_score >= 60', params
-            ).fetchone()[0]
-            active_week = conn.execute(
-                f'SELECT COUNT(*) FROM leads WHERE {where_clause} AND days_since_activity <= 7', params
-            ).fetchone()[0]
-            avg_priority = conn.execute(
-                f'SELECT AVG(priority_score) FROM leads WHERE {where_clause} AND priority_score > 0', params
-            ).fetchone()[0] or 0
-            high_intent = conn.execute(
-                f'SELECT COUNT(*) FROM leads WHERE {where_clause} AND intent_signal_count >= 4', params
-            ).fetchone()[0]
-
-            return {
-                'total': total,
-                'hot': hot,
-                'high_value': high_value,
-                'active_week': active_week,
-                'avg_priority': round(avg_priority, 1),
-                'high_intent': high_intent
-            }
+        return self.contacts.get_stats(user_id=user_id, view=view)
 
     # ==========================================
     # INTAKE FORM OPERATIONS
