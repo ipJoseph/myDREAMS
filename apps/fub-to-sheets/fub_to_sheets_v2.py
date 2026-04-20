@@ -1948,10 +1948,12 @@ def get_property_changes_for_email() -> Dict[str, Any]:
 
 def get_expiring_listings(days: int = 14) -> List[Dict]:
     """Query active listings expiring within the given number of days."""
-    import sqlite3 as _sqlite3
+    from src.core.pg_adapter import get_db
+    today = date.today()
+    window_end = today + timedelta(days=days)
+    window_start = today - timedelta(days=7)
     try:
-        conn = _sqlite3.connect(Config.DREAMS_DB_PATH)
-        conn.row_factory = _sqlite3.Row
+        conn = get_db()
         rows = conn.execute('''
             SELECT id, mls_number, mls_source, address, city, county,
                    list_price, expiration_date, list_date,
@@ -1960,17 +1962,29 @@ def get_expiring_listings(days: int = 14) -> List[Dict]:
                        WHEN 'NavicaMLS' THEN 'Carolina Smokies'
                        WHEN 'MountainLakesMLS' THEN 'Mountain Lakes'
                        ELSE mls_source
-                   END as mls_display,
-                   CAST(julianday(expiration_date) - julianday('now') AS INTEGER) as days_until_expiry
+                   END as mls_display
             FROM listings
             WHERE status = 'ACTIVE'
             AND expiration_date IS NOT NULL
-            AND expiration_date <= date('now', ?)
-            AND expiration_date >= date('now', '-7 days')
+            AND expiration_date <= ?
+            AND expiration_date >= ?
             ORDER BY expiration_date ASC, list_price DESC
-        ''', [f'+{days} days']).fetchall()
-        result = [dict(r) for r in rows]
-        conn.close()
+        ''', [window_end.isoformat(), window_start.isoformat()]).fetchall()
+        result = []
+        for r in rows:
+            d = dict(r)
+            exp = d.get('expiration_date')
+            if isinstance(exp, str):
+                exp = date.fromisoformat(exp[:10])
+            if isinstance(exp, date):
+                d['days_until_expiry'] = (exp - today).days
+            else:
+                d['days_until_expiry'] = None
+            result.append(d)
+        try:
+            conn.close()
+        except Exception:
+            pass
         return result
     except Exception as e:
         logger.error(f"Error querying expiring listings: {e}")
@@ -1984,11 +1998,10 @@ def get_silent_buyers_and_gaps() -> Dict[str, List[Dict]]:
     Communication Gaps: Heat >= 40, 0-2 total calls.
     Both exclude Trash, Closed, Agents/Vendors/Lendors.
     """
-    import sqlite3 as _sqlite3
+    from src.core.pg_adapter import get_db
     result = {'silent_buyers': [], 'communication_gaps': []}
     try:
-        conn = _sqlite3.connect(Config.DREAMS_DB_PATH)
-        conn.row_factory = _sqlite3.Row
+        conn = get_db()
 
         silent = conn.execute('''
             SELECT id, first_name, last_name, stage, heat_score, phone,
@@ -2022,7 +2035,10 @@ def get_silent_buyers_and_gaps() -> Dict[str, List[Dict]]:
         gaps = [dict(r) for r in gaps if r['id'] not in silent_ids]
         result['communication_gaps'] = gaps
 
-        conn.close()
+        try:
+            conn.close()
+        except Exception:
+            pass
     except Exception as e:
         logger.error(f"Error querying silent buyers/gaps: {e}")
     return result

@@ -5084,22 +5084,35 @@ class DREAMSDatabase:
             rows = conn.execute(f'''
                 SELECT
                     MAX(CASE WHEN phone IS NOT NULL AND phone != '' THEN id ELSE id END) as id,
-                    first_name,
-                    last_name,
-                    email,
+                    MAX(first_name) as first_name,
+                    MAX(last_name) as last_name,
+                    MAX(email) as email,
                     MAX(phone) as phone,
-                    stage,
-                    source,
+                    MAX(stage) as stage,
+                    MAX(source) as source,
                     MIN(created_at) as created_at,
-                    DATE(MIN(created_at)) as created_date,
-                    CAST(julianday('now') - julianday(DATE(MIN(created_at))) AS INTEGER) as days_ago
+                    DATE(MIN(created_at)) as created_date
                 FROM leads
                 WHERE DATE(created_at) >= ?
                 {user_filter}
                 GROUP BY LOWER(COALESCE(email, first_name || ' ' || last_name))
                 ORDER BY MIN(created_at) DESC
             ''', params).fetchall()
-            return [dict(row) for row in rows]
+            today = datetime.now().date()
+            result = []
+            for row in rows:
+                d = dict(row)
+                created = d.get('created_date')
+                if hasattr(created, 'date'):
+                    created = created.date()
+                if isinstance(created, str):
+                    try:
+                        created = datetime.fromisoformat(created[:10]).date()
+                    except Exception:
+                        created = None
+                d['days_ago'] = (today - created).days if created else None
+                result.append(d)
+            return result
 
     # ==========================================
     # WORKFLOW OPERATIONS (Phase 4: Pipeline)
@@ -6611,7 +6624,7 @@ class DREAMSDatabase:
                     (SELECT MAX(cc.occurred_at) FROM contact_communications cc
                      WHERE cc.contact_id = l.id) AS last_comm_at,
                     -- Subquery: days since last communication
-                    (SELECT CAST(julianday('now') - julianday(MAX(cc.occurred_at)) AS INTEGER)
+                    (SELECT (CURRENT_DATE - MAX(cc.occurred_at)::date)
                      FROM contact_communications cc
                      WHERE cc.contact_id = l.id) AS days_since_last_comm,
                     -- Subquery: pending action due today or before
