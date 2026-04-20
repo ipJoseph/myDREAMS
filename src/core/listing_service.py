@@ -251,39 +251,47 @@ def _find_local_primary(mls: str, photos_dir: Path) -> str | None:
 
 
 def localize_photo(listing: dict, on_demand: bool = False) -> None:
-    """Rewrite primary_photo and photos array to local URLs where files exist.
+    """Merge local photo files with the DB's CDN URL array, position by position.
 
-    Checks disk for primary ({mls}.ext) and gallery ({mls}_{NN}.ext) files.
-    CDN URLs (especially MLS Grid tokens) expire, so local paths are
-    always preferred. For listings with no local files, sets primary_photo
-    to None and clears the photos array to avoid broken images.
+    For each index of the `photos` array, prefer a local file on disk
+    if one exists, otherwise keep the original CDN URL. Same for the
+    primary photo.
+
+    This fixes the previous behaviour where finding only the primary
+    locally would overwrite the entire `photos` array with a single
+    entry, hiding the rest of the gallery even though CDN fallbacks
+    were still valid.
+
+    Disk layout:
+      - primary:  {mls}.{ext}                  → photos[0]
+      - gallery:  {mls}_01.{ext} .. _99.{ext}  → photos[1..]
 
     Args:
         listing: Dict with listing data (modified in place).
-        on_demand: If True, fetch missing Canopy photos from the API using
-            the throttle. Use for detail page views only, not bulk lists.
+        on_demand: If True and we have zero local files on a Canopy
+            listing, fetch+download via the throttled API (detail
+            pages only, not bulk lists).
     """
     mls, photos_dir = _resolve_photos_dir(listing)
-    if not mls:
+    if not mls or not photos_dir:
+        # Unknown source: leave whatever CDN URLs the DB has intact.
         return
 
-    if not photos_dir:
-        # Unknown source; keep whatever CDN URL the DB has rather than nullifying
-        return
+    original_photos = listing.get('photos')
+    cdn_photos = list(original_photos) if isinstance(original_photos, list) else []
 
-    # Localize primary photo
-    local_primary = _find_local_primary(mls, photos_dir)
-
-    # Build local gallery URLs from disk
     dir_name = photos_dir.name
-    local_urls = []
-    if local_primary:
-        local_urls.append(local_primary)
-
-    # One directory scan (cached) replaces the previous per-file exists+stat
-    # loop. Tolerate gaps in numbering (Navica starts at _02, skipping _01).
-    # Scan up to _99 but stop after 5 consecutive misses.
     entries = _photo_dir_entries(photos_dir)
+
+    # Map array-position → local URL (where a local file exists on disk).
+    local_at: Dict[int, str] = {}
+
+    local_primary = _find_local_primary(mls, photos_dir)
+    if local_primary:
+        local_at[0] = local_primary
+
+    # Scan up to _99 with early termination after 5 consecutive misses.
+    # Missing positions silently fall back to the CDN URL at that index.
     consecutive_misses = 0
     for idx in range(1, 100):
         suffix = f"_{idx:02d}"
@@ -291,7 +299,7 @@ def localize_photo(listing: dict, on_demand: bool = False) -> None:
         for ext in ('.jpg', '.jpeg', '.png', '.webp'):
             name = f"{mls}{suffix}{ext}"
             if name in entries:
-                local_urls.append(f"/api/public/photos/{dir_name}/{name}")
+                local_at[idx] = f"/api/public/photos/{dir_name}/{name}"
                 found = True
                 consecutive_misses = 0
                 break
@@ -300,39 +308,37 @@ def localize_photo(listing: dict, on_demand: bool = False) -> None:
             if consecutive_misses >= 5:
                 break
 
-    if local_urls:
-        # We have local files; use them
-        listing['primary_photo'] = local_urls[0]
-        photos = listing.get('photos')
-        if isinstance(photos, list):
-            listing['photos'] = local_urls
+    # Zero local files + Canopy + detail-page → try one throttled API pull.
+    if not local_at:
+        source_lower = (listing.get('mls_source') or '').lower()
+        is_canopy = 'canopy' in source_lower or 'mlsgrid' in source_lower
+        if is_canopy and on_demand:
+            fetched = _fetch_and_download_photos_from_api(mls, photos_dir)
+            if fetched:
+                listing['primary_photo'] = fetched[0]
+                listing['photos'] = fetched
+                return
+        # Otherwise fall through; CDN URLs on the listing are left intact.
         return
 
-    # No local files found.
-    source_lower = (listing.get('mls_source') or '').lower()
-    is_canopy = 'canopy' in source_lower or 'mlsgrid' in source_lower
+    # Merge local with CDN, position by position.
+    if cdn_photos:
+        merged = [local_at.get(i, cdn_photos[i]) for i in range(len(cdn_photos))]
+        # Append any local indices beyond the CDN array length (rare).
+        max_local_idx = max(local_at)
+        for i in range(len(cdn_photos), max_local_idx + 1):
+            if i in local_at:
+                merged.append(local_at[i])
+    else:
+        # No CDN array in the DB; emit just the local files in order.
+        merged = [local_at[i] for i in sorted(local_at)]
 
-    if is_canopy and on_demand:
-        # Single throttled API request to fetch and download all photos.
-        # Safe for one-off misses on detail page views.
-        fetched = _fetch_and_download_photos_from_api(mls, photos_dir)
-        if fetched:
-            listing['primary_photo'] = fetched[0]
-            listing['photos'] = fetched
-            return
+    if isinstance(original_photos, list):
+        listing['photos'] = merged
 
-    # No local files found. Instead of showing a placeholder, keep the
-    # CDN URL as a fallback. The frontend renders CDN URLs fine (Next.js
-    # Image with unoptimized flag). A listing with photo_count > 0 should
-    # NEVER show a house-icon placeholder.
-    #
-    # CDN URLs may expire (MLS Grid tokens), but showing a broken image
-    # that triggers an on-demand re-download on next page view is better
-    # than showing a placeholder that tells the user "we have no photos"
-    # when we actually have 32 of them.
-    #
-    # For non-Canopy (Navica): CDN URLs don't expire, so this always works.
-    return  # Keep whatever primary_photo and photos the DB has
+    # Primary photo: prefer local, else the DB's existing value.
+    if 0 in local_at:
+        listing['primary_photo'] = local_at[0]
 
 
 def _fetch_and_download_photos_from_api(mls: str, photos_dir: Path) -> List[str]:

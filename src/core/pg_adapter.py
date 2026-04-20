@@ -37,8 +37,10 @@ try:
     import psycopg2.extras
     import psycopg2.pool
     _PG_AVAILABLE = True
-except ImportError:
+    _PG_IMPORT_ERROR: Optional[str] = None
+except ImportError as _pg_err:
     _PG_AVAILABLE = False
+    _PG_IMPORT_ERROR = str(_pg_err)
 
 _pool: Optional[Any] = None  # psycopg2.pool.ThreadedConnectionPool
 
@@ -49,9 +51,42 @@ def _get_database_url() -> Optional[str]:
     return url if url else None
 
 
+# Fail loudly at module import when DATABASE_URL is set but psycopg2 is
+# missing. Silent fallback to SQLite was the root cause of a real PRD
+# incident: services kept running, pointed at a stale 905 MB SQLite file,
+# and nobody noticed for days. Crash-fast is the correct behaviour.
+#
+# Set DREAMS_ALLOW_SQLITE_FALLBACK=1 to restore the old silent fallback
+# (only useful for emergency bring-up scenarios).
+def _assert_backend_consistent() -> None:
+    url = _get_database_url()
+    if url and not _PG_AVAILABLE:
+        if os.getenv("DREAMS_ALLOW_SQLITE_FALLBACK", "").strip() in ("1", "true", "yes"):
+            logger.error(
+                "DATABASE_URL is set but psycopg2 is NOT installed. Falling "
+                "back to SQLite because DREAMS_ALLOW_SQLITE_FALLBACK is set. "
+                "FIX: pip install psycopg2-binary in this environment."
+            )
+            return
+        raise ImportError(
+            "DATABASE_URL is set but psycopg2 is NOT installed in this "
+            "Python environment. Services must not silently fall back to "
+            "SQLite. FIX: pip install psycopg2-binary (or set "
+            "DREAMS_ALLOW_SQLITE_FALLBACK=1 to temporarily bypass)."
+        )
+
+
+_assert_backend_consistent()
+
+
 def is_postgres() -> bool:
     """True if we're configured to use PostgreSQL."""
     return bool(_get_database_url()) and _PG_AVAILABLE
+
+
+def active_backend() -> str:
+    """Return 'postgres' or 'sqlite' for health-check reporting."""
+    return "postgres" if is_postgres() else "sqlite"
 
 
 def _get_pool():

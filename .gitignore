@@ -111,3 +111,4 @@ node_modules/
 .claude/dot-claude/settings.local.json
 .claude/scheduled_tasks.lock
 archive/sqlite-2026-04-20/
+.claude/prd-deploy-auth

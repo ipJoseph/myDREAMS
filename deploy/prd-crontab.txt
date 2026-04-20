@@ -1,26 +1,34 @@
 # myDREAMS PRD Crontab
 # Install with: crontab /opt/mydreams/deploy/prd-crontab.txt
 #
-# All sync jobs run from /opt/mydreams using the system python3
+# IMPORTANT: Python jobs MUST use /opt/mydreams/venv/bin/python3 so they
+# pick up psycopg2 and talk to PostgreSQL. Bare `python3` resolves to
+# /usr/bin/python3, which has no psycopg2, and pg_adapter would silently
+# fall back to a stale SQLite file — the exact class of failure that
+# caused the 2026-04-20 data-stall incident. pg_adapter now raises at
+# import when that happens, so these cron jobs will hard-fail with a
+# loud error in the log instead of degrading silently.
+
+PY=/opt/mydreams/venv/bin/python3
 
 # Canopy MLS (MLS Grid) - incremental sync every 30 min, 8am-9pm EDT (12:00-01:59 UTC)
 # Note: cron can't wrap ranges past midnight, so we use two entries
-*/30 12-23 * * * cd /opt/mydreams && python3 -m apps.mlsgrid.cron_sync >> /opt/mydreams/data/logs/mlsgrid-sync.log 2>&1
-*/30 0-1 * * * cd /opt/mydreams && python3 -m apps.mlsgrid.cron_sync >> /opt/mydreams/data/logs/mlsgrid-sync.log 2>&1
+*/30 12-23 * * * cd /opt/mydreams && $PY -m apps.mlsgrid.cron_sync >> /opt/mydreams/data/logs/mlsgrid-sync.log 2>&1
+*/30 0-1 * * * cd /opt/mydreams && $PY -m apps.mlsgrid.cron_sync >> /opt/mydreams/data/logs/mlsgrid-sync.log 2>&1
 
 # Canopy MLS - nightly reconciliation at 2 AM UTC (10 PM EDT)
 # Replaced full sync (27k records, 55+ pages) with lightweight count check (1 API request)
-# Full sync is now manual-only: python3 -m apps.mlsgrid.cron_sync --full-sync --status Active
-0 2 * * * cd /opt/mydreams && python3 -m apps.mlsgrid.cron_sync --nightly >> /opt/mydreams/data/logs/mlsgrid-sync.log 2>&1
+# Full sync is now manual-only: $PY -m apps.mlsgrid.cron_sync --full-sync --status Active
+0 2 * * * cd /opt/mydreams && $PY -m apps.mlsgrid.cron_sync --nightly >> /opt/mydreams/data/logs/mlsgrid-sync.log 2>&1
 
 # Canopy MLS - download new primary photos at 3 AM UTC (Zone 1-3 only)
-0 3 * * * cd /opt/mydreams && python3 -m apps.mlsgrid.download_photos --status ACTIVE --workers 2 >> /opt/mydreams/data/logs/mlsgrid-photos.log 2>&1
+0 3 * * * cd /opt/mydreams && $PY -m apps.mlsgrid.download_photos --status ACTIVE --workers 2 >> /opt/mydreams/data/logs/mlsgrid-photos.log 2>&1
 
-# Database backup at 11 PM UTC
-0 23 * * * cp /opt/mydreams/data/dreams.db /opt/mydreams/data/backups/dreams-$(date +\%Y\%m\%d).db 2>/dev/null
+# Database backup at 11 PM UTC (pg_dump replaces the old SQLite file copy)
+0 23 * * * sudo -u postgres pg_dump dreams | gzip > /opt/mydreams/data/backups/pg_dump-$(date +\%Y\%m\%d).sql.gz 2>/dev/null
 
 # Schema check (ensure columns exist after any manual DB operations)
-0 4 * * * cd /opt/mydreams && python3 scripts/ensure_schema.py >> /opt/mydreams/data/logs/schema.log 2>&1
+0 4 * * * cd /opt/mydreams && $PY scripts/ensure_schema.py >> /opt/mydreams/data/logs/schema.log 2>&1
 
 # ============================================================================
 # DISABLED 2026-04-10 — JTH-FUB API access revoked, pivoting to Eugy's personal FUB
