@@ -109,3 +109,4 @@ node_modules/
 
 # Claude Code local settings (may contain secrets in permission history)
 .claude/dot-claude/settings.local.json
+archive/sqlite-2026-04-20/
