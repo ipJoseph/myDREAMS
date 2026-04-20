@@ -155,7 +155,7 @@ def upsert_contact():
     except Exception as e:
         return jsonify({
             'success': False,
-            'error': {'code': 'SERVER_ERROR', 'message': str(e)}
+            'error': {'code': 'SERVER_ERROR', 'message': 'An internal error occurred'}
         }), 500
 
 
@@ -244,7 +244,7 @@ def link_contact_property(contact_id, property_id):
     except Exception as e:
         return jsonify({
             'success': False,
-            'error': {'code': 'SERVER_ERROR', 'message': str(e)}
+            'error': {'code': 'SERVER_ERROR', 'message': 'An internal error occurred'}
         }), 500
 
 

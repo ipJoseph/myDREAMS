@@ -37,9 +37,8 @@ PRICE_BUCKET_SIZE = 100_000     # Group properties into $100K price bands
 
 
 def get_db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+    from src.core.pg_adapter import get_db as _get_db
+    return _get_db(DB_PATH)
 
 
 def detect_browsing_patterns(contact_id: str, days: int = 14) -> list[dict]:

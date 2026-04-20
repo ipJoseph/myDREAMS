@@ -1141,7 +1141,7 @@ def serve_photo(source, filename):
     if not filepath.exists():
         return jsonify({'error': 'Not found'}), 404
 
-    return send_from_directory(
-        str(photos_dir), safe_name,
-        max_age=86400,
-    )
+    response = send_from_directory(str(photos_dir), safe_name)
+    # Photos are immutable once downloaded; cache aggressively
+    response.headers['Cache-Control'] = 'public, max-age=31536000, immutable'
+    return response

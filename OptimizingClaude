@@ -1,0 +1,73 @@
+The Core Concept: Giving Claude Code the Right Tools
+Claude Code operates best when you think of it like orchestrating a crew rather than hiring one person to do everything. There are three distinct layers:
+1. MCP Servers — External integrations / live data
+These give Claude Code access to systems it otherwise can't touch.
+Finding good ones:
+
+modelcontextprotocol.io/servers — the official registry
+mcp.so — community-curated directory
+awesome-mcp-servers on GitHub — heavily starred, well-maintained list
+Search GitHub directly: topic:mcp-server
+
+High-value MCPs for your stack specifically:
+MCPWhy it matters for youfilesystemRead/write local files — foundationalgitRepo ops without leaving contextsqlite / postgresDirect DB access for myDREAMS data pipelinefetch / browserScraping, API testingnotionYou're already using itgoogle-drive / gmailKW/client comms workflowsgithubPR reviews, issue tracking from Claude
+
+2. Subagents / Agent-to-Agent — Delegation patterns
+Claude Code can spawn subagents to run parallel or specialized tasks. Best practices:
+
+Use Task tool calls to delegate bounded, well-defined subtasks
+Keep subagent prompts narrow and specific — they don't need the full context, just what's relevant to their job
+Subagents work best for: file operations, research tasks, code generation in isolated modules, testing
+
+Pattern to internalize:
+Orchestrator Claude → defines the plan, manages state
+  └── Subagent A → handles data fetching
+  └── Subagent B → handles code generation
+  └── Subagent C → handles validation/testing
+
+3. Skills / CLAUDE.md — Persistent instructions & context injection
+This is the most underutilized lever. Think of it as your standard operating procedures for Claude Code.
+CLAUDE.md (project-level):
+
+Lives in your repo root
+Claude Code reads it automatically at session start
+Put in: project overview, tech stack, naming conventions, preferred patterns, "never do X"
+
+~/.claude/CLAUDE.md (global):
+
+Applies to every Claude Code session
+Put in: your personal preferences, common tools you use, your environment details
+
+What to put in them:
+markdown# Project: myDREAMS
+## Stack: Python, SQLite, FastAPI, PropStream API
+## Conventions: snake_case, typed functions, docstrings required
+## Never: use pandas when raw SQL suffices
+## MCP context: sqlite MCP is connected, use it for all DB queries
+## Preferred patterns: repository pattern for data access
+
+Practical Workflow for Maximizing Results
+Before starting a task:
+
+Ask yourself: does this task need live data (MCP) or domain knowledge (CLAUDE.md context)?
+Make sure relevant MCPs are connected
+Have a CLAUDE.md that describes the current project state
+
+During a task:
+
+Use /mcp to verify what's connected
+Explicitly tell Claude Code which tools to use: "Use the sqlite MCP to query the leads table" beats hoping it figures it out
+For complex tasks, ask Claude to write the plan first before executing — this is where you catch bad assumptions cheap
+
+Skill building over time:
+
+Every time you solve a repeatable problem, distill the pattern into CLAUDE.md
+Treat it like a growing runbook
+
+
+Honest Gaps to Know
+
+MCP ecosystem is still maturing — quality varies wildly; vet before trusting
+Agent-to-agent coordination can get expensive token-wise; don't over-decompose simple tasks
+CLAUDE.md doesn't version-control itself by default — worth committing it intentionally
+

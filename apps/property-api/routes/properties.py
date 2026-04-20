@@ -210,7 +210,7 @@ def create_property():
     except Exception as e:
         return jsonify({
             'success': False,
-            'error': {'code': 'SERVER_ERROR', 'message': str(e)}
+            'error': {'code': 'SERVER_ERROR', 'message': 'An internal error occurred'}
         }), 500
 
 
@@ -245,7 +245,7 @@ def batch_create_properties():
             results['created'] += 1
         except Exception as e:
             results['failed'] += 1
-            results['errors'].append({'index': i, 'error': str(e)})
+            results['errors'].append({'index': i, 'error': 'Failed to process property'})
 
     return jsonify({
         'success': results['failed'] == 0,
@@ -271,7 +271,7 @@ def get_property(property_id):
     except Exception as e:
         return jsonify({
             'success': False,
-            'error': {'code': 'SERVER_ERROR', 'message': str(e)}
+            'error': {'code': 'SERVER_ERROR', 'message': 'An internal error occurred'}
         }), 500
 
 
@@ -305,7 +305,7 @@ def list_properties():
     except Exception as e:
         return jsonify({
             'success': False,
-            'error': {'code': 'SERVER_ERROR', 'message': str(e)}
+            'error': {'code': 'SERVER_ERROR', 'message': 'An internal error occurred'}
         }), 500
 
 
@@ -342,7 +342,7 @@ def check_property_exists():
     except Exception as e:
         return jsonify({
             'success': False,
-            'error': {'code': 'SERVER_ERROR', 'message': str(e)}
+            'error': {'code': 'SERVER_ERROR', 'message': 'An internal error occurred'}
         }), 500
 
 
@@ -366,7 +366,7 @@ def trigger_notion_sync():
     except Exception as e:
         return jsonify({
             'success': False,
-            'error': {'code': 'SYNC_ERROR', 'message': str(e)}
+            'error': {'code': 'SYNC_ERROR', 'message': 'Sync operation failed'}
         }), 500
 
 
@@ -397,7 +397,7 @@ def validate_idx(property_id):
     except Exception as e:
         return jsonify({
             'success': False,
-            'error': {'code': 'VALIDATION_ERROR', 'message': str(e)}
+            'error': {'code': 'VALIDATION_ERROR', 'message': 'Invalid request data'}
         }), 500
 
 
@@ -431,5 +431,5 @@ def trigger_idx_validation():
     except Exception as e:
         return jsonify({
             'success': False,
-            'error': {'code': 'VALIDATION_ERROR', 'message': str(e)}
+            'error': {'code': 'VALIDATION_ERROR', 'message': 'Invalid request data'}
         }), 500

@@ -52,6 +52,8 @@ data/
 # Configuration with secrets
 config/.env
 config/config.yaml
+config/*API Keys*
+config/myDREAMS API Keys
 *.pem
 *.key
 service_account*.json

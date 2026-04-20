@@ -109,8 +109,8 @@ WATER_OPTIONS = [
 def get_db():
     """Get database connection for workflow data (leads, forms, packages)."""
     if 'db' not in g:
-        g.db = sqlite3.connect(DB_PATH)
-        g.db.row_factory = sqlite3.Row
+        from src.core.pg_adapter import get_db as _get_db
+        g.db = _get_db(DB_PATH)
     return g.db
 
 
@@ -128,16 +128,18 @@ def close_db(error):
 
 
 def init_db():
-    """Initialize database tables from schema.sql."""
+    """Initialize database tables from schema.sql (SQLite only; PostgreSQL uses migration script)."""
+    from src.core.pg_adapter import is_postgres
+    if is_postgres():
+        return  # Schema managed by migrate_to_postgres.py
+
     schema_path = Path(__file__).parent / 'schema.sql'
     if not schema_path.exists():
         return
 
     db = sqlite3.connect(DB_PATH)
     try:
-        # Strip SQL comments, then execute each statement individually
         schema = schema_path.read_text()
-        # Remove full-line comments
         lines = [line for line in schema.splitlines() if not line.strip().startswith('--')]
         clean_sql = '\n'.join(lines)
         for statement in clean_sql.split(';'):
@@ -147,7 +149,7 @@ def init_db():
             try:
                 db.execute(statement)
             except sqlite3.OperationalError:
-                pass  # Table/index already exists or column mismatch
+                pass
         db.commit()
         logger.info("Database schema initialized from schema.sql")
     except Exception as e:

@@ -5473,7 +5473,7 @@ def validate_idx_properties():
         })
 
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({'success': False, 'error': 'An internal error occurred. Please try again.'}), 500
 
 
 @app.route('/api/idx-portfolio', methods=['POST'])
@@ -5542,7 +5542,7 @@ def create_idx_portfolio():
         })
 
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({'success': False, 'error': 'An internal error occurred. Please try again.'}), 500
 
 
 @app.route('/api/idx-progress')
@@ -5562,9 +5562,10 @@ def get_idx_progress():
                 'message': 'No active portfolio creation'
             })
     except Exception as e:
+        logger.error(f"Error in action: {e}")
         return jsonify({
             'status': 'error',
-            'error': str(e)
+            'error': 'An internal error occurred.'
         })
 
 
@@ -5837,7 +5838,7 @@ def contact_intake_save(contact_id):
             conn.commit()
     except Exception as e:
         logger.error(f"Error saving intake form: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({'success': False, 'error': 'An internal error occurred. Please try again.'}), 500
 
     # Redirect back to workspace requirements tab
     return redirect(url_for('contact_workspace', contact_id=contact_id, tab='requirements'))
@@ -5857,7 +5858,7 @@ def contact_intake_delete(contact_id, form_id):
             logger.warning(f"Intake form {form_id} not found")
     except Exception as e:
         logger.error(f"Error deleting intake form: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({'success': False, 'error': 'An internal error occurred. Please try again.'}), 500
 
     # Redirect back to workspace requirements tab
     return redirect(url_for('contact_workspace', contact_id=contact_id, tab='requirements'))
@@ -5878,7 +5879,7 @@ def api_intake_delete(contact_id, form_id):
             return jsonify({'success': False, 'error': 'Form not found'}), 404
     except Exception as e:
         logger.error(f"Error deleting intake form: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({'success': False, 'error': 'An internal error occurred. Please try again.'}), 500
 
 
 @app.route('/contacts/<contact_id>/search')
@@ -6091,7 +6092,7 @@ def contact_create_package(contact_id):
             conn.commit()
     except Exception as e:
         logger.error(f"Error creating package: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({'success': False, 'error': 'An internal error occurred. Please try again.'}), 500
 
     # Redirect to package detail or back to workspace
     return redirect(url_for('contact_package_detail', contact_id=contact_id, package_id=package_id))
@@ -6352,7 +6353,7 @@ def contact_package_pdf(contact_id, package_id):
         return "PDF generation requires WeasyPrint. Install with: pip install weasyprint", 500
     except Exception as e:
         logger.error(f"Error generating PDF: {e}")
-        return f"Error generating PDF: {str(e)}", 500
+        return "Error generating PDF. Please try again.", 500
 
 
 # =========================================================================
@@ -6452,7 +6453,7 @@ def api_update_contact_workflow_stage(contact_id):
         })
     except Exception as e:
         logger.error(f"Error updating workflow stage: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({'success': False, 'error': 'An internal error occurred. Please try again.'}), 500
 
 
 @app.route('/api/workflow/initialize', methods=['POST'])
@@ -6469,7 +6470,7 @@ def api_initialize_workflows():
         })
     except Exception as e:
         logger.error(f"Error initializing workflows: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({'success': False, 'error': 'An internal error occurred. Please try again.'}), 500
 
 
 @app.route('/api/contacts/<contact_id>/workflow/auto-stage', methods=['POST'])
@@ -6489,7 +6490,7 @@ def api_auto_stage_contact(contact_id):
         })
     except Exception as e:
         logger.error(f"Error auto-staging contact: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({'success': False, 'error': 'An internal error occurred. Please try again.'}), 500
 
 
 # =========================================================================
@@ -6514,7 +6515,7 @@ def api_get_requirements(contact_id):
         })
     except Exception as e:
         logger.error(f"Error getting requirements: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({'success': False, 'error': 'An internal error occurred. Please try again.'}), 500
 
 
 @app.route('/api/contacts/<contact_id>/requirements/sources')
@@ -6531,7 +6532,7 @@ def api_get_requirements_by_source(contact_id):
         })
     except Exception as e:
         logger.error(f"Error getting requirements by source: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({'success': False, 'error': 'An internal error occurred. Please try again.'}), 500
 
 
 @app.route('/api/contacts/<contact_id>/requirements/consolidate', methods=['POST'])
@@ -6548,7 +6549,7 @@ def api_consolidate_requirements(contact_id):
         })
     except Exception as e:
         logger.error(f"Error consolidating requirements: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({'success': False, 'error': 'An internal error occurred. Please try again.'}), 500
 
 
 @app.route('/api/contacts/<contact_id>/requirements/override', methods=['POST'])
@@ -6572,7 +6573,7 @@ def api_override_requirement(contact_id):
         })
     except Exception as e:
         logger.error(f"Error overriding requirement: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({'success': False, 'error': 'An internal error occurred. Please try again.'}), 500
 
 
 @app.route('/api/contacts/<contact_id>/requirements/changes')
@@ -6589,7 +6590,7 @@ def api_get_requirements_changes(contact_id):
         })
     except Exception as e:
         logger.error(f"Error getting requirement changes: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({'success': False, 'error': 'An internal error occurred. Please try again.'}), 500
 
 
 @app.route('/api/contacts/<contact_id>/requirements/refresh', methods=['POST'])
@@ -6606,7 +6607,7 @@ def api_refresh_requirements(contact_id):
         })
     except Exception as e:
         logger.error(f"Error refreshing requirements: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({'success': False, 'error': 'An internal error occurred. Please try again.'}), 500
 
 
 # ==========================================
@@ -7035,7 +7036,7 @@ def admin_settings_save():
 
     except Exception as e:
         logger.error(f"Error saving settings: {e}")
-        return redirect(url_for('admin_settings') + '?error=' + str(e))
+        return redirect(url_for('admin_settings') + '?error=Failed+to+save+settings')
 
 
 @app.route('/api/admin/settings', methods=['GET'])
@@ -7052,7 +7053,7 @@ def api_get_settings():
         })
     except Exception as e:
         logger.error(f"Error getting settings: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({'success': False, 'error': 'An internal error occurred. Please try again.'}), 500
 
 
 @app.route('/api/admin/settings/<key>', methods=['PUT'])
@@ -7077,7 +7078,7 @@ def api_update_setting(key):
         })
     except Exception as e:
         logger.error(f"Error updating setting: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({'success': False, 'error': 'An internal error occurred. Please try again.'}), 500
 
 
 # ==========================================
@@ -7210,7 +7211,7 @@ def api_save_scoring_config():
 
     except Exception as e:
         logger.error(f"Error saving scoring config: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({'success': False, 'error': 'An internal error occurred. Please try again.'}), 500
 
 
 @app.route('/api/admin/scoring-preview', methods=['POST'])
@@ -7249,7 +7250,7 @@ def api_scoring_preview():
 
     except Exception as e:
         logger.error(f"Error generating scoring preview: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({'success': False, 'error': 'An internal error occurred. Please try again.'}), 500
 
 
 # ==========================================
@@ -7327,7 +7328,7 @@ def api_leads_search():
 
     except Exception as e:
         logger.error(f"Error searching leads: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({'success': False, 'error': 'An internal error occurred. Please try again.'}), 500
 
 
 @app.route('/api/pdf/generate/<lead_id>', methods=['POST'])
@@ -7379,7 +7380,7 @@ def api_generate_pdf(lead_id):
         return jsonify({'success': False, 'error': 'PDF generation timed out'}), 500
     except Exception as e:
         logger.error(f"Error generating PDF: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({'success': False, 'error': 'An internal error occurred. Please try again.'}), 500
 
 
 @app.route('/pdf/download/<filename>')
@@ -8010,7 +8011,7 @@ def admin_automation_save():
         return redirect(url_for('admin_automation') + '?saved=1')
     except Exception as e:
         logger.error(f"Error saving automation settings: {e}")
-        return redirect(url_for('admin_automation') + '?error=' + str(e))
+        return redirect(url_for('admin_automation') + '?error=Failed+to+save+automation+settings')
 
 
 # ---------------------------------------------------------------------------

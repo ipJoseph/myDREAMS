@@ -46,6 +46,16 @@ async function ListingsGrid({
     min_acreage: searchParams.min_acreage
       ? parseFloat(searchParams.min_acreage)
       : undefined,
+    min_elevation: searchParams.min_elevation
+      ? parseInt(searchParams.min_elevation)
+      : undefined,
+    max_elevation: searchParams.max_elevation
+      ? parseInt(searchParams.max_elevation)
+      : undefined,
+    min_view_score: searchParams.min_view_score
+      ? parseInt(searchParams.min_view_score)
+      : undefined,
+    has_view: searchParams.has_view,
     property_type: searchParams.property_type,
     sort: searchParams.sort || "list_date",
     order: (searchParams.order as "asc" | "desc") || "desc",

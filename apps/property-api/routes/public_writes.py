@@ -240,29 +240,16 @@ def create_public_contact():
         logger.info("public_contact: validation failed ip=%s err=%s", remote_ip, err)
         return jsonify({"ok": False, "error": err}), 400
 
-    # 3. Local DB write (source of truth) — retry on DB lock
-    #    The MLS Grid sync holds write locks for 2-5 min every 30 min.
-    #    Retrying with short sleeps catches the brief gaps between batch commits.
-    import time as _time
-    import sqlite3 as _sqlite3
-
+    # 3. Local DB write (source of truth)
     contact_id = None
-    db_retries = 15
-    for attempt in range(db_retries):
-        try:
-            contact_id = _upsert_public_contact(clean, remote_ip)
-            break
-        except _sqlite3.OperationalError as e:
-            if "locked" in str(e).lower() and attempt < db_retries - 1:
-                if attempt % 5 == 0:
-                    logger.warning("public_contact: DB locked, retry %d/%d", attempt + 1, db_retries)
-                _time.sleep(1)
-            else:
-                logger.error("public_contact: DB write failed after %d attempts: %s", db_retries, e)
-                return jsonify({
-                    "ok": False,
-                    "error": "Server is busy. Please try again in a moment.",
-                }), 503
+    try:
+        contact_id = _upsert_public_contact(clean, remote_ip)
+    except Exception as e:
+        logger.error("public_contact: DB write failed: %s", e)
+        return jsonify({
+            "ok": False,
+            "error": "Server is busy. Please try again in a moment.",
+        }), 503
 
     # 4. Best-effort FUB push
     fub_result = _push_to_fub(clean)
@@ -592,33 +579,24 @@ def track_public_event():
     except Exception:
         pass
 
-    # Store locally in contact_events (with retry for DB lock)
-    import time as _time
-    import sqlite3 as _sqlite3
+    # Store locally in contact_events
     now = datetime.now().isoformat()
     event_id = f"web_{uuid.uuid4().hex[:12]}"
 
-    for attempt in range(5):
-        try:
-            db = _get_db()
-            with db._get_connection() as conn:
-                conn.execute(
-                    """INSERT INTO contact_events
-                       (id, contact_id, event_type, occurred_at,
-                        property_address, property_price, property_mls, imported_at)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-                    (event_id, contact_id, fub_event_type, now,
-                     property_address, property_price, property_mls, now),
-                )
-                conn.commit()
-            break
-        except _sqlite3.OperationalError as e:
-            if "locked" in str(e).lower() and attempt < 4:
-                _time.sleep(1)
-            else:
-                logger.warning("Event store failed after retries: %s", e)
-                # Don't fail the request — still try FUB push
-                break
+    try:
+        db = _get_db()
+        with db._get_connection() as conn:
+            conn.execute(
+                """INSERT INTO contact_events
+                   (id, contact_id, event_type, occurred_at,
+                    property_address, property_price, property_mls, imported_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                (event_id, contact_id, fub_event_type, now,
+                 property_address, property_price, property_mls, now),
+            )
+            conn.commit()
+    except Exception as e:
+        logger.warning("Event store failed: %s", e)
 
     # Forward to FUB (best-effort)
     fub_result = _get_fub().create_event(
