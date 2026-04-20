@@ -597,9 +597,20 @@ def map_reso_to_listing(prop: Dict, mls_source: str = 'NavicaMLS') -> Dict[str, 
     Returns:
         Dict matching the listings table columns
     """
-    # Extract media
-    media = prop.get('Media', [])
-    primary_photo, all_photos, photo_count = extract_photos(media)
+    # Extract media. When 'Media' is absent from the upstream response
+    # (e.g. mlsgrid --full-sync uses expand_media=False to keep the
+    # payload sane), we must NOT return photo_count=0 / photos=None,
+    # because the sync engine would then overwrite perfectly good DB
+    # values with zero. Use a sentinel: the presence of the 'Media' key
+    # (even if the value is an empty list) means the upstream was asked
+    # and answered. If the key is missing entirely, the caller didn't
+    # ask; leave photo fields untouched.
+    media_present = 'Media' in prop
+    media = prop.get('Media', []) if media_present else []
+    if media_present:
+        primary_photo, all_photos, photo_count = extract_photos(media)
+    else:
+        primary_photo, all_photos, photo_count = None, [], None
     virtual_tour = extract_virtual_tour(media)
 
     # Build address
