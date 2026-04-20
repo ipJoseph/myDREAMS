@@ -1,152 +1,123 @@
 # myDREAMS Master To-Do List
 
-*Exhaustive prioritized task list - check off as completed*
+*Exhaustive prioritized task list. Check off as completed.*
 
-Last updated: February 26, 2026 (Collections bridge, buyer activity, agent notifications, saved search alerts)
-
----
-
-## 🔴 PRIORITY 1: High Impact / Low Effort (Quick Wins)
-
-| # | Task | Status | Category | Notes |
-|---|------|--------|----------|-------|
-| 1 | **Score decay for inactive leads** | DONE | Phase 2 | 6-tier decay: 0%->5%->15%->30%->50%->70% |
-| 2 | **Click-to-Call FUB deep links** | DONE | Phase 4 | Phone numbers link to FUB when fub_id available |
-| 3 | **Remove unused `httpx` import** | DONE | Tech Debt | Removed from `property-dashboard/app.py` |
-| 4 | **`ENABLE_STAGE_SYNC` review** | DONE | Tech Debt | Feature implemented in fub-core, disabled by default for safety |
+Last updated: April 19, 2026
 
 ---
 
-## 🟠 PRIORITY 2: Core Phase 2 Features (Lead Scoring & Matching)
+## PRIORITY 1: Launch Blockers
 
-| # | Task | Status | Category | Notes |
-|---|------|--------|----------|-------|
-| 5 | **Unified Contact Workspace (Hearth Integration)** | DONE | Phase 1 | Central hub with tabs: Info, Requirements, Activity, Packages, Showings, Matches |
-| 6 | **Intake-Driven Property Search** | DONE | Phase 1 | Search redfin_imports using intake criteria, multi-select for package creation |
-| 7 | **Package Management in Workspace** | DONE | Phase 1 | Create packages from search, generate client links, track favorites |
-| 8 | **Workflow Pipeline (Kanban View)** | DONE | Phase 4 | Drag-drop Kanban board with 10 stages, stage history, auto-inference |
-| 9 | **Weighted buyer-property matching algorithm** | DONE | Phase 2 | 4-factor scoring: Price(30%), Location(25%), Size(25%), Recency(20%) |
-| 9 | **Match score breakdown visualization** | DONE | Phase 2 | Visual bars showing contribution of each factor |
-| 10 | **Lead requirements extraction from CRM notes** | DONE | Phase 2 | Regex parsing for price, beds, baths, acreage, counties, cities |
-| 11 | **Stated requirements vs behavioral preferences** | DONE | Phase 2 | Blends stated (40%) + behavioral (60%) for matching |
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 1 | **Photo architecture efficiency review** | Pending | localize_photo does per-file stat on every page view (should cache or trust DB); multiple writers with race conditions; no cleanup for sold/expired photos |
+| 2 | **Supabase Auth email confirmation test** | Pending | SMTP configured but delivery untested after rate limit fix |
+| 3 | **Google OAuth end-to-end test** | Pending | Configured in Supabase + client ID set, needs real login test |
+| 4 | **Favicon: distinct icons per app** | Pending | PRD needs blue icon; public site vs dashboard should differ |
+| 5 | **Remove frozen-data pivot banner** | Pending | Dashboard still shows JTH pivot banner |
+| 6 | **FUB daily sync test** | Pending | Untested since PostgreSQL migration; fires at 10 UTC daily |
 
 ---
 
-## 🟡 PRIORITY 3: Automation & Reports (Phase 3)
+## PRIORITY 2: Post-Launch / Medium Priority
 
-| # | Task | Status | Category | Notes |
-|---|------|--------|----------|-------|
-| 9 | **Weekly market summary report** | DONE | Phase 3 | Monday 6:30 AM email with week-over-week stats |
-| 10 | **Monthly lead activity report** | DONE | Phase 3 | 1st of month email with trends, hot/cooling leads |
-| 11 | **New listing alerts for saved searches** | DONE | Phase 3 | Daily 8:00 AM digest to buyers with matching properties |
-| 12 | **Historical price chart generation** | DONE | Phase 3 | Chart.js visualization on property detail page |
-| 13 | **Customizable alert thresholds** | DONE | Phase 3 | `/admin/settings` page with DB-stored thresholds |
-
----
-
-## 🟢 PRIORITY 4: Admin & Configuration
-
-| # | Task | Status | Category | Notes |
-|---|------|--------|----------|-------|
-| 14 | **Admin settings page** | DONE | Phase 3 | `/admin/settings` with alert thresholds and report toggles |
-| 15 | **Feature toggles UI** | DONE | Phase 3 | Toggle switches for alerts/reports in admin settings |
-| 16 | **Automatic note push on property matches** | DONE | Phase 2 | Push matched properties to FUB notes via API |
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 7 | **Mobile-responsive dashboard** | Pending | Dashboard works on desktop only |
+| 8 | **PostGIS setup** | Pending | Radius search, polygon search; approved in plan |
+| 9 | **JSONB feature search** | Pending | Structured feature queries on listing attributes |
+| 10 | **Standardize error handling** | Pending | Inconsistent patterns across apps; str(e) leakage in 40+ responses |
+| 11 | **Smart List surge smoothing** | Pending | 297/334 FUB contacts unbucketed; 150-contact Unresponsive spikes after bulk action plans. Eugy has ideas. |
+| 12 | **Remove SQLite retry/yield patches** | Pending | No longer needed on PostgreSQL; dead code in sync engine and public_writes |
+| 13 | **Archive old photo download scripts** | Pending | `apps/mlsgrid/download_photos.py`, `download_gallery.py`, `apps/navica/download_photos.py` replaced by PhotoManager |
+| 14 | **Review unused database methods** | Pending | Some aggregation methods may be orphaned after PostgreSQL migration |
+| 15 | **Showings & Collections data recovery** | Pending | Kevin Purucker's collection and all showings data gone from DEV and PRD; discovered 2026-03-22 |
 
 ---
 
-## 🔵 PRIORITY 5: Polish & UX (Phase 4)
+## PRIORITY 3: Polish & UX
 
-| # | Task | Status | Category | Notes |
-|---|------|--------|----------|-------|
-| 17 | **Mobile-responsive dashboard** | Pending | Phase 4 | Works on phone/tablet |
-| 18 | **Dark mode support** | Pending | Phase 4 | Eye comfort option |
-| 19 | **Keyboard shortcuts** | Pending | Phase 4 | Power user navigation |
-| 20 | **Bulk actions interface** | Pending | Phase 4 | Multi-select operations |
-| 30 | **Smart List surge smoothing / unbucketed gap** | Pending | Phase 4 | 297/334 FUB contacts unbucketed at any time; 150-contact Unresponsive spikes after bulk action plans. See [analysis](smart-list-analysis.md). Eugy has ideas. |
-
----
-
-## ⚪ PRIORITY 6: Infrastructure & Tech Debt
-
-| # | Task | Status | Category | Notes |
-|---|------|--------|----------|-------|
-| 21 | **Add test suite** | Pending | Tech Debt | `/tests/` directory is empty - no tests |
-| 31 | **Settings page test plan** | Pending | Tech Debt | Develop comprehensive test plan for the new Settings page (env vars, DB settings, secret masking, collapsible sections, save flow, category mapping) |
-| 32 | **Photo architecture efficiency review** | Pending | Tech Debt | Review after gallery download runs a few days. Items: (1) localize_photo does per-file stat calls on every page view, should cache or trust DB; (2) backfill disk scan is slow (256k+ files), use DB query instead; (3) on-demand download blocks the request for large galleries, consider async/placeholder; (4) photos column has multiple writers (sync, on-demand, backfill) with potential race conditions; (5) no cleanup for sold/expired listing photos. Added 2026-03-29. |
-| 22 | ~~Zillow scraper fix~~ | Retired | Tech Debt | Navica MLS replaces all scrapers |
-| 23 | **Realtor.com scraper** | DONE | Tech Debt | Dedicated scraper with __NEXT_DATA__ + DOM extraction |
-| 24 | **Standardize error handling** | Pending | Tech Debt | Inconsistent patterns across apps |
-| 25 | **Review unused database methods** | Pending | Tech Debt | Some aggregation methods may be orphaned |
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 16 | **Dark mode support** | Pending | Eye comfort option |
+| 17 | **Keyboard shortcuts** | Pending | Power user navigation |
+| 18 | **Bulk actions interface** | Pending | Multi-select operations |
+| 19 | **Ascending/descending sort on Collections** | Pending | Toggle for sort direction on Active Collections page |
+| 20 | **Configurable address abbreviations** | Pending | Custom street suffix mappings for route planner (currently hardcoded in normalizeAddr()) |
 
 ---
 
-## 📦 PRIORITY 7: Future / Package Generation
+## PRIORITY 4: Future Features
 
-| # | Task | Status | Category | Notes |
-|---|------|--------|----------|-------|
-| 26 | **PDF property packages** | DONE | Phase 3 | WeasyPrint HTML-to-PDF, download from dashboard |
-| 27 | **Branded property flyers** | Pending | Phase 3 | Marketing materials |
-| 28 | **Comparative market analysis** | Pending | Phase 3 | CMA generation |
-| 29 | **Client presentation decks** | Pending | Phase 3 | Slide generation |
-| 30 | **Configurable address abbreviations** | Pending | Route Planner | Let users add custom street suffix mappings (e.g., Hollow/Holw, Way/Wy) to the route planner address matcher. Currently hardcoded in normalizeAddr(). |
-| 31 | **Ascending/descending sort on Collections** | Pending | Collections | Add toggle for sort direction on Active Collections page |
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 21 | **Branded property flyers** | Pending | Marketing materials |
+| 22 | **Comparative market analysis** | Pending | CMA generation |
+| 23 | **Client presentation decks** | Pending | Slide generation |
+| 24 | **Add test suite** | Pending | `/tests/` has conftest + a few integration tests; needs broader coverage |
+| 25 | **Settings page test plan** | Pending | Env vars, DB settings, secret masking, collapsible sections, save flow |
 
 ---
 
 ## Completed Items
 
-| # | Task | Completed | Notes |
-|---|------|-----------|-------|
-| 1 | Score decay for inactive leads | Jan 23, 2026 | 6-tier decay multipliers |
-| 2 | Click-to-Call FUB deep links | Jan 23, 2026 | Phone numbers link to FUB |
-| 3 | Remove unused httpx import | Jan 23, 2026 | Cleaned up dead import |
-| 4 | ENABLE_STAGE_SYNC review | Jan 23, 2026 | Feature confirmed implemented, disabled by default |
-| 5 | Buyer-property matching algorithm | Jan 23, 2026 | 4-factor weighted scoring in contact detail |
-| 6 | Match score breakdown visualization | Jan 23, 2026 | Visual bars for Price/Location/Size/Recency |
-| 8 | Stated vs behavioral preferences | Jan 23, 2026 | 60/40 blend for matching |
-| - | Email deduplication | Jan 23, 2026 | New contacts deduped by email (FUB data quality) |
-| - | New contacts in daily email | Jan 23, 2026 | Shows last 3 days with Today/Yesterday/N days ago |
-| - | Action Management System | Jan 23, 2026 | Contact actions, My Actions page, Scoring History |
-| - | Enhanced Contacts Dashboard | Jan 22, 2026 | Action Queue, Score Analysis, Insights, Trends tabs |
-| - | Database Normalization | Jan 22, 2026 | contact_daily_activity, contact_actions, scoring_runs tables |
-| - | FUB Sync with Trend Evaluation | Jan 22, 2026 | Scoring runs audit, trend detection, daily aggregation |
-| - | Metrics dropdown | Jan 23, 2026 | Navigation menu on main dashboard |
-| 10 | Lead requirements extraction from notes | Jan 23, 2026 | Regex parsing for price, beds, baths, acreage, counties, cities |
-| - | Requirements consolidation (Phase 5) | Jan 23, 2026 | Multi-source merge with confidence scoring |
-| - | Source comparison UI | Jan 23, 2026 | Compare intake vs behavioral vs notes values |
-| - | Agent override capability | Jan 23, 2026 | Override any requirement field with confidence 1.0 |
-| 9 | Weekly market summary report | Jan 23, 2026 | Monday 6:30 AM automated email |
-| 10 | Monthly lead activity report | Jan 23, 2026 | 1st of month automated email |
-| 11 | New listing alerts | Jan 23, 2026 | Daily 8:00 AM buyer digest |
-| 26 | PDF property packages | Jan 23, 2026 | WeasyPrint generation with dashboard download |
-| 12 | Historical price charts | Jan 23, 2026 | Chart.js on property detail page with price history |
-| 13 | Customizable alert thresholds | Jan 23, 2026 | `/admin/settings` page with DB-stored settings |
-| 14 | Admin settings page | Jan 23, 2026 | Toggle switches for alerts/reports, number inputs for thresholds |
-| 15 | Feature toggles UI | Jan 23, 2026 | Boolean toggles for all automation features |
-| 16 | Automatic note push on property matches | Jan 23, 2026 | FUB API integration to push notes |
-| 23 | Realtor.com scraper | Jan 23, 2026 | Dedicated scraper with __NEXT_DATA__ + DOM extraction |
-| - | Pursuits MVP | Feb 23, 2026 | Buyer-property portfolios with detail page, auto-match, Mission Control widget |
-| - | Daily email report fix | Feb 23, 2026 | Yesterday's activity window, two-pass reassignment detection |
-| - | Navica cron schedule | Feb 23, 2026 | Incremental/15min, nightly full, weekly sold, daily extras |
-| - | Contact-property search cleanup | Feb 23, 2026 | Removed dead redfin_imports code, added pursuit integration |
-| - | Elevation enrichment (USGS EPQS) | Feb 24, 2026 | All 1,604 listings enriched; dashboard + public site display; daily cron |
-| - | County GIS documents | Feb 24, 2026 | Documents & County Records section for 7 WNC counties (PRC, tax, reports) |
-| - | Filter persistence | Feb 24, 2026 | sessionStorage preserves property list filters across detail page navigation |
-| - | Parcel ID badge promotion | Feb 24, 2026 | Clickable parcel ID replaces redundant status badge on property detail |
-| - | Jackson County GIS deep link | Feb 24, 2026 | ?find= param with auto-dashed PIN format |
-| - | Clay/Swain/Henderson GIS fixes | Feb 24, 2026 | Fixed broken URLs, updated deprecated endpoints |
-| - | PRD Navica cron fixes | Feb 24, 2026 | Fixed argument syntax, added missing env tokens, removed stale entries |
-| - | Flood zone enrichment (FEMA NFHL) | Feb 25, 2026 | All listings enriched with flood_zone + flood_factor; weekly cron |
-| - | View potential enrichment (USGS) | Feb 25, 2026 | 8-point terrain sampling, 1-10 score; weekly cron |
-| - | Historical MLS import | Feb 25, 2026 | 54,329 total listings from Navica (Closed, Expired, Withdrawn) |
-| - | Enrichment pipeline script | Feb 25, 2026 | enrich_all.sh chains elevation/flood/views; resumable; overnight-safe |
-| - | DOM dynamic calculation fix | Feb 25, 2026 | Compute from list_date for active listings; no more stale API snapshots |
-| - | Collections bridge (Pursuits rename) | Feb 26, 2026 | Renamed Pursuits to Collections across all dashboard UI; route aliases for backward compat |
-| - | Buyer activity tracking | Feb 26, 2026 | buyer_activity table, logging on favorites/collections/searches/showing requests |
-| - | Showing request feature | Feb 26, 2026 | Request/cancel showings API, buyer UI button, immediate agent email notification |
-| - | Agent notifications (email) | Feb 26, 2026 | Immediate showing alerts + daily activity digest; buyer_notifications.py + 2 templates |
-| - | Dashboard buyer activity page | Feb 26, 2026 | /buyer-activity with urgency panel, activity feed; /buyer-collections/:id detail view |
-| - | Saved search email alerts | Feb 26, 2026 | Daily/weekly cron, filter matching engine, buyer-facing email with property cards |
+| Task | Completed | Notes |
+|------|-----------|-------|
+| Score decay for inactive leads | Jan 2026 | 6-tier decay multipliers |
+| Click-to-Call FUB deep links | Jan 2026 | Phone numbers link to FUB when fub_id available |
+| Remove unused httpx import | Jan 2026 | Cleaned up dead import |
+| ENABLE_STAGE_SYNC review | Jan 2026 | Feature implemented in fub-core, disabled by default |
+| Unified Contact Workspace | Jan 2026 | Central hub with tabs: Info, Requirements, Activity, Packages, Showings, Matches |
+| Intake-Driven Property Search | Jan 2026 | Search using intake criteria, multi-select for package creation |
+| Package Management in Workspace | Jan 2026 | Create packages from search, generate client links |
+| Workflow Pipeline (Kanban View) | Jan 2026 | Drag-drop Kanban board with 10 stages |
+| Weighted buyer-property matching | Jan 2026 | 4-factor scoring: Price(30%), Location(25%), Size(25%), Recency(20%) |
+| Match score breakdown visualization | Jan 2026 | Visual bars showing contribution of each factor |
+| Lead requirements extraction | Jan 2026 | Regex parsing for price, beds, baths, acreage, counties, cities |
+| Stated vs behavioral preferences | Jan 2026 | Blends stated (40%) + behavioral (60%) for matching |
+| Email deduplication | Jan 2026 | Contacts deduped by email |
+| New contacts in daily email | Jan 2026 | Last 3 days with Today/Yesterday/N days ago |
+| Action Management System | Jan 2026 | Contact actions, My Actions page, Scoring History |
+| Enhanced Contacts Dashboard | Jan 2026 | Action Queue, Score Analysis, Insights, Trends tabs |
+| Database Normalization | Jan 2026 | contact_daily_activity, contact_actions, scoring_runs tables |
+| FUB Sync with Trend Evaluation | Jan 2026 | Scoring runs audit, trend detection, daily aggregation |
+| Weekly market summary report | Jan 2026 | Monday 6:30 AM automated email |
+| Monthly lead activity report | Jan 2026 | 1st of month automated email |
+| New listing alerts for saved searches | Jan 2026 | Daily 8:00 AM buyer digest |
+| PDF property packages | Jan 2026 | WeasyPrint HTML-to-PDF |
+| Historical price charts | Jan 2026 | Chart.js on property detail page |
+| Customizable alert thresholds | Jan 2026 | /admin/settings with DB-stored settings |
+| Admin settings page | Jan 2026 | Toggle switches for alerts/reports |
+| Automatic note push on property matches | Jan 2026 | FUB API integration to push notes |
+| Realtor.com scraper | Jan 2026 | __NEXT_DATA__ + DOM extraction |
+| Pursuits MVP (renamed to Collections) | Feb 2026 | Buyer-property portfolios, auto-match, Mission Control widget |
+| Daily email report fix | Feb 2026 | Yesterday's activity window, two-pass reassignment detection |
+| Navica cron schedule | Feb 2026 | Incremental/15min, nightly full, weekly sold, daily extras |
+| Elevation enrichment (USGS EPQS) | Feb 2026 | All listings enriched; dashboard + public site display; daily cron |
+| County GIS documents | Feb 2026 | Documents & County Records for 7 WNC counties |
+| Filter persistence | Feb 2026 | sessionStorage preserves filters across detail page navigation |
+| Flood zone enrichment (FEMA NFHL) | Feb 2026 | All listings enriched with flood_zone + flood_factor; weekly cron |
+| View potential enrichment (USGS) | Feb 2026 | 8-point terrain sampling, 1-10 score; weekly cron |
+| Historical MLS import | Feb 2026 | 54,329 total listings from Navica |
+| Enrichment pipeline script | Feb 2026 | enrich_all.sh chains elevation/flood/views; resumable |
+| DOM dynamic calculation fix | Feb 2026 | Compute from list_date for active listings |
+| Collections bridge (Pursuits rename) | Feb 2026 | Renamed across all dashboard UI |
+| Buyer activity tracking | Feb 2026 | buyer_activity table, logging on favorites/collections/searches |
+| Showing request feature | Feb 2026 | Request/cancel API, buyer UI, agent email notification |
+| Agent notifications (email) | Feb 2026 | Immediate showing alerts + daily activity digest |
+| Saved search email alerts | Feb 2026 | Daily/weekly cron, filter matching, buyer email with property cards |
+| PostgreSQL migration | Mar 2026 | SQLite replaced in PRD + DEV; pg_adapter.py drop-in replacement |
+| PhotoManager module | Mar 2026 | Unified photo management: download, storage, adapters per MLS source |
+| Photo gallery fill | Mar 2026 | 28,980 photo-ready listings on PRD |
+| Supabase Auth integration | Mar 2026 | Replaced NextAuth + Flask dual-auth |
+| Contact form + lead capture | Mar 2026 | public_writes.py: POST /api/public/contacts with dedup |
+| Web lead inbox | Mar 2026 | Dashboard inbox with filter tabs, mark worked, duplicate detection |
+| Voice search + NLP parser | Mar 2026 | Web Speech API input routed through /api/public/search/parse |
+| Search filters redesign | Mar 2026 | County/city dropdowns, stats summary row, single-row layout |
+| DEV/PRD environment parity | Apr 2026 | Both environments on PostgreSQL |
+| FUB independence | Apr 2026 | Own API key, own lead pipeline, own scoring |
+| FUB DEV tagging | Apr 2026 | Auto-tag DEV contacts with DEV_TEST, source "localhost" |
+| DECISIONS.md | Mar 2026 | Canonical decision registry checked into git |
 
 ---
 
