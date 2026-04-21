@@ -267,13 +267,27 @@ def main() -> int:
     # PHOTO_PIPELINE_SPEC.md: gallery_priority DESC first so listings a user
     # just viewed (priority=10) jump the queue. Within same priority we
     # fall back to list_date order.
+    #
+    # The gallery_priority column is guarded by existence check so this script
+    # keeps working during the brief window between code deploy and
+    # ALTER TABLE completion on PRD (which can be blocked for hours by lock
+    # contention during business hours).
+    priority_col_exists = bool(conn.execute(
+        "SELECT 1 FROM information_schema.columns "
+        "WHERE table_name = 'listings' AND column_name = 'gallery_priority'"
+    ).fetchone())
+    order_by = (
+        f"gallery_priority DESC, list_date {sort_sql} NULLS LAST"
+        if priority_col_exists
+        else f"list_date {sort_sql} NULLS LAST"
+    )
     rows = conn.execute(
         f"""
         SELECT id, mls_source, mls_number, photo_count, photos, list_date
         FROM listings
         WHERE status = 'ACTIVE'
           AND mls_source = 'CanopyMLS'
-        ORDER BY gallery_priority DESC, list_date {sort_sql} NULLS LAST
+        ORDER BY {order_by}
         """
     ).fetchall()
     rows = [dict(r) for r in rows]
