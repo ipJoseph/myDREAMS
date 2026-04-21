@@ -42,6 +42,27 @@ PY=/opt/mydreams/venv/bin/python3
 0 4 * * * cd /opt/mydreams && $PY scripts/ensure_schema.py >> /opt/mydreams/data/logs/schema.log 2>&1
 
 # ============================================================================
+# Navica MLS (REST API): Carolina Smokies (nav27) + Mountain Lakes (nav26)
+# One entrypoint (apps.navica.cron_sync) handles both datasets.
+# Restored 2026-04-21 after docs/incidents/20260324-navica-feed-stopped.md:
+# previously ran from a manual crontab entry that was never committed and was
+# wiped when prd-crontab.txt was first installed on 2026-03-21.
+# ============================================================================
+
+# Navica incremental sync every 30 min, 12:00-01:59 UTC (8am-9pm EDT), mirroring Canopy cadence
+*/30 12-23 * * * cd /opt/mydreams && $PY -m apps.navica.cron_sync >> /opt/mydreams/data/logs/navica-sync.log 2>&1
+*/30 0-1 * * * cd /opt/mydreams && $PY -m apps.navica.cron_sync >> /opt/mydreams/data/logs/navica-sync.log 2>&1
+
+# Navica nightly full sync at 2:30 AM UTC (staggered 30 min after Canopy nightly)
+30 2 * * * cd /opt/mydreams && $PY -m apps.navica.cron_sync --nightly >> /opt/mydreams/data/logs/navica-sync.log 2>&1
+
+# Navica daily extras (agents + open houses) at 6 AM UTC
+0 6 * * * cd /opt/mydreams && $PY -m apps.navica.cron_sync --daily-extras >> /opt/mydreams/data/logs/navica-sync.log 2>&1
+
+# Navica weekly sold (BBO feed) - Sunday 3:30 AM UTC (staggered after Canopy photo dl)
+30 3 * * 0 cd /opt/mydreams && $PY -m apps.navica.cron_sync --weekly-sold >> /opt/mydreams/data/logs/navica-sync.log 2>&1
+
+# ============================================================================
 # DISABLED 2026-04-10 — JTH-FUB API access revoked, pivoting to Eugy's personal FUB
 # Re-enable after Phase D (FUB repointing). See plans/rustling-finding-goblet.md
 # ============================================================================
