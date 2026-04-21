@@ -723,14 +723,14 @@ class ListingService:
         if filters.has_view is True:
             conditions.append("view_yn = 1")
 
-        # DOM filter (use list_date for accuracy).
-        # Compute cutoff date in Python so it works on both SQLite and PostgreSQL
-        # without database-specific date functions.
+        # DOM filter: use the days_on_market column directly, which MLS feeds
+        # keep current. Prior version computed `today - N days >= list_date`,
+        # but list_date is populated at import time and becomes stale for
+        # re-listed properties, so it returned ~2 rows where days_on_market
+        # returned ~1494 on the same dataset (2026-04-21 verification).
         if filters.max_dom is not None:
-            from datetime import date as _date, timedelta as _td
-            cutoff = (_date.today() - _td(days=filters.max_dom)).isoformat()
-            conditions.append("list_date >= ?")
-            params.append(cutoff)
+            conditions.append("days_on_market <= ?")
+            params.append(filters.max_dom)
 
         # Property type
         if filters.property_type:

@@ -58,6 +58,8 @@ export interface Listing {
   primary_photo?: string;
   photos?: string[];
   photo_count?: number;
+  /** PHOTO_PIPELINE_SPEC.md: 'ready' | 'pending' | 'skipped' | 'archived'. */
+  gallery_status?: string;
   virtual_tour_url?: string;
   public_remarks?: string;
   directions?: string;

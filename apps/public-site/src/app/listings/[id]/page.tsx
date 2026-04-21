@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getListing, formatPrice, formatNumber } from "@/lib/api";
 import { getCountyLinks } from "@/lib/countyLinks";
-import PhotoBrowser from "@/components/PhotoBrowser";
+import GalleryLoader from "@/components/GalleryLoader";
 import PropertyMap from "@/components/PropertyMap";
 import PropertyHistory from "@/components/PropertyHistory";
 import FavoriteButton from "@/components/FavoriteButton";
@@ -100,10 +100,13 @@ export default async function ListingDetailPage({ params }: PageProps) {
       {/* Spacer for transparent header */}
       <div className="h-20 bg-[var(--color-primary)]" />
 
-      {/* Photo gallery */}
+      {/* Photo gallery — hydrates automatically when gallery_status flips to 'ready' */}
       <section className="bg-[var(--color-dark)]">
-        <PhotoBrowser
-          photos={allPhotos}
+        <GalleryLoader
+          listingId={listing.id}
+          initialPhotos={allPhotos}
+          initialGalleryStatus={listing.gallery_status || "ready"}
+          primaryPhoto={listing.primary_photo ?? null}
           address={listing.address}
           city={listing.city}
         />
