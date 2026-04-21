@@ -443,6 +443,19 @@ class MLSGridSyncEngine:
                 for field in self.PHOTO_FIELDS:
                     update_data.pop(field, None)
 
+            # Gallery gate: any change in photo content means the local
+            # gallery is stale. Flip the row back to 'pending' so the
+            # nightly/post-sync backfill redownloads before it's shown
+            # on the public site. Only applies when photo fields are in
+            # this update (timestamp-change path; skip_photo_fields means
+            # nothing changed so status stays as-is).
+            if not skip_photo_fields and (
+                'photos' in update_data or 'primary_photo' in update_data
+                or 'photo_count' in update_data
+                or 'photos_change_timestamp' in update_data
+            ):
+                update_data['gallery_status'] = 'pending'
+
             update_data['updated_at'] = now
 
             if update_data:
@@ -464,6 +477,9 @@ class MLSGridSyncEngine:
             # Insert new listing
             listing['captured_at'] = now
             listing['updated_at'] = now
+            # New Canopy listings always start 'pending' — the public
+            # site won't show them until the gallery is downloaded.
+            listing.setdefault('gallery_status', 'pending')
 
             # Filter out None values
             insert_data = {k: v for k, v in listing.items() if v is not None}

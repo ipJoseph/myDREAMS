@@ -16,10 +16,21 @@ PY=/opt/mydreams/venv/bin/python3
 */30 12-23 * * * cd /opt/mydreams && $PY -m apps.mlsgrid.cron_sync >> /opt/mydreams/data/logs/mlsgrid-sync.log 2>&1
 */30 0-1 * * * cd /opt/mydreams && $PY -m apps.mlsgrid.cron_sync >> /opt/mydreams/data/logs/mlsgrid-sync.log 2>&1
 
+# Gallery gate: process Canopy gallery_status='pending' listings every 30 min,
+# just after each incremental sync. Small batch (max 30) to stay well under
+# the MLS Grid per-hour rate cap alongside the sync itself.
+5,35 12-23 * * * cd /opt/mydreams && $PY scripts/gallery_backfill_strict.py --only-stale --limit 30 --max-rps 1.0 --daily-budget 3000 >> /opt/mydreams/data/logs/gallery-sweep.log 2>&1
+5,35 0-1 * * * cd /opt/mydreams && $PY scripts/gallery_backfill_strict.py --only-stale --limit 30 --max-rps 1.0 --daily-budget 3000 >> /opt/mydreams/data/logs/gallery-sweep.log 2>&1
+
 # Canopy MLS - nightly reconciliation at 2 AM UTC (10 PM EDT)
 # Replaced full sync (27k records, 55+ pages) with lightweight count check (1 API request)
 # Full sync is now manual-only: $PY -m apps.mlsgrid.cron_sync --full-sync --status Active
 0 2 * * * cd /opt/mydreams && $PY -m apps.mlsgrid.cron_sync --nightly >> /opt/mydreams/data/logs/mlsgrid-sync.log 2>&1
+
+# Nightly gallery backlog sweep: 23:00 UTC (19:00 EDT / 18:00 EST).
+# Eight-hour budget before morning; plenty of headroom under the 40,000
+# req/24h warning since the hourly sweep only spends a little.
+0 23 * * * cd /opt/mydreams && $PY scripts/gallery_backfill_strict.py --only-stale --max-rps 1.0 --daily-budget 35000 >> /opt/mydreams/data/logs/gallery-nightly.log 2>&1
 
 # Canopy MLS - download new primary photos at 3 AM UTC (Zone 1-3 only)
 0 3 * * * cd /opt/mydreams && $PY -m apps.mlsgrid.download_photos --status ACTIVE --workers 2 >> /opt/mydreams/data/logs/mlsgrid-photos.log 2>&1

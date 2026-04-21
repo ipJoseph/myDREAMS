@@ -155,7 +155,8 @@ def _process_listing(
         conn = get_db_fn()
         try:
             conn.execute(
-                "UPDATE listings SET photo_count = 0 WHERE id = ?", [row["id"]]
+                "UPDATE listings SET photo_count = 0, gallery_status = 'skipped' WHERE id = ?",
+                [row["id"]],
             )
             conn.commit()
         finally:
@@ -194,19 +195,32 @@ def _process_listing(
     primary_local = (
         local_urls[0] if local_urls and local_urls[0].startswith("/api/") else None
     )
+    # Consider the gallery "ready" only when every URL resolves to a
+    # local /api/public/photos/ path AND matches photo_count (tolerance 1).
+    all_local = all(
+        isinstance(u, str) and u.startswith("/api/") for u in local_urls
+    )
+    gallery_ready = (
+        bool(local_urls)
+        and all_local
+        and len(local_urls) >= max(1, photo_count - 1)
+    )
+    new_status = "ready" if gallery_ready else "pending"
+
     conn = get_db_fn()
     try:
         if primary_local:
             conn.execute(
                 "UPDATE listings SET photos = ?, primary_photo = ?, photo_count = ?, "
-                "photo_ready = TRUE, photo_verified_at = CURRENT_TIMESTAMP WHERE id = ?",
-                [json.dumps(local_urls), primary_local, photo_count, row["id"]],
+                "photo_ready = TRUE, photo_verified_at = CURRENT_TIMESTAMP, "
+                "gallery_status = ? WHERE id = ?",
+                [json.dumps(local_urls), primary_local, photo_count, new_status, row["id"]],
             )
         else:
             conn.execute(
                 "UPDATE listings SET photos = ?, photo_count = ?, "
-                "photo_verified_at = CURRENT_TIMESTAMP WHERE id = ?",
-                [json.dumps(local_urls), photo_count, row["id"]],
+                "photo_verified_at = CURRENT_TIMESTAMP, gallery_status = ? WHERE id = ?",
+                [json.dumps(local_urls), photo_count, new_status, row["id"]],
             )
         conn.commit()
     finally:

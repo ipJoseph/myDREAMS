@@ -640,6 +640,11 @@ class ListingService:
             # Cast to integer for cross-database compatibility
             # (PostgreSQL BOOLEAN, SQLite INTEGER both match CAST(x AS INTEGER) = 1)
             conditions.append("CAST(photo_ready AS INTEGER) = 1")
+            # Gallery gate: never show a Canopy listing whose gallery hasn't
+            # been downloaded yet (CDN tokens expire; would render broken
+            # placeholders). Navica/MountainLakes are seeded 'ready' since
+            # their CDN doesn't expire.
+            conditions.append("gallery_status = 'ready'")
 
         # Zone filtering (public site)
         if filters.zone is not None:
