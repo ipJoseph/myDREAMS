@@ -643,6 +643,13 @@ class NavicaSyncEngine:
                 except Exception as e:
                     logger.error(f"Error processing {prop.get('ListingId')}: {e}")
                     stats['errors'] += 1
+                    # Per-row isolation: rollback the aborted statement so the
+                    # next row can proceed. See companion fix in the other
+                    # except clause below.
+                    try:
+                        conn.rollback()
+                    except Exception:
+                        pass
 
             if not dry_run:
                 conn.commit()
@@ -770,6 +777,15 @@ class NavicaSyncEngine:
                 except Exception as e:
                     logger.error(f"Error processing {prop.get('ListingId')}: {e}")
                     stats['errors'] += 1
+                    # Rollback the failed statement so the next row's UPSERT
+                    # is not rejected with 'current transaction is aborted'.
+                    # Without this, one bad row (e.g. integer overflow on
+                    # LotSizeSquareFeet) poisons every subsequent row in the
+                    # batch; the 2026-04-21 backfill lost ~946 rows this way.
+                    try:
+                        conn.rollback()
+                    except Exception:
+                        pass  # already rolled back
 
             if not dry_run:
                 conn.commit()

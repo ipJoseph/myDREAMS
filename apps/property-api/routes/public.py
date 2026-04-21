@@ -793,14 +793,17 @@ def _get_parser():
         with _parser_lock:
             if _parser is None:
                 from src.core.query_parser import QueryParser
-                conn = sqlite3.connect(DB_PATH)
-                cities = [r[0] for r in conn.execute(
-                    "SELECT DISTINCT city FROM listings WHERE city IS NOT NULL AND city != '' ORDER BY city"
-                ).fetchall()]
-                counties = [r[0] for r in conn.execute(
-                    "SELECT DISTINCT county FROM listings WHERE county IS NOT NULL AND county != '' ORDER BY county"
-                ).fetchall()]
-                conn.close()
+                from src.core.pg_adapter import get_db as _pg_get_db
+                conn = _pg_get_db(str(DB_PATH))
+                try:
+                    cities = [r[0] for r in conn.execute(
+                        "SELECT DISTINCT city FROM listings WHERE city IS NOT NULL AND city != '' ORDER BY city"
+                    ).fetchall()]
+                    counties = [r[0] for r in conn.execute(
+                        "SELECT DISTINCT county FROM listings WHERE county IS NOT NULL AND county != '' ORDER BY county"
+                    ).fetchall()]
+                finally:
+                    conn.close()
                 _parser = QueryParser(cities=cities, counties=counties)
     return _parser
 
@@ -828,12 +831,15 @@ def parse_search_query():
     redirect_url = None
     if result.is_mls_lookup and result.filters.get('mls_number'):
         mls = result.filters['mls_number']
-        conn = sqlite3.connect(DB_PATH)
-        row = conn.execute(
-            "SELECT id FROM listings WHERE mls_number = ? OR mls_number = ?",
-            [mls, f'CAR{mls}']
-        ).fetchone()
-        conn.close()
+        from src.core.pg_adapter import get_db as _pg_get_db
+        conn = _pg_get_db(str(DB_PATH))
+        try:
+            row = conn.execute(
+                "SELECT id FROM listings WHERE mls_number = ? OR mls_number = ?",
+                [mls, f'CAR{mls}']
+            ).fetchone()
+        finally:
+            conn.close()
         if row:
             redirect_url = f'/listings/{row[0]}'
 
@@ -864,8 +870,8 @@ def autocomplete():
     if len(q) < 2:
         return jsonify({'success': True, 'data': {'suggestions': []}})
 
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    from src.core.pg_adapter import get_db as _pg_get_db
+    conn = _pg_get_db(str(DB_PATH))
     suggestions = []
 
     try:
