@@ -49,9 +49,10 @@ PY=/opt/mydreams/venv/bin/python3
 # wiped when prd-crontab.txt was first installed on 2026-03-21.
 # ============================================================================
 
-# Navica incremental sync every 30 min, 12:00-01:59 UTC (8am-9pm EDT), mirroring Canopy cadence
-*/30 12-23 * * * cd /opt/mydreams && $PY -m apps.navica.cron_sync >> /opt/mydreams/data/logs/navica-sync.log 2>&1
-*/30 0-1 * * * cd /opt/mydreams && $PY -m apps.navica.cron_sync >> /opt/mydreams/data/logs/navica-sync.log 2>&1
+# Navica incremental sync every 30 min at :15 and :45, 12:00-01:59 UTC (8am-9pm EDT)
+# Staggered from Canopy (:00/:30) to avoid DB connection pool collision.
+15,45 12-23 * * * cd /opt/mydreams && $PY -m apps.navica.cron_sync >> /opt/mydreams/data/logs/navica-sync.log 2>&1
+15,45 0-1 * * * cd /opt/mydreams && $PY -m apps.navica.cron_sync >> /opt/mydreams/data/logs/navica-sync.log 2>&1
 
 # Navica nightly full sync at 2:30 AM UTC (staggered 30 min after Canopy nightly)
 30 2 * * * cd /opt/mydreams && $PY -m apps.navica.cron_sync --nightly >> /opt/mydreams/data/logs/navica-sync.log 2>&1
