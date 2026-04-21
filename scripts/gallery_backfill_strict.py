@@ -264,13 +264,16 @@ def main() -> int:
 
     sort_sql = "DESC" if args.sort == "newest" else "ASC"
     conn = get_db()
+    # PHOTO_PIPELINE_SPEC.md: gallery_priority DESC first so listings a user
+    # just viewed (priority=10) jump the queue. Within same priority we
+    # fall back to list_date order.
     rows = conn.execute(
         f"""
         SELECT id, mls_source, mls_number, photo_count, photos, list_date
         FROM listings
         WHERE status = 'ACTIVE'
           AND mls_source = 'CanopyMLS'
-        ORDER BY list_date {sort_sql} NULLS LAST
+        ORDER BY gallery_priority DESC, list_date {sort_sql} NULLS LAST
         """
     ).fetchall()
     rows = [dict(r) for r in rows]

@@ -58,6 +58,7 @@ PUBLIC_LISTING_FIELDS = [
     'listing_agent_name', 'listing_agent_phone', 'listing_agent_email',
     'listing_office_name',
     'primary_photo', 'photos', 'photo_count', 'virtual_tour_url',
+    'gallery_status',
     'public_remarks', 'directions',
     'parcel_number',
     'sold_price', 'sold_date',
@@ -104,79 +105,39 @@ def _get_public_filters() -> ListingFilters:
 
 
 # ---------------------------------------------------------------------------
-# On-demand gallery download (public-specific, not shared)
+# Gallery priority trigger (replaces prior synchronous CDN fallback)
 # ---------------------------------------------------------------------------
+#
+# 2026-04-21: the previous implementation spawned a thread to download CDN
+# gallery URLs inside the request path. It caused DB connection leaks and
+# gunicorn worker timeouts under load. PHOTO_PIPELINE_SPEC.md invariant #6
+# now forbids that pattern. Instead, we flag the listing with a priority
+# bump and let the gallery worker pick it up out-of-band.
 
-_gallery_downloads_in_progress = set()
-_gallery_lock = threading.Lock()
+def _trigger_gallery_priority(listing_id: str) -> None:
+    """Fire-and-forget: nudge this listing to the front of the backfill queue.
 
-
-def _download_gallery_on_demand(mls_number: str, photos_json: str) -> None:
-    """Background download of gallery photos for a single listing."""
-    import requests as req
-
-    with _gallery_lock:
-        if mls_number in _gallery_downloads_in_progress:
-            return
-        _gallery_downloads_in_progress.add(mls_number)
-
+    Called when a user opens the detail page for a listing whose gallery
+    isn't 'ready'. The gallery worker orders by `gallery_priority DESC`
+    so a priority=10 listing gets downloaded on its next cycle (seconds,
+    not 30-min cadence). Safe to call on a listing that's already 'ready';
+    the worker will simply skip it.
+    """
     try:
-        urls = json.loads(photos_json)
-        if not urls or not isinstance(urls, list):
-            return
-
-        photos_dir = PHOTOS_DIRS.get('mlsgrid')
-        if not photos_dir:
-            return
-
-        local_paths = []
-        for i, url in enumerate(urls):
-            if not url or not isinstance(url, str) or not url.startswith('http'):
-                local_paths.append(url)
-                continue
-
-            path_lower = urlparse(url).path.lower()
-            ext = '.png' if path_lower.endswith('.png') else '.webp' if path_lower.endswith('.webp') else '.jpg'
-
-            filename = f"{mls_number}{ext}" if i == 0 else f"{mls_number}_{i:02d}{ext}"
-            filepath = photos_dir / filename
-
-            if filepath.exists() and filepath.stat().st_size > 0:
-                local_paths.append(f"/api/public/photos/mlsgrid/{filename}")
-                continue
-
-            try:
-                resp = req.get(url, timeout=30, stream=True)
-                resp.raise_for_status()
-                with open(filepath, 'wb') as f:
-                    for chunk in resp.iter_content(chunk_size=8192):
-                        f.write(chunk)
-                if filepath.stat().st_size > 0:
-                    local_paths.append(f"/api/public/photos/mlsgrid/{filename}")
-                else:
-                    filepath.unlink(missing_ok=True)
-            except Exception:
-                filepath.unlink(missing_ok=True)
-
-        # Update DB with local paths
-        if local_paths:
-            try:
-                from src.core.pg_adapter import get_db as _pg_get_db
-                conn = _pg_get_db(str(DB_PATH))
-                conn.execute(
-                    "UPDATE listings SET photos = ? WHERE mls_number = ?",
-                    [json.dumps(local_paths), mls_number]
-                )
-                conn.commit()
-                conn.close()
-            except Exception:
-                pass
-
+        from src.core.pg_adapter import get_db as _pg_get_db
+        conn = _pg_get_db(str(DB_PATH))
+        try:
+            conn.execute(
+                "UPDATE listings SET gallery_priority = 10 "
+                "WHERE id = ? AND gallery_status != 'ready'",
+                [listing_id],
+            )
+            conn.commit()
+        finally:
+            conn.close()
     except Exception as e:
-        logger.warning(f"On-demand gallery download failed for {mls_number}: {e}")
-    finally:
-        with _gallery_lock:
-            _gallery_downloads_in_progress.discard(mls_number)
+        # Never let the priority trigger fail the user's request.
+        logger.warning(f"gallery_priority trigger failed for {listing_id}: {e}")
 
 
 def _suppress_address(listing: dict) -> None:
@@ -294,7 +255,14 @@ def get_listing(listing_id):
     """
     Get a single listing by ID with full public details.
 
-    Returns all IDX-safe fields including photos, remarks, and agent info.
+    PHOTO_PIPELINE_SPEC.md invariant #5: returns 200 whenever idx_opt_in=1,
+    regardless of gallery_status. Response always includes gallery_status
+    so the client knows whether to render the full gallery or just the
+    primary photo with a "loading more photos" placeholder.
+
+    If gallery_status != 'ready', we bump gallery_priority=10 as a
+    fire-and-forget side effect so the gallery worker moves this listing
+    to the front of its queue.
     """
     try:
         listing = _service.get_listing(listing_id, fields=PUBLIC_LISTING_FIELDS, require_idx=True)
@@ -308,29 +276,29 @@ def get_listing(listing_id):
         # Suppress address if opted out
         _suppress_address(listing)
 
-        # Parse photos from JSON string to list, strip CDN URLs
+        gallery_status = listing.get('gallery_status') or 'pending'
+
+        # Parse photos: serve full gallery only if gallery is 'ready'.
+        # Invariant #6: we never fall back to CDN URLs in the response path.
         raw_photos_json = listing.get('photos')
-        if raw_photos_json and isinstance(raw_photos_json, str):
-            try:
-                photos = json.loads(raw_photos_json)
-                local_only = [p for p in photos if isinstance(p, str) and 'mlsgrid.com' not in p]
-                has_cdn_urls = any(isinstance(p, str) and 'mlsgrid.com' in p for p in photos)
-
-                # Trigger background download if gallery has CDN URLs
-                if (has_cdn_urls and listing.get('mls_number')
-                        and not os.getenv('DISABLE_ONDEMAND_GALLERY')):
-                    threading.Thread(
-                        target=_download_gallery_on_demand,
-                        args=(listing['mls_number'], raw_photos_json),
-                        daemon=True
-                    ).start()
-
-                # Prefer local photos; fall back to CDN URLs if no local
-                # copies exist. CDN tokens may expire, but showing something
-                # (or triggering the on-demand download) beats an empty gallery.
-                listing['photos'] = local_only if local_only else photos
-            except json.JSONDecodeError:
-                listing['photos'] = []
+        if gallery_status == 'ready' and raw_photos_json:
+            if isinstance(raw_photos_json, str):
+                try:
+                    photos = json.loads(raw_photos_json)
+                    # Defensive: only local paths are safe to serve.
+                    listing['photos'] = [p for p in photos
+                                         if isinstance(p, str) and p.startswith('/api/public/photos/')]
+                except json.JSONDecodeError:
+                    listing['photos'] = []
+            elif isinstance(raw_photos_json, list):
+                listing['photos'] = [p for p in raw_photos_json
+                                     if isinstance(p, str) and p.startswith('/api/public/photos/')]
+        else:
+            # Gallery is pending or skipped. Client renders primary only.
+            listing['photos'] = [listing['primary_photo']] if listing.get('primary_photo') else []
+            # Fire-and-forget nudge to the backfill worker.
+            if gallery_status == 'pending':
+                _trigger_gallery_priority(listing_id)
 
         return jsonify({
             'success': True,
@@ -338,9 +306,61 @@ def get_listing(listing_id):
         })
 
     except Exception as e:
+        logger.exception(f"get_listing failed for {listing_id}")
         return jsonify({
             'success': False,
             'error': {'code': 'SERVER_ERROR', 'message': 'Failed to retrieve listing'}
+        }), 500
+
+
+@public_bp.route('/listings/<listing_id>/gallery', methods=['GET'])
+def get_listing_gallery(listing_id):
+    """
+    Lightweight gallery endpoint for client polling.
+
+    PHOTO_PIPELINE_SPEC.md public contract: returns
+      {status: 'ready' | 'pending' | 'skipped', photos: [...] | null}
+    No external HTTP, no heavy joins, always fast. The Next.js detail page
+    polls this every 2 seconds for ~30 seconds when a listing loads with
+    gallery_status='pending', and swaps in the full gallery when it
+    becomes 'ready'.
+    """
+    try:
+        listing = _service.get_listing(
+            listing_id,
+            fields=['id', 'gallery_status', 'photos', 'primary_photo', 'idx_opt_in'],
+            require_idx=True,
+        )
+        if not listing:
+            return jsonify({
+                'success': False,
+                'error': {'code': 'NOT_FOUND', 'message': 'Listing not found'},
+            }), 404
+
+        status = listing.get('gallery_status') or 'pending'
+        photos = None
+        if status == 'ready':
+            raw = listing.get('photos')
+            if isinstance(raw, str):
+                try:
+                    parsed = json.loads(raw)
+                    photos = [p for p in parsed
+                              if isinstance(p, str) and p.startswith('/api/public/photos/')]
+                except json.JSONDecodeError:
+                    photos = []
+            elif isinstance(raw, list):
+                photos = [p for p in raw
+                          if isinstance(p, str) and p.startswith('/api/public/photos/')]
+
+        return jsonify({
+            'success': True,
+            'data': {'status': status, 'photos': photos},
+        })
+    except Exception:
+        logger.exception(f"get_listing_gallery failed for {listing_id}")
+        return jsonify({
+            'success': False,
+            'error': {'code': 'SERVER_ERROR', 'message': 'Failed to retrieve gallery'},
         }), 500
 
 
