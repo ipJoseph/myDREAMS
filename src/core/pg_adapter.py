@@ -98,10 +98,10 @@ def _get_pool():
             raise RuntimeError("DATABASE_URL not set")
         _pool = psycopg2.pool.ThreadedConnectionPool(
             minconn=2,
-            maxconn=10,
+            maxconn=5,
             dsn=url,
         )
-        logger.info("PostgreSQL connection pool created (min=2, max=10)")
+        logger.info("PostgreSQL connection pool created (min=2, max=5)")
     return _pool
 
 
