@@ -53,7 +53,7 @@ if echo "$COMMAND" | grep -q "sync-from-prd.sh"; then
 fi
 
 # Allow read-only SSH commands (status checks, log viewing, git log)
-if echo "$COMMAND" | grep -qE "ssh\s+root@${PRD_HOST}\s+.*(systemctl status|systemctl is-active|journalctl|cat |head |tail |ls |git.*log|git.*status|git.*diff|python3 -c)"; then
+if echo "$COMMAND" | grep -qE "ssh\s+root@${PRD_HOST}\s+.*(systemctl status|systemctl is-active|journalctl|cat |head |tail |ls |stat |grep |wc |du |df |crontab -l|file |readlink |test |systemctl list-timers|systemctl list-units|git.*log|git.*status|git.*diff|python3 -c)"; then
     exit 0
 fi
 
