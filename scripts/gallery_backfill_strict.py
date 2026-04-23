@@ -183,8 +183,8 @@ def _process_listing(
         throttle.acquire()
         data = download_photo_fn(url)
         if not data:
-            # Keep the CDN URL so something renders
-            local_urls.append(url)
+            # Don't keep CDN URL — it expires in ~1h and pollutes invariant #1.
+            # The listing's readiness is evaluated on successful downloads only.
             stats["errors"] += 1
             continue
 
@@ -192,34 +192,42 @@ def _process_listing(
         local_urls.append(f"/api/public/photos/mlsgrid/{filename}")
         stats["downloaded"] += 1
 
-    primary_local = (
-        local_urls[0] if local_urls and local_urls[0].startswith("/api/") else None
-    )
-    # Consider the gallery "ready" only when every URL resolves to a
-    # local /api/public/photos/ path AND matches photo_count (tolerance 1).
-    all_local = all(
-        isinstance(u, str) and u.startswith("/api/") for u in local_urls
-    )
-    gallery_ready = (
-        bool(local_urls)
-        and all_local
-        and len(local_urls) >= max(1, photo_count - 1)
-    )
+    # local_urls now contains ONLY successful /api/public/photos/ paths.
+    primary_local = local_urls[0] if local_urls else None
+
+    # Readiness: the primary must be local, and we must have most of the
+    # gallery. Tolerate up to max(3, 10% of photo_count) broken/missing
+    # photos so a single chronically-dead upstream URL doesn't block the
+    # listing forever (~4% of real MLS photos are permanently 404).
+    broken_allowed = max(3, photo_count // 10) if photo_count else 3
+    min_required = max(1, photo_count - broken_allowed) if photo_count else 1
+    gallery_ready = bool(primary_local) and len(local_urls) >= min_required
+
     new_status = "ready" if gallery_ready else "pending"
+    if stats["errors"] > 0:
+        logger.info(
+            "%s: %d/%d local (%d broken); status=%s",
+            mls, len(local_urls), photo_count, stats["errors"], new_status,
+        )
+
+    # Invariant #2: photo_verified_at is only set on successful verify.
+    verified_expr = "CURRENT_TIMESTAMP" if gallery_ready else "photo_verified_at"
 
     conn = get_db_fn()
     try:
         if primary_local:
             conn.execute(
-                "UPDATE listings SET photos = ?, primary_photo = ?, photo_count = ?, "
-                "photo_ready = TRUE, photo_verified_at = CURRENT_TIMESTAMP, "
-                "gallery_status = ? WHERE id = ?",
-                [json.dumps(local_urls), primary_local, photo_count, new_status, row["id"]],
+                f"UPDATE listings SET photos = ?, primary_photo = ?, photo_count = ?, "
+                f"photo_ready = ?, photo_verified_at = {verified_expr}, "
+                f"gallery_status = ? WHERE id = ?",
+                [json.dumps(local_urls), primary_local, photo_count,
+                 gallery_ready, new_status, row["id"]],
             )
         else:
             conn.execute(
-                "UPDATE listings SET photos = ?, photo_count = ?, "
-                "photo_verified_at = CURRENT_TIMESTAMP, gallery_status = ? WHERE id = ?",
+                f"UPDATE listings SET photos = ?, photo_count = ?, "
+                f"photo_verified_at = {verified_expr}, gallery_status = ? "
+                f"WHERE id = ?",
                 [json.dumps(local_urls), photo_count, new_status, row["id"]],
             )
         conn.commit()
