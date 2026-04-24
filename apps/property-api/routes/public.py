@@ -621,6 +621,20 @@ def filtered_stats():
     try:
         filters = _get_public_filters()
         conditions, params = _service._build_conditions(filters)
+
+        # Apply the same cross-MLS dedup the grid uses (search_listings with
+        # dedup=True). Without this, filtered-stats over-counts Canopy
+        # duplicates of Navica/MountainLakes originals. Observed gap on
+        # 2026-04-24: stats=274 vs grid=230 for Franklin (44 duplicates).
+        from src.core.listing_service import DEDUP_CONDITION
+        if filters.require_idx:
+            dedup_cond = DEDUP_CONDITION.replace(
+                "AND dup.id != listings.id",
+                "AND dup.id != listings.id AND dup.idx_opt_in = 1"
+            )
+        else:
+            dedup_cond = DEDUP_CONDITION
+        conditions.append(dedup_cond)
         where = " AND ".join(conditions) if conditions else "1=1"
 
         conn = _service._get_connection()
