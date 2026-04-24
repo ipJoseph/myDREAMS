@@ -93,7 +93,7 @@ class MLSGridClient:
         request_delay: float = DEFAULT_REQUEST_DELAY,
         max_retries: int = 3,
         max_requests_per_run: int = MAX_REQUESTS_PER_RUN,
-        timeout: int = 60,
+        timeout=(10, 60),
     ):
         """
         Initialize MLS Grid API client.
@@ -104,7 +104,13 @@ class MLSGridClient:
             request_delay: Seconds between requests (rate limiting)
             max_retries: Max retry attempts for failed requests
             max_requests_per_run: Safety limit on total requests per run
-            timeout: Request timeout in seconds
+            timeout: (connect, read) seconds tuple passed to requests.
+                Legacy callers passing a bare int get upgraded to
+                (10, <int>) so the body-read timeout is always set.
+                Rationale: a scalar timeout only covers connect + header
+                phases; the body read can then hang forever on a
+                CLOSE_WAIT socket (PRD 2026-04-20 incident). The tuple
+                form forces a real read deadline.
         """
         self.token = token
         self.base_url = MLSGRID_DEMO_URL if use_demo else MLSGRID_BASE_URL
@@ -112,7 +118,12 @@ class MLSGridClient:
         self.request_delay = request_delay
         self.max_retries = max_retries
         self.max_requests_per_run = max_requests_per_run
-        self.timeout = timeout
+        # Normalize to a (connect, read) tuple so _request always has
+        # body-level deadline protection.
+        if isinstance(timeout, (int, float)):
+            self.timeout = (10, float(timeout))
+        else:
+            self.timeout = timeout
 
         # Session with persistent auth headers
         # Best Practices: All responses are compressed; must send Accept-Encoding
