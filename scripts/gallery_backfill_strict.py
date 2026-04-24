@@ -97,6 +97,25 @@ class MLSGridThrottle:
             time.sleep(wait)
 
 
+# Image magic-byte prefixes. A corrupt/truncated file can be >100 bytes
+# and pass a size check, but real images always start with one of these.
+_IMAGE_MAGIC = (b"\xff\xd8\xff", b"\x89PNG\r\n\x1a\n", b"RIFF", b"GIF8")
+
+
+def _file_looks_valid(filepath: Path) -> bool:
+    """Return True if the file exists, is big enough, AND starts with
+    a known image magic number. Guards against partial/corrupt writes
+    that the old `size > 100` check would have passed."""
+    try:
+        if filepath.stat().st_size < 500:
+            return False
+        with open(filepath, "rb") as f:
+            head = f.read(8)
+        return any(head.startswith(m) for m in _IMAGE_MAGIC)
+    except Exception:
+        return False
+
+
 def _listing_needs_work(row: Dict[str, Any], photos_dir: Path) -> bool:
     """True if this listing's gallery is not yet fully local-on-disk."""
     photos_raw = row.get("photos")
@@ -119,7 +138,7 @@ def _listing_needs_work(row: Dict[str, Any], photos_dir: Path) -> bool:
         if u.startswith("http"):
             return True
         filename = u.rsplit("/", 1)[-1] if "/" in u else u
-        if not (photos_dir / filename).exists():
+        if not _file_looks_valid(photos_dir / filename):
             return True
     return False
 
@@ -131,6 +150,7 @@ def _process_listing(
     extract_photos_fn,
     save_atomic_fn,
     download_photo_fn,
+    detect_extension_fn,
     photos_dir: Path,
     get_db_fn,
 ) -> Dict[str, int]:
@@ -176,16 +196,13 @@ def _process_listing(
 
     local_urls: List[str] = []
     for i, url in enumerate(all_urls):
-        path_before_query = url.split("?", 1)[0].lower()
-        if path_before_query.endswith(".jpg"): ext = ".jpg"
-        elif path_before_query.endswith(".png"): ext = ".png"
-        elif path_before_query.endswith(".webp"): ext = ".webp"
-        else: ext = ".jpeg"
+        # One source of truth for extension detection — apps/photos/downloader
+        ext = detect_extension_fn(url)
 
         filename = f"{mls}{ext}" if i == 0 else f"{mls}_{i:02d}{ext}"
         filepath = photos_dir / filename
 
-        if filepath.exists() and filepath.stat().st_size > 100:
+        if filepath.exists() and _file_looks_valid(filepath):
             stats["skipped"] += 1
             local_urls.append(f"/api/public/photos/mlsgrid/{filename}")
             continue
@@ -281,7 +298,7 @@ def main() -> int:
     from apps.mlsgrid.client import MLSGridClient
     from apps.navica.field_mapper import extract_photos
     from apps.photos import storage
-    from apps.photos.downloader import download_photo
+    from apps.photos.downloader import download_photo, detect_extension
     from src.core.pg_adapter import get_db
 
     photos_dir = storage.get_source_dir("CanopyMLS")
@@ -346,7 +363,7 @@ def main() -> int:
         for i, row in enumerate(rows, 1):
             stats = _process_listing(
                 row, throttle, client, extract_photos, storage.save_atomic,
-                download_photo, photos_dir, get_db,
+                download_photo, detect_extension, photos_dir, get_db,
             )
             total_dl += stats["downloaded"]
             total_sk += stats["skipped"]

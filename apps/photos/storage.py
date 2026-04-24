@@ -135,16 +135,29 @@ def save_atomic(directory: Path, filename: str, data: bytes) -> Path:
     filepath = directory / filename
     try:
         fd, tmp_path = tempfile.mkstemp(dir=directory, suffix=".tmp")
+        fd_closed = False
         try:
             os.write(fd, data)
             os.close(fd)
+            fd_closed = True
             os.chmod(tmp_path, 0o644)  # World-readable (API serves as different user)
             os.rename(tmp_path, filepath)
             return filepath
         except Exception:
-            os.close(fd) if not os.get_inheritable(fd) else None
+            # Ensure fd is closed before removing the temp file.
+            # Calling os.close on an already-closed fd raises OSError;
+            # calling os.get_inheritable on a closed fd ALSO raises.
+            # Track state explicitly instead.
+            if not fd_closed:
+                try:
+                    os.close(fd)
+                except OSError:
+                    pass
             if os.path.exists(tmp_path):
-                os.unlink(tmp_path)
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
             raise
     except Exception as e:
         logger.warning(f"Atomic write failed for {filename}: {e}")

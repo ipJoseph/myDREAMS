@@ -28,7 +28,7 @@ import json
 import logging
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Tuple
+from typing import Dict, List, Optional, Tuple
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
@@ -83,15 +83,23 @@ def _audit_listing(row: Dict, source: str) -> List[Tuple[str, str]]:
         return violations
 
     primary = row.get("primary_photo") or (photos[0] if photos else None)
+    photos_dir = storage.get_source_dir(source)
+
     if not primary or not primary.startswith(LOCAL_PREFIX):
         violations.append(
             ("primary_photo not local (CDN URL)", str(primary)[:80])
         )
+    elif primary and primary.startswith(LOCAL_PREFIX):
+        # Primary path claims to be local — verify the file actually exists.
+        # photos[] may or may not include primary; check independently.
+        primary_filename = primary.rsplit("/", 1)[-1]
+        if not (photos_dir / primary_filename).exists():
+            violations.append(
+                ("primary_photo file missing on disk", primary_filename)
+            )
 
     # Per-MLS strictness: Canopy requires every gallery URL local.
     require_all_local = source in SOURCES_ALL_LOCAL
-
-    photos_dir = storage.get_source_dir(source)
     cdn_count = 0
     missing_files: List[str] = []
     for u in photos:
