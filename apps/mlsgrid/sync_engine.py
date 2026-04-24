@@ -815,12 +815,17 @@ class MLSGridSyncEngine:
                     # unchanged data but missing photos (e.g., after migration).
                     # Passes `conn` so the photo UPDATE runs in the same
                     # transaction as the upsert — no row-lock contention.
+                    # Use storage.primary_exists() so we don't re-download
+                    # when the primary is on disk as .jpeg (or .png/.webp)
+                    # — previously the gate hardcoded .jpg and fired download
+                    # on ~4,000 listings unnecessarily, causing the sync to
+                    # drag 5+ hours instead of minutes (observed 2026-04-24).
                     if not dry_run and result != 'deleted':
                         media = prop.get('Media', [])
                         mls_num = listing.get('mls_number')
                         if mls_num and media:
-                            primary_path = PHOTOS_DIR / f"{mls_num}.jpg"
-                            if not primary_path.exists():
+                            from apps.photos import storage as _storage
+                            if not _storage.primary_exists(self.mls_source, mls_num):
                                 if self._download_listing_photos(conn, mls_num, media):
                                     self._photos_updated_count += 1
 
@@ -984,12 +989,15 @@ class MLSGridSyncEngine:
                     # ($expand=Media), so this costs zero additional API calls.
                     # Passes `conn` so the photo UPDATE runs in the same
                     # transaction as the upsert — no row-lock contention.
+                    # storage.primary_exists() checks all valid extensions
+                    # (.jpg/.jpeg/.png/.webp) so we don't trigger spurious
+                    # redownloads for the ~4k listings whose primary is .jpeg.
                     if not dry_run and result != 'deleted':
                         media = prop.get('Media', [])
                         mls_num = listing.get('mls_number')
                         if mls_num and media:
-                            primary_path = PHOTOS_DIR / f"{mls_num}.jpg"
-                            if not primary_path.exists():
+                            from apps.photos import storage as _storage
+                            if not _storage.primary_exists(self.mls_source, mls_num):
                                 if self._download_listing_photos(conn, mls_num, media):
                                     photos_downloaded += 1
 
