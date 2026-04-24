@@ -166,7 +166,14 @@ def update_db_photo_paths(
 ) -> None:
     """Update the database with local photo paths after download.
 
-    Sets photo_local_path and photos JSON column.
+    Writes the authoritative local-paths JSON and bumps photo_verified_at.
+    Does NOT set gallery_status here — the caller decides ready/pending
+    based on per-MLS readiness rules (PHOTO_PIPELINE_SPEC invariant #1)
+    and the listing's expected photo_count. See _download_listing_photos
+    in apps/mlsgrid/sync_engine.py for the Canopy-path example.
+
+    photo_local_path and photo_ready are deprecated and no longer written;
+    gallery_status is the source of truth.
     """
     if not result.local_urls:
         return
@@ -174,18 +181,26 @@ def update_db_photo_paths(
     try:
         from src.core.pg_adapter import get_db
         conn = get_db()
-        conn.execute(
-            "UPDATE listings SET photo_local_path = ?, photos = ?, "
-            "photo_verified_at = CURRENT_TIMESTAMP, photo_ready = ? "
-            "WHERE mls_source = ? AND mls_number = ?",
-            [
-                str(storage.primary_path(mls_source, mls_number)),
-                json.dumps(result.local_urls),
-                True,
-                mls_source,
-                mls_number,
-            ],
+        primary_local = (
+            result.local_urls[0]
+            if result.local_urls and result.local_urls[0].startswith("/api/")
+            else None
         )
+        if primary_local:
+            conn.execute(
+                "UPDATE listings SET photos = ?, primary_photo = ?, "
+                "photo_verified_at = CURRENT_TIMESTAMP "
+                "WHERE mls_source = ? AND mls_number = ?",
+                [json.dumps(result.local_urls), primary_local,
+                 mls_source, mls_number],
+            )
+        else:
+            conn.execute(
+                "UPDATE listings SET photos = ?, "
+                "photo_verified_at = CURRENT_TIMESTAMP "
+                "WHERE mls_source = ? AND mls_number = ?",
+                [json.dumps(result.local_urls), mls_source, mls_number],
+            )
         conn.commit()
         conn.close()
         try:
@@ -220,14 +235,15 @@ def run_photo_fill(
 
     conn = get_db()
     try:
-        # Find listings without local primary photos
+        # Find listings whose gallery is not yet ready. gallery_status is
+        # the spec's source of truth; photo_local_path is deprecated.
         rows = conn.execute(
             "SELECT mls_number, mls_source, primary_photo, photos "
             "FROM listings "
             "WHERE UPPER(status) = ? AND mls_source = ? "
-            "AND (photo_local_path IS NULL OR photo_local_path = ?) "
+            "AND (gallery_status IS NULL OR gallery_status != 'ready') "
             "ORDER BY list_date DESC",
-            [status.upper(), mls_source, ""],
+            [status.upper(), mls_source],
         ).fetchall()
     finally:
         conn.close()

@@ -85,8 +85,8 @@ def main():
                 row = conn.execute(
                     "SELECT COUNT(*) FROM listings "
                     "WHERE UPPER(status) = ? AND mls_source = ? "
-                    "AND (photo_local_path IS NULL OR photo_local_path = ?)",
-                    ["ACTIVE", source, ""],
+                    "AND (gallery_status IS NULL OR gallery_status != 'ready')",
+                    ["ACTIVE", source],
                 ).fetchone()
                 count = row[0] if row else 0
 

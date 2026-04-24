@@ -397,7 +397,10 @@ class MLSGridSyncEngine:
             skip_photo_fields = False
             new_photo_ts = listing.get('photos_change_timestamp')
             old_photo_ts = existing_dict.get('photos_change_timestamp')
-            has_local_photo = bool(existing_dict.get('photo_local_path'))
+            # PHOTO_PIPELINE_SPEC gallery_status is the source of truth
+            # for "is this row's photo state trustworthy." photo_local_path
+            # is deprecated and will be retired.
+            is_photo_ready = existing_dict.get('gallery_status') == 'ready'
 
             existing_photos_len = 0
             existing_photos_raw = existing_dict.get('photos')
@@ -415,16 +418,16 @@ class MLSGridSyncEngine:
             photos_complete = existing_photos_len >= max(1, expected_count - 1)
 
             if (new_photo_ts and old_photo_ts and new_photo_ts == old_photo_ts
-                    and has_local_photo and photos_complete):
+                    and is_photo_ready and photos_complete):
                 skip_photo_fields = True
                 logger.debug(
                     f"Photos unchanged for {mls_number} "
                     f"(ts={new_photo_ts}, len={existing_photos_len}/{expected_count}), "
                     f"preserving local paths"
                 )
-            elif new_photo_ts and old_photo_ts and new_photo_ts == old_photo_ts and not has_local_photo:
+            elif new_photo_ts and old_photo_ts and new_photo_ts == old_photo_ts and not is_photo_ready:
                 logger.debug(
-                    f"Photos unchanged for {mls_number} but no local file, refreshing URLs"
+                    f"Photos unchanged for {mls_number} but gallery not ready, refreshing URLs"
                 )
             elif new_photo_ts and old_photo_ts and new_photo_ts == old_photo_ts and not photos_complete:
                 logger.info(
@@ -500,14 +503,29 @@ class MLSGridSyncEngine:
             return 'created'
 
     def _download_listing_photos(self, mls_number: str, media_list: list) -> bool:
-        """Download all photos from Media array during sync.
+        """Download primary + gallery from Media array during sync.
 
-        Called after upsert for new/photo-changed listings. Uses the fresh
-        MediaURLs from the replication response (zero additional API calls).
-        Downloads primary + all gallery photos, updates both photo_local_path
-        and the photos JSON column with local paths.
+        Uses fresh MediaURLs from the replication response (zero additional
+        API calls). Called only when photos changed; the gallery gate has
+        already set gallery_status='pending' before this runs. On success
+        here, the gate flips to 'ready' so new listings appear on the public
+        site within the same sync cycle.
 
-        Returns True if at least one photo was downloaded or already exists.
+        Follows PHOTO_PIPELINE_SPEC invariants:
+          * invariant #1: photos[] contains only local /api/public/photos/
+            paths on success (no CDN pollution — matches the fix shipped
+            in gallery_backfill_strict on 2026-04-23).
+          * invariant #2: photo_verified_at stamped only on ready state.
+          * Readiness tolerates ~10% broken photos (same rule as backfill)
+            so a single chronically-404 upstream URL can't strand the row.
+
+        Uses apps.photos.downloader.download_photo() rather than inline
+        requests.get(..., stream=True) — the stream path caused CLOSE_WAIT
+        hangs on PRD 2026-04-20 before being hardened.
+
+        Returns True if primary is local + enough gallery downloaded to
+        be considered ready. False otherwise (gate stays 'pending' and
+        the gallery worker retries later).
         """
         if not media_list or not mls_number:
             return False
@@ -518,61 +536,76 @@ class MLSGridSyncEngine:
         if not all_urls:
             return False
 
-        import requests as req
-        from urllib.parse import urlparse
+        # Defer to the single owner of photo HTTP: apps.photos.downloader.
+        # Same timeout tuple, same retry policy, same skip-on-failure
+        # contract as the gallery worker — one HTTP path, one class of bug.
+        from apps.photos.downloader import download_photo, detect_extension
+        from apps.photos import storage
 
-        local_paths = []
-        any_downloaded = False
+        local_paths: List[str] = []
+        errors = 0
 
         for idx, photo_url in enumerate(all_urls):
-            path_lower = urlparse(photo_url).path.lower()
-            ext = '.png' if path_lower.endswith('.png') else \
-                  '.webp' if path_lower.endswith('.webp') else '.jpg'
-
-            if idx == 0:
-                filename = f"{mls_number}{ext}"
-            else:
-                filename = f"{mls_number}_{idx:02d}{ext}"
-
+            ext = detect_extension(photo_url)
+            filename = f"{mls_number}{ext}" if idx == 0 else f"{mls_number}_{idx:02d}{ext}"
             filepath = PHOTOS_DIR / filename
 
-            # Skip if already on disk
-            if filepath.exists() and filepath.stat().st_size > 0:
+            if filepath.exists() and filepath.stat().st_size > 100:
                 local_paths.append(f"/api/public/photos/mlsgrid/{filename}")
                 continue
 
-            try:
-                resp = req.get(photo_url, timeout=30, stream=True)
-                resp.raise_for_status()
+            data = download_photo(photo_url)
+            if not data:
+                # Don't pollute photos[] with an expired CDN URL — see
+                # invariant #1 and the 2026-04-23 CDN-pollution fix.
+                errors += 1
+                continue
 
-                with open(filepath, 'wb') as f:
-                    for chunk in resp.iter_content(chunk_size=8192):
-                        f.write(chunk)
+            storage.save_atomic(PHOTOS_DIR, filename, data)
+            local_paths.append(f"/api/public/photos/mlsgrid/{filename}")
 
-                if filepath.stat().st_size > 0:
-                    local_paths.append(f"/api/public/photos/mlsgrid/{filename}")
-                    any_downloaded = True
-                else:
-                    filepath.unlink(missing_ok=True)
+        if not local_paths:
+            return False
 
-            except Exception as e:
-                logger.debug(f"Photo download failed for {mls_number} [{idx}]: {e}")
+        primary_local = local_paths[0]
+        # Same tolerance as gallery_backfill_strict: a single chronically
+        # dead photo can't strand the listing forever.
+        broken_allowed = max(3, count // 10) if count else 3
+        min_required = max(1, count - broken_allowed) if count else 1
+        gallery_ready = len(local_paths) >= min_required
 
-        if local_paths:
-            import json as _json
-            conn = self._get_connection()
-            try:
+        import json as _json
+        conn = self._get_connection()
+        try:
+            if gallery_ready:
                 conn.execute(
-                    "UPDATE listings SET photo_local_path = ?, photos = ?, photo_ready = ? "
+                    "UPDATE listings SET photos = ?, primary_photo = ?, "
+                    "photo_count = ?, photo_verified_at = CURRENT_TIMESTAMP, "
+                    "gallery_status = 'ready' "
                     "WHERE mls_source = ? AND mls_number = ?",
-                    [str(PHOTOS_DIR / f"{mls_number}.jpg"), _json.dumps(local_paths),
-                     True, self.mls_source, mls_number]
+                    [_json.dumps(local_paths), primary_local, count,
+                     self.mls_source, mls_number]
                 )
-                conn.commit()
-            finally:
-                conn.close()
+            else:
+                # Partial download — record what we have but keep pending;
+                # the gallery worker's next pass will retry the gaps.
+                conn.execute(
+                    "UPDATE listings SET photos = ?, primary_photo = ?, "
+                    "photo_count = ? "
+                    "WHERE mls_source = ? AND mls_number = ?",
+                    [_json.dumps(local_paths), primary_local, count,
+                     self.mls_source, mls_number]
+                )
+            conn.commit()
+        finally:
+            conn.close()
 
-        return any_downloaded or bool(local_paths)
+        if errors:
+            logger.info(
+                "sync-download %s: %d/%d local (%d broken); ready=%s",
+                mls_number, len(local_paths), count, errors, gallery_ready,
+            )
+        return gallery_ready
 
     def _upsert_agent(self, conn: sqlite3.Connection, agent: Dict):
         """Upsert an agent/member record."""

@@ -218,10 +218,10 @@ def _process_listing(
         if primary_local:
             conn.execute(
                 f"UPDATE listings SET photos = ?, primary_photo = ?, photo_count = ?, "
-                f"photo_ready = ?, photo_verified_at = {verified_expr}, "
+                f"photo_verified_at = {verified_expr}, "
                 f"gallery_status = ? WHERE id = ?",
                 [json.dumps(local_urls), primary_local, photo_count,
-                 gallery_ready, new_status, row["id"]],
+                 new_status, row["id"]],
             )
         else:
             conn.execute(

@@ -1,18 +1,17 @@
 """
-Download primary photos for Canopy MLS (MLS Grid) listings.
+DEPRECATED — primary-only downloader for Canopy (MLS Grid). 2026-04-23.
 
-Downloads the primary photo for each listing that has a photo URL
-but no local file yet. Uses concurrent downloads for speed.
+Superseded by:
+  * apps/mlsgrid/sync_engine.py::_download_listing_photos — inline primary+gallery
+    download during sync, using the hardened apps.photos.downloader.
+  * scripts/gallery_backfill_strict.py — catchup/hygiene sweep for stale
+    listings, running under photo-catchup.service on PRD.
 
-After downloading, updates photo_local_path in the database so the
-API can serve photos locally instead of relying on expiring CDN URLs.
-
-Usage:
-    python3 -m apps.mlsgrid.download_photos
-    python3 -m apps.mlsgrid.download_photos --max 100
-    python3 -m apps.mlsgrid.download_photos --workers 10
-    python3 -m apps.mlsgrid.download_photos --status ALL
-    python3 -m apps.mlsgrid.download_photos --update-db-only  # set paths for already-downloaded files
+Retained temporarily because deploy/prd-crontab.txt still has a 3 AM
+entry invoking this module. The crontab line will be removed and this
+file archived as part of Phase 4 (cron restart). Until then, the writes
+here still touch the deprecated photo_local_path column — do NOT extend
+this module or model new code on it. See docs/PHOTO_PIPELINE_SPEC.md.
 """
 
 import argparse
