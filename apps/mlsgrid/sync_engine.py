@@ -747,7 +747,15 @@ class MLSGridSyncEngine:
         conn = self._get_connection()
         try:
             for i, prop in enumerate(properties):
+                # PHOTO_PIPELINE_SPEC invariant #7: each row is its own
+                # SAVEPOINT inside the batch transaction. One row's failure
+                # no longer poisons the previous up-to-9 siblings committed
+                # in the same batch — which was the cascade pattern
+                # documented in docs/incidents/20260324-navica-feed-stopped.md.
+                savepoint = f"sync_row_{i}"
                 try:
+                    conn.execute(f"SAVEPOINT {savepoint}")
+
                     listing = map_reso_to_listing(prop, self.mls_source)
 
                     # Ensure schema has all columns this listing needs
@@ -756,6 +764,10 @@ class MLSGridSyncEngine:
                             conn, listing, self._known_listing_columns
                         )
                         conn.commit()
+                        # A fresh transaction starts on the next write; the
+                        # old savepoint name is scoped to the closed tx, so
+                        # reopen one for this row.
+                        conn.execute(f"SAVEPOINT {savepoint}")
 
                     result = self._upsert_listing(
                         conn, listing, raw_prop=prop, dry_run=dry_run
@@ -783,6 +795,8 @@ class MLSGridSyncEngine:
                                 if self._download_listing_photos(mls_num, media):
                                     self._photos_updated_count += 1
 
+                    conn.execute(f"RELEASE SAVEPOINT {savepoint}")
+
                     # Commit every 10 records and yield briefly
                     if not dry_run and (i + 1) % 10 == 0:
                         conn.commit()
@@ -795,13 +809,19 @@ class MLSGridSyncEngine:
                 except Exception as e:
                     logger.error(f"Error processing {prop.get('ListingId')}: {e}")
                     stats['errors'] += 1
-                    # PostgreSQL requires rollback after a failed query before
-                    # the next query can execute (unlike SQLite which continues).
-                    # See docs/DECISIONS.md D1.
+                    # Rollback JUST this row's savepoint, not the whole
+                    # batch — sibling rows already committed in this
+                    # transaction survive.
                     try:
-                        conn.rollback()
+                        conn.execute(f"ROLLBACK TO SAVEPOINT {savepoint}")
+                        conn.execute(f"RELEASE SAVEPOINT {savepoint}")
                     except Exception:
-                        pass
+                        # Savepoint already released or tx already closed;
+                        # fall back to full rollback rather than hang the tx.
+                        try:
+                            conn.rollback()
+                        except Exception:
+                            pass
 
             stats['photos_updated'] = self._photos_updated_count
 
@@ -909,7 +929,13 @@ class MLSGridSyncEngine:
         conn = self._get_connection()
         try:
             for i, prop in enumerate(properties):
+                # PHOTO_PIPELINE_SPEC invariant #7: per-row savepoint.
+                # See run_full_sync for the fuller comment and rationale
+                # (20260324 incident, 946-row cascade).
+                savepoint = f"sync_row_{i}"
                 try:
+                    conn.execute(f"SAVEPOINT {savepoint}")
+
                     listing = map_reso_to_listing(prop, self.mls_source)
 
                     # Ensure schema has all columns this listing needs
@@ -918,6 +944,7 @@ class MLSGridSyncEngine:
                             conn, listing, self._known_listing_columns
                         )
                         conn.commit()
+                        conn.execute(f"SAVEPOINT {savepoint}")
 
                     result = self._upsert_listing(
                         conn, listing, raw_prop=prop, dry_run=dry_run
@@ -947,6 +974,8 @@ class MLSGridSyncEngine:
                     else:
                         stats['skipped'] += 1
 
+                    conn.execute(f"RELEASE SAVEPOINT {savepoint}")
+
                     # Commit every 10 records (was 100) so other writers
                     # (public contact form, event tracking) can grab the
                     # lock during brief gaps.
@@ -960,9 +989,13 @@ class MLSGridSyncEngine:
                     logger.error(f"Error processing {prop.get('ListingId')}: {e}")
                     stats['errors'] += 1
                     try:
-                        conn.rollback()
+                        conn.execute(f"ROLLBACK TO SAVEPOINT {savepoint}")
+                        conn.execute(f"RELEASE SAVEPOINT {savepoint}")
                     except Exception:
-                        pass
+                        try:
+                            conn.rollback()
+                        except Exception:
+                            pass
 
             stats['photos_updated'] = self._photos_updated_count
             stats['photos_downloaded'] = photos_downloaded
