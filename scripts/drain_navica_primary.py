@@ -52,10 +52,18 @@ SOURCES = ("NavicaMLS", "MountainLakesMLS")
 LOCAL_PREFIX = "/api/public/photos/navica/"
 
 
-def _needs_primary(row) -> bool:
-    """True if the listing's primary_photo isn't on disk."""
-    mls = row["mls_number"]
-    return not storage.primary_exists(row["mls_source"], mls)
+def _needs_work(row) -> bool:
+    """True if the listing's primary_photo column is CDN (not local) — then
+    we either need to download the file + update DB, or (if file already on
+    disk) just update DB. `_download_one` handles both cases and returns
+    'downloaded' or 'skipped' accordingly."""
+    pp = row.get("primary_photo") or ""
+    if pp.startswith(LOCAL_PREFIX):
+        # Already local in DB. Confirm file is actually there.
+        filename = pp.rsplit("/", 1)[-1]
+        photos_dir = storage.get_source_dir(row["mls_source"])
+        return not (photos_dir / filename).exists()
+    return True
 
 
 def _first_url(row) -> Optional[str]:
@@ -123,8 +131,8 @@ def main() -> int:
     rows = [dict(r) for r in rows]
     logger.info("Active Navica/MtnLakes listings: %d", len(rows))
 
-    need_work = [r for r in rows if _needs_primary(r)]
-    logger.info("Listings missing local primary on disk: %d", len(need_work))
+    need_work = [r for r in rows if _needs_work(r)]
+    logger.info("Listings where DB primary_photo needs to be local: %d", len(need_work))
     if not need_work:
         logger.info("Nothing to do. Everything already local.")
         return 0
