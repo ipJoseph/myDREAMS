@@ -152,13 +152,23 @@ def _process_listing(
 
     primary_url, all_urls, photo_count = extract_photos_fn(media)
     if not all_urls:
+        # MLS reports no media for this listing — mark skipped.
+        # Wrap the DB write in try/except so a transient PG error (timeout,
+        # connection blip) doesn't propagate and stop the entire drain.
+        # We'd rather skip-and-continue than halt 6000+ remaining listings.
         conn = get_db_fn()
         try:
-            conn.execute(
-                "UPDATE listings SET photo_count = 0, gallery_status = 'skipped' WHERE id = ?",
-                [row["id"]],
-            )
-            conn.commit()
+            try:
+                conn.execute(
+                    "UPDATE listings SET photo_count = 0, gallery_status = 'skipped' WHERE id = ?",
+                    [row["id"]],
+                )
+                conn.commit()
+            except Exception as e:
+                logger.warning("%s: mark-skipped DB write failed: %s", mls, str(e)[:120])
+                stats["errors"] += 1
+                try: conn.rollback()
+                except Exception: pass
         finally:
             try: conn.close()
             except Exception: pass
@@ -215,22 +225,31 @@ def _process_listing(
 
     conn = get_db_fn()
     try:
-        if primary_local:
-            conn.execute(
-                f"UPDATE listings SET photos = ?, primary_photo = ?, photo_count = ?, "
-                f"photo_verified_at = {verified_expr}, "
-                f"gallery_status = ? WHERE id = ?",
-                [json.dumps(local_urls), primary_local, photo_count,
-                 new_status, row["id"]],
-            )
-        else:
-            conn.execute(
-                f"UPDATE listings SET photos = ?, photo_count = ?, "
-                f"photo_verified_at = {verified_expr}, gallery_status = ? "
-                f"WHERE id = ?",
-                [json.dumps(local_urls), photo_count, new_status, row["id"]],
-            )
-        conn.commit()
+        try:
+            if primary_local:
+                conn.execute(
+                    f"UPDATE listings SET photos = ?, primary_photo = ?, photo_count = ?, "
+                    f"photo_verified_at = {verified_expr}, "
+                    f"gallery_status = ? WHERE id = ?",
+                    [json.dumps(local_urls), primary_local, photo_count,
+                     new_status, row["id"]],
+                )
+            else:
+                conn.execute(
+                    f"UPDATE listings SET photos = ?, photo_count = ?, "
+                    f"photo_verified_at = {verified_expr}, gallery_status = ? "
+                    f"WHERE id = ?",
+                    [json.dumps(local_urls), photo_count, new_status, row["id"]],
+                )
+            conn.commit()
+        except Exception as e:
+            # Transient PG errors (statement timeout, connection blip) must
+            # not stop the drain. Files are on disk; next iteration will
+            # retry the DB write cleanly.
+            logger.warning("%s: DB write failed after download: %s", mls, str(e)[:120])
+            stats["errors"] += 1
+            try: conn.rollback()
+            except Exception: pass
     finally:
         try: conn.close()
         except Exception: pass
