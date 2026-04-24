@@ -41,14 +41,10 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 STATE_FILE = PROJECT_ROOT / 'data' / '.mlsgrid_throttle.json'
 LOCK_FILE = PROJECT_ROOT / 'data' / '.mlsgrid_throttle.lock'
 
-# Our conservative limits (well under MLS Grid warning thresholds).
-# TEMPORARY grace-period override #2 (2026-04-24, expires 21:00 UTC).
-# Hetzner volume resized to 512GB at 14:50 UTC after first drain
-# attempt crashed with disk-full. Re-raising to run drain to completion.
-# MUST revert to (3.0 / 3000 / 20000) at ramp-down.
-MIN_REQUEST_INTERVAL = 0.05   # grace-window value; normal: 3.0
-MAX_REQUESTS_PER_HOUR = 150000  # grace-window value; normal: 3000
-MAX_REQUESTS_PER_DAY = 1000000  # grace-window value; normal: 20000
+# Our conservative limits (well under MLS Grid warning thresholds)
+MIN_REQUEST_INTERVAL = 3.0    # seconds between requests (~0.33 RPS, extra margin after suspension)
+MAX_REQUESTS_PER_HOUR = 3000
+MAX_REQUESTS_PER_DAY = 20000
 BATCH_HEADROOM = 0.7          # only start a batch if under 70% of limits
 
 
