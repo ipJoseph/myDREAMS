@@ -14,13 +14,19 @@
 # Safe to SIGTERM/SIGKILL: EXIT trap always restores crontab.
 # Safe to re-run: idempotent. Each iteration re-reads pending count.
 #
-# Invocation:
-#   nohup bash /opt/mydreams/scripts/photo-catchup-20260421.sh \
-#     > /opt/mydreams/data/logs/photo-catchup-20260421.log 2>&1 < /dev/null &
-#   disown
+# Invocation (canonical, 2026-04-23 onward — journald captures output):
+#   systemd-run --unit=photo-catchup --working-directory=/opt/mydreams \
+#       --setenv=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+#       /opt/mydreams/scripts/photo-catchup-20260421.sh
+#
+# Avoid the legacy `nohup ... > /path/to/log 2>&1 &` pattern: on
+# 2026-04-21 that invocation landed with fds 1 and 2 both → /dev/null,
+# so the daemon ran blind for 2.5 days. systemd-run forces output
+# through journald unconditionally, which is what we want.
 #
 # Monitor:
-#   tail -F /opt/mydreams/data/logs/photo-catchup-20260421.log
+#   systemctl status photo-catchup
+#   journalctl -u photo-catchup -f
 #   cat /opt/mydreams/data/photo-catchup/COMPLETED  (after it finishes)
 
 set -o pipefail
