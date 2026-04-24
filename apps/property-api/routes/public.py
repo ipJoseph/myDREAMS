@@ -611,9 +611,15 @@ def filtered_stats():
 
     Returns avg price, median price, avg sqft, avg $/sqft, avg DOM, avg lot size
     filtered by all search params (city, county, price range, beds, type, etc.)
+
+    Uses the same PUBLIC_FILTER_DEFAULTS as /listings so the count shown in
+    the summary bar matches the number of properties actually rendered in
+    the grid. Without this, a search saying "297 listings" would render
+    only the subset passing the gallery_status=ready + idx_opt_in filters —
+    confusing UX (reported 2026-04-24).
     """
     try:
-        filters = ListingFilters.from_request(request.args)
+        filters = _get_public_filters()
         conditions, params = _service._build_conditions(filters)
         where = " AND ".join(conditions) if conditions else "1=1"
 

@@ -636,14 +636,14 @@ class ListingService:
         # IDX compliance (public site)
         if filters.require_idx:
             conditions.append("idx_opt_in = 1")
-            # Only show listings with photos ready (no placeholders).
-            # Cast to integer for cross-database compatibility
-            # (PostgreSQL BOOLEAN, SQLite INTEGER both match CAST(x AS INTEGER) = 1)
-            conditions.append("CAST(photo_ready AS INTEGER) = 1")
-            # Gallery gate: never show a Canopy listing whose gallery hasn't
-            # been downloaded yet (CDN tokens expire; would render broken
-            # placeholders). Navica/MountainLakes are seeded 'ready' since
-            # their CDN doesn't expire.
+            # Gallery gate: show only listings whose photos are verified
+            # local-on-disk per PHOTO_PIPELINE_SPEC invariant #4.
+            # gallery_status is the single source of truth (see D3b). The
+            # legacy photo_ready column is deprecated — writers stopped
+            # maintaining it on 2026-04-23, so requiring photo_ready=1
+            # here silently hid every listing the new workers marked ready
+            # (100% of MountainLakesMLS, ~34% of NavicaMLS, a growing
+            # fraction of CanopyMLS). Dropped 2026-04-24.
             conditions.append("gallery_status = 'ready'")
 
         # Zone filtering (public site)
