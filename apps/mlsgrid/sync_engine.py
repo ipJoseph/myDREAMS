@@ -502,7 +502,7 @@ class MLSGridSyncEngine:
 
             return 'created'
 
-    def _download_listing_photos(self, mls_number: str, media_list: list) -> bool:
+    def _download_listing_photos(self, conn, mls_number: str, media_list: list) -> bool:
         """Download primary + gallery from Media array during sync.
 
         Uses fresh MediaURLs from the replication response (zero additional
@@ -511,11 +511,20 @@ class MLSGridSyncEngine:
         here, the gate flips to 'ready' so new listings appear on the public
         site within the same sync cycle.
 
+        The photo UPDATE MUST run on the caller's batch connection (`conn`)
+        — NOT a fresh connection. A fresh connection cannot see the just-
+        INSERTed row from _upsert_listing (uncommitted) and would silently
+        UPDATE zero rows, OR block on a row lock and hit statement_timeout.
+        That was the root cause of the "canceling statement due to
+        statement timeout" errors observed in mlsgrid-sync.log 2026-04-23.
+
         Follows PHOTO_PIPELINE_SPEC invariants:
           * invariant #1: photos[] contains only local /api/public/photos/
             paths on success (no CDN pollution — matches the fix shipped
             in gallery_backfill_strict on 2026-04-23).
           * invariant #2: photo_verified_at stamped only on ready state.
+          * invariant #3 exception: sync writes gallery_status='ready' only
+            AFTER verifying local files on disk (see DECISIONS.md D3).
           * Readiness tolerates ~10% broken photos (same rule as backfill)
             so a single chronically-404 upstream URL can't strand the row.
 
@@ -575,30 +584,29 @@ class MLSGridSyncEngine:
         gallery_ready = len(local_paths) >= min_required
 
         import json as _json
-        conn = self._get_connection()
-        try:
-            if gallery_ready:
-                conn.execute(
-                    "UPDATE listings SET photos = ?, primary_photo = ?, "
-                    "photo_count = ?, photo_verified_at = CURRENT_TIMESTAMP, "
-                    "gallery_status = 'ready' "
-                    "WHERE mls_source = ? AND mls_number = ?",
-                    [_json.dumps(local_paths), primary_local, count,
-                     self.mls_source, mls_number]
-                )
-            else:
-                # Partial download — record what we have but keep pending;
-                # the gallery worker's next pass will retry the gaps.
-                conn.execute(
-                    "UPDATE listings SET photos = ?, primary_photo = ?, "
-                    "photo_count = ? "
-                    "WHERE mls_source = ? AND mls_number = ?",
-                    [_json.dumps(local_paths), primary_local, count,
-                     self.mls_source, mls_number]
-                )
-            conn.commit()
-        finally:
-            conn.close()
+        # Write on the CALLER'S connection so this UPDATE is part of the
+        # same transaction/savepoint as the upsert — no row-lock contention,
+        # no separate-connection visibility gap. Do NOT commit here; the
+        # outer loop owns commit boundaries (every 10 rows).
+        if gallery_ready:
+            conn.execute(
+                "UPDATE listings SET photos = ?, primary_photo = ?, "
+                "photo_count = ?, photo_verified_at = CURRENT_TIMESTAMP, "
+                "gallery_status = 'ready' "
+                "WHERE mls_source = ? AND mls_number = ?",
+                [_json.dumps(local_paths), primary_local, count,
+                 self.mls_source, mls_number]
+            )
+        else:
+            # Partial download — record what we have but keep pending;
+            # the gallery worker's next pass will retry the gaps.
+            conn.execute(
+                "UPDATE listings SET photos = ?, primary_photo = ?, "
+                "photo_count = ? "
+                "WHERE mls_source = ? AND mls_number = ?",
+                [_json.dumps(local_paths), primary_local, count,
+                 self.mls_source, mls_number]
+            )
 
         if errors:
             logger.info(
@@ -786,13 +794,15 @@ class MLSGridSyncEngine:
                     # See docs/DECISIONS.md D3: photos download DURING sync.
                     # Check REGARDLESS of upsert result — a listing can have
                     # unchanged data but missing photos (e.g., after migration).
+                    # Passes `conn` so the photo UPDATE runs in the same
+                    # transaction as the upsert — no row-lock contention.
                     if not dry_run and result != 'deleted':
                         media = prop.get('Media', [])
                         mls_num = listing.get('mls_number')
                         if mls_num and media:
                             primary_path = PHOTOS_DIR / f"{mls_num}.jpg"
                             if not primary_path.exists():
-                                if self._download_listing_photos(mls_num, media):
+                                if self._download_listing_photos(conn, mls_num, media):
                                     self._photos_updated_count += 1
 
                     conn.execute(f"RELEASE SAVEPOINT {savepoint}")
@@ -953,16 +963,15 @@ class MLSGridSyncEngine:
                     # Download all photos for new or photo-changed listings.
                     # Media data is already in the replication response
                     # ($expand=Media), so this costs zero additional API calls.
-                    # CDN downloads are parallel-safe and don't count against
-                    # API rate limits.
-                    # Download photos if missing on disk (regardless of upsert result)
+                    # Passes `conn` so the photo UPDATE runs in the same
+                    # transaction as the upsert — no row-lock contention.
                     if not dry_run and result != 'deleted':
                         media = prop.get('Media', [])
                         mls_num = listing.get('mls_number')
                         if mls_num and media:
                             primary_path = PHOTOS_DIR / f"{mls_num}.jpg"
                             if not primary_path.exists():
-                                if self._download_listing_photos(mls_num, media):
+                                if self._download_listing_photos(conn, mls_num, media):
                                     photos_downloaded += 1
 
                     if result == 'created':
