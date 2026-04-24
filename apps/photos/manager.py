@@ -163,6 +163,7 @@ def update_db_photo_paths(
     mls_number: str,
     mls_source: str,
     result: DownloadResult,
+    conn=None,
 ) -> None:
     """Update the database with local photo paths after download.
 
@@ -174,13 +175,20 @@ def update_db_photo_paths(
 
     photo_local_path and photo_ready are deprecated and no longer written;
     gallery_status is the source of truth.
+
+    If `conn` is provided, runs on that connection and does NOT commit or
+    close — caller owns the transaction boundary. If None (default), opens
+    a new connection, commits, and closes it. Loop callers should pass
+    a shared conn to avoid N open/close cycles per N rows.
     """
     if not result.local_urls:
         return
 
+    owns_conn = conn is None
     try:
-        from src.core.pg_adapter import get_db
-        conn = get_db()
+        if owns_conn:
+            from src.core.pg_adapter import get_db
+            conn = get_db()
         primary_local = (
             result.local_urls[0]
             if result.local_urls and result.local_urls[0].startswith("/api/")
@@ -201,8 +209,9 @@ def update_db_photo_paths(
                 "WHERE mls_source = ? AND mls_number = ?",
                 [json.dumps(result.local_urls), mls_source, mls_number],
             )
-        conn.commit()
-        conn.close()
+        if owns_conn:
+            conn.commit()
+            conn.close()
         try:
             from src.core.listing_service import invalidate_photo_dir_cache
             invalidate_photo_dir_cache(storage.get_source_dir(mls_source))
@@ -210,6 +219,9 @@ def update_db_photo_paths(
             pass
     except Exception as e:
         logger.warning(f"Failed to update photo paths for {mls_number}: {e}")
+        if owns_conn and conn is not None:
+            try: conn.close()
+            except Exception: pass
 
 
 def run_photo_fill(
@@ -233,6 +245,9 @@ def run_photo_fill(
 
     report = HygieneReport()
 
+    # Single connection held for the whole fill pass. Avoids N open/close
+    # cycles through the pool in the inner loop. Commit every 50 rows so
+    # crashes don't lose the whole pass.
     conn = get_db()
     try:
         # Find listings whose gallery is not yet ready. gallery_status is
@@ -245,88 +260,100 @@ def run_photo_fill(
             "ORDER BY list_date DESC",
             [status.upper(), mls_source],
         ).fetchall()
-    finally:
-        conn.close()
 
-    if limit:
-        rows = rows[:limit]
+        if limit:
+            rows = rows[:limit]
 
-    logger.info(f"Photo fill: {len(rows)} {mls_source} listings need photos")
-    report.total_checked = len(rows)
+        logger.info(f"Photo fill: {len(rows)} {mls_source} listings need photos")
+        report.total_checked = len(rows)
 
-    for i, row in enumerate(rows):
-        mls_num = row[0] if isinstance(row, (list, tuple)) else row["mls_number"]
-        source = row[1] if isinstance(row, (list, tuple)) else row["mls_source"]
+        for i, row in enumerate(rows):
+            mls_num = row[0] if isinstance(row, (list, tuple)) else row["mls_number"]
+            source = row[1] if isinstance(row, (list, tuple)) else row["mls_source"]
 
-        # Check disk first (might be downloaded but DB not updated)
-        if storage.primary_exists(source, mls_num):
-            # Update DB to reflect what's on disk
-            local = storage.gallery_urls(source, mls_num)
-            update_db_photo_paths(mls_num, source, DownloadResult(
-                mls_number=mls_num, local_urls=local, primary_downloaded=True
-            ))
-            report.already_ok += 1
-            continue
+            # Check disk first (might be downloaded but DB not updated)
+            if storage.primary_exists(source, mls_num):
+                # Update DB to reflect what's on disk
+                local = storage.gallery_urls(source, mls_num)
+                update_db_photo_paths(mls_num, source, DownloadResult(
+                    mls_number=mls_num, local_urls=local, primary_downloaded=True
+                ), conn=conn)
+                report.already_ok += 1
+            else:
+                # Get URLs to download from
+                primary_url_val = row[2] if isinstance(row, (list, tuple)) else row.get("primary_photo")
+                photos_json = row[3] if isinstance(row, (list, tuple)) else row.get("photos")
 
-        # Get URLs to download from
-        primary_url_val = row[2] if isinstance(row, (list, tuple)) else row.get("primary_photo")
-        photos_json = row[3] if isinstance(row, (list, tuple)) else row.get("photos")
+                urls = []
+                if photos_json:
+                    try:
+                        parsed = json.loads(photos_json) if isinstance(photos_json, str) else photos_json
+                        if isinstance(parsed, list):
+                            urls = [u for u in parsed if isinstance(u, str) and u.startswith("http")]
+                    except (json.JSONDecodeError, TypeError):
+                        pass
 
-        urls = []
-        if photos_json:
-            try:
-                parsed = json.loads(photos_json) if isinstance(photos_json, str) else photos_json
-                if isinstance(parsed, list):
-                    urls = [u for u in parsed if isinstance(u, str) and u.startswith("http")]
-            except (json.JSONDecodeError, TypeError):
-                pass
+                if not urls and primary_url_val and primary_url_val.startswith("http"):
+                    urls = [primary_url_val]
 
-        if not urls and primary_url_val and primary_url_val.startswith("http"):
-            urls = [primary_url_val]
-
-        if not urls:
-            report.failed += 1
-            continue
-
-        # Download
-        dl_result = download_for_listing(
-            mls_number=mls_num,
-            media_urls=urls,
-            mls_source=source,
-            primary_only=primary_only,
-        )
-
-        if dl_result.primary_downloaded:
-            update_db_photo_paths(mls_num, source, dl_result)
-            report.downloaded += 1
-        elif dl_result.errors > 0:
-            # DB URLs failed (likely expired CDN tokens).
-            # Try fetching fresh URLs from the MLS API.
-            adapter = get_adapter(source)
-            if adapter.cdn_urls_expire:
-                fresh_urls = adapter.get_fresh_urls(mls_num)
-                if fresh_urls:
-                    dl_result2 = download_for_listing(
+                if not urls:
+                    report.failed += 1
+                else:
+                    # Download
+                    dl_result = download_for_listing(
                         mls_number=mls_num,
-                        media_urls=fresh_urls,
+                        media_urls=urls,
                         mls_source=source,
                         primary_only=primary_only,
                     )
-                    if dl_result2.primary_downloaded:
-                        update_db_photo_paths(mls_num, source, dl_result2)
+
+                    if dl_result.primary_downloaded:
+                        update_db_photo_paths(mls_num, source, dl_result, conn=conn)
                         report.downloaded += 1
+                    elif dl_result.errors > 0:
+                        # DB URLs failed (likely expired CDN tokens).
+                        # Try fetching fresh URLs from the MLS API.
+                        adapter = get_adapter(source)
+                        if adapter.cdn_urls_expire:
+                            fresh_urls = adapter.get_fresh_urls(mls_num)
+                            if fresh_urls:
+                                dl_result2 = download_for_listing(
+                                    mls_number=mls_num,
+                                    media_urls=fresh_urls,
+                                    mls_source=source,
+                                    primary_only=primary_only,
+                                )
+                                if dl_result2.primary_downloaded:
+                                    update_db_photo_paths(mls_num, source, dl_result2, conn=conn)
+                                    report.downloaded += 1
+                                else:
+                                    report.failed += 1
+                            else:
+                                report.failed += 1
+                        else:
+                            report.failed += 1
                     else:
                         report.failed += 1
-                else:
-                    report.failed += 1
-            else:
-                report.failed += 1
-        else:
-            report.failed += 1
 
-        if (i + 1) % 100 == 0:
-            logger.info(f"  Photo fill progress: {i + 1}/{len(rows)} "
-                         f"(downloaded={report.downloaded}, failed={report.failed})")
+            # Periodic commit so a crash doesn't lose the whole pass.
+            if (i + 1) % 50 == 0:
+                try:
+                    conn.commit()
+                except Exception as e:
+                    logger.warning(f"periodic commit failed at row {i+1}: {e}")
+
+            if (i + 1) % 100 == 0:
+                logger.info(f"  Photo fill progress: {i + 1}/{len(rows)} "
+                             f"(downloaded={report.downloaded}, failed={report.failed})")
+
+        # Final commit for any rows since the last 50-row boundary.
+        try:
+            conn.commit()
+        except Exception as e:
+            logger.warning(f"final commit failed: {e}")
+    finally:
+        try: conn.close()
+        except Exception: pass
 
     logger.info(f"Photo fill complete: checked={report.total_checked}, "
                  f"downloaded={report.downloaded}, already_ok={report.already_ok}, "
