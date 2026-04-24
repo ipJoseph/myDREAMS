@@ -122,11 +122,15 @@ def main() -> int:
     args = ap.parse_args()
 
     conn = get_db()
+    # Include ACTIVE and PENDING (under-contract) listings. PENDING rows
+    # aren't visible on the public grid today but can return to ACTIVE if
+    # a contract falls through — keeping them drained saves a second pass
+    # later and keeps the invariant audit clean.
     rows = conn.execute(
         "SELECT id, mls_number, mls_source, primary_photo, photos "
         "FROM listings "
         "WHERE mls_source IN ('NavicaMLS', 'MountainLakesMLS') "
-        "  AND status = 'ACTIVE' AND idx_opt_in = 1",
+        "  AND status IN ('ACTIVE', 'PENDING') AND idx_opt_in = 1",
     ).fetchall()
     rows = [dict(r) for r in rows]
     logger.info("Active Navica/MtnLakes listings: %d", len(rows))
