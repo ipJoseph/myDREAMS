@@ -293,6 +293,13 @@ def main() -> int:
         "--sort", choices=["newest", "oldest"], default="newest",
         help="Process newest listings first (default) so home page recovers fastest.",
     )
+    ap.add_argument(
+        "--shard",
+        help="Process only listings where id %% M == N. Format: 'N/M' "
+             "(e.g. '3/10'). Lets you run multiple workers in parallel "
+             "with disjoint work sets. Each worker opens its own DB "
+             "connection and MLS Grid client.",
+    )
     args = ap.parse_args()
 
     from apps.mlsgrid.client import MLSGridClient
@@ -339,6 +346,19 @@ def main() -> int:
         """
     ).fetchall()
     rows = [dict(r) for r in rows]
+
+    if args.shard:
+        try:
+            n, m = (int(x) for x in args.shard.split("/"))
+            if m <= 0 or n < 0 or n >= m:
+                raise ValueError
+        except Exception:
+            logger.error("--shard must be N/M with 0 <= N < M; got %r", args.shard)
+            return 2
+        import zlib
+        before = len(rows)
+        rows = [r for r in rows if zlib.crc32(str(r["id"]).encode()) % m == n]
+        logger.info("Shard %d/%d: %d/%d listings in this slice", n, m, len(rows), before)
 
     if args.only_stale:
         before = len(rows)
