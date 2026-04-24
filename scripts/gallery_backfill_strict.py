@@ -298,8 +298,12 @@ def main() -> int:
     from apps.mlsgrid.client import MLSGridClient
     from apps.navica.field_mapper import extract_photos
     from apps.photos import storage
+    from apps.photos import downloader as _downloader
     from apps.photos.downloader import download_photo, detect_extension
     from src.core.pg_adapter import get_db
+
+    # Zero the per-category download counters so this run's summary is clean
+    _downloader.reset_stats()
 
     photos_dir = storage.get_source_dir("CanopyMLS")
     photos_dir.mkdir(parents=True, exist_ok=True)
@@ -386,6 +390,14 @@ def main() -> int:
             "Done in %.0fs (%.1f min): downloaded=%d skipped=%d errors=%d",
             elapsed, elapsed / 60, total_dl, total_sk, total_err,
         )
+        # Per-category breakdown of download attempts so post-mortem can
+        # tell upstream-404 (chronic) from timeout (transient) from
+        # rate-limit (throttle) — previously all collapsed into errors=N.
+        breakdown = _downloader.stats()
+        non_ok = {k: v for k, v in breakdown.items() if k != "ok" and v > 0}
+        if non_ok:
+            parts = ", ".join(f"{k}={v}" for k, v in sorted(non_ok.items()))
+            logger.info("download-failure breakdown: %s (ok=%d)", parts, breakdown.get("ok", 0))
 
     return 0
 
