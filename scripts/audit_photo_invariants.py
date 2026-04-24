@@ -130,11 +130,19 @@ def _audit_listing(row: Dict, source: str) -> List[Tuple[str, str]]:
 def audit_source(conn, source: str, fix: bool, sample_limit: Optional[int],
                  verbose: bool) -> int:
     """Audit one mls_source. Returns violation count."""
+    # Audit scope matches the public-grid filter (see
+    # src/core/listing_service._build_conditions when require_idx=True):
+    # idx_opt_in=1 AND status IN ('ACTIVE','PENDING') AND
+    # gallery_status='ready'. Listings outside that set never render to
+    # users, so flagging them as "violations" is noise — these are
+    # intentionally opted-out records. The hourly cron would email on
+    # every run if we kept them in scope.
     sql = (
         "SELECT id, mls_number, photos, primary_photo, photo_verified_at, photo_count "
         "FROM listings "
         "WHERE mls_source = ? AND gallery_status = 'ready' "
-        "  AND status IN ('ACTIVE', 'PENDING')"
+        "  AND status IN ('ACTIVE', 'PENDING') "
+        "  AND idx_opt_in = 1"
     )
     rows = conn.execute(sql, [source]).fetchall()
     rows = [dict(r) for r in rows]
