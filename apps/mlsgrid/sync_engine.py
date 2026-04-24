@@ -269,33 +269,33 @@ class MLSGridSyncEngine:
     def _record_changes(self, conn, changes: List[Dict]):
         """Insert change records into property_changes table.
 
-        Best-effort: errors here must NEVER cascade to the listing upsert
-        or photo download. A failed change record is logged and skipped.
+        Part of the caller's transaction — does NOT commit or rollback on
+        its own. Previously this method committed per-change, which
+        silently destroyed the outer loop's per-row SAVEPOINT and caused
+        "savepoint does not exist" errors on every row with a change
+        (run_full_sync and run_incremental_sync, 2026-04-24). The
+        commit/rollback also defeats the invariant-7 per-row atomicity
+        guarantee that the enclosing savepoint provides — a failed change
+        record should roll back with the whole row, not commit piecemeal.
+
+        On exception we simply propagate; the outer savepoint rollback
+        handles the cleanup and the outer commit handles durability.
+        Debug-level logging keeps the original visibility.
         """
         for change in changes:
-            try:
-                conn.execute('''
-                    INSERT INTO property_changes (
-                        property_id, change_type, old_value, new_value,
-                        change_percent, detected_at
-                    ) VALUES (?, ?, ?, ?, ?, ?)
-                ''', [
-                    change['listing_id'],
-                    change['change_type'],
-                    change['old_value'],
-                    change['new_value'],
-                    change.get('pct_change'),
-                    change['detected_at'],
-                ])
-                conn.commit()
-            except Exception as e:
-                # Catch ALL exceptions (sqlite3 or psycopg2) so this
-                # never cascades. See docs/DECISIONS.md D1.
-                logger.debug(f"Could not record change: {e}")
-                try:
-                    conn.rollback()
-                except Exception:
-                    pass
+            conn.execute('''
+                INSERT INTO property_changes (
+                    property_id, change_type, old_value, new_value,
+                    change_percent, detected_at
+                ) VALUES (?, ?, ?, ?, ?, ?)
+            ''', [
+                change['listing_id'],
+                change['change_type'],
+                change['old_value'],
+                change['new_value'],
+                change.get('pct_change'),
+                change['detected_at'],
+            ])
 
     # ---------------------------------------------------------------
     # Upsert logic
