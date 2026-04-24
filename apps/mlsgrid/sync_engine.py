@@ -551,19 +551,38 @@ class MLSGridSyncEngine:
         from apps.photos.downloader import download_photo, detect_extension
         from apps.photos import storage
 
+        # Per-request pacing to stay under MLS Grid's 2 rps ceiling on
+        # media.mlsgrid.com. 0.56s gap => ~1.8 rps, matching the
+        # gallery_backfill_strict worker's --max-rps 1.8 setting.
+        #
+        # Known gap (deferred): sync and gallery_backfill run in separate
+        # processes with independent pacing. Together they can reach up to
+        # ~3.6 rps briefly. Proper fix: move MLSGridThrottle into a shared
+        # cross-process file-locked module. Tracked as a Phase 4+ refactor.
+        import time as _time_mod
+        _RPS_GAP = 1.0 / 1.8  # ~0.56s
+
         local_paths: List[str] = []
         errors = 0
+        last_req_at = 0.0
 
         for idx, photo_url in enumerate(all_urls):
             ext = detect_extension(photo_url)
             filename = f"{mls_number}{ext}" if idx == 0 else f"{mls_number}_{idx:02d}{ext}"
             filepath = PHOTOS_DIR / filename
 
-            if filepath.exists() and filepath.stat().st_size > 100:
+            if filepath.exists() and filepath.stat().st_size > 500:
                 local_paths.append(f"/api/public/photos/mlsgrid/{filename}")
                 continue
 
+            # Pace the HTTP calls. Wait if the previous request was too recent.
+            since_last = _time_mod.monotonic() - last_req_at
+            if since_last < _RPS_GAP:
+                _time_mod.sleep(_RPS_GAP - since_last)
+
             data = download_photo(photo_url)
+            last_req_at = _time_mod.monotonic()
+
             if not data:
                 # Don't pollute photos[] with an expired CDN URL — see
                 # invariant #1 and the 2026-04-23 CDN-pollution fix.
