@@ -565,14 +565,26 @@ def list_areas():
 
             zone_where = (" AND " + " AND ".join(zone_conditions)) if zone_conditions else ""
 
+            # Match the public grid's filter + dedup so area counts don't
+            # promise more listings than the user will actually see after
+            # clicking through (PHOTO_PIPELINE_SPEC invariant #4 + the
+            # cross-MLS dedup rule from listing_service.DEDUP_CONDITION).
+            from src.core.listing_service import DEDUP_CONDITION
+            dedup_cond = DEDUP_CONDITION.replace(
+                "AND dup.id != listings.id",
+                "AND dup.id != listings.id AND dup.idx_opt_in = 1"
+            )
+
             query = (
                 f"SELECT {area_type} as name, COUNT(*) as listing_count, "
                 f"MIN(list_price) as min_price, MAX(list_price) as max_price, "
                 f"AVG(list_price) as avg_price "
                 f"FROM listings "
                 f"WHERE idx_opt_in = 1 AND UPPER(status) = ? "
+                f"AND gallery_status = 'ready' "
                 f"AND {area_type} IS NOT NULL AND {area_type} != 'Other'"
                 f"{zone_where} "
+                f"AND {dedup_cond} "
                 f"GROUP BY {area_type} "
                 f"ORDER BY listing_count DESC"
             )
@@ -738,6 +750,21 @@ def listing_stats():
             else:
                 zone_where = "AND zone IN (1, 2)"
 
+            # Apply the same grid-visibility filter (gallery_status='ready')
+            # and cross-MLS dedup so the homepage's headline number matches
+            # what a user sees when they actually browse. Raw COUNT(*) here
+            # used to inflate "active_listings" by both invisible-on-grid
+            # rows AND cross-MLS duplicates.
+            from src.core.listing_service import DEDUP_CONDITION
+            dedup_cond = DEDUP_CONDITION.replace(
+                "AND dup.id != listings.id",
+                "AND dup.id != listings.id AND dup.idx_opt_in = 1"
+            )
+            # gallery_status='ready' is status-agnostic — applies to both
+            # ACTIVE and PENDING listings. But the CASE-branched fields
+            # (active_listings, min_price, etc.) are scoped to ACTIVE, so
+            # the combined effect is "ACTIVE+ready", matching the grid.
+
             overall = conn.execute(f"""
                 SELECT
                     COUNT(*) as total_listings,
@@ -751,13 +778,16 @@ def listing_stats():
                     COUNT(DISTINCT CASE WHEN UPPER(status) = 'ACTIVE'
                         AND county IS NOT NULL AND county != 'Other' THEN county END) as counties_served
                 FROM listings
-                WHERE idx_opt_in = 1 {zone_where}
+                WHERE idx_opt_in = 1 AND gallery_status = 'ready' {zone_where}
+                  AND {dedup_cond}
             """, zone_params).fetchone()
 
             by_type = conn.execute(f"""
                 SELECT property_type, COUNT(*) as count
                 FROM listings
-                WHERE idx_opt_in = 1 AND UPPER(status) = 'ACTIVE' {zone_where}
+                WHERE idx_opt_in = 1 AND UPPER(status) = 'ACTIVE'
+                  AND gallery_status = 'ready' {zone_where}
+                  AND {dedup_cond}
                 GROUP BY property_type
                 ORDER BY count DESC
             """, zone_params).fetchall()
@@ -765,7 +795,9 @@ def listing_stats():
             by_source = conn.execute(f"""
                 SELECT mls_source, COUNT(*) as count
                 FROM listings
-                WHERE idx_opt_in = 1 AND UPPER(status) = 'ACTIVE' {zone_where}
+                WHERE idx_opt_in = 1 AND UPPER(status) = 'ACTIVE'
+                  AND gallery_status = 'ready' {zone_where}
+                  AND {dedup_cond}
                 GROUP BY mls_source
                 ORDER BY count DESC
             """, zone_params).fetchall()
@@ -898,11 +930,27 @@ def autocomplete():
         q_lower = q.lower()
         q_like = f'{q}%'
 
+        # Same filters as the public grid so suggested counts match
+        # what a user sees after clicking (PUBLIC_FILTER_DEFAULTS:
+        # status='ACTIVE', zone='1,2', idx_opt_in=1, gallery_status='ready')
+        # plus the cross-MLS dedup. Note the old code used zone IN (1,2,3);
+        # that's now canonical (1,2) matching the rest of the public API.
+        from src.core.listing_service import DEDUP_CONDITION
+        dedup_cond = DEDUP_CONDITION.replace(
+            "AND dup.id != listings.id",
+            "AND dup.id != listings.id AND dup.idx_opt_in = 1"
+        )
+        _PUBLIC_BASE = (
+            "idx_opt_in = 1 AND gallery_status = 'ready' "
+            "AND status = 'ACTIVE' AND zone IN (1,2) "
+            f"AND {dedup_cond}"
+        )
+
         # Cities matching prefix
         cities = conn.execute(
             "SELECT city, COUNT(*) as cnt FROM listings "
-            "WHERE city IS NOT NULL AND LOWER(city) LIKE LOWER(?) "
-            "AND status = 'ACTIVE' AND zone IN (1,2,3) "
+            f"WHERE {_PUBLIC_BASE} "
+            "AND city IS NOT NULL AND LOWER(city) LIKE LOWER(?) "
             "GROUP BY city ORDER BY cnt DESC LIMIT ?",
             [q_like, limit]
         ).fetchall()
@@ -915,8 +963,8 @@ def autocomplete():
         # Counties matching prefix
         counties = conn.execute(
             "SELECT county, COUNT(*) as cnt FROM listings "
-            "WHERE county IS NOT NULL AND LOWER(county) LIKE LOWER(?) "
-            "AND status = 'ACTIVE' AND zone IN (1,2,3) "
+            f"WHERE {_PUBLIC_BASE} "
+            "AND county IS NOT NULL AND LOWER(county) LIKE LOWER(?) "
             "GROUP BY county ORDER BY cnt DESC LIMIT ?",
             [q_like, limit]
         ).fetchall()
@@ -930,8 +978,8 @@ def autocomplete():
         if len(q) >= 3:
             addresses = conn.execute(
                 "SELECT id, address, city, list_price FROM listings "
-                "WHERE address IS NOT NULL AND LOWER(address) LIKE LOWER(?) "
-                "AND status = 'ACTIVE' AND zone IN (1,2,3) "
+                f"WHERE {_PUBLIC_BASE} "
+                "AND address IS NOT NULL AND LOWER(address) LIKE LOWER(?) "
                 "ORDER BY list_price DESC LIMIT ?",
                 [f'%{q}%', limit]
             ).fetchall()
