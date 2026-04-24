@@ -32,8 +32,15 @@ PY=/opt/mydreams/venv/bin/python3
 # req/24h warning since the hourly sweep only spends a little.
 0 23 * * * cd /opt/mydreams && $PY scripts/gallery_backfill_strict.py --only-stale --max-rps 1.0 --daily-budget 35000 >> /opt/mydreams/data/logs/gallery-nightly.log 2>&1
 
-# Canopy MLS - download new primary photos at 3 AM UTC (Zone 1-3 only)
-0 3 * * * cd /opt/mydreams && $PY -m apps.mlsgrid.download_photos --status ACTIVE --workers 2 >> /opt/mydreams/data/logs/mlsgrid-photos.log 2>&1
+# RETIRED 2026-04-24: `apps.mlsgrid.download_photos` is deprecated.
+# Superseded by:
+#   * apps/mlsgrid/sync_engine.py::_download_listing_photos — inline
+#     primary+gallery download during sync (each cron cycle)
+#   * scripts/gallery_backfill_strict.py — catchup for stale listings
+#     (runs at :05/:35 and nightly 23:00)
+# Keeping the legacy script in the repo (see apps/mlsgrid/download_photos.py
+# docstring) but not scheduling it. Will be archived in a follow-up sprint.
+# 0 3 * * * cd /opt/mydreams && $PY -m apps.mlsgrid.download_photos --status ACTIVE --workers 2 >> /opt/mydreams/data/logs/mlsgrid-photos.log 2>&1
 
 # Database backup at 11 PM UTC (pg_dump replaces the old SQLite file copy)
 0 23 * * * sudo -u postgres pg_dump dreams | gzip > /opt/mydreams/data/backups/pg_dump-$(date +\%Y\%m\%d).sql.gz 2>/dev/null
@@ -72,3 +79,27 @@ PY=/opt/mydreams/venv/bin/python3
 #
 # FUB sync health check (6:30 AM EDT = 10:30 UTC)
 # 30 10 * * * /opt/mydreams/scripts/healthcheck_fub_sync.sh
+
+# ============================================================================
+# Tripwires (added 2026-04-24 as Phase 5 of Task #1).
+# If cron's MAILTO is configured (requires a local MTA), stderr from these
+# scripts emails the configured address. Either way, each writes to
+# /opt/mydreams/data/logs/tripwires.log and exits 1 on alert.
+# ============================================================================
+
+# Hourly invariant audit — runs audit_photo_invariants.py against all MLS
+# sources. Exits 1 if any gallery_status='ready' row violates spec
+# invariants #1 or #2. Cron mails on non-zero because stderr isn't
+# redirected when violations exist.
+15 * * * * cd /opt/mydreams && $PY scripts/audit_photo_invariants.py --source all >> /opt/mydreams/data/logs/audit.log 2>&1
+
+# Daily cron-drift check at 06:10 UTC. Diffs live crontab against the
+# committed template (this file). Catches the 2026-03-24-class silent
+# wipe and any future drift within 24h.
+10 6 * * * /opt/mydreams/scripts/check_cron_drift.sh >> /opt/mydreams/data/logs/tripwires.log
+
+# Hourly daemon-health check at :45. If any photo-catchup / photo-drain
+# systemd unit is active, confirms its journald output has a line within
+# the last 90 min. Would have caught the 2026-04-21→23 /dev/null-redirected
+# daemon in 90 min instead of 2.5 days.
+45 * * * * /opt/mydreams/scripts/check_daemon_health.sh >> /opt/mydreams/data/logs/tripwires.log
