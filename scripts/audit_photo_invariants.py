@@ -28,7 +28,7 @@ import json
 import logging
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Tuple
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
@@ -66,22 +66,27 @@ def _parse_photos(photos_raw) -> Optional[List[str]]:
     return [str(u) for u in parsed]
 
 
-def _audit_listing(row: Dict, source: str) -> List[str]:
-    """Return a list of violation strings for this listing. Empty = clean."""
-    violations: List[str] = []
-    mls = row.get("mls_number") or f"id={row.get('id')}"
+def _audit_listing(row: Dict, source: str) -> List[Tuple[str, str]]:
+    """Return a list of (category, detail) violation tuples. Empty = clean.
+
+    Category strings are stable across listings so cron summaries can
+    roll up counts; detail strings are per-listing and human-readable.
+    """
+    violations: List[Tuple[str, str]] = []
 
     if not row.get("photo_verified_at"):
-        violations.append("photo_verified_at is NULL")
+        violations.append(("photo_verified_at is NULL", ""))
 
     photos = _parse_photos(row.get("photos"))
     if photos is None:
-        violations.append("photos column is empty or malformed JSON")
+        violations.append(("photos column empty or malformed", ""))
         return violations
 
     primary = row.get("primary_photo") or (photos[0] if photos else None)
     if not primary or not primary.startswith(LOCAL_PREFIX):
-        violations.append(f"primary_photo not local: {str(primary)[:80]}")
+        violations.append(
+            ("primary_photo not local (CDN URL)", str(primary)[:80])
+        )
 
     # Per-MLS strictness: Canopy requires every gallery URL local.
     require_all_local = source in SOURCES_ALL_LOCAL
@@ -99,21 +104,24 @@ def _audit_listing(row: Dict, source: str) -> List[str]:
 
     if require_all_local and cdn_count:
         violations.append(
-            f"{cdn_count}/{len(photos)} photos still have CDN URLs (CanopyMLS requires all local)"
+            ("gallery has CDN URLs (strict-local source)",
+             f"{cdn_count}/{len(photos)} non-local")
         )
 
     if missing_files:
         sample = ",".join(missing_files[:3])
         suffix = f" (+{len(missing_files)-3} more)" if len(missing_files) > 3 else ""
-        violations.append(f"{len(missing_files)} files missing on disk: {sample}{suffix}")
+        violations.append(
+            ("gallery files missing on disk",
+             f"{len(missing_files)} missing: {sample}{suffix}")
+        )
 
     return violations
 
 
-def audit_source(conn, source: str, fix: bool, sample_limit: Optional[int]) -> int:
+def audit_source(conn, source: str, fix: bool, sample_limit: Optional[int],
+                 verbose: bool) -> int:
     """Audit one mls_source. Returns violation count."""
-    logger.info("=== auditing source=%s ===", source)
-
     sql = (
         "SELECT id, mls_number, photos, primary_photo, photo_verified_at, photo_count "
         "FROM listings "
@@ -122,31 +130,40 @@ def audit_source(conn, source: str, fix: bool, sample_limit: Optional[int]) -> i
     )
     rows = conn.execute(sql, [source]).fetchall()
     rows = [dict(r) for r in rows]
-    logger.info("%s: %d listings claim gallery_status='ready'", source, len(rows))
 
     if sample_limit and sample_limit < len(rows):
         import random
         random.seed(42)
         rows = random.sample(rows, sample_limit)
-        logger.info("%s: sampling %d rows (--sample)", source, len(rows))
 
     violating_ids: List[int] = []
-    by_reason: Dict[str, int] = {}
+    examples_by_category: Dict[str, List[str]] = {}
+    by_category: Dict[str, int] = {}
 
     for row in rows:
         vs = _audit_listing(row, source)
         if not vs:
             continue
         violating_ids.append(row["id"])
-        for v in vs:
-            # Coalesce detailed reasons into categories for summary
-            key = v.split(":")[0][:60]
-            by_reason[key] = by_reason.get(key, 0) + 1
-        logger.info("VIOLATION %s: %s", row.get("mls_number"), "; ".join(vs))
+        mls = row.get("mls_number") or f"id={row['id']}"
+        for category, detail in vs:
+            by_category[category] = by_category.get(category, 0) + 1
+            if category not in examples_by_category:
+                examples_by_category[category] = []
+            if len(examples_by_category[category]) < 5:
+                examples_by_category[category].append(mls)
+        if verbose:
+            per_listing = "; ".join(f"{c}" + (f" [{d}]" if d else "") for c, d in vs)
+            logger.info("VIOLATION %s: %s", mls, per_listing)
 
-    logger.info("%s: %d violations across %d listings", source, sum(by_reason.values()), len(violating_ids))
-    for reason, count in sorted(by_reason.items(), key=lambda x: -x[1]):
-        logger.info("  %4d x %s", count, reason)
+    # One-line summary per source (quiet by default — cron-friendly).
+    logger.info(
+        "%s: %d listings checked, %d distinct violators, %d violations across categories",
+        source, len(rows), len(violating_ids), sum(by_category.values()),
+    )
+    for category, count in sorted(by_category.items(), key=lambda x: -x[1]):
+        examples = ",".join(examples_by_category.get(category, [])[:3])
+        logger.info("  %6d x %s [e.g. %s]", count, category, examples)
 
     if violating_ids and fix:
         # Flip liars to pending so the gallery worker picks them up.
@@ -176,6 +193,10 @@ def main() -> int:
         "--sample", type=int, default=None,
         help="Audit only a random sample of N rows per source (for quick spot checks).",
     )
+    ap.add_argument(
+        "--verbose", "-v", action="store_true",
+        help="Log every violating listing individually. Default: categorized summary only.",
+    )
     args = ap.parse_args()
 
     if args.source == "all":
@@ -189,7 +210,7 @@ def main() -> int:
     conn = get_db()
     total_violations = 0
     for source in sources:
-        total_violations += audit_source(conn, source, args.fix, args.sample)
+        total_violations += audit_source(conn, source, args.fix, args.sample, args.verbose)
 
     logger.info("===== audit complete: %d total violations =====", total_violations)
     return 1 if total_violations > 0 else 0
