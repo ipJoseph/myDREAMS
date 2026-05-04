@@ -10,6 +10,9 @@ interface RequestInfoButtonProps {
   mlsNumber?: string;
 }
 
+const SMS_CONSENT_TEXT =
+  "I agree to receive SMS text messages from WNC Mountain Homes LLC about property listings, showing requests, market updates, and account-related notifications. Message frequency varies. Message and data rates may apply. Reply HELP for help, STOP to unsubscribe.";
+
 /**
  * "Request Info" button + modal for listing detail pages.
  *
@@ -28,6 +31,7 @@ export default function RequestInfoButton({
   const [isOpen, setIsOpen] = useState(false);
   const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
+  const [smsConsent, setSmsConsent] = useState(false);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -36,14 +40,17 @@ export default function RequestInfoButton({
 
     const form = e.currentTarget;
     const formData = new FormData(form);
+    const phoneValue = ((formData.get("phone") as string) || "").trim();
 
     const result = await submitContactForm({
       name: (formData.get("name") as string) || "",
       email: (formData.get("email") as string) || "",
-      phone: (formData.get("phone") as string) || undefined,
+      phone: phoneValue || undefined,
       message: (formData.get("message") as string) || undefined,
       listing_id: listingId,
       source: "request_info",
+      sms_consent: phoneValue ? smsConsent : false,
+      sms_consent_text: phoneValue && smsConsent ? SMS_CONSENT_TEXT : undefined,
     });
 
     if (result.ok) {
@@ -51,6 +58,7 @@ export default function RequestInfoButton({
       const email = (formData.get("email") as string) || "";
       if (email) setTrackingEmail(email);
       form.reset();
+      setSmsConsent(false);
     } else {
       setStatus("error");
       setErrorMsg(result.error || "Something went wrong. Please try again.");
@@ -169,6 +177,26 @@ export default function RequestInfoButton({
                         className="w-full px-4 py-3 border border-gray-200 text-sm focus:outline-none focus:border-[var(--color-accent)] transition disabled:opacity-50"
                       />
                     </div>
+                    {/* A2P 10DLC: SMS consent must be express, with the 6 disclosure elements at point of capture. */}
+                    <label className="flex items-start gap-2 text-xs text-gray-500 leading-relaxed cursor-pointer">
+                      <input
+                        type="checkbox"
+                        name="sms_consent"
+                        checked={smsConsent}
+                        onChange={(e) => setSmsConsent(e.target.checked)}
+                        disabled={status === "submitting"}
+                        className="mt-0.5 flex-shrink-0"
+                      />
+                      <span>
+                        I agree to receive SMS text messages from <strong>WNC Mountain Homes LLC</strong> at
+                        the phone number provided about this listing, related properties, showing
+                        requests, and account notifications. Message frequency varies. Message and
+                        data rates may apply. Reply HELP for help, STOP to unsubscribe. See our{" "}
+                        <a href="/privacy" className="underline">Privacy Policy</a> and{" "}
+                        <a href="/terms" className="underline">Terms of Service</a>. Consent is not
+                        a condition of any purchase.
+                      </span>
+                    </label>
                     <button
                       type="submit"
                       disabled={status === "submitting"}
@@ -176,8 +204,9 @@ export default function RequestInfoButton({
                     >
                       {status === "submitting" ? "Sending..." : "Send Request"}
                     </button>
-                    <p className="text-xs text-gray-400 text-center">
-                      No account needed. Your info is never shared.
+                    <p className="text-xs text-gray-400 text-center leading-relaxed">
+                      No account needed. We do not share, sell, or rent your mobile number or
+                      consent to any third party for their marketing.
                     </p>
                   </form>
                 </>

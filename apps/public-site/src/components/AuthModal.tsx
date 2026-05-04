@@ -10,6 +10,9 @@ interface AuthModalProps {
   defaultTab?: "login" | "register";
 }
 
+const SMS_CONSENT_TEXT =
+  "I agree to receive SMS text messages from WNC Mountain Homes LLC about property listings, showing requests, market updates, and account-related notifications. Message frequency varies. Message and data rates may apply. Reply HELP for help, STOP to unsubscribe.";
+
 /**
  * Authentication modal using Supabase Auth.
  *
@@ -24,6 +27,7 @@ export default function AuthModal({ isOpen, onClose, defaultTab = "login" }: Aut
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [smsConsent, setSmsConsent] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -55,13 +59,19 @@ export default function AuthModal({ isOpen, onClose, defaultTab = "login" }: Aut
 
     try {
       if (tab === "register") {
+        const phoneTrimmed = phone.trim();
+        const effectiveSmsConsent = phoneTrimmed ? smsConsent : false;
+
         const { data, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
           options: {
             data: {
               name,
-              phone: phone || undefined,
+              phone: phoneTrimmed || undefined,
+              sms_consent: effectiveSmsConsent,
+              sms_consent_text: effectiveSmsConsent ? SMS_CONSENT_TEXT : undefined,
+              sms_consent_at: effectiveSmsConsent ? new Date().toISOString() : undefined,
             },
           },
         });
@@ -83,8 +93,10 @@ export default function AuthModal({ isOpen, onClose, defaultTab = "login" }: Aut
             body: JSON.stringify({
               name,
               email,
-              phone: phone || undefined,
+              phone: phoneTrimmed || undefined,
               source: "registration",
+              sms_consent: effectiveSmsConsent,
+              sms_consent_text: effectiveSmsConsent ? SMS_CONSENT_TEXT : undefined,
             }),
           });
         } catch {
@@ -259,6 +271,26 @@ export default function AuthModal({ isOpen, onClose, defaultTab = "login" }: Aut
                   className="w-full px-4 py-3 border border-gray-300 text-sm focus:outline-none focus:border-[var(--color-accent)] transition"
                   placeholder="(828) 555-1234"
                 />
+                {phone.trim() && (
+                  // A2P 10DLC: SMS consent must be express, with the 6 disclosure elements at point of capture.
+                  <label className="flex items-start gap-2 mt-3 text-xs text-gray-500 leading-relaxed cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={smsConsent}
+                      onChange={(e) => setSmsConsent(e.target.checked)}
+                      className="mt-0.5 flex-shrink-0"
+                    />
+                    <span>
+                      I agree to receive SMS text messages from <strong>WNC Mountain Homes LLC</strong> at
+                      this number about property listings, saved-search alerts, showing requests, and
+                      account notifications. Message frequency varies. Message and data rates may apply.
+                      Reply HELP for help, STOP to unsubscribe. See our{" "}
+                      <a href="/privacy" target="_blank" rel="noopener noreferrer" className="underline">Privacy Policy</a> and{" "}
+                      <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline">Terms of Service</a>.
+                      Consent is not a condition of registration.
+                    </span>
+                  </label>
+                )}
               </div>
             )}
 

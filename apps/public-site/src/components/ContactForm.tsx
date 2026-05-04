@@ -9,9 +9,13 @@ interface ContactFormProps {
   addressRef?: string;
 }
 
+const SMS_CONSENT_TEXT =
+  "I agree to receive SMS text messages from WNC Mountain Homes LLC about property listings, showing requests, market updates, and account-related notifications. Message frequency varies. Message and data rates may apply. Reply HELP for help, STOP to unsubscribe.";
+
 export default function ContactForm({ listingRef, addressRef }: ContactFormProps) {
   const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
+  const [smsConsent, setSmsConsent] = useState(false);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -20,14 +24,17 @@ export default function ContactForm({ listingRef, addressRef }: ContactFormProps
 
     const form = e.currentTarget;
     const formData = new FormData(form);
+    const phoneValue = ((formData.get("phone") as string) || "").trim();
 
     const result = await submitContactForm({
       name: (formData.get("name") as string) || "",
       email: (formData.get("email") as string) || "",
-      phone: (formData.get("phone") as string) || undefined,
+      phone: phoneValue || undefined,
       message: (formData.get("message") as string) || undefined,
       listing_id: listingRef || undefined,
       source: listingRef ? "request_info" : "contact_form",
+      sms_consent: phoneValue ? smsConsent : false,
+      sms_consent_text: phoneValue && smsConsent ? SMS_CONSENT_TEXT : undefined,
     });
 
     if (result.ok) {
@@ -36,6 +43,7 @@ export default function ContactForm({ listingRef, addressRef }: ContactFormProps
       const submittedEmail = (formData.get("email") as string) || "";
       if (submittedEmail) setTrackingEmail(submittedEmail);
       form.reset();
+      setSmsConsent(false);
     } else {
       setStatus("error");
       setErrorMsg(result.error || "Something went wrong. Please try again.");
@@ -158,6 +166,33 @@ export default function ContactForm({ listingRef, addressRef }: ContactFormProps
           />
         </div>
 
+        {/* A2P 10DLC: SMS consent must be express, with the 6 disclosure elements visible at point of capture. */}
+        <label className="flex items-start gap-3 text-xs text-[var(--color-text-light)] leading-relaxed cursor-pointer">
+          <input
+            type="checkbox"
+            name="sms_consent"
+            checked={smsConsent}
+            onChange={(e) => setSmsConsent(e.target.checked)}
+            disabled={status === "submitting"}
+            className="mt-0.5 flex-shrink-0"
+          />
+          <span>
+            I agree to receive SMS text messages from <strong>WNC Mountain Homes LLC</strong> at the
+            phone number provided about property listings, showing requests, market updates, and
+            account-related notifications. Message frequency varies. Message and data rates may
+            apply. Reply HELP for help, STOP to unsubscribe. See our{" "}
+            <a href="/privacy" className="underline hover:text-[var(--color-accent)]">Privacy Policy</a>{" "}
+            and{" "}
+            <a href="/terms" className="underline hover:text-[var(--color-accent)]">Terms of Service</a>.
+            Consent is not a condition of any purchase.
+          </span>
+        </label>
+
+        <p className="text-xs text-[var(--color-text-light)] leading-relaxed">
+          Your information is kept private. We do not share, sell, or rent your mobile number or
+          consent to any third party or affiliate for their marketing or promotional purposes.
+        </p>
+
         <button
           type="submit"
           disabled={status === "submitting"}
@@ -165,11 +200,6 @@ export default function ContactForm({ listingRef, addressRef }: ContactFormProps
         >
           {status === "submitting" ? "Sending..." : "Send Message"}
         </button>
-
-        <p className="text-xs text-[var(--color-text-light)]">
-          Your information is kept private and never shared with third
-          parties.
-        </p>
       </form>
     </div>
   );

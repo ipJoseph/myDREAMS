@@ -237,6 +237,8 @@ export interface ContactFormPayload {
   listing_id?: string;
   source?: string;
   turnstile_token?: string;
+  sms_consent?: boolean;
+  sms_consent_text?: string;
 }
 
 export interface ContactFormResult {

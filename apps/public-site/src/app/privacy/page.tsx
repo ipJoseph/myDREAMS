@@ -178,6 +178,64 @@ export default function PrivacyPolicyPage() {
               </ul>
             </div>
 
+            {/* SMS / Text Messaging */}
+            <div id="sms">
+              <h2 className="text-2xl text-[var(--color-primary)] mb-4" style={{ fontFamily: "Georgia, serif" }}>
+                SMS / Text Message Communications
+              </h2>
+              <p className="mb-4">
+                When you provide a mobile phone number to WNC Mountain Homes LLC and
+                affirmatively opt in (by checking an SMS consent box on a contact form,
+                request-info form, or registration form on this Site), you agree to
+                receive recurring SMS text messages from us. The categories of messages
+                you may receive are:
+              </p>
+              <ul className="list-disc pl-6 space-y-2 mb-4">
+                <li>Property listing updates and saved-search alerts.</li>
+                <li>Showing requests, confirmations, and reminders.</li>
+                <li>Market reports and area-specific updates.</li>
+                <li>
+                  Customer-care responses to inquiries you submit through our forms or
+                  reply to.
+                </li>
+                <li>
+                  Account-related notifications (password resets, account activity).
+                </li>
+              </ul>
+              <p className="mb-4">
+                <strong>Message frequency varies.</strong> Message and data rates may
+                apply. Reply <strong>HELP</strong> for help. Reply <strong>STOP</strong>{" "}
+                at any time to unsubscribe; you will receive a confirmation message and
+                no further SMS will be sent (except where required to confirm
+                unsubscription).
+              </p>
+              <p className="mb-4 p-4 bg-white border-l-4 border-[var(--color-accent)]">
+                <strong>
+                  No mobile information will be shared with third parties or affiliates
+                  for marketing or promotional purposes.
+                </strong>{" "}
+                All categories described in the &quot;How We Share Your Information&quot;
+                section above exclude SMS / text message originator opt-in data and
+                consent; this information will not be shared with any third parties.
+              </p>
+              <p className="mb-4">
+                The only exception is information sharing with subcontractors that
+                support these communications (for example, our SMS aggregator and our
+                telephony provider, JustCall), strictly to deliver the messages you have
+                opted in to receive. These subcontractors are not permitted to use your
+                mobile information for their own marketing or promotional purposes.
+              </p>
+              <p>
+                You can revoke consent at any time by replying STOP to any message, by
+                contacting us using the information in the &quot;Contact Us&quot; section
+                of this policy, or by emailing{" "}
+                <a href="mailto:eug.williams@gmail.com" className="text-[var(--color-primary)] underline">
+                  eug.williams@gmail.com
+                </a>
+                . SMS consent is not a condition of any purchase or service.
+              </p>
+            </div>
+
             {/* Data Security */}
             <div>
               <h2 className="text-2xl text-[var(--color-primary)] mb-4" style={{ fontFamily: "Georgia, serif" }}>

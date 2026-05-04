@@ -193,6 +193,10 @@ function Footer() {
               Privacy Policy
             </Link>
             <span className="text-white/20">&middot;</span>
+            <Link href="/terms" className="hover:text-white transition">
+              Terms of Service
+            </Link>
+            <span className="text-white/20">&middot;</span>
             <span className="uppercase tracking-widest text-white/40">
               Residential &middot; Land &middot; Investment &middot; Commercial
             </span>
