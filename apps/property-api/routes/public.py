@@ -114,6 +114,21 @@ def _get_public_filters() -> ListingFilters:
 # now forbids that pattern. Instead, we flag the listing with a priority
 # bump and let the gallery worker pick it up out-of-band.
 
+# STOPGAP 2026-05-07: NavicaMLS + MountainLakesMLS galleries store
+# CloudFront URLs in the photos column instead of locally-rewritten paths,
+# so the original Invariant #6 strict-local-only filter renders empty
+# galleries for those listings. Until the Navica gallery downloader is
+# in place (tracked separately), allow this specific known prefix through.
+# Canopy continues to use local /api/public/photos/ paths only.
+_NAVICA_CDN_PREFIX = 'https://dvvjkgh94f2v6.cloudfront.net/'
+
+
+def _is_serveable_photo(p) -> bool:
+    if not isinstance(p, str):
+        return False
+    return p.startswith('/api/public/photos/') or p.startswith(_NAVICA_CDN_PREFIX)
+
+
 def _trigger_gallery_priority(listing_id: str) -> None:
     """Fire-and-forget: nudge this listing to the front of the backfill queue.
 
@@ -279,20 +294,16 @@ def get_listing(listing_id):
         gallery_status = listing.get('gallery_status') or 'pending'
 
         # Parse photos: serve full gallery only if gallery is 'ready'.
-        # Invariant #6: we never fall back to CDN URLs in the response path.
         raw_photos_json = listing.get('photos')
         if gallery_status == 'ready' and raw_photos_json:
             if isinstance(raw_photos_json, str):
                 try:
                     photos = json.loads(raw_photos_json)
-                    # Defensive: only local paths are safe to serve.
-                    listing['photos'] = [p for p in photos
-                                         if isinstance(p, str) and p.startswith('/api/public/photos/')]
+                    listing['photos'] = [p for p in photos if _is_serveable_photo(p)]
                 except json.JSONDecodeError:
                     listing['photos'] = []
             elif isinstance(raw_photos_json, list):
-                listing['photos'] = [p for p in raw_photos_json
-                                     if isinstance(p, str) and p.startswith('/api/public/photos/')]
+                listing['photos'] = [p for p in raw_photos_json if _is_serveable_photo(p)]
         else:
             # Gallery is pending or skipped. Client renders primary only.
             listing['photos'] = [listing['primary_photo']] if listing.get('primary_photo') else []
@@ -344,13 +355,11 @@ def get_listing_gallery(listing_id):
             if isinstance(raw, str):
                 try:
                     parsed = json.loads(raw)
-                    photos = [p for p in parsed
-                              if isinstance(p, str) and p.startswith('/api/public/photos/')]
+                    photos = [p for p in parsed if _is_serveable_photo(p)]
                 except json.JSONDecodeError:
                     photos = []
             elif isinstance(raw, list):
-                photos = [p for p in raw
-                          if isinstance(p, str) and p.startswith('/api/public/photos/')]
+                photos = [p for p in raw if _is_serveable_photo(p)]
 
         return jsonify({
             'success': True,
