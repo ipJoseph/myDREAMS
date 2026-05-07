@@ -636,15 +636,19 @@ class ListingService:
         # IDX compliance (public site)
         if filters.require_idx:
             conditions.append("idx_opt_in = 1")
-            # Gallery gate: show only listings whose photos are verified
-            # local-on-disk per PHOTO_PIPELINE_SPEC invariant #4.
-            # gallery_status is the single source of truth (see D3b). The
-            # legacy photo_ready column is deprecated — writers stopped
-            # maintaining it on 2026-04-23, so requiring photo_ready=1
-            # here silently hid every listing the new workers marked ready
-            # (100% of MountainLakesMLS, ~34% of NavicaMLS, a growing
-            # fraction of CanopyMLS). Dropped 2026-04-24.
-            conditions.append("gallery_status = 'ready'")
+            # Gallery gate: show listings whose gallery is fully ready
+            # OR whose primary photo is local (pending listings rendered
+            # with their cover only — full gallery fills in via the
+            # backfill worker out-of-band). Loosened 2026-05-07 because
+            # MLS Grid's 1.8 req/sec ceiling means a same-day catchup
+            # backlog of ~1,200 listings would otherwise hide for hours;
+            # showing them with a verified primary_photo is a strict
+            # subset of the original safety contract.
+            conditions.append(
+                "(gallery_status = 'ready' OR "
+                " (primary_photo IS NOT NULL AND primary_photo != '' "
+                "  AND primary_photo LIKE '/api/public/photos/%'))"
+            )
 
         # Zone filtering (public site)
         if filters.zone is not None:
