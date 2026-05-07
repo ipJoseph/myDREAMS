@@ -590,7 +590,7 @@ def list_areas():
                 f"AVG(list_price) as avg_price "
                 f"FROM listings "
                 f"WHERE idx_opt_in = 1 AND UPPER(status) = ? "
-                f"AND (gallery_status = 'ready' OR (primary_photo IS NOT NULL AND primary_photo != '' AND primary_photo LIKE '/api/public/photos/%')) "
+                f"AND (gallery_status = 'ready' OR (primary_photo IS NOT NULL AND primary_photo != '' AND LEFT(primary_photo, 19) = '/api/public/photos/')) "
                 f"AND {area_type} IS NOT NULL AND {area_type} != 'Other'"
                 f"{zone_where} "
                 f"AND {dedup_cond} "
@@ -787,7 +787,7 @@ def listing_stats():
                     COUNT(DISTINCT CASE WHEN UPPER(status) = 'ACTIVE'
                         AND county IS NOT NULL AND county != 'Other' THEN county END) as counties_served
                 FROM listings
-                WHERE idx_opt_in = 1 AND (gallery_status = 'ready' OR (primary_photo IS NOT NULL AND primary_photo != '' AND primary_photo LIKE '/api/public/photos/%')) {zone_where}
+                WHERE idx_opt_in = 1 AND (gallery_status = 'ready' OR (primary_photo IS NOT NULL AND primary_photo != '' AND LEFT(primary_photo, 19) = '/api/public/photos/')) {zone_where}
                   AND {dedup_cond}
             """, zone_params).fetchone()
 
@@ -795,7 +795,7 @@ def listing_stats():
                 SELECT property_type, COUNT(*) as count
                 FROM listings
                 WHERE idx_opt_in = 1 AND UPPER(status) = 'ACTIVE'
-                  AND (gallery_status = 'ready' OR (primary_photo IS NOT NULL AND primary_photo != '' AND primary_photo LIKE '/api/public/photos/%')) {zone_where}
+                  AND (gallery_status = 'ready' OR (primary_photo IS NOT NULL AND primary_photo != '' AND LEFT(primary_photo, 19) = '/api/public/photos/')) {zone_where}
                   AND {dedup_cond}
                 GROUP BY property_type
                 ORDER BY count DESC
@@ -805,7 +805,7 @@ def listing_stats():
                 SELECT mls_source, COUNT(*) as count
                 FROM listings
                 WHERE idx_opt_in = 1 AND UPPER(status) = 'ACTIVE'
-                  AND (gallery_status = 'ready' OR (primary_photo IS NOT NULL AND primary_photo != '' AND primary_photo LIKE '/api/public/photos/%')) {zone_where}
+                  AND (gallery_status = 'ready' OR (primary_photo IS NOT NULL AND primary_photo != '' AND LEFT(primary_photo, 19) = '/api/public/photos/')) {zone_where}
                   AND {dedup_cond}
                 GROUP BY mls_source
                 ORDER BY count DESC
@@ -950,7 +950,7 @@ def autocomplete():
             "AND dup.id != listings.id AND dup.idx_opt_in = 1"
         )
         _PUBLIC_BASE = (
-            "idx_opt_in = 1 AND (gallery_status = 'ready' OR (primary_photo IS NOT NULL AND primary_photo != '' AND primary_photo LIKE '/api/public/photos/%')) "
+            "idx_opt_in = 1 AND (gallery_status = 'ready' OR (primary_photo IS NOT NULL AND primary_photo != '' AND LEFT(primary_photo, 19) = '/api/public/photos/')) "
             "AND status = 'ACTIVE' AND zone IN (1,2) "
             f"AND {dedup_cond}"
         )

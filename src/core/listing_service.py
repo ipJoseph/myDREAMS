@@ -647,7 +647,7 @@ class ListingService:
             conditions.append(
                 "(gallery_status = 'ready' OR "
                 " (primary_photo IS NOT NULL AND primary_photo != '' "
-                "  AND primary_photo LIKE '/api/public/photos/%'))"
+                "  AND LEFT(primary_photo, 19) = '/api/public/photos/'))"
             )
 
         # Zone filtering (public site)
