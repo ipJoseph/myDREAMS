@@ -2350,10 +2350,11 @@ def create_collection_from_properties():
 
             for i, prop_id in enumerate(property_ids):
                 conn.execute('''
-                    INSERT OR IGNORE INTO package_properties
-                    (package_id, listing_id, display_order, added_at)
-                    VALUES (?, ?, ?, ?)
-                ''', (package_id, prop_id, i + 1, now))
+                    INSERT INTO package_properties
+                    (id, package_id, listing_id, display_order, added_at)
+                    VALUES (?, ?, ?, ?, ?)
+                    ON CONFLICT (id) DO NOTHING
+                ''', (str(uuid.uuid4()), package_id, prop_id, i + 1, now))
 
             conn.commit()
     except Exception as e:
@@ -4636,24 +4637,35 @@ def scoring_runs_list():
 @app.route('/system/photo-status')
 @requires_auth
 def photo_status():
-    """Photo download status across all MLS sources."""
+    """Photo download status across all MLS sources — health dashboard."""
     import json as json_mod
+    import shutil
+    import subprocess
     from pathlib import Path
 
     from src.core.pg_adapter import get_db as _pg_get_db
     db_conn = _pg_get_db(str(DB_PATH))
     db_conn.row_factory = sqlite3.Row
 
-    # Per-source stats
+    # Per-source stats with gallery_status breakdown.
+    # photo_local_path is deprecated as of 2026-04-23 — gallery_status is
+    # the spec's source of truth. `ready_visible` matches exactly what the
+    # public grid renders (same filter as src/core/listing_service
+    # _build_conditions when require_idx=True).
     sources = db_conn.execute("""
         SELECT
             mls_source,
             COUNT(*) as total,
             SUM(CASE WHEN UPPER(status) = 'ACTIVE' THEN 1 ELSE 0 END) as active,
-            SUM(CASE WHEN UPPER(status) = 'PENDING' THEN 1 ELSE 0 END) as pending,
-            SUM(CASE WHEN photo_local_path IS NOT NULL THEN 1 ELSE 0 END) as primary_photos,
-            SUM(CASE WHEN primary_photo IS NOT NULL THEN 1 ELSE 0 END) as has_photo_url,
-            SUM(CASE WHEN photos IS NOT NULL THEN 1 ELSE 0 END) as has_gallery
+            SUM(CASE WHEN UPPER(status) = 'PENDING' THEN 1 ELSE 0 END) as pending_status,
+            SUM(CASE WHEN gallery_status = 'ready' THEN 1 ELSE 0 END) as gallery_ready,
+            SUM(CASE WHEN gallery_status = 'pending' THEN 1 ELSE 0 END) as gallery_pending,
+            SUM(CASE WHEN gallery_status = 'skipped' THEN 1 ELSE 0 END) as gallery_skipped,
+            SUM(CASE WHEN UPPER(status) = 'ACTIVE'
+                      AND gallery_status = 'ready'
+                      AND idx_opt_in = 1 THEN 1 ELSE 0 END) as ready_visible,
+            SUM(CASE WHEN primary_photo LIKE '/api/%' THEN 1 ELSE 0 END) as primary_local,
+            SUM(CASE WHEN primary_photo LIKE 'http%' THEN 1 ELSE 0 END) as primary_cdn
         FROM listings
         GROUP BY mls_source
         ORDER BY total DESC
@@ -4663,10 +4675,11 @@ def photo_status():
     for s in sources:
         row = dict(s)
 
-        # Count gallery photos that are localized vs CDN
+        # Count gallery-array localization across a 500-row sample
         gallery_result = db_conn.execute("""
             SELECT photos FROM listings
             WHERE mls_source = ? AND photos IS NOT NULL
+              AND gallery_status = 'ready'
             LIMIT 500
         """, [row['mls_source']]).fetchall()
 
@@ -4690,6 +4703,9 @@ def photo_status():
         row['gallery_cdn'] = gallery_cdn
         row['gallery_total'] = gallery_total
         row['gallery_sample_size'] = len(gallery_result)
+        # ready_pct is the fraction of ACTIVE listings ready + visible
+        row['ready_pct'] = round(row['ready_visible'] / row['active'] * 100, 1) \
+            if row['active'] else 0
         source_stats.append(row)
 
     # Sync state files
@@ -4705,29 +4721,127 @@ def photo_status():
         except (FileNotFoundError, json_mod.JSONDecodeError):
             sync_states[name] = {}
 
-    # Disk usage
+    # Disk usage — prefer real filesystem stats (handles /mnt/dreams-photos
+    # mount on PRD and the data/photos dir on DEV identically via
+    # shutil.disk_usage walking the mount).
     photos_root = project_root / 'data' / 'photos'
-    disk_stats = {}
+    disk_stats = {'total_gb': 0, 'used_gb': 0, 'free_gb': 0, 'used_pct': 0,
+                  'subdirs': {}, 'mount': str(photos_root)}
+    try:
+        if photos_root.exists():
+            usage = shutil.disk_usage(str(photos_root))
+            disk_stats['total_gb'] = round(usage.total / (1024 ** 3), 1)
+            disk_stats['used_gb'] = round(usage.used / (1024 ** 3), 1)
+            disk_stats['free_gb'] = round(usage.free / (1024 ** 3), 1)
+            disk_stats['used_pct'] = round(usage.used / usage.total * 100, 1)
+    except OSError:
+        pass
     for subdir in ['mlsgrid', 'navica']:
         d = photos_root / subdir
         if d.exists():
-            files = list(d.iterdir())
-            file_count = len([f for f in files if f.is_file()])
-            total_bytes = sum(f.stat().st_size for f in files if f.is_file())
-            disk_stats[subdir] = {
-                'files': file_count,
-                'size_mb': round(total_bytes / (1024 * 1024)),
-                'size_gb': round(total_bytes / (1024 * 1024 * 1024), 1),
-            }
+            # Use find for speed on large dirs (millions of files)
+            try:
+                count = int(subprocess.check_output(
+                    ['find', str(d), '-type', 'f'], stderr=subprocess.DEVNULL
+                ).decode().count('\n'))
+            except (subprocess.CalledProcessError, FileNotFoundError):
+                count = 0
+            disk_stats['subdirs'][subdir] = {'files': count}
         else:
-            disk_stats[subdir] = {'files': 0, 'size_mb': 0, 'size_gb': 0}
+            disk_stats['subdirs'][subdir] = {'files': 0}
+
+    # Audit status — tail of the audit log. Prefer reading the most
+    # recent complete run summary.
+    audit_log = project_root / 'data' / 'logs' / 'audit.log'
+    audit_status = {'last_run': None, 'violations': None, 'per_source': {}}
+    if audit_log.exists():
+        try:
+            # Read last 60 lines (one run is ~6-10 lines)
+            lines = audit_log.read_text(errors='replace').splitlines()[-60:]
+            # Find the most recent "audit complete:" line
+            for i in range(len(lines) - 1, -1, -1):
+                if 'audit complete' in lines[i]:
+                    audit_status['last_run'] = lines[i].split(' ')[0] + ' ' + lines[i].split(' ')[1]
+                    # Extract total violations
+                    import re
+                    m = re.search(r'(\d+) total violations', lines[i])
+                    if m:
+                        audit_status['violations'] = int(m.group(1))
+                    # Backfill per-source counts from the 10 lines before
+                    start = max(0, i - 25)
+                    src_section = lines[start:i]
+                    cur_src = None
+                    for ln in src_section:
+                        m2 = re.search(r'(\w+MLS): (\d+) listings checked, (\d+) distinct violators', ln)
+                        if m2:
+                            audit_status['per_source'][m2.group(1)] = {
+                                'checked': int(m2.group(2)),
+                                'violators': int(m2.group(3)),
+                            }
+                    break
+        except (OSError, IndexError):
+            pass
+
+    # Tripwires log — most recent 15 lines (alerts only)
+    tripwires_log = project_root / 'data' / 'logs' / 'tripwires.log'
+    tripwires_tail = []
+    if tripwires_log.exists():
+        try:
+            tripwires_tail = tripwires_log.read_text(errors='replace').splitlines()[-15:]
+        except OSError:
+            pass
+
+    # Daemon health — any active photo-* systemd unit + last log time
+    daemon_status = []
+    try:
+        units_raw = subprocess.check_output(
+            ['systemctl', 'list-units', '--state=active', '--no-legend',
+             '--plain', '--no-pager'],
+            stderr=subprocess.DEVNULL, timeout=5
+        ).decode()
+        for ln in units_raw.splitlines():
+            parts = ln.split()
+            if not parts:
+                continue
+            unit = parts[0]
+            if not (unit.startswith('photo-catchup') or unit.startswith('photo-drain-')
+                    or unit.startswith('sync-manual')):
+                continue
+            # last journal line, unix timestamp
+            try:
+                last = subprocess.check_output(
+                    ['journalctl', '-u', unit, '-n', '1', '--no-pager',
+                     '-o', 'short-unix'],
+                    stderr=subprocess.DEVNULL, timeout=3
+                ).decode().strip().splitlines()
+                last_ts = None
+                if last:
+                    try:
+                        last_ts = float(last[-1].split()[0])
+                    except (ValueError, IndexError):
+                        pass
+                from datetime import datetime
+                import time as _time
+                age_sec = int(_time.time() - last_ts) if last_ts else None
+                daemon_status.append({
+                    'unit': unit,
+                    'state': 'active',
+                    'last_log_age_min': age_sec // 60 if age_sec is not None else None,
+                })
+            except subprocess.SubprocessError:
+                daemon_status.append({'unit': unit, 'state': 'active', 'last_log_age_min': None})
+    except (subprocess.SubprocessError, FileNotFoundError):
+        pass
 
     db_conn.close()
 
     return render_template('photo_status.html',
                          source_stats=source_stats,
                          sync_states=sync_states,
-                         disk_stats=disk_stats)
+                         disk_stats=disk_stats,
+                         audit_status=audit_status,
+                         tripwires_tail=tripwires_tail,
+                         daemon_status=daemon_status)
 
 
 # =========================================================================
