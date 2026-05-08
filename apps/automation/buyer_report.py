@@ -90,6 +90,28 @@ def _load_base64(filepath: Path, fallback: str = "") -> str:
         return fallback
 
 
+def _fetch_remote_as_base64(url: Optional[str], timeout: int = 6) -> str:
+    """Fetch a remote image URL and return it as a base64 data URI.
+
+    Used as a fallback for PDF generation when a listing has no local
+    photo file (e.g. Mountain Lakes / Carolina Smokies listings whose
+    galleries weren't downloaded). Returns "" on any failure so the
+    caller's existing 'Photo Not Available' fallback kicks in.
+    """
+    if not url or not isinstance(url, str) or not url.startswith(("http://", "https://")):
+        return ""
+    try:
+        import urllib.request
+        req = urllib.request.Request(url, headers={"User-Agent": "myDREAMS-PDF/1.0"})
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            data = resp.read()
+            ctype = resp.headers.get("Content-Type", "image/jpeg").split(";")[0].strip()
+        return f"data:{ctype};base64,{base64.b64encode(data).decode()}"
+    except Exception as exc:
+        logger.warning("PDF photo fetch failed for %s: %s", url, exc)
+        return ""
+
+
 def _find_local_photo(listing: dict) -> Optional[Path]:
     """
     Find a local photo file for the listing.
@@ -214,9 +236,13 @@ def _build_html(listing: dict, index: int = 0) -> str:
     logo_b64 = _load_base64(LOGO_PATH)
     headshot_b64 = _load_base64(HEADSHOT_PATH)
 
-    # Property photo
+    # Property photo: prefer local on-disk file; fall back to fetching the
+    # primary_photo CDN URL inline (covers Mountain Lakes / Carolina Smokies
+    # listings whose photos aren't downloaded locally yet).
     photo_path = _find_local_photo(listing)
     photo_b64 = _load_base64(photo_path) if photo_path else ""
+    if not photo_b64:
+        photo_b64 = _fetch_remote_as_base64(listing.get("primary_photo"))
 
     # Computed fields
     address = listing.get("address") or "Address Not Available"
