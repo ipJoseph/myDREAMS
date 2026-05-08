@@ -639,6 +639,9 @@
                         <a href="/buyer-collections/{{ pursuit.id }}/brochure" class="pursuit-btn" title="Download PDF brochure">PDF</a>
                         {% endif %}
                         {% endif %}
+                        {% if pursuit.collection_source != 'pursuit' %}
+                        <button class="pursuit-btn" onclick="duplicateCollection('{{ pursuit.id }}', '{{ (pursuit.name or pursuit.buyer_name)|replace("'", "\\'") }}')" title="Create a new collection with the same properties — useful for branching off an alternate version">Duplicate</button>
+                        {% endif %}
                         <button class="pursuit-btn danger" onclick="deleteCollection('{{ pursuit.id }}', '{{ pursuit.collection_source }}', '{{ pursuit.name or pursuit.buyer_name }}')" title="Delete collection">Delete</button>
                     </div>
                 </div>
@@ -741,6 +744,27 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name: newName.trim() })
                 });
+            }
+        }
+
+        async function duplicateCollection(id, name) {
+            const newName = prompt('Duplicate as a new collection. Name:', (name || 'Collection') + ' (copy)');
+            if (!newName || !newName.trim()) return;
+            try {
+                const resp = await fetch('/api/collections/' + id + '/save-as', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: newName.trim() }),
+                });
+                const data = await resp.json();
+                if (data.success && data.redirect_url) {
+                    window.location.href = data.redirect_url;
+                } else {
+                    alert(data.error || 'Failed to duplicate collection.');
+                }
+            } catch (e) {
+                console.error(e);
+                alert('Network error duplicating collection.');
             }
         }
 
