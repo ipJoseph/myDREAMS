@@ -953,10 +953,7 @@
                 {% endif %}
                 {% if property.mls_url %}
                 {% if 'canopymls.com' in (property.mls_url or '') %}
-                {# Try a Matrix internal-search deep-link; if Matrix doesn't honor the
-                   keyword param it falls through to the homepage exactly like before
-                   and the MLS# is still on the clipboard for paste-in-speed-bar. #}
-                <a href="#" class="action-btn" onclick="copyAndOpen('{{ property.mls_number|replace('CAR','') }}', 'https://matrix.canopymls.com/Matrix/Search/Search.aspx?searchtype=Residential&amp;keyword={{ property.mls_number|replace('CAR','') }}'); return false;" title="Copies MLS# to clipboard, then opens Matrix">Open in MLS</a>
+                <a href="#" class="action-btn" onclick="copyAndOpen('{{ property.mls_number|replace('CAR','') }}', '{{ property.mls_url }}'); return false;" title="Copies MLS# to clipboard, then opens Matrix">Open in MLS</a>
                 {% else %}
                 <a href="{{ property.mls_url }}" target="_blank" class="action-btn">Open in MLS</a>
                 {% endif %}
