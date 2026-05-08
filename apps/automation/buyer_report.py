@@ -527,12 +527,14 @@ h1, h2, h3, h4 {{
 
 .highlights {{
     display: flex;
-    gap: 20px;
+    gap: 18px;
     align-items: flex-start;
+    padding-right: 8px;
 }}
 .highlight-item {{
     text-align: center;
-    min-width: 70px;
+    min-width: 56px;
+    padding: 0 4px;
 }}
 .highlight-value {{
     font-family: Georgia, "Times New Roman", serif;
