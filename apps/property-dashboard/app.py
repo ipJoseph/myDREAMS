@@ -2668,9 +2668,9 @@ def buyer_collection_detail(collection_id):
                     if lead_row:
                         lead = dict(lead_row)
 
-        # Get properties in collection (include lat/lng for map)
+        # Get properties in collection (include lat/lng for map, status for label)
         properties = conn.execute('''
-            SELECT l.id, l.address, l.city, l.state, l.list_price,
+            SELECT l.id, l.address, l.city, l.state, l.list_price, l.status,
                    l.beds, l.baths, l.sqft, l.primary_photo, l.mls_number,
                    l.latitude, l.longitude, l.mls_source, l.photo_local_path
             FROM package_properties pp

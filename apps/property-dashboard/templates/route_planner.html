@@ -177,6 +177,24 @@
     .btn-green { background: #16a34a; color: #fff; }
     .btn-green:hover { background: #15803d; }
 
+    /* Toast notifications for save confirmations */
+    .toast-host {
+      position: fixed; top: 84px; right: 24px; z-index: 9999;
+      display: flex; flex-direction: column; gap: 8px; pointer-events: none;
+    }
+    .toast {
+      background: #0a1628; color: #fff; border-left: 4px solid #16a34a;
+      padding: 12px 16px; border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      min-width: 280px; max-width: 420px; font-size: 14px; opacity: 0;
+      transform: translateX(20px); transition: opacity 0.2s, transform 0.2s;
+      pointer-events: auto;
+    }
+    .toast.visible { opacity: 1; transform: translateX(0); }
+    .toast.error { border-left-color: #dc2626; }
+    .toast .toast-title { font-weight: 600; margin-bottom: 4px; }
+    .toast .toast-body { color: #cbd5e1; font-size: 13px; }
+    .toast .toast-link { color: #c8a84e; text-decoration: underline; cursor: pointer; }
+
     /* Break modal */
     .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100; align-items: center; justify-content: center; }
     .modal-overlay.active { display: flex; }
@@ -240,6 +258,7 @@
   </style>
 </head>
 <body>
+<div class="toast-host" id="toastHost"></div>
   <div class="layout">
     <!-- Top navigation bar -->
     <div class="top-bar">
@@ -257,8 +276,10 @@
         <button class="btn btn-outline" onclick="saveTourAs()">Save As...</button>
         <button class="btn btn-gold" onclick="saveTour()">Save</button>
         {% else %}
-        <button class="btn btn-outline" onclick="saveRouteToDb()" id="saveRouteBtn">Save Route</button>
-        <button class="btn btn-green" onclick="saveShowing()">Save as Showing</button>
+        <button class="btn btn-gold" onclick="saveRouteToDb()" id="saveRouteBtn"
+                title="Save just the route + stop order. No per-stop times. Quick-save for tour planning. Find it later under 'Saved Routes' on the collection detail page.">Save Route</button>
+        <button class="btn btn-green" onclick="saveShowing()" id="saveShowingBtn"
+                title="Save the full schedule including arrival/depart times for each stop. Find it later under 'Saved Routes' on the collection detail page.">Save as Showing</button>
         {% endif %}
       </div>
     </div>
@@ -277,16 +298,16 @@
           </div>
           <div class="config-row">
             <label>Start Address</label>
-            <input type="text" id="cfgStart" value="{{ home_address }}" placeholder="Optional: starting address">
+            <input type="text" id="cfgStart" value="" placeholder="Defaults to first property">
           </div>
           <div class="config-row">
             <label style="width: auto; flex: none;">
-              <input type="checkbox" id="cfgRoundtrip" checked onchange="toggleRoundtrip()" style="width:auto; margin-right:4px; vertical-align:middle;"> Roundtrip
+              <input type="checkbox" id="cfgRoundtrip" onchange="toggleRoundtrip()" style="width:auto; margin-right:4px; vertical-align:middle;"> Roundtrip
             </label>
           </div>
-          <div class="config-row" id="endAddrRow" style="display: none;">
+          <div class="config-row" id="endAddrRow">
             <label>End Address</label>
-            <input type="text" id="cfgEnd" value="" placeholder="Ending address (if different)">
+            <input type="text" id="cfgEnd" value="" placeholder="Defaults to last property">
           </div>
           <div class="config-row">
             <label>Default Mins</label>
@@ -563,6 +584,22 @@
       var checked = document.getElementById('cfgRoundtrip').checked;
       document.getElementById('endAddrRow').style.display = checked ? 'none' : '';
     }
+
+    // Populate Start/End defaults from first/last property if not already
+    // set (saved state and explicit user edits both win).
+    (function setStartEndDefaults() {
+      var startEl = document.getElementById('cfgStart');
+      var endEl = document.getElementById('cfgEnd');
+      var routable = PROPERTIES.filter(function(p) { return p && (p.address || p.label); });
+      if (routable.length === 0) return;
+      function fmt(p) {
+        var parts = [p.address || p.label || ''];
+        if (p.city) parts.push(p.city);
+        return parts.filter(Boolean).join(', ');
+      }
+      if (startEl && !startEl.value) startEl.value = fmt(routable[0]);
+      if (endEl && !endEl.value && routable.length > 1) endEl.value = fmt(routable[routable.length - 1]);
+    })();
 
     function updateSelectionCount() {
       var selected = PROPERTIES.filter(function(p) { return p._selected; }).length;
@@ -1412,7 +1449,9 @@
         infoDiv.className = 'map-addr-label';
         infoDiv.textContent = addressLabel;
         var overlay = new google.maps.OverlayView();
-        overlay.onAdd = function() { this.getPanes().overlayLayer.appendChild(infoDiv); };
+        // floatPane sits ABOVE the overlayLayer that holds the route
+        // polyline, so address labels never get covered by the line.
+        overlay.onAdd = function() { this.getPanes().floatPane.appendChild(infoDiv); };
         overlay.draw = function() {
           var pt = this.getProjection().fromLatLngToDivPixel(pos);
           if (pt) { infoDiv.style.left = (pt.x + PIN_W / 2 + 4) + 'px'; infoDiv.style.top = (pt.y - PIN_H / 2) + 'px'; }
@@ -1982,6 +2021,27 @@
       document.body.removeChild(form);
     }
 
+    function showToast(opts) {
+      var host = document.getElementById('toastHost');
+      if (!host) return;
+      var t = document.createElement('div');
+      t.className = 'toast' + (opts.error ? ' error' : '');
+      var html = '<div class="toast-title">' + (opts.title || 'Saved') + '</div>';
+      if (opts.body) html += '<div class="toast-body">' + opts.body + '</div>';
+      if (opts.linkText && opts.linkHref) {
+        html += '<div style="margin-top:6px;"><a class="toast-link" href="' + opts.linkHref + '">' + opts.linkText + '</a></div>';
+      }
+      t.innerHTML = html;
+      host.appendChild(t);
+      // Force reflow then animate in
+      void t.offsetWidth;
+      t.classList.add('visible');
+      setTimeout(function() {
+        t.classList.remove('visible');
+        setTimeout(function() { if (t.parentNode) t.parentNode.removeChild(t); }, 250);
+      }, opts.duration || 5000);
+    }
+
     function saveRouteToDb() {
       if (STANDALONE) return;
       var selectedProps = getSelectedProperties();
@@ -2036,23 +2096,20 @@
       .then(function(resp) { return resp.json(); })
       .then(function(data) {
         if (data.success) {
-          var btn = document.getElementById('saveRouteBtn');
-          if (btn) {
-            var orig = btn.textContent;
-            btn.textContent = 'Saved!';
-            btn.style.borderColor = '#16a34a';
-            btn.style.color = '#16a34a';
-            setTimeout(function() {
-              btn.textContent = orig;
-              btn.style.borderColor = '';
-              btn.style.color = '';
-            }, 2000);
-          }
+          showToast({
+            title: 'Route saved: ' + routeName,
+            body: 'Find it under <em>Saved Routes</em> on the collection detail page.',
+            linkText: 'Open collection',
+            linkHref: '/buyer-collections/' + COLLECTION_ID,
+            duration: 6000,
+          });
         } else {
-          alert('Error saving route.');
+          showToast({ title: 'Could not save route', body: data.error || 'Try again.', error: true });
         }
       })
-      .catch(function() { alert('Error saving route.'); });
+      .catch(function() {
+        showToast({ title: 'Could not save route', body: 'Network error. Try again.', error: true });
+      });
     }
 
     function saveShowing() {
@@ -2098,14 +2155,15 @@
       .then(function(resp) { return resp.json(); })
       .then(function(data) {
         if (data.success) {
-          var btn = document.querySelector('.btn-green');
-          if (btn) {
-            var orig = btn.textContent;
-            btn.textContent = 'Saved!';
-            setTimeout(function() { btn.textContent = orig; }, 2000);
-          }
+          showToast({
+            title: 'Showing saved: ' + (document.getElementById('showingName').value || 'Showing'),
+            body: 'Find it under <em>Saved Routes</em> on the collection detail page.',
+            linkText: 'Open collection',
+            linkHref: '/buyer-collections/' + COLLECTION_ID,
+            duration: 6000,
+          });
         } else {
-          alert('Error saving showing.');
+          showToast({ title: 'Could not save showing', body: data.error || 'Try again.', error: true });
         }
       })
       .catch(function() { alert('Error saving showing.'); });
