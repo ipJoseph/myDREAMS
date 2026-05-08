@@ -917,31 +917,72 @@
                     if (saved) document.getElementById('backToProperties').href = saved;
                 })();
 
-                function copyAndOpen(mlsNum, url) {
-                    // Copy MLS# to clipboard using synchronous execCommand
-                    // (navigator.clipboard requires HTTPS, doesn't work on localhost)
-                    var copied = false;
+                function _copyToClipboard(text) {
                     try {
                         var ta = document.createElement('textarea');
-                        ta.value = mlsNum;
+                        ta.value = text;
                         ta.setAttribute('readonly', '');
                         ta.style.cssText = 'position:fixed;left:-9999px;top:-9999px';
                         document.body.appendChild(ta);
                         ta.focus();
                         ta.select();
-                        copied = document.execCommand('copy');
+                        var ok = document.execCommand('copy');
                         document.body.removeChild(ta);
-                    } catch(e) {}
+                        return ok;
+                    } catch(e) { return false; }
+                }
 
-                    // Open Matrix
+                function copyAndOpen(mlsNum, url) {
+                    // Matrix has no public deep-link URL pattern; opens its homepage.
+                    // We copy the MLS# to the clipboard and show a loud, persistent
+                    // banner so the agent knows exactly what to paste into Matrix's
+                    // speed bar (top of Matrix page, "Speed Bar" input).
+                    var copied = _copyToClipboard(mlsNum);
                     window.open(url, '_blank');
 
-                    // Show confirmation toast
-                    var toast = document.createElement('div');
-                    toast.textContent = copied ? 'MLS# ' + mlsNum + ' copied! Paste in Matrix speed bar.' : 'MLS#: ' + mlsNum;
-                    toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#082d40;color:white;padding:10px 20px;border-radius:8px;font-size:14px;font-weight:600;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.3)';
-                    document.body.appendChild(toast);
-                    setTimeout(function() { toast.remove(); }, 4000);
+                    // Tear down any prior banner
+                    var prior = document.getElementById('mlsCopyBanner');
+                    if (prior) prior.remove();
+
+                    var b = document.createElement('div');
+                    b.id = 'mlsCopyBanner';
+                    b.style.cssText = [
+                        'position:fixed', 'top:24px', 'left:50%', 'transform:translateX(-50%)',
+                        'background:#082d40', 'color:#fff', 'border-left:6px solid #c8a84e',
+                        'padding:18px 24px', 'border-radius:8px', 'box-shadow:0 8px 24px rgba(0,0,0,0.35)',
+                        'z-index:99999', 'min-width:340px', 'max-width:520px',
+                        'font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif',
+                    ].join(';');
+
+                    var statusText = copied
+                        ? 'MLS# <span style="color:#c8a84e;font-weight:800">' + mlsNum + '</span> copied to clipboard'
+                        : 'Could not auto-copy — MLS# is <span style="color:#c8a84e;font-weight:800">' + mlsNum + '</span>';
+
+                    b.innerHTML =
+                        '<div style="display:flex;align-items:flex-start;gap:14px;">' +
+                          '<div style="flex:1;">' +
+                            '<div style="font-size:16px;font-weight:700;line-height:1.3;">' + statusText + '</div>' +
+                            '<div style="font-size:13px;color:#c4d2dd;margin-top:6px;line-height:1.4;">' +
+                              'Matrix opened in a new tab. Click the <b>Speed Bar</b> at the top of the Matrix page, paste (Ctrl+V), press Enter.' +
+                            '</div>' +
+                            '<div style="margin-top:10px;display:flex;gap:8px;">' +
+                              '<button id="mlsBannerCopy" style="background:#c8a84e;color:#082d40;border:0;padding:6px 14px;border-radius:4px;font-weight:700;font-size:13px;cursor:pointer;">Copy again</button>' +
+                              '<button id="mlsBannerClose" style="background:transparent;color:#c4d2dd;border:1px solid #4a5e6e;padding:6px 14px;border-radius:4px;font-size:13px;cursor:pointer;">Got it</button>' +
+                            '</div>' +
+                          '</div>' +
+                        '</div>';
+
+                    document.body.appendChild(b);
+                    document.getElementById('mlsBannerCopy').onclick = function() {
+                        var ok = _copyToClipboard(mlsNum);
+                        this.textContent = ok ? 'Copied!' : 'Copy failed';
+                        var self = this;
+                        setTimeout(function() { self.textContent = 'Copy again'; }, 1500);
+                    };
+                    document.getElementById('mlsBannerClose').onclick = function() { b.remove(); };
+
+                    // Auto-dismiss after 12 seconds (long enough to register, paste, and act)
+                    setTimeout(function() { if (b.parentNode) b.remove(); }, 12000);
                 }
             </script>
             <div class="action-buttons">
