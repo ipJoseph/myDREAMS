@@ -154,10 +154,13 @@ def _escape(text) -> str:
 # ---------------------------------------------------------------------------
 
 def _get_showing(showing_id: str, db_path: str = None) -> Optional[dict]:
-    """Fetch a showing record by ID."""
-    path = db_path or str(DATABASE_PATH)
-    conn = sqlite3.connect(path)
-    conn.row_factory = sqlite3.Row
+    """Fetch a showing record by ID from Postgres via pg_adapter.
+
+    db_path is accepted for backward-compat but ignored — Postgres is
+    the canonical store; the legacy SQLite path was the orphan dreams.db.
+    """
+    from src.core.pg_adapter import get_db
+    conn = get_db()
     try:
         row = conn.execute(
             "SELECT * FROM showings WHERE id = ?", [showing_id]
@@ -168,12 +171,11 @@ def _get_showing(showing_id: str, db_path: str = None) -> Optional[dict]:
 
 
 def _get_lead(lead_id: str, db_path: str = None) -> Optional[dict]:
-    """Fetch a lead record by ID."""
+    """Fetch a lead record by ID from Postgres."""
     if not lead_id:
         return None
-    path = db_path or str(DATABASE_PATH)
-    conn = sqlite3.connect(path)
-    conn.row_factory = sqlite3.Row
+    from src.core.pg_adapter import get_db
+    conn = get_db()
     try:
         row = conn.execute(
             "SELECT * FROM leads WHERE id = ?", [lead_id]
@@ -184,12 +186,11 @@ def _get_lead(lead_id: str, db_path: str = None) -> Optional[dict]:
 
 
 def _get_listing(listing_id: str, db_path: str = None) -> Optional[dict]:
-    """Fetch a listing by id."""
+    """Fetch a listing by id from Postgres."""
     if not listing_id:
         return None
-    path = db_path or str(DATABASE_PATH)
-    conn = sqlite3.connect(path)
-    conn.row_factory = sqlite3.Row
+    from src.core.pg_adapter import get_db
+    conn = get_db()
     try:
         row = conn.execute(
             "SELECT * FROM listings WHERE id = ? OR mls_number = ? LIMIT 1",
