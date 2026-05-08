@@ -272,13 +272,13 @@
                    title="Plan showing route with map and times">
                     Route Planner
                 </a>
-                <a href="/contacts/{{ contact.id }}/packages/{{ package.id }}/pdf"
+                <a href="/collections/{{ package.id }}/pdf"
                    class="dreams-btn dreams-btn-secondary"
                    title="Download PDF package">
                     Download PDF
                 </a>
                 {% if package.status == 'draft' %}
-                <form method="POST" action="/contacts/{{ contact.id }}/packages/{{ package.id }}/status" style="display: inline;">
+                <form method="POST" action="/collections/{{ package.id }}/status" style="display: inline;">
                     <input type="hidden" name="status" value="ready">
                     <button type="submit" class="dreams-btn dreams-btn-primary">Mark Ready to Send</button>
                 </form>
@@ -445,7 +445,7 @@
 
         async function renamePackage(newName) {
             if (!newName.trim()) return;
-            await fetch(`/contacts/${contactId}/packages/${packageId}/rename`, {
+            await fetch(`/api/collections/${packageId}/rename`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name: newName.trim() })
@@ -456,9 +456,10 @@
             if (!confirm('Remove this property from the package?')) return;
 
             try {
-                const response = await fetch(`/contacts/${contactId}/packages/${packageId}/remove/${propertyId}`, {
+                const response = await fetch(`/collections/${packageId}/remove-property`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ listing_id: propertyId })
                 });
                 const result = await response.json();
 
@@ -528,7 +529,7 @@
 
         async function addToPackage(listingId) {
             try {
-                const resp = await fetch(`/contacts/${contactId}/packages/${packageId}/add`, {
+                const resp = await fetch(`/collections/${packageId}/add-property`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ listing_id: listingId })

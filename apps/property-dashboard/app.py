@@ -795,12 +795,12 @@ def home():
                     expiring_listings = [dict(r) for r in conn2.execute('''
                         SELECT id, mls_number, mls_source, address, city, list_price,
                                expiration_date, listing_agent_name,
-                               CAST(julianday(expiration_date) - julianday('now') AS INTEGER) as days_left
+                               (expiration_date::date - CURRENT_DATE) as days_left
                         FROM listings
                         WHERE status = 'ACTIVE'
                         AND expiration_date IS NOT NULL
-                        AND expiration_date <= date('now', '+14 days')
-                        AND expiration_date >= date('now', '-7 days')
+                        AND expiration_date::date <= CURRENT_DATE + INTERVAL '14 days'
+                        AND expiration_date::date >= CURRENT_DATE - INTERVAL '7 days'
                         ORDER BY expiration_date ASC, list_price DESC
                         LIMIT 20
                     ''').fetchall()]
@@ -885,12 +885,12 @@ def home():
             expiring_listings = [dict(r) for r in conn.execute('''
                 SELECT id, mls_number, mls_source, address, city, list_price,
                        expiration_date, listing_agent_name,
-                       CAST(julianday(expiration_date) - julianday('now') AS INTEGER) as days_left
+                       (expiration_date::date - CURRENT_DATE) as days_left
                 FROM listings
                 WHERE status = 'ACTIVE'
                 AND expiration_date IS NOT NULL
-                AND expiration_date <= date('now', '+14 days')
-                AND expiration_date >= date('now', '-7 days')
+                AND expiration_date::date <= CURRENT_DATE + INTERVAL '14 days'
+                AND expiration_date::date >= CURRENT_DATE - INTERVAL '7 days'
                 ORDER BY expiration_date ASC, list_price DESC
                 LIMIT 20
             ''').fetchall()]
@@ -1587,7 +1587,7 @@ def _batch_fub_activity_stats(db, fub_ids: list) -> dict:
             lp = ','.join('?' * len(lead_ids))
             comm_rows = conn.execute(f'''
                 SELECT contact_id,
-                       CAST(julianday('now') - julianday(MAX(occurred_at)) AS INTEGER) AS days_since
+                       (CURRENT_DATE - MAX(occurred_at::date)) AS days_since
                 FROM contact_communications
                 WHERE contact_id IN ({lp})
                 GROUP BY contact_id
@@ -1987,7 +1987,8 @@ def pursuits_list():
         LEFT JOIN leads l ON l.id = pp.lead_id
         LEFT JOIN package_properties pkp ON pkp.package_id = pp.id
         WHERE pp.collection_type IN ('buyer_collection', 'agent_package', 'showing')
-        GROUP BY pp.id
+        GROUP BY pp.id, u.id, u.name, u.email,
+                 l.id, l.first_name, l.last_name, l.email
         ORDER BY pp.updated_at DESC
     ''').fetchall()
     conn.close()
@@ -2289,25 +2290,109 @@ def collection_detail(collection_id):
         client_url=client_url,
         saved_routes=saved_routes)
 
-@app.route('/collections/<pursuit_id>/add-property', methods=['POST'])
+@app.route('/collections/<collection_id>/add-property', methods=['POST'])
 @requires_auth
-def add_property_to_collection(pursuit_id):
-    return add_property_to_pursuit(pursuit_id)
+def add_property_to_collection(collection_id):
+    """Add a listing to a collection (property_packages row)."""
+    import uuid
+    data = request.get_json() or {}
+    listing_id = data.get('listing_id') or request.form.get('listing_id')
+    if not listing_id:
+        return jsonify({'error': 'listing_id required'}), 400
+    db = get_db()
+    with db._get_connection() as conn:
+        # Get current max display_order
+        row = conn.execute(
+            'SELECT COALESCE(MAX(display_order), 0) AS max_order FROM package_properties WHERE package_id = ?',
+            [collection_id]
+        ).fetchone()
+        next_order = (row['max_order'] if row else 0) + 1
+        conn.execute(
+            'INSERT INTO package_properties (id, package_id, listing_id, display_order, added_at) '
+            'VALUES (?, ?, ?, ?, ?) ON CONFLICT (id) DO NOTHING',
+            [str(uuid.uuid4()), collection_id, listing_id, next_order, datetime.now().isoformat()]
+        )
+        conn.execute('UPDATE property_packages SET updated_at = ? WHERE id = ?',
+                     [datetime.now().isoformat(), collection_id])
+        conn.commit()
+    return jsonify({'success': True})
 
-@app.route('/collections/<pursuit_id>/remove-property', methods=['POST'])
-@requires_auth
-def remove_property_from_collection(pursuit_id):
-    return remove_property_from_pursuit(pursuit_id)
 
-@app.route('/collections/<pursuit_id>/status', methods=['POST'])
+@app.route('/collections/<collection_id>/remove-property', methods=['POST'])
 @requires_auth
-def update_collection_status(pursuit_id):
-    return update_pursuit_status(pursuit_id)
+def remove_property_from_collection(collection_id):
+    """Remove a listing (by listing_id) from a collection."""
+    data = request.get_json() or {}
+    listing_id = (data.get('listing_id')
+                  or data.get('property_id')
+                  or request.form.get('listing_id')
+                  or request.form.get('property_id'))
+    if not listing_id:
+        return jsonify({'error': 'listing_id required'}), 400
+    db = get_db()
+    with db._get_connection() as conn:
+        conn.execute('DELETE FROM package_properties WHERE package_id = ? AND listing_id = ?',
+                     [collection_id, listing_id])
+        conn.execute('UPDATE property_packages SET updated_at = ? WHERE id = ?',
+                     [datetime.now().isoformat(), collection_id])
+        conn.commit()
+    return jsonify({'success': True})
+
+@app.route('/collections/<collection_id>/status', methods=['POST'])
+@requires_auth
+def update_collection_status(collection_id):
+    """Update a collection (property_packages row) status: draft|ready|sent|archived."""
+    db = get_db()
+    new_status = (request.form.get('status')
+                  or (request.get_json() or {}).get('status'))
+    if new_status not in ('draft', 'ready', 'sent', 'archived'):
+        return jsonify({'error': 'Invalid status'}), 400
+    with db._get_connection() as conn:
+        conn.execute('UPDATE property_packages SET status = ?, updated_at = ? WHERE id = ?',
+                     [new_status, datetime.now().isoformat(), collection_id])
+        conn.commit()
+    if request.is_json:
+        return jsonify({'success': True, 'status': new_status})
+    return redirect(url_for('collection_detail', collection_id=collection_id))
 
 @app.route('/collections/<pursuit_id>/auto-populate', methods=['POST'])
 @requires_auth
 def auto_populate_collection(pursuit_id):
     return auto_populate_pursuit(pursuit_id)
+
+
+@app.route('/collections/<collection_id>/pdf')
+@requires_auth
+def collection_pdf(collection_id):
+    """Generate combined PDF for a collection (works for unassigned + contact-assigned)."""
+    try:
+        from apps.automation.buyer_report import generate_combined_report, get_package_report_filename
+        db = get_db()
+        with db._get_connection() as conn:
+            package = conn.execute(
+                'SELECT * FROM property_packages WHERE id = ?', (collection_id,)
+            ).fetchone()
+            if not package:
+                return "Collection not found", 404
+            rows = conn.execute(
+                'SELECT listing_id FROM package_properties WHERE package_id = ? ORDER BY display_order, added_at',
+                (collection_id,)
+            ).fetchall()
+        listing_ids = [r['listing_id'] for r in rows]
+        if not listing_ids:
+            return "No properties in this collection", 400
+        pdf_bytes = generate_combined_report(listing_ids)
+        if not pdf_bytes:
+            return "Failed to generate PDF. Make sure WeasyPrint is installed.", 500
+        filename = get_package_report_filename(package['name'])
+        return Response(pdf_bytes, mimetype='application/pdf',
+                        headers={'Content-Disposition': f'attachment; filename="{filename}"',
+                                 'Content-Type': 'application/pdf'})
+    except ImportError:
+        return "PDF generation requires WeasyPrint. Install with: pip install weasyprint", 500
+    except Exception as e:
+        logger.error(f"Error generating collection PDF: {e}")
+        return "Error generating PDF. Please try again.", 500
 
 @app.route('/api/collections/create-from-properties', methods=['POST'])
 @requires_auth
@@ -2736,7 +2821,7 @@ def collection_save_showing(collection_id):
             prop_id = stop.get('propertyId')
             if prop_id:
                 conn.execute('''
-                    INSERT OR IGNORE INTO showing_properties
+                    INSERT INTO showing_properties
                     (id, showing_id, property_id, stop_order, time_at_property)
                     VALUES (?, ?, ?, ?, ?)
                 ''', (
@@ -3412,7 +3497,7 @@ def template_add_property(template_id):
 
         try:
             conn.execute('''
-                INSERT OR IGNORE INTO package_properties
+                INSERT INTO package_properties
                 (id, package_id, listing_id, display_order, added_at)
                 VALUES (?, ?, ?, ?, ?)
             ''', (str(uuid.uuid4()), template_id, listing['id'], max_order + 1,
@@ -3579,7 +3664,7 @@ def smart_collections_queue():
     accepted_count = conn.execute('''
         SELECT COUNT(*) FROM property_packages
         WHERE collection_type = 'smart' AND status = 'ready'
-          AND updated_at >= date('now', '-30 days')
+          AND updated_at::date >= CURRENT_DATE - INTERVAL '30 days'
     ''').fetchone()[0]
 
     total_properties = sum(item['property_count'] for item in pending)
@@ -5943,7 +6028,7 @@ def contact_package_add_properties(contact_id, package_id):
 
             for i, listing_id in enumerate(listing_ids):
                 conn.execute(
-                    'INSERT OR IGNORE INTO package_properties (id, package_id, listing_id, display_order, added_at) '
+                    'INSERT INTO package_properties (id, package_id, listing_id, display_order, added_at) '
                     'VALUES (?, ?, ?, ?, ?)',
                     [str(uuid.uuid4()), package_id, listing_id, max_order + i + 1,
                      datetime.now().isoformat()]

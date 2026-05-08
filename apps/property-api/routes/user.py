@@ -499,7 +499,7 @@ def add_favorite():
 
         fav_id = str(uuid.uuid4())
         db.execute(
-            'INSERT OR IGNORE INTO user_favorites (id, user_id, listing_id, created_at) '
+            'INSERT INTO user_favorites (id, user_id, listing_id, created_at) '
             'VALUES (?, ?, ?, ?)',
             [fav_id, user_id, listing_id, datetime.now().isoformat()]
         )
@@ -1010,7 +1010,7 @@ def add_to_collection(collection_id):
 
         item_id = str(uuid.uuid4())
         db.execute(
-            'INSERT OR IGNORE INTO package_properties (id, package_id, listing_id, display_order, added_at) '
+            'INSERT INTO package_properties (id, package_id, listing_id, display_order, added_at) '
             'VALUES (?, ?, ?, ?, ?)',
             [item_id, collection_id, listing_id, max_order + 1, datetime.now().isoformat()]
         )

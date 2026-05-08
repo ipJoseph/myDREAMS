@@ -349,7 +349,7 @@ def _flag_potential_duplicate(
     """
     try:
         conn.execute("""
-            INSERT OR IGNORE INTO potential_duplicates
+            INSERT INTO potential_duplicates
             (id, existing_lead_id, new_email, new_first_name, new_last_name,
              shared_value, match_type, status, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?)

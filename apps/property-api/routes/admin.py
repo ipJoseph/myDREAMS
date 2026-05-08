@@ -319,7 +319,7 @@ def add_template_property(template_id):
 
         link_id = str(uuid.uuid4())
         db.execute('''
-            INSERT OR IGNORE INTO package_properties
+            INSERT INTO package_properties
             (id, package_id, listing_id, display_order, agent_notes, added_at)
             VALUES (?, ?, ?, ?, ?, ?)
         ''', (

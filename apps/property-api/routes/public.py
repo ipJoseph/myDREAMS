@@ -701,7 +701,7 @@ def filtered_stats():
                     """, params).fetchone()
                 else:
                     dom_row = conn.execute(f"""
-                        SELECT AVG(julianday('now') - julianday(list_date))
+                        SELECT AVG(CURRENT_DATE - list_date::date)
                         FROM listings WHERE {where} AND list_date IS NOT NULL
                     """, params).fetchone()
                 if dom_row and dom_row[0]:

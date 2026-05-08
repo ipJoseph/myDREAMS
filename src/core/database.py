@@ -5282,7 +5282,7 @@ class DREAMSDatabase:
             # Check for showings
             showings = conn.execute('''
                 SELECT COUNT(*) as total,
-                       SUM(CASE WHEN status = 'scheduled' AND scheduled_date >= date('now') THEN 1 ELSE 0 END) as upcoming,
+                       SUM(CASE WHEN status = 'scheduled' AND scheduled_date::date >= CURRENT_DATE THEN 1 ELSE 0 END) as upcoming,
                        SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed
                 FROM showings WHERE lead_id = ?
             ''', (contact_id,)).fetchone()
@@ -6678,9 +6678,15 @@ class DREAMSDatabase:
                 WHERE ce.occurred_at >= ?
                 AND l.contact_group = 'scored'
                 {user_filter_l}
-                GROUP BY l.id
-                HAVING views > 0 OR favorites > 0 OR shares > 0
-                ORDER BY (views + favorites * 2 + shares * 3) DESC
+                GROUP BY l.id, l.first_name, l.last_name, l.fub_id
+                HAVING SUM(CASE WHEN ce.event_type = 'property_view' THEN 1 ELSE 0 END) > 0
+                    OR SUM(CASE WHEN ce.event_type = 'property_favorite' THEN 1 ELSE 0 END) > 0
+                    OR SUM(CASE WHEN ce.event_type = 'property_share' THEN 1 ELSE 0 END) > 0
+                ORDER BY (
+                    SUM(CASE WHEN ce.event_type = 'property_view' THEN 1 ELSE 0 END)
+                    + SUM(CASE WHEN ce.event_type = 'property_favorite' THEN 1 ELSE 0 END) * 2
+                    + SUM(CASE WHEN ce.event_type = 'property_share' THEN 1 ELSE 0 END) * 3
+                ) DESC
                 LIMIT 15
             ''', [cutoff] + user_params).fetchall()
 
