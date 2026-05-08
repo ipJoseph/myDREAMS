@@ -235,7 +235,7 @@
         <!-- Per-Source Cards -->
         <div class="status-grid">
             {% for source in source_stats %}
-            {% set pct = ((source.primary_photos / source.total * 100) if source.total > 0 else 0) | round(1) %}
+            {% set pct = ((source.primary_local / source.total * 100) if source.total > 0 else 0) | round(1) %}
             {% set gallery_pct = ((source.gallery_local / source.gallery_total * 100) if source.gallery_total > 0 else 0) | round(1) %}
             <div class="status-card">
                 <div class="status-card-header">
@@ -259,13 +259,13 @@
                     </div>
                     <div class="stat-row">
                         <span class="stat-label">Pending</span>
-                        <span class="stat-value">{{ "{:,}".format(source.pending) }}</span>
+                        <span class="stat-value">{{ "{:,}".format(source.pending_status) }}</span>
                     </div>
 
                     <div style="margin-top: 16px; padding-top: 12px; border-top: 2px solid #f3f4f6;">
                         <div class="stat-row">
                             <span class="stat-label">Primary Photos (DB linked)</span>
-                            <span class="stat-value">{{ "{:,}".format(source.primary_photos) }}</span>
+                            <span class="stat-value">{{ "{:,}".format(source.primary_local) }}</span>
                         </div>
                         <div class="progress-bar-container">
                             <div class="progress-bar {% if pct >= 90 %}green{% elif pct >= 50 %}yellow{% else %}red{% endif %}"
