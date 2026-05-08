@@ -1743,7 +1743,7 @@
                             <a href="sms:{{ c.phone }}" class="action-btn" title="Text" onclick="event.stopPropagation()">Text</a>
                             {% endif %}
                             {% if c.email %}
-                            <a href="https://mail.google.com/mail/u/0/?authuser=eugy@jontharphomes.com&view=cm&to={{ c.email }}" target="_blank" class="action-btn" title="Email via Gmail" onclick="event.stopPropagation()">Email</a>
+                            <a href="https://mail.google.com/mail/u/0/?authuser=Joseph@JonTharpHomes.com&view=cm&to={{ c.email }}" target="_blank" class="action-btn" title="Email via Gmail" onclick="event.stopPropagation()">Email</a>
                             {% endif %}
                         </div>
                     </div>
@@ -2021,7 +2021,7 @@
                                         <a href="sms:{{ c.phone }}" class="action-btn" onclick="event.stopPropagation()">Text</a>
                                         {% endif %}
                                         {% if c.email %}
-                                        <a href="https://mail.google.com/mail/u/0/?authuser=eugy@jontharphomes.com&view=cm&to={{ c.email }}" target="_blank" class="action-btn" onclick="event.stopPropagation()">Email</a>
+                                        <a href="https://mail.google.com/mail/u/0/?authuser=Joseph@JonTharpHomes.com&view=cm&to={{ c.email }}" target="_blank" class="action-btn" onclick="event.stopPropagation()">Email</a>
                                         {% endif %}
                                         <a href="/contacts/{{ c.id }}" class="action-btn" onclick="event.stopPropagation()">Profile</a>
                                         {% if c.fub_id %}
@@ -2266,7 +2266,7 @@
                 </div>
                 <div class="ph-card-body">
                     ${c.phone ? '<div class="ph-detail-row"><span class="ph-detail-label">Phone</span><span class="ph-detail-value">' + (c.fub_id ? '<a href="' + fubLink + '" target="_blank">' + c.phone + '</a>' : c.phone) + '</span></div>' : ''}
-                    ${c.email ? '<div class="ph-detail-row"><span class="ph-detail-label">Email</span><span class="ph-detail-value"><a href="https://mail.google.com/mail/u/0/?authuser=eugy@jontharphomes.com&view=cm&to=' + encodeURIComponent(c.email) + '" target="_blank">' + c.email + '</a></span></div>' : ''}
+                    ${c.email ? '<div class="ph-detail-row"><span class="ph-detail-label">Email</span><span class="ph-detail-value"><a href="https://mail.google.com/mail/u/0/?authuser=Joseph@JonTharpHomes.com&view=cm&to=' + encodeURIComponent(c.email) + '" target="_blank">' + c.email + '</a></span></div>' : ''}
                     <div class="ph-detail-row"><span class="ph-detail-label">Stage</span><span class="ph-detail-value">${c.stage || 'Unknown'}</span></div>
                     ${c.heat_score ? '<div class="ph-detail-row"><span class="ph-detail-label">Heat</span><span class="ph-detail-value">' + Math.round(c.heat_score) + (c.score_trend ? ' (' + c.score_trend + ')' : '') + '</span></div>' : ''}
                     ${c.value_score ? '<div class="ph-detail-row"><span class="ph-detail-label">Value</span><span class="ph-detail-value">' + Math.round(c.value_score) + '</span></div>' : ''}

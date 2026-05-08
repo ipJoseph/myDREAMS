@@ -494,7 +494,7 @@ def get_shared_collection(share_token):
                           pp.display_order, pp.agent_notes
                    FROM package_properties pp
                    JOIN listings l ON l.id = pp.listing_id
-                   WHERE pp.package_id = ? AND l.idx_opt_in = 1
+                   WHERE pp.package_id = ?
                    ORDER BY pp.display_order, pp.added_at''',
                 [collection['id']]
             ).fetchall()
@@ -1177,7 +1177,7 @@ def get_featured_collection(slug):
                           pp.display_order, pp.agent_notes
                    FROM package_properties pp
                    JOIN listings l ON l.id = pp.listing_id
-                   WHERE pp.package_id = ? AND l.idx_opt_in = 1
+                   WHERE pp.package_id = ?
                    ORDER BY pp.display_order, pp.added_at''',
                 [collection['id']]
             ).fetchall()

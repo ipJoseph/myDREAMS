@@ -58,7 +58,7 @@ GOOGLE_MAPS_API_KEY = os.environ.get("GOOGLE_MAPS_API_KEY", "")
 AGENT = {
     "name": os.environ.get("AGENT_NAME", "Joseph Williams"),
     "license": os.environ.get("AGENT_LICENSE", "North Carolina Real Estate License #360474"),
-    "mobile": os.environ.get("AGENT_PHONE", "(828) 347-9363"),
+    "mobile": os.environ.get("AGENT_PHONE", "828-283-9003"),
     "email": os.environ.get("AGENT_EMAIL", "Joseph@JonTharpHomes.com"),
     "website": os.environ.get("AGENT_WEBSITE", "www.JonTharpHomes.com"),
     "office": os.environ.get("AGENT_OFFICE", "Jon Tharp Homes, A Keller Williams Team"),
@@ -190,9 +190,9 @@ def _google_map_url(lat, lng, zoom: int, maptype: str) -> str:
 # ---------------------------------------------------------------------------
 
 def _get_listing(listing_id: str) -> Optional[dict]:
-    """Fetch a single listing by id or mls_number."""
-    conn = sqlite3.connect(str(DATABASE_PATH))
-    conn.row_factory = sqlite3.Row
+    """Fetch a single listing by id or mls_number from Postgres via pg_adapter."""
+    from src.core.pg_adapter import get_db
+    conn = get_db()
     try:
         row = conn.execute(
             "SELECT * FROM listings WHERE id = ? OR mls_number = ? LIMIT 1",

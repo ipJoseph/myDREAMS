@@ -94,9 +94,9 @@ SMTP_PASSWORD = os.getenv('SMTP_PASSWORD', '')
 EMAIL_FROM_NAME = os.getenv('EMAIL_FROM_NAME', 'DREAMS Automation')
 
 # Agent branding for PDFs
-AGENT_NAME = os.getenv('AGENT_NAME', 'Joseph "Eugy" Williams')
-AGENT_EMAIL = os.getenv('AGENT_EMAIL', 'eugy@jontharp.com')
-AGENT_PHONE = os.getenv('AGENT_PHONE', '828-808-5373')
+AGENT_NAME = os.getenv('AGENT_NAME', 'Joseph Williams')
+AGENT_EMAIL = os.getenv('AGENT_EMAIL', 'Joseph@JonTharpHomes.com')
+AGENT_PHONE = os.getenv('AGENT_PHONE', '828-283-9003')
 BROKERAGE_NAME = os.getenv('BROKERAGE_NAME', 'Keller Williams - Jon Tharp Homes')
 AGENT_HEADSHOT_URL = os.getenv('AGENT_HEADSHOT_URL', '')
 BROKERAGE_LOGO_URL = os.getenv('BROKERAGE_LOGO_URL', '')
