@@ -600,12 +600,15 @@ def _build_property_card(stop: dict, listing: Optional[dict], stop_num: int, ver
         if year_built:
             stats_parts.append(f"Built {_escape(str(int(float(year_built))))}")
 
-        # Photo
+        # Photo: prefer local file; fall back to fetching primary_photo
+        # CDN URL inline (Mountain Lakes / Carolina Smokies have no local).
         photo_path = _find_local_photo(listing)
-        if photo_path:
-            photo_b64 = _load_base64(photo_path)
-            if photo_b64:
-                photo_html = f'<img src="{photo_b64}" alt="Property photo">'
+        photo_b64 = _load_base64(photo_path) if photo_path else ""
+        if not photo_b64:
+            from apps.automation.buyer_report import _fetch_remote_as_base64
+            photo_b64 = _fetch_remote_as_base64(listing.get("primary_photo"))
+        if photo_b64:
+            photo_html = f'<img src="{photo_b64}" alt="Property photo">'
 
         # Fill in city from listing if not in stop
         if not city:
