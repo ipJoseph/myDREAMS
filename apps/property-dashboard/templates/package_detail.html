@@ -273,6 +273,12 @@
                         title="Return to where you came from (changes auto-save as you go)">
                     Done - take me back!
                 </button>
+                <button type="button"
+                        class="dreams-btn dreams-btn-secondary"
+                        onclick="saveAsNewCollection()"
+                        title="Create a new collection with a new name, share link, and the same properties as this one. Useful for branching off a what-if version.">
+                    Save As...
+                </button>
                 <a href="/buyer-collections/{{ package.id }}/route-planner"
                    class="dreams-btn dreams-btn-secondary"
                    title="Plan showing route with map and times">
@@ -467,6 +473,29 @@
         function saveAndReturn() {
             sessionStorage.removeItem('collectionReturnUrl_' + packageId);
             window.location.href = _returnUrl;
+        }
+
+        async function saveAsNewCollection() {
+            const currentName = document.getElementById('packageName').value || 'Untitled';
+            const suggested = currentName + ' (copy)';
+            const newName = prompt('Save as a new collection. Name:', suggested);
+            if (!newName || !newName.trim()) return;
+            try {
+                const resp = await fetch('/api/collections/' + packageId + '/save-as', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: newName.trim() }),
+                });
+                const data = await resp.json();
+                if (data.success && data.redirect_url) {
+                    window.location.href = data.redirect_url;
+                } else {
+                    alert(data.error || 'Failed to create new collection.');
+                }
+            } catch (e) {
+                console.error(e);
+                alert('Network error creating new collection.');
+            }
         }
 
         async function renamePackage(newName) {

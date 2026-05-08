@@ -2428,6 +2428,72 @@ def collection_pdf(collection_id):
         logger.error(f"Error generating collection PDF: {e}")
         return "Error generating PDF. Please try again.", 500
 
+@app.route('/api/collections/<source_id>/save-as', methods=['POST'])
+@requires_auth
+def save_collection_as(source_id):
+    """Clone a collection: create a new property_packages row with a new name +
+    new share_token + new id, copy package_properties referencing the same
+    listings, and return the new id so the client can navigate to it.
+    Lets the agent branch off a what-if version without disturbing the original.
+    """
+    import uuid
+    import secrets
+    data = request.get_json() or {}
+    new_name = (data.get('name') or '').strip()
+    if not new_name:
+        return jsonify({'success': False, 'error': 'Name required'}), 400
+
+    db = get_db()
+    try:
+        with db._get_connection() as conn:
+            src = conn.execute(
+                'SELECT lead_id, collection_type, description FROM property_packages WHERE id = ?',
+                [source_id],
+            ).fetchone()
+            if not src:
+                return jsonify({'success': False, 'error': 'Source collection not found'}), 404
+
+            src_props = conn.execute(
+                'SELECT listing_id, display_order, agent_notes FROM package_properties WHERE package_id = ? '
+                'ORDER BY display_order, added_at',
+                [source_id],
+            ).fetchall()
+
+            new_id = str(uuid.uuid4())
+            new_token = secrets.token_urlsafe(16)
+            now = datetime.now().isoformat()
+
+            conn.execute(
+                "INSERT INTO property_packages "
+                "(id, lead_id, name, status, share_token, collection_type, description, created_at, updated_at) "
+                "VALUES (?, ?, ?, 'draft', ?, ?, ?, ?, ?)",
+                [new_id, src['lead_id'], new_name, new_token,
+                 src['collection_type'] or 'agent_package',
+                 src['description'], now, now],
+            )
+
+            for i, p in enumerate(src_props, 1):
+                conn.execute(
+                    "INSERT INTO package_properties "
+                    "(id, package_id, listing_id, display_order, agent_notes, added_at) "
+                    "VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO NOTHING",
+                    [str(uuid.uuid4()), new_id, p['listing_id'],
+                     p['display_order'] if p['display_order'] is not None else i,
+                     p['agent_notes'], now],
+                )
+            conn.commit()
+    except Exception as e:
+        logger.error(f"save_collection_as failed: {e}")
+        return jsonify({'success': False, 'error': 'Failed to clone collection'}), 500
+
+    return jsonify({
+        'success': True,
+        'collection_id': new_id,
+        'name': new_name,
+        'redirect_url': f'/collections/{new_id}',
+    })
+
+
 @app.route('/api/collections/create-from-properties', methods=['POST'])
 @requires_auth
 def create_collection_from_properties():
