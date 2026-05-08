@@ -267,6 +267,12 @@
                 </div>
             </div>
             <div class="package-actions">
+                <button type="button"
+                        class="dreams-btn dreams-btn-secondary"
+                        onclick="saveAndReturn()"
+                        title="Return to where you came from (changes auto-save as you go)">
+                    Save
+                </button>
                 <a href="/buyer-collections/{{ package.id }}/route-planner"
                    class="dreams-btn dreams-btn-secondary"
                    title="Plan showing route with map and times">
@@ -441,6 +447,26 @@
             setTimeout(() => {
                 toast.classList.remove('visible');
             }, 2000);
+        }
+
+        // Capture the calling page on first load so the [Save] button
+        // can return there even after the user clicks around within the
+        // collection detail view. Falls back to /properties.
+        const _returnUrl = (() => {
+            const stored = sessionStorage.getItem('collectionReturnUrl_' + packageId);
+            if (stored) return stored;
+            const ref = document.referrer;
+            const here = window.location.href;
+            if (ref && ref !== here && new URL(ref).origin === window.location.origin) {
+                sessionStorage.setItem('collectionReturnUrl_' + packageId, ref);
+                return ref;
+            }
+            return '/properties';
+        })();
+
+        function saveAndReturn() {
+            sessionStorage.removeItem('collectionReturnUrl_' + packageId);
+            window.location.href = _returnUrl;
         }
 
         async function renamePackage(newName) {
