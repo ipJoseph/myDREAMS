@@ -2938,9 +2938,9 @@ class DREAMSDatabase:
             # LEFT JOIN with both properties table and idx_property_cache
             rows = conn.execute('''
                 SELECT
-                    COALESCE(e.property_address, p.address, c.address) as property_address,
-                    COALESCE(MAX(e.property_price), p.list_price, c.price) as property_price,
-                    e.property_mls,
+                    COALESCE(MAX(e.property_address), MAX(p.address), MAX(c.address)) as property_address,
+                    COALESCE(MAX(e.property_price), MAX(p.list_price), MAX(c.price)) as property_price,
+                    MAX(e.property_mls) as property_mls,
                     COUNT(CASE WHEN e.event_type IN ('property_view', 'property_favorite', 'property_share') THEN 1 END) as view_count,
                     MAX(CASE WHEN e.event_type = 'property_favorite' THEN 1 ELSE 0 END) as is_favorited,
                     MAX(CASE WHEN e.event_type = 'property_share' THEN 1 ELSE 0 END) as is_shared,
