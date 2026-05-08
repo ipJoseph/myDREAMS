@@ -558,9 +558,25 @@ def extract_property(prop: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     }
 
 
+_FILTER_OPTIONS_CACHE: Dict[str, Any] = {'data': None, 'fetched_at': 0.0}
+_FILTER_OPTIONS_TTL = 120.0  # seconds — distinct cities/counties don't change minute-to-minute
+
+
 def get_filter_options() -> Dict[str, Any]:
-    """Get distinct values for filter dropdowns via ListingService."""
-    return listing_service.get_filter_options()
+    """Get distinct values for filter dropdowns via ListingService.
+
+    Cached in-process for 2 minutes — the underlying DISTINCT scans are
+    ~500ms and were running on every page load. Distinct cities, counties,
+    and clients change rarely enough that a 2-minute lag is acceptable.
+    """
+    import time as _time
+    now = _time.time()
+    if _FILTER_OPTIONS_CACHE['data'] is not None and (now - _FILTER_OPTIONS_CACHE['fetched_at']) < _FILTER_OPTIONS_TTL:
+        return _FILTER_OPTIONS_CACHE['data']
+    fresh = listing_service.get_filter_options()
+    _FILTER_OPTIONS_CACHE['data'] = fresh
+    _FILTER_OPTIONS_CACHE['fetched_at'] = now
+    return fresh
 
 
 # Sort alias mapping: dashboard uses short names, service uses column names
@@ -605,6 +621,23 @@ def _normalize_for_template(prop: dict) -> dict:
 # Broader fields (subdivision, public_remarks, county) cause false positives
 # when words match independently across unrelated columns.
 _DASHBOARD_SEARCH_FIELDS = ['address', 'mls_number', 'city', 'listing_agent_name']
+
+# Columns the dashboard list view actually renders. SELECT * was pulling
+# all ~200 listing columns including MLS-vendor metadata (originating_system_*,
+# nav27_*, internet_*, association_*, etc.) the templates don't read,
+# turning a sub-second query into a ~1.6s payload assembly. Whitelisting
+# cuts row width from ~8KB to ~600B.
+_DASHBOARD_LIST_FIELDS = [
+    'id', 'mls_number', 'mls_source', 'status', 'address', 'city', 'state',
+    'zip', 'county', 'subdivision', 'list_price', 'sold_price', 'sold_date',
+    'list_date', 'days_on_market', 'beds', 'baths', 'sqft', 'acreage',
+    'year_built', 'property_type', 'primary_photo', 'photo_count',
+    'photo_local_path', 'latitude', 'longitude', 'elevation_feet',
+    'listing_agent_name', 'listing_office_name', 'mls_url',
+    'public_remarks', 'tax_annual_amount', 'hoa_fee',
+    'captured_at', 'updated_at',
+    'idx_opt_in', 'idx_address_display', 'gallery_status',
+]
 
 
 def count_properties(added_for: Optional[str] = None, status: Optional[str] = None,
@@ -659,6 +692,7 @@ def fetch_properties(added_for: Optional[str] = None, status: Optional[str] = No
 
     result = listing_service.search_listings(
         filters,
+        fields=_DASHBOARD_LIST_FIELDS,
         sort=sort_column,
         order=sort_order,
         page=page,
