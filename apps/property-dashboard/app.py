@@ -4937,14 +4937,14 @@ def photo_status():
             try:
                 count = int(subprocess.check_output(
                     ['find', str(d), '-type', 'f'], stderr=subprocess.DEVNULL,
-                    timeout=6,
+                    timeout=3,
                 ).decode().count('\n'))
             except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
                 pass
             try:
                 kb = int(subprocess.check_output(
                     ['du', '-sk', str(d)], stderr=subprocess.DEVNULL,
-                    timeout=6,
+                    timeout=3,
                 ).decode().split()[0])
             except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired, ValueError, IndexError):
                 pass
