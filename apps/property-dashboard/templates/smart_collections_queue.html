@@ -242,7 +242,7 @@
                 {% for prop in item.properties[:6] %}
                 <div class="mini-prop">
                     {% if prop.primary_photo %}
-                    <img src="{{ prop.primary_photo }}" alt="" onerror="this.parentElement.innerHTML='<div class=no-photo>No Photo</div><div class=info><div class=price>${{ \"{:,.0f}\".format(prop.list_price or 0) }}</div><div class=addr>{{ prop.address or \"\" }}</div></div>'">
+                    <img src="{{ prop.primary_photo }}" alt="" onerror="this.style.display='none'">
                     {% else %}
                     <div class="no-photo">No Photo</div>
                     {% endif %}

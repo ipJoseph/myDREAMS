@@ -356,9 +356,12 @@
         <div class="disk-grid">
             {% for name, stats in (disk_stats.subdirs or {}).items() %}
             <div class="disk-card">
-                <div class="disk-value">{{ stats.size_gb or 0 }} GB</div>
+                <div class="disk-value">{% if stats.size_gb is not none %}{{ stats.size_gb }} GB{% else %}—{% endif %}</div>
                 <div class="disk-label">{{ name }}</div>
-                <div class="disk-sub">{{ "{:,}".format(stats.files or 0) }} files ({{ "{:,}".format(stats.size_mb or 0) }} MB)</div>
+                <div class="disk-sub">
+                    {% if stats.files is not none %}{{ "{:,}".format(stats.files) }} files{% else %}— files{% endif %}
+                    {% if stats.size_mb is not none %}({{ "{:,}".format(stats.size_mb) }} MB){% endif %}
+                </div>
             </div>
             {% endfor %}
             <div class="disk-card">

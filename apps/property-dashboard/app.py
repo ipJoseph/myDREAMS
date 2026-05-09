@@ -4929,22 +4929,27 @@ def photo_status():
     for subdir in ['mlsgrid', 'navica']:
         d = photos_root / subdir
         if d.exists():
-            # Use find for count + du for size (both stream-friendly on huge dirs)
+            # Both `find` and `du` walk the directory tree. With ~28k photos
+            # they take 5-10s each in the worst case, blocking the request.
+            # Cap each at 6s; on timeout the card shows "—" rather than 500.
+            count = None
+            kb = None
             try:
                 count = int(subprocess.check_output(
-                    ['find', str(d), '-type', 'f'], stderr=subprocess.DEVNULL
+                    ['find', str(d), '-type', 'f'], stderr=subprocess.DEVNULL,
+                    timeout=6,
                 ).decode().count('\n'))
-            except (subprocess.CalledProcessError, FileNotFoundError):
-                count = 0
+            except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
+                pass
             try:
-                # du -sb gives total bytes
                 kb = int(subprocess.check_output(
-                    ['du', '-sk', str(d)], stderr=subprocess.DEVNULL
+                    ['du', '-sk', str(d)], stderr=subprocess.DEVNULL,
+                    timeout=6,
                 ).decode().split()[0])
-            except (subprocess.CalledProcessError, FileNotFoundError, ValueError, IndexError):
-                kb = 0
-            size_mb = round(kb / 1024, 1)
-            size_gb = round(kb / (1024 * 1024), 2)
+            except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired, ValueError, IndexError):
+                pass
+            size_mb = round(kb / 1024, 1) if kb is not None else None
+            size_gb = round(kb / (1024 * 1024), 2) if kb is not None else None
             disk_stats['subdirs'][subdir] = {'files': count, 'size_mb': size_mb, 'size_gb': size_gb}
         else:
             disk_stats['subdirs'][subdir] = {'files': 0, 'size_mb': 0, 'size_gb': 0}
@@ -7789,15 +7794,17 @@ def data_quality():
             LIMIT 10
         """).fetchall()
 
-        # Import history (last 10 imports based on created_at clusters)
+        # Import history (last 10 imports based on captured_at clusters).
+        # listings has captured_at (when WE pulled the row) and updated_at,
+        # not created_at — captured_at is the right proxy for "imports".
         recent_imports = conn.execute("""
             SELECT
-                DATE(created_at) as import_date,
+                DATE(captured_at::timestamp) as import_date,
                 mls_source,
                 COUNT(*) as records
             FROM listings
-            WHERE CAST(created_at AS timestamp) > CURRENT_TIMESTAMP - INTERVAL '30 days'
-            GROUP BY DATE(created_at), mls_source
+            WHERE captured_at::timestamp > CURRENT_TIMESTAMP - INTERVAL '30 days'
+            GROUP BY DATE(captured_at::timestamp), mls_source
             ORDER BY import_date DESC
             LIMIT 10
         """).fetchall()
