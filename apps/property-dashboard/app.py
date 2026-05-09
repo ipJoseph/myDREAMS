@@ -3726,7 +3726,7 @@ def smart_collections_queue():
         LEFT JOIN leads l ON l.id = pp.lead_id OR l.fub_id = pp.lead_id
         LEFT JOIN package_properties pkp ON pkp.package_id = pp.id
         WHERE pp.collection_type = 'smart' AND pp.status = 'pending_review'
-        GROUP BY pp.id
+        GROUP BY pp.id, l.id, l.first_name, l.last_name
         ORDER BY pp.created_at DESC
     ''').fetchall()
 
@@ -4929,16 +4929,25 @@ def photo_status():
     for subdir in ['mlsgrid', 'navica']:
         d = photos_root / subdir
         if d.exists():
-            # Use find for speed on large dirs (millions of files)
+            # Use find for count + du for size (both stream-friendly on huge dirs)
             try:
                 count = int(subprocess.check_output(
                     ['find', str(d), '-type', 'f'], stderr=subprocess.DEVNULL
                 ).decode().count('\n'))
             except (subprocess.CalledProcessError, FileNotFoundError):
                 count = 0
-            disk_stats['subdirs'][subdir] = {'files': count}
+            try:
+                # du -sb gives total bytes
+                kb = int(subprocess.check_output(
+                    ['du', '-sk', str(d)], stderr=subprocess.DEVNULL
+                ).decode().split()[0])
+            except (subprocess.CalledProcessError, FileNotFoundError, ValueError, IndexError):
+                kb = 0
+            size_mb = round(kb / 1024, 1)
+            size_gb = round(kb / (1024 * 1024), 2)
+            disk_stats['subdirs'][subdir] = {'files': count, 'size_mb': size_mb, 'size_gb': size_gb}
         else:
-            disk_stats['subdirs'][subdir] = {'files': 0}
+            disk_stats['subdirs'][subdir] = {'files': 0, 'size_mb': 0, 'size_gb': 0}
 
     # Audit status — tail of the audit log. Prefer reading the most
     # recent complete run summary.
@@ -7744,12 +7753,13 @@ def data_quality():
     parcels_stats = {'total': 0, 'has_coords': 0, 'has_flood': 0, 'has_elevation': 0, 'spatially_enriched': 0, 'last_spatial_enrichment': None}
 
     with db._get_connection() as conn:
-        # Photo coverage by source
+        # Photo coverage by source. Cast AVG to numeric so Postgres' two-arg
+        # round(numeric, int) overload applies; round(double, int) does not exist.
         photo_stats = conn.execute("""
             SELECT
                 COALESCE(photo_source, 'none') as source,
                 COUNT(*) as count,
-                ROUND(AVG(photo_confidence), 1) as avg_confidence
+                ROUND(AVG(photo_confidence)::numeric, 1) as avg_confidence
             FROM listings
             GROUP BY photo_source
             ORDER BY count DESC

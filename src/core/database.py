@@ -4727,7 +4727,7 @@ class DREAMSDatabase:
         if not include_completed:
             query += ' AND completed_at IS NULL'
 
-        query += ' ORDER BY COALESCE(due_date, "9999-12-31"), priority, created_at LIMIT ?'
+        query += " ORDER BY COALESCE(due_date, '9999-12-31'), priority, created_at LIMIT ?"
         params.append(limit)
 
         with self._get_connection() as conn:
@@ -4792,7 +4792,7 @@ class DREAMSDatabase:
             query += ' AND (a.due_date IS NULL OR a.due_date <= ?)'
             params.append(due_before)
 
-        query += ' ORDER BY COALESCE(a.due_date, "9999-12-31"), a.priority, l.priority_score DESC LIMIT ?'
+        query += " ORDER BY COALESCE(a.due_date, '9999-12-31'), a.priority, l.priority_score DESC LIMIT ?"
         params.append(limit)
 
         with self._get_connection() as conn:

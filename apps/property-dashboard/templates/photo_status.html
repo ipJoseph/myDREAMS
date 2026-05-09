@@ -354,13 +354,18 @@
             <h2>Disk Usage</h2>
         </div>
         <div class="disk-grid">
-            {% for name, stats in disk_stats.items() %}
+            {% for name, stats in (disk_stats.subdirs or {}).items() %}
             <div class="disk-card">
-                <div class="disk-value">{{ stats.size_gb }} GB</div>
+                <div class="disk-value">{{ stats.size_gb or 0 }} GB</div>
                 <div class="disk-label">{{ name }}</div>
-                <div class="disk-sub">{{ "{:,}".format(stats.files) }} files ({{ "{:,}".format(stats.size_mb) }} MB)</div>
+                <div class="disk-sub">{{ "{:,}".format(stats.files or 0) }} files ({{ "{:,}".format(stats.size_mb or 0) }} MB)</div>
             </div>
             {% endfor %}
+            <div class="disk-card">
+                <div class="disk-value">{{ disk_stats.used_gb }} / {{ disk_stats.total_gb }} GB</div>
+                <div class="disk-label">volume</div>
+                <div class="disk-sub">{{ disk_stats.used_pct }}% used &middot; {{ disk_stats.free_gb }} GB free</div>
+            </div>
         </div>
     </div>
 
