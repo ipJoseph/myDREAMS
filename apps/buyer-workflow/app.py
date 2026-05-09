@@ -187,7 +187,7 @@ def dashboard():
     leads_count = db.execute('SELECT COUNT(*) FROM leads WHERE stage != "closed"').fetchone()[0]
     active_forms = db.execute('SELECT COUNT(*) FROM intake_forms WHERE status = "active"').fetchone()[0]
     active_packages = db.execute('SELECT COUNT(*) FROM property_packages WHERE status IN ("draft", "ready", "sent")').fetchone()[0]
-    upcoming_showings = db.execute('SELECT COUNT(*) FROM showings WHERE status = "scheduled" AND scheduled_date >= date("now")').fetchone()[0]
+    upcoming_showings = db.execute("SELECT COUNT(*) FROM showings WHERE status = 'scheduled' AND scheduled_date::date >= CURRENT_DATE").fetchone()[0]
 
     # Recent leads
     recent_leads = db.execute('''

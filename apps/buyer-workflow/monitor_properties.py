@@ -245,7 +245,7 @@ class PropertyMonitor:
         # Update DOM based on list_date
         cursor.execute('''
             UPDATE listings
-            SET days_on_market = julianday('now') - julianday(list_date),
+            SET days_on_market = (CURRENT_DATE - list_date::date),
                 updated_at = ?
             WHERE list_date IS NOT NULL
               AND status IN ('active', 'Active')

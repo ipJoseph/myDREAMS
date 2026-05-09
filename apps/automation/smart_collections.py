@@ -346,7 +346,7 @@ def create_smart_collection(
     # Add properties
     for i, listing_id in enumerate(pattern['listing_ids']):
         conn.execute('''
-            INSERT OR IGNORE INTO package_properties
+            INSERT INTO package_properties
             (id, package_id, listing_id, display_order, added_at)
             VALUES (?, ?, ?, ?, ?)
         ''', (str(uuid.uuid4()), collection_id, listing_id, i + 1, now))
@@ -462,7 +462,7 @@ def refresh_auto_collections():
         for lid in new_ids - current_ids:
             max_order += 1
             conn.execute('''
-                INSERT OR IGNORE INTO package_properties
+                INSERT INTO package_properties
                 (id, package_id, listing_id, display_order, added_at)
                 VALUES (?, ?, ?, ?, ?)
             ''', (str(uuid.uuid4()), coll['id'], lid, max_order, now))

@@ -245,7 +245,7 @@ def run_weekly_status_check(client: MLSGridClient = None) -> dict:
         row = conn.execute(
             "SELECT COUNT(*) as cnt FROM listings "
             "WHERE mls_source = ? AND UPPER(status) IN ('CLOSED', 'SOLD') "
-            "AND close_date >= date('now', '-30 days')",
+            "AND close_date::date >= CURRENT_DATE - INTERVAL '30 days'",
             (MLS_SOURCE,)
         ).fetchone()
         db_closed = row['cnt']

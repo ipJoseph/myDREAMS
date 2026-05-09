@@ -35,9 +35,9 @@ def evaluate(db, settings: dict) -> List[RuleFiring]:
                 l.created_at
             FROM leads l
             WHERE l.stage = 'Lead'
-              AND l.created_at >= datetime('now', ? || ' hours')
+              AND l.created_at::timestamptz >= NOW() - (? || ' hours')::interval
             ORDER BY l.created_at DESC
-        ''', (f'-{hours}',)).fetchall()
+        ''', (str(hours),)).fetchall()
 
     for row in rows:
         name = row['contact_name'].strip()

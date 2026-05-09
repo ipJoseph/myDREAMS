@@ -2819,6 +2819,7 @@ def collection_route_planner(collection_id):
         showing_id=showing_id or '',
         showing_name=showing_name,
         saved_route_data=saved_route_data if showing_id else '{}',
+        standalone=False,
     )
 
 
@@ -3322,6 +3323,10 @@ def showings_plan_route():
         today=today,
         home_address=home_address,
         standalone=True,
+        pre_selected_ids=[],
+        showing_id='',
+        showing_name='',
+        saved_route_data='{}',
     )
 
 

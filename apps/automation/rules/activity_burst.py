@@ -34,9 +34,9 @@ def evaluate(db, settings: dict) -> List[RuleFiring]:
                 COUNT(e.id) as event_count
             FROM contact_events e
             JOIN leads l ON e.contact_id = l.id
-            WHERE e.occurred_at >= datetime('now', '-1 day')
+            WHERE e.occurred_at::timestamptz >= NOW() - INTERVAL '1 day'
               AND l.stage NOT IN ('trash', 'past_client')
-            GROUP BY e.contact_id
+            GROUP BY e.contact_id, l.id, l.first_name, l.last_name, l.fub_id
             HAVING COUNT(e.id) >= ?
             ORDER BY event_count DESC
         ''', (threshold,)).fetchall()

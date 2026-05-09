@@ -1018,8 +1018,9 @@ class DREAMSDatabase:
 
         for key, value, value_type, category, description in default_settings:
             conn.execute('''
-                INSERT OR IGNORE INTO system_settings (key, value, value_type, category, description)
+                INSERT INTO system_settings (key, value, value_type, category, description)
                 VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT (key) DO NOTHING
             ''', [key, value, value_type, category, description])
 
     # ==========================================
@@ -2059,7 +2060,7 @@ class DREAMSDatabase:
             values = list(data.values())
             
             conn.execute(f'''
-                INSERT OR IGNORE INTO lead_activities ({columns})
+                INSERT INTO lead_activities ({columns})
                 VALUES ({', '.join(['?' for _ in values])})
             ''', values)
             conn.commit()
@@ -3633,9 +3634,10 @@ class DREAMSDatabase:
 
         with self._get_connection() as conn:
             conn.execute('''
-                INSERT OR IGNORE INTO pursuit_properties
+                INSERT INTO pursuit_properties
                 (id, pursuit_id, property_id, source, status, notes)
                 VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT (id) DO NOTHING
             ''', [pp_id, pursuit_id, property_id, source, status, notes])
             conn.commit()
 
@@ -7013,7 +7015,7 @@ class DREAMSDatabase:
                        csh.heat_score AS previous_heat, csh.heat_delta, csh.trend_direction
                 FROM contact_scoring_history csh
                 JOIN leads l ON csh.contact_id = l.id
-                WHERE DATE(csh.recorded_at) = DATE('now')
+                WHERE csh.recorded_at::date = CURRENT_DATE
                   AND ABS(csh.heat_delta) >= 5
                 ORDER BY ABS(csh.heat_delta) DESC LIMIT 10
             ''').fetchall()]
@@ -7065,16 +7067,17 @@ class DREAMSDatabase:
                 GROUP BY phd.disposition
             ''', [today_start]).fetchall()]
 
-            # F. Week-over-week trend
+            # F. Week-over-week trend (Monday-of-this-week as anchor; SQLite's
+            # 'weekday 1' modifier means Monday — replicate via date_trunc).
             this_week = conn.execute('''
                 SELECT COUNT(*) FROM power_hour_dispositions
-                WHERE created_at >= DATE('now', 'weekday 1', '-7 days')
+                WHERE created_at::date >= date_trunc('week', CURRENT_DATE)::date
             ''').fetchone()[0]
 
             last_week = conn.execute('''
                 SELECT COUNT(*) FROM power_hour_dispositions
-                WHERE created_at >= DATE('now', 'weekday 1', '-14 days')
-                  AND created_at < DATE('now', 'weekday 1', '-7 days')
+                WHERE created_at::date >= (date_trunc('week', CURRENT_DATE) - INTERVAL '7 days')::date
+                  AND created_at::date < date_trunc('week', CURRENT_DATE)::date
             ''').fetchone()[0]
 
             if last_week > 0:
