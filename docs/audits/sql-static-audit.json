@@ -1,0 +1,546 @@
+{
+  "files_scanned": 126,
+  "findings_total": 76,
+  "findings": [
+    {
+      "code": "sqlite_autoincrement",
+      "message": "AUTOINCREMENT is SQLite-only; use SERIAL or GENERATED ALWAYS AS IDENTITY",
+      "severity": "blocker",
+      "file": "scripts/parse_tmo_reports.py",
+      "line": 276,
+      "evidence": "CREATE TABLE IF NOT EXISTS tmo_market_data (\n            id INTEGER PRIMARY KEY AUTOINCREMENT,\n            region TEXT NOT NULL,\n            property_type TEXT NOT NULL,\n            report_date TEXT N"
+    },
+    {
+      "file": "scripts/parse_tmo_reports.py",
+      "line": 276,
+      "code": "pg_syntax",
+      "severity": "blocker",
+      "message": "Postgres parse error: syntax error at or near \"AUTOINCREMENT\", at index 89",
+      "evidence": "CREATE TABLE IF NOT EXISTS tmo_market_data (\n            id INTEGER PRIMARY KEY AUTOINCREMENT,\n            region TEXT NOT NULL,\n            property_type TEXT NOT NULL,\n            report_date TEXT N"
+    },
+    {
+      "file": "apps/automation/new_listing_alerts.py",
+      "line": 157,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "apps/automation/saved_search_alerts.py",
+      "line": 199,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "apps/automation/smart_collections.py",
+      "line": 444,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "apps/automation/weekly_market_summary.py",
+      "line": 51,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "apps/automation/weekly_market_summary.py",
+      "line": 66,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "apps/automation/weekly_market_summary.py",
+      "line": 286,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "apps/buyer-workflow/app.py",
+      "line": 150,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "apps/buyer-workflow/app.py",
+      "line": 249,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "apps/buyer-workflow/app.py",
+      "line": 508,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "apps/buyer-workflow/app.py",
+      "line": 761,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "apps/buyer-workflow/app.py",
+      "line": 1422,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "apps/buyer-workflow/monitor_properties.py",
+      "line": 148,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "apps/buyer-workflow/monitor_properties.py",
+      "line": 275,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "apps/buyer-workflow/monitor_properties.py",
+      "line": 342,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "apps/mlsgrid/download_gallery.py",
+      "line": 242,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "apps/mlsgrid/download_gallery.py",
+      "line": 249,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "apps/mlsgrid/download_photos.py",
+      "line": 173,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "apps/mlsgrid/download_photos.py",
+      "line": 180,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "apps/navica/download_photos.py",
+      "line": 112,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "apps/navica/download_photos.py",
+      "line": 119,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "apps/navica/enrich_elevation.py",
+      "line": 73,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "apps/navica/enrich_flood.py",
+      "line": 134,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "apps/navica/enrich_views.py",
+      "line": 172,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "code": "sqlite_autoincrement",
+      "message": "AUTOINCREMENT is SQLite-only; use SERIAL or GENERATED ALWAYS AS IDENTITY [SQLite-gated by is_postgres() return]",
+      "severity": "advisory",
+      "file": "apps/navica/sync_engine.py",
+      "line": 148,
+      "evidence": "CREATE TABLE IF NOT EXISTS agents (\n                    id INTEGER PRIMARY KEY AUTOINCREMENT,\n                    member_key TEXT UNIQUE,\n                    member_mls_id TEXT,\n                    fi"
+    },
+    {
+      "file": "apps/navica/sync_engine.py",
+      "line": 148,
+      "code": "pg_syntax",
+      "severity": "advisory",
+      "message": "Postgres parse error: syntax error at or near \"AUTOINCREMENT\", at index 96 [SQLite-gated]",
+      "evidence": "CREATE TABLE IF NOT EXISTS agents (\n                    id INTEGER PRIMARY KEY AUTOINCREMENT,\n                    member_key TEXT UNIQUE,\n                    member_mls_id TEXT,\n                    fi"
+    },
+    {
+      "code": "sqlite_autoincrement",
+      "message": "AUTOINCREMENT is SQLite-only; use SERIAL or GENERATED ALWAYS AS IDENTITY [SQLite-gated by is_postgres() return]",
+      "severity": "advisory",
+      "file": "apps/navica/sync_engine.py",
+      "line": 191,
+      "evidence": "CREATE TABLE IF NOT EXISTS open_houses (\n                    id INTEGER PRIMARY KEY AUTOINCREMENT,\n                    open_house_key TEXT UNIQUE,\n                    listing_key TEXT,\n               "
+    },
+    {
+      "file": "apps/navica/sync_engine.py",
+      "line": 191,
+      "code": "pg_syntax",
+      "severity": "advisory",
+      "message": "Postgres parse error: syntax error at or near \"AUTOINCREMENT\", at index 101 [SQLite-gated]",
+      "evidence": "CREATE TABLE IF NOT EXISTS open_houses (\n                    id INTEGER PRIMARY KEY AUTOINCREMENT,\n                    open_house_key TEXT UNIQUE,\n                    listing_key TEXT,\n               "
+    },
+    {
+      "file": "apps/property-api/routes/public.py",
+      "line": 601,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "apps/property-dashboard/app.py",
+      "line": 3455,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "apps/property-dashboard/app.py",
+      "line": 3990,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "apps/property-dashboard/app.py",
+      "line": 5930,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "apps/property-dashboard/app.py",
+      "line": 7208,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "apps/property-dashboard/app.py",
+      "line": 7222,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "apps/property-dashboard/app.py",
+      "line": 7455,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "code": "sqlite_autoincrement",
+      "message": "AUTOINCREMENT is SQLite-only; use SERIAL or GENERATED ALWAYS AS IDENTITY [SQLite-gated by is_postgres() return]",
+      "severity": "advisory",
+      "file": "apps/property-dashboard/blueprints/expenses.py",
+      "line": 91,
+      "evidence": "CREATE TABLE IF NOT EXISTS expense_items (\n                id INTEGER PRIMARY KEY AUTOINCREMENT,\n                report_id TEXT NOT NULL REFERENCES expense_reports(id),\n                name TEXT NOT N"
+    },
+    {
+      "file": "apps/property-dashboard/blueprints/expenses.py",
+      "line": 91,
+      "code": "pg_syntax",
+      "severity": "advisory",
+      "message": "Postgres parse error: syntax error at or near \"AUTOINCREMENT\", at index 95 [SQLite-gated]",
+      "evidence": "CREATE TABLE IF NOT EXISTS expense_items (\n                id INTEGER PRIMARY KEY AUTOINCREMENT,\n                report_id TEXT NOT NULL REFERENCES expense_reports(id),\n                name TEXT NOT N"
+    },
+    {
+      "file": "scripts/audit_photo_invariants.py",
+      "line": 147,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "scripts/enrich_spatial.py",
+      "line": 70,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "scripts/enrich_spatial.py",
+      "line": 147,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "scripts/ensure_schema.py",
+      "line": 80,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "scripts/geocode_parcels.py",
+      "line": 167,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "scripts/import_onemap_api.py",
+      "line": 132,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "scripts/import_onemap_api.py",
+      "line": 271,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "scripts/import_onemap_parcels.py",
+      "line": 97,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "scripts/import_onemap_parcels.py",
+      "line": 215,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "scripts/parse_tmo_reports.py",
+      "line": 267,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "src/core/database.py",
+      "line": 1237,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "src/core/database.py",
+      "line": 1369,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "src/core/database.py",
+      "line": 1631,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "src/core/database.py",
+      "line": 1777,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "src/core/database.py",
+      "line": 1982,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "src/core/database.py",
+      "line": 2088,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "src/core/database.py",
+      "line": 2700,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "src/core/database.py",
+      "line": 2776,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "src/core/database.py",
+      "line": 3019,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "src/core/database.py",
+      "line": 3997,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "src/core/database.py",
+      "line": 4092,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "src/core/database.py",
+      "line": 4135,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "src/core/database.py",
+      "line": 4145,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "src/core/database.py",
+      "line": 4154,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "src/core/database.py",
+      "line": 4163,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "src/core/database.py",
+      "line": 4172,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "src/core/database.py",
+      "line": 4382,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "src/core/database.py",
+      "line": 4734,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "src/core/database.py",
+      "line": 4799,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "src/core/listing_service.py",
+      "line": 826,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "src/core/listing_service.py",
+      "line": 850,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "src/core/listing_service.py",
+      "line": 990,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "src/core/listing_service.py",
+      "line": 1028,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "src/core/pg_adapter.py",
+      "line": 221,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "src/core/pg_adapter.py",
+      "line": 236,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "src/core/pg_adapter.py",
+      "line": 241,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "src/core/services/contact_service.py",
+      "line": 94,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    },
+    {
+      "file": "src/core/services/contact_service.py",
+      "line": 117,
+      "code": "sql_dynamic_unresolvable",
+      "severity": "advisory",
+      "message": "execute() with non-literal SQL (concatenation or runtime build) \u2014 manual review"
+    }
+  ]
+}

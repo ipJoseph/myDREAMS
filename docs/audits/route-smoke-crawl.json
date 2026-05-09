@@ -1,0 +1,45 @@
+{
+  "target": "https://app.wncmountain.homes",
+  "routes_total": 81,
+  "routes_crawled": 75,
+  "routes_skipped": 6,
+  "skipped": [
+    {
+      "endpoint": "expenses.api_get_receipt",
+      "rule": "/api/expenses/<report_id>/items/<int:item_id>/receipt",
+      "reason": "unknown path arg"
+    },
+    {
+      "endpoint": "api_power_hour_fub_queue",
+      "rule": "/api/power-hour/fub-queue/<dreams_key>",
+      "reason": "unknown path arg"
+    },
+    {
+      "endpoint": "lead_dashboard_redirect",
+      "rule": "/lead/<client_name>",
+      "reason": "unknown path arg"
+    },
+    {
+      "endpoint": "client_dashboard",
+      "rule": "/client/<client_name>",
+      "reason": "unknown path arg"
+    },
+    {
+      "endpoint": "api_smart_list_compare",
+      "rule": "/api/smart-lists/compare/<dreams_key>",
+      "reason": "unknown path arg"
+    },
+    {
+      "endpoint": "api_smart_list_csv",
+      "rule": "/api/smart-lists/<dreams_key>/csv",
+      "reason": "unknown path arg"
+    }
+  ],
+  "summary": {
+    "2xx": 67,
+    "3xx": 3,
+    "4xx": 5,
+    "5xx": 0
+  },
+  "findings": []
+}

@@ -161,7 +161,8 @@ SQLITE_PATTERNS = [
     (r"\bCOLLATE\s+NOCASE\b", "sqlite_nocase", "COLLATE NOCASE is SQLite-only; use ILIKE or lower() in Postgres"),
     (r"\bPRAGMA\b", "sqlite_pragma", "PRAGMA is SQLite-only"),
     (r"\.rowid\b|\browid\s*[,\s)=]", "sqlite_rowid", "rowid is SQLite-only; use the table's id column"),
-    (r"\|\|", "sqlite_concat", "|| string concat works in both but worth verifying", "advisory"),
+    # || string concat is SQL standard — works in both SQLite and Postgres.
+    # Removed from blocklist after audit confirmed no false-positives in practice.
 ]
 
 
@@ -348,6 +349,41 @@ def is_sqlite_connect_call(node: ast.Call) -> bool:
     return False
 
 
+def _is_postgres_gated(node: ast.Call, tree: ast.Module) -> bool:
+    """True if `node` is inside a function that early-returns when is_postgres()
+    is true. Catches the common pattern:
+        if is_postgres():
+            return
+        # SQLite-only block follows
+    Lets the analyzer ignore CREATE TABLE AUTOINCREMENT etc that's already
+    properly gated."""
+    # Walk up parent chain (we recompute since ast doesn't track parents)
+    parents = {}
+    for parent in ast.walk(tree):
+        for child in ast.iter_child_nodes(parent):
+            parents[child] = parent
+    p = parents.get(node)
+    while p is not None:
+        if isinstance(p, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            # Look for `if is_postgres(): return` near top of body
+            for stmt in p.body[:8]:
+                if isinstance(stmt, ast.If):
+                    test = stmt.test
+                    is_pg = (
+                        (isinstance(test, ast.Call) and isinstance(test.func, ast.Name)
+                         and test.func.id == "is_postgres")
+                        or (isinstance(test, ast.Call) and isinstance(test.func, ast.Attribute)
+                            and test.func.attr == "is_postgres")
+                    )
+                    if is_pg:
+                        for body_stmt in stmt.body:
+                            if isinstance(body_stmt, ast.Return):
+                                return True
+            return False
+        p = parents.get(p)
+    return False
+
+
 def analyze_file(path: Path) -> list[dict]:
     findings: list[dict] = []
     rel = path.relative_to(REPO_ROOT).as_posix()
@@ -390,8 +426,16 @@ def analyze_file(path: Path) -> list[dict]:
         if not _looks_like_sql(sql):
             continue
 
+        # If this execute() lives in a function that early-returns under
+        # is_postgres(), it's SQLite-only by design (legacy bootstrap block)
+        # and shouldn't be reported as a Postgres blocker.
+        gated = _is_postgres_gated(node, tree)
+
         # Pattern checks (always — work even on f-string-substituted SQL)
         for finding in scan_sqlite_patterns(sql):
+            if gated:
+                finding["severity"] = "advisory"
+                finding["message"] = finding["message"] + " [SQLite-gated by is_postgres() return]"
             finding.update({
                 "file": rel, "line": node.lineno,
                 "evidence": sql.strip()[:200],
@@ -411,8 +455,9 @@ def analyze_file(path: Path) -> list[dict]:
         except pglast.parser.ParseError as e:
             findings.append({
                 "file": rel, "line": node.lineno,
-                "code": "pg_syntax", "severity": "blocker",
-                "message": f"Postgres parse error: {e}",
+                "code": "pg_syntax",
+                "severity": "advisory" if gated else "blocker",
+                "message": f"Postgres parse error: {e}" + (" [SQLite-gated]" if gated else ""),
                 "evidence": sql.strip()[:200],
             })
             continue
