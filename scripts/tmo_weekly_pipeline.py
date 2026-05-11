@@ -356,15 +356,18 @@ def main():
 
 if __name__ == "__main__":
     import traceback
+    class _Args:
+        dry_run = False
+        no_email = False
     try:
         main()
-    except SystemExit:
+    except SystemExit as se:
+        # Non-zero exit = failure (download_tmo_reports calls sys.exit(1) on
+        # missing token, etc.). Alert on those, but stay quiet on sys.exit(0).
+        code = se.code if se.code is not None else 0
+        if isinstance(code, int) and code != 0:
+            send_failure_alert(f"Pipeline exited with code {code}", _Args())
         raise
     except Exception:
-        # Build a fake args object for the alert path; if argv parsing crashed
-        # earlier, we still want the alert to fire with sensible defaults.
-        class _Args:
-            dry_run = False
-            no_email = False
         send_failure_alert(traceback.format_exc(), _Args())
         raise
