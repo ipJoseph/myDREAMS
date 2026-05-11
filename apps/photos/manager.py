@@ -252,12 +252,16 @@ def run_photo_fill(
     try:
         # Find listings whose gallery is not yet ready. gallery_status is
         # the spec's source of truth; photo_local_path is deprecated.
+        # County filter (defense in depth — see src/core/regions.py).
+        from src.core.regions import WNC_COUNTIES
+        counties_csv = ", ".join(f"'{c}'" for c in sorted(WNC_COUNTIES))
         rows = conn.execute(
-            "SELECT mls_number, mls_source, primary_photo, photos "
-            "FROM listings "
-            "WHERE UPPER(status) = ? AND mls_source = ? "
-            "AND (gallery_status IS NULL OR gallery_status != 'ready') "
-            "ORDER BY list_date DESC",
+            f"SELECT mls_number, mls_source, primary_photo, photos "
+            f"FROM listings "
+            f"WHERE UPPER(status) = ? AND mls_source = ? "
+            f"AND (gallery_status IS NULL OR gallery_status != 'ready') "
+            f"AND county IN ({counties_csv}) "
+            f"ORDER BY list_date DESC",
             [status.upper(), mls_source],
         ).fetchall()
 

@@ -336,12 +336,16 @@ def main() -> int:
         if priority_col_exists
         else f"list_date {sort_sql} NULLS LAST"
     )
+    # County filter (defense in depth — see src/core/regions.py).
+    from src.core.regions import WNC_COUNTIES
+    counties_csv = ", ".join(f"'{c}'" for c in sorted(WNC_COUNTIES))
     rows = conn.execute(
         f"""
         SELECT id, mls_source, mls_number, photo_count, photos, list_date
         FROM listings
         WHERE status = 'ACTIVE'
           AND mls_source = 'CanopyMLS'
+          AND county IN ({counties_csv})
         ORDER BY {order_by}
         """
     ).fetchall()

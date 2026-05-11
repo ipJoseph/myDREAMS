@@ -619,6 +619,12 @@ class NavicaSyncEngine:
                 try:
                     listing = map_reso_to_listing(prop, self.mls_source)
 
+                    # Out-of-scope filter (see src/core/regions.py).
+                    from src.core.regions import is_in_scope
+                    if not is_in_scope(listing.get('county')):
+                        stats['out_of_scope_skipped'] = stats.get('out_of_scope_skipped', 0) + 1
+                        continue
+
                     # Ensure schema has all columns this listing needs
                     if set(listing.keys()) - self._known_listing_columns:
                         self._known_listing_columns = ensure_listing_columns(
@@ -752,6 +758,12 @@ class NavicaSyncEngine:
             for i, prop in enumerate(properties):
                 try:
                     listing = map_reso_to_listing(prop, self.mls_source)
+
+                    # Out-of-scope filter (see src/core/regions.py).
+                    from src.core.regions import is_in_scope
+                    if not is_in_scope(listing.get('county')):
+                        stats['out_of_scope_skipped'] = stats.get('out_of_scope_skipped', 0) + 1
+                        continue
 
                     # Ensure schema has all columns this listing needs
                     if set(listing.keys()) - self._known_listing_columns:

@@ -28,6 +28,15 @@ This is where time goes to die.
 ### The Vision
 **myDREAMS is the single source of truth.** Regardless of where a property originates (Canopy MLS, Carolina Smokies MLS, Zillow, PropStream, IDX), it enters ONE unified database with standardized fields. From there, everything flows: client packets, ShowingTime integration, mapping/routing - all from one place.
 
+### Geographic Scope: Western North Carolina ONLY
+
+myDREAMS is scoped to the 19 Western NC counties defined in `src/core/regions.py`. Sync engines filter incoming MLS data to this scope; the photo pipeline only downloads photos for in-scope listings; cleanup tooling deletes anything outside the scope. **Do not** add Charlotte/Coastal/SC/etc. counties to the scope without explicit decision — the system was deliberately narrowed to WNC on 2026-05-11.
+
+- **Primary (11)**: Cherokee, Graham, Clay, Swain, Macon, Jackson, Haywood, Transylvania, Madison, Buncombe, Henderson
+- **Extended (8)**: Polk, Rutherford, McDowell, Yancey, Mitchell, Burke, Caldwell, Avery
+
+Use `from src.core.regions import is_in_scope` rather than hardcoding county lists.
+
 ### The Three-Step Sales Framework
 The sales process is three clean steps. myDREAMS supports each:
 
