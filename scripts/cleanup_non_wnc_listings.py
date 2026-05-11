@@ -155,12 +155,17 @@ def _scan_photo_dir_by_prefix(src_dir):
     return index
 
 
-def quarantine_photos(listings, dry_run=False):
-    """Move photo files for to-delete listings into the quarantine dir.
+def quarantine_photos(listings, dry_run=False, hard_delete=False):
+    """Move photo files for to-delete listings.
 
-    Returns (files_moved, bytes_moved, listings_with_no_files).
+    If hard_delete=True, files are unlinked directly (no quarantine dir).
+    This is necessary when the volume is so full that mkdir fails (no
+    inodes / no space for new directory entry). Rollback is via pg_dump
+    + re-fetch from MLS CDN.
+
+    Returns (files_moved_or_deleted, bytes_freed, listings_with_no_files).
     """
-    if not dry_run:
+    if not dry_run and not hard_delete:
         (QUARANTINE_DIR / "mlsgrid").mkdir(parents=True, exist_ok=True)
         (QUARANTINE_DIR / "navica").mkdir(parents=True, exist_ok=True)
 
@@ -201,9 +206,12 @@ def quarantine_photos(listings, dry_run=False):
             src_path = src_dir / fname
             if not dry_run:
                 try:
-                    shutil.move(str(src_path), str(dst_dir / fname))
+                    if hard_delete:
+                        src_path.unlink()
+                    else:
+                        shutil.move(str(src_path), str(dst_dir / fname))
                 except OSError as e:
-                    log.warning("Move failed for %s: %s", src_path, e)
+                    log.warning("File op failed for %s: %s", src_path, e)
                     continue
             files_moved += 1
             bytes_moved += size
@@ -273,11 +281,11 @@ def cmd_dry_run():
     conn.close()
 
 
-def cmd_quarantine(force=False):
+def cmd_quarantine(force=False, hard_delete=False):
     from src.core.pg_adapter import get_db
     conn = get_db()
 
-    log.info("=== QUARANTINE MODE ===")
+    log.info("=== %s MODE ===", "HARD-DELETE" if hard_delete else "QUARANTINE")
     counts = preflight_counts(conn)
     log.info("Pre-flight counts:")
     for k, v in counts.items():
@@ -303,11 +311,14 @@ def cmd_quarantine(force=False):
                 sys.exit(2)
 
     listings = get_to_delete_listings(conn)
-    log.info("Quarantining %d photo files for %d listings to %s ...",
-             0, len(listings), QUARANTINE_DIR)
-    files, bytes_, no_files = quarantine_photos(listings, dry_run=False)
-    log.info("Photos quarantined: %d files, %.1f GB. Listings with no files: %d",
-             files, bytes_ / (1024**3), no_files)
+    if hard_delete:
+        log.info("HARD-DELETING photos for %d listings (no quarantine; rollback via pg_dump only)", len(listings))
+    else:
+        log.info("Quarantining photos for %d listings to %s ...", len(listings), QUARANTINE_DIR)
+    files, bytes_, no_files = quarantine_photos(listings, dry_run=False, hard_delete=hard_delete)
+    verb = "deleted" if hard_delete else "quarantined"
+    log.info("Photos %s: %d files, %.1f GB. Listings with no files: %d",
+             verb, files, bytes_ / (1024**3), no_files)
 
     log.info("Beginning DB transaction...")
     try:
@@ -342,7 +353,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     g = parser.add_mutually_exclusive_group(required=True)
     g.add_argument("--dry-run", action="store_true", help="Print impact, no changes")
-    g.add_argument("--quarantine", action="store_true", help="Move photos + DELETE DB rows")
+    g.add_argument("--quarantine", action="store_true", help="Move photos to quarantine + DELETE DB rows")
+    g.add_argument("--hard-delete", action="store_true",
+                   help="rm photos directly + DELETE DB rows (use when disk is too full to quarantine; rollback via pg_dump only)")
     g.add_argument("--commit", action="store_true", help="Hard-delete quarantine dir")
     parser.add_argument("--force", action="store_true",
                         help="Bypass count-drift safety check (use with caution)")
@@ -353,7 +366,9 @@ def main():
     if args.dry_run:
         cmd_dry_run()
     elif args.quarantine:
-        cmd_quarantine(force=args.force)
+        cmd_quarantine(force=args.force, hard_delete=False)
+    elif args.hard_delete:
+        cmd_quarantine(force=args.force, hard_delete=True)
     elif args.commit:
         cmd_commit()
 
