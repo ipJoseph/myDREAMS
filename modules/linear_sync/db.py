@@ -1,37 +1,166 @@
-"""Database layer for Linear Sync module."""
+"""Database layer for Linear Sync module (Postgres-backed).
+
+Bridges Linear <-> FUB. Tables live in the dreams Postgres DB with the
+linear_sync_* prefix. Schema is created idempotently at module load via
+CREATE TABLE IF NOT EXISTS. The legacy data/linear_sync.db SQLite store
+has been migrated; see scripts/migrate_task_sync_to_postgres.py.
+"""
 
 import json
-import sqlite3
 import logging
 from contextlib import contextmanager
 from datetime import datetime
-from pathlib import Path
 from typing import Optional
-
-from .config import config
 
 logger = logging.getLogger(__name__)
 
 
-class Database:
-    """SQLite database for Linear sync state and mappings."""
+_TS_DEFAULT = "to_char(NOW() AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS')"
 
-    def __init__(self, db_path: Optional[Path] = None):
-        self.db_path = db_path or config.DB_PATH
-        self._ensure_db_dir()
+
+SCHEMA = f"""
+CREATE TABLE IF NOT EXISTS linear_sync_issue_map (
+    id SERIAL PRIMARY KEY,
+    linear_issue_id TEXT UNIQUE,
+    linear_identifier TEXT,
+    fub_task_id INTEGER UNIQUE,
+    fub_person_id INTEGER,
+    fub_deal_id INTEGER,
+    linear_team_id TEXT,
+    linear_project_id TEXT,
+    person_label_id TEXT,
+    origin TEXT NOT NULL,
+    sync_status TEXT DEFAULT 'synced',
+    last_synced_at TEXT,
+    linear_updated_at TEXT,
+    fub_updated_at TEXT,
+    created_at TEXT DEFAULT {_TS_DEFAULT},
+    updated_at TEXT DEFAULT {_TS_DEFAULT}
+);
+CREATE INDEX IF NOT EXISTS idx_linear_sync_issue_map_linear ON linear_sync_issue_map(linear_issue_id);
+CREATE INDEX IF NOT EXISTS idx_linear_sync_issue_map_fub ON linear_sync_issue_map(fub_task_id);
+CREATE INDEX IF NOT EXISTS idx_linear_sync_issue_map_person ON linear_sync_issue_map(fub_person_id);
+
+CREATE TABLE IF NOT EXISTS linear_sync_linear_cache (
+    id TEXT PRIMARY KEY,
+    identifier TEXT,
+    title TEXT NOT NULL,
+    description TEXT,
+    priority INTEGER,
+    state_id TEXT,
+    state_name TEXT,
+    state_type TEXT,
+    team_id TEXT,
+    team_name TEXT,
+    project_id TEXT,
+    project_name TEXT,
+    due_date TEXT,
+    completed_at TEXT,
+    created_at TEXT,
+    updated_at TEXT,
+    label_ids TEXT,
+    label_names TEXT,
+    fetched_at TEXT DEFAULT {_TS_DEFAULT}
+);
+CREATE INDEX IF NOT EXISTS idx_linear_sync_linear_cache_team ON linear_sync_linear_cache(team_id);
+
+CREATE TABLE IF NOT EXISTS linear_sync_deal_cache (
+    id INTEGER PRIMARY KEY,
+    person_id INTEGER NOT NULL,
+    pipeline_id INTEGER,
+    stage_id INTEGER,
+    stage_name TEXT,
+    deal_name TEXT,
+    deal_value REAL,
+    property_address TEXT,
+    property_city TEXT,
+    close_date TEXT,
+    fetched_at TEXT DEFAULT {_TS_DEFAULT},
+    updated_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_linear_sync_deal_cache_person ON linear_sync_deal_cache(person_id);
+
+CREATE TABLE IF NOT EXISTS linear_sync_person_labels (
+    id SERIAL PRIMARY KEY,
+    fub_person_id INTEGER UNIQUE,
+    fub_person_name TEXT,
+    linear_label_id TEXT,
+    linear_label_name TEXT,
+    created_at TEXT DEFAULT {_TS_DEFAULT}
+);
+CREATE INDEX IF NOT EXISTS idx_linear_sync_person_labels_fub ON linear_sync_person_labels(fub_person_id);
+
+CREATE TABLE IF NOT EXISTS linear_sync_team_config (
+    id SERIAL PRIMARY KEY,
+    team_key TEXT UNIQUE NOT NULL,
+    team_id TEXT NOT NULL,
+    team_name TEXT,
+    process_group TEXT,
+    default_state_id TEXT,
+    completed_state_id TEXT,
+    created_at TEXT DEFAULT {_TS_DEFAULT}
+);
+
+CREATE TABLE IF NOT EXISTS linear_sync_sync_state (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at TEXT DEFAULT {_TS_DEFAULT}
+);
+
+CREATE TABLE IF NOT EXISTS linear_sync_sync_log (
+    id SERIAL PRIMARY KEY,
+    timestamp TEXT DEFAULT {_TS_DEFAULT},
+    direction TEXT NOT NULL,
+    action TEXT NOT NULL,
+    linear_issue_id TEXT,
+    fub_task_id INTEGER,
+    fub_person_id INTEGER,
+    fub_deal_id INTEGER,
+    details TEXT,
+    status TEXT DEFAULT 'success'
+);
+CREATE INDEX IF NOT EXISTS idx_linear_sync_sync_log_time ON linear_sync_sync_log(timestamp);
+
+CREATE TABLE IF NOT EXISTS linear_sync_project_instances (
+    id SERIAL PRIMARY KEY,
+    linear_project_id TEXT UNIQUE NOT NULL,
+    linear_project_name TEXT NOT NULL,
+    fub_person_id INTEGER NOT NULL,
+    fub_person_name TEXT,
+    phase TEXT NOT NULL,
+    property_address TEXT,
+    linear_team_id TEXT NOT NULL,
+    person_label_id TEXT,
+    status TEXT DEFAULT 'active',
+    issue_count INTEGER DEFAULT 0,
+    completed_count INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT {_TS_DEFAULT},
+    updated_at TEXT DEFAULT {_TS_DEFAULT}
+);
+CREATE INDEX IF NOT EXISTS idx_linear_sync_project_instances_person ON linear_sync_project_instances(fub_person_id);
+CREATE INDEX IF NOT EXISTS idx_linear_sync_project_instances_phase ON linear_sync_project_instances(phase);
+
+CREATE TABLE IF NOT EXISTS linear_sync_project_milestones (
+    id SERIAL PRIMARY KEY,
+    linear_milestone_id TEXT UNIQUE NOT NULL,
+    linear_project_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    sort_order REAL DEFAULT 0,
+    created_at TEXT DEFAULT {_TS_DEFAULT}
+);
+CREATE INDEX IF NOT EXISTS idx_linear_sync_project_milestones_project ON linear_sync_project_milestones(linear_project_id);
+"""
+
+
+class Database:
+    """Linear sync database (Postgres-backed via pg_adapter)."""
+
+    def __init__(self):
         self._init_schema()
 
-    def _ensure_db_dir(self):
-        """Ensure the database directory exists."""
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
-
-    def _get_connection(self) -> sqlite3.Connection:
-        """Get a database connection with WAL mode."""
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA journal_mode=WAL")
-        conn.execute("PRAGMA foreign_keys=ON")
-        return conn
+    def _get_connection(self):
+        from src.core.pg_adapter import get_db
+        return get_db()
 
     @contextmanager
     def connection(self):
@@ -47,168 +176,9 @@ class Database:
             conn.close()
 
     def _init_schema(self):
-        """Initialize database schema."""
+        """Initialize database schema (idempotent)."""
         with self.connection() as conn:
-            # Issue mapping table - bridges Linear issues and FUB tasks
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS issue_map (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    linear_issue_id TEXT UNIQUE,
-                    linear_identifier TEXT,
-                    fub_task_id INTEGER UNIQUE,
-                    fub_person_id INTEGER,
-                    fub_deal_id INTEGER,
-                    linear_team_id TEXT,
-                    linear_project_id TEXT,
-                    person_label_id TEXT,
-                    origin TEXT NOT NULL,
-                    sync_status TEXT DEFAULT 'synced',
-                    last_synced_at TEXT,
-                    linear_updated_at TEXT,
-                    fub_updated_at TEXT,
-                    created_at TEXT DEFAULT (datetime('now')),
-                    updated_at TEXT DEFAULT (datetime('now'))
-                )
-            """)
-
-            # Linear cache - snapshot of Linear issues
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS linear_cache (
-                    id TEXT PRIMARY KEY,
-                    identifier TEXT,
-                    title TEXT NOT NULL,
-                    description TEXT,
-                    priority INTEGER,
-                    state_id TEXT,
-                    state_name TEXT,
-                    state_type TEXT,
-                    team_id TEXT,
-                    team_name TEXT,
-                    project_id TEXT,
-                    project_name TEXT,
-                    due_date TEXT,
-                    completed_at TEXT,
-                    created_at TEXT,
-                    updated_at TEXT,
-                    label_ids TEXT,
-                    label_names TEXT,
-                    fetched_at TEXT DEFAULT (datetime('now'))
-                )
-            """)
-
-            # Deal cache - snapshot of FUB deals for quick lookups
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS deal_cache (
-                    id INTEGER PRIMARY KEY,
-                    person_id INTEGER NOT NULL,
-                    pipeline_id INTEGER,
-                    stage_id INTEGER,
-                    stage_name TEXT,
-                    deal_name TEXT,
-                    deal_value REAL,
-                    property_address TEXT,
-                    property_city TEXT,
-                    close_date TEXT,
-                    fetched_at TEXT DEFAULT (datetime('now')),
-                    updated_at TEXT
-                )
-            """)
-
-            # Person label mapping - tracks Linear labels for people
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS person_labels (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    fub_person_id INTEGER UNIQUE,
-                    fub_person_name TEXT,
-                    linear_label_id TEXT,
-                    linear_label_name TEXT,
-                    created_at TEXT DEFAULT (datetime('now'))
-                )
-            """)
-
-            # Team config - stores Linear team configuration
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS team_config (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    team_key TEXT UNIQUE NOT NULL,
-                    team_id TEXT NOT NULL,
-                    team_name TEXT,
-                    process_group TEXT,
-                    default_state_id TEXT,
-                    completed_state_id TEXT,
-                    created_at TEXT DEFAULT (datetime('now'))
-                )
-            """)
-
-            # Sync state - key-value store for sync cursors
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS sync_state (
-                    key TEXT PRIMARY KEY,
-                    value TEXT NOT NULL,
-                    updated_at TEXT DEFAULT (datetime('now'))
-                )
-            """)
-
-            # Sync log - audit trail
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS sync_log (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    timestamp TEXT DEFAULT (datetime('now')),
-                    direction TEXT NOT NULL,
-                    action TEXT NOT NULL,
-                    linear_issue_id TEXT,
-                    fub_task_id INTEGER,
-                    fub_person_id INTEGER,
-                    fub_deal_id INTEGER,
-                    details TEXT,
-                    status TEXT DEFAULT 'success'
-                )
-            """)
-
-            # Project instances - tracks Linear projects created from templates
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS project_instances (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    linear_project_id TEXT UNIQUE NOT NULL,
-                    linear_project_name TEXT NOT NULL,
-                    fub_person_id INTEGER NOT NULL,
-                    fub_person_name TEXT,
-                    phase TEXT NOT NULL,
-                    property_address TEXT,
-                    linear_team_id TEXT NOT NULL,
-                    person_label_id TEXT,
-                    status TEXT DEFAULT 'active',
-                    issue_count INTEGER DEFAULT 0,
-                    completed_count INTEGER DEFAULT 0,
-                    created_at TEXT DEFAULT (datetime('now')),
-                    updated_at TEXT DEFAULT (datetime('now'))
-                )
-            """)
-
-            # Project milestones cache - tracks milestones for projects
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS project_milestones (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    linear_milestone_id TEXT UNIQUE NOT NULL,
-                    linear_project_id TEXT NOT NULL,
-                    name TEXT NOT NULL,
-                    sort_order REAL DEFAULT 0,
-                    created_at TEXT DEFAULT (datetime('now')),
-                    FOREIGN KEY (linear_project_id) REFERENCES project_instances(linear_project_id)
-                )
-            """)
-
-            # Indexes
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_issue_map_linear ON issue_map(linear_issue_id)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_issue_map_fub ON issue_map(fub_task_id)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_issue_map_person ON issue_map(fub_person_id)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_linear_cache_team ON linear_cache(team_id)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_deal_cache_person ON deal_cache(person_id)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_person_labels_fub ON person_labels(fub_person_id)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_sync_log_time ON sync_log(timestamp)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_project_instances_person ON project_instances(fub_person_id)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_project_instances_phase ON project_instances(phase)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_project_milestones_project ON project_milestones(linear_project_id)")
+            conn.executescript(SCHEMA)
 
     # =========================================================================
     # SYNC STATE
@@ -218,20 +188,21 @@ class Database:
         """Get a sync state value."""
         with self.connection() as conn:
             row = conn.execute(
-                "SELECT value FROM sync_state WHERE key = ?", (key,)
+                "SELECT value FROM linear_sync_sync_state WHERE key = ?", (key,)
             ).fetchone()
             return row['value'] if row else None
 
     def set_state(self, key: str, value: str):
         """Set a sync state value."""
         with self.connection() as conn:
-            conn.execute("""
-                INSERT INTO sync_state (key, value, updated_at)
-                VALUES (?, ?, datetime('now'))
-                ON CONFLICT(key) DO UPDATE SET
-                    value = excluded.value,
-                    updated_at = datetime('now')
-            """, (key, value))
+            conn.execute(
+                f"INSERT INTO linear_sync_sync_state (key, value, updated_at) "
+                f"VALUES (?, ?, {_TS_DEFAULT}) "
+                f"ON CONFLICT(key) DO UPDATE SET "
+                f"    value = excluded.value, "
+                f"    updated_at = excluded.updated_at",
+                (key, value)
+            )
 
     # =========================================================================
     # ISSUE MAPPINGS
@@ -241,7 +212,7 @@ class Database:
         """Get mapping by Linear issue ID."""
         with self.connection() as conn:
             row = conn.execute(
-                "SELECT * FROM issue_map WHERE linear_issue_id = ?",
+                "SELECT * FROM linear_sync_issue_map WHERE linear_issue_id = ?",
                 (linear_issue_id,)
             ).fetchone()
             return dict(row) if row else None
@@ -250,7 +221,7 @@ class Database:
         """Get mapping by FUB task ID."""
         with self.connection() as conn:
             row = conn.execute(
-                "SELECT * FROM issue_map WHERE fub_task_id = ?",
+                "SELECT * FROM linear_sync_issue_map WHERE fub_task_id = ?",
                 (fub_task_id,)
             ).fetchone()
             return dict(row) if row else None
@@ -259,7 +230,7 @@ class Database:
         """Get all mappings for a person."""
         with self.connection() as conn:
             rows = conn.execute(
-                "SELECT * FROM issue_map WHERE fub_person_id = ?",
+                "SELECT * FROM linear_sync_issue_map WHERE fub_person_id = ?",
                 (fub_person_id,)
             ).fetchall()
             return [dict(r) for r in rows]
@@ -280,18 +251,18 @@ class Database:
     ) -> int:
         """Create a new mapping."""
         with self.connection() as conn:
-            cursor = conn.execute("""
-                INSERT INTO issue_map (
-                    linear_issue_id, linear_identifier, fub_task_id, fub_person_id,
-                    fub_deal_id, linear_team_id, linear_project_id, person_label_id,
-                    origin, sync_status, last_synced_at, linear_updated_at, fub_updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced', datetime('now'), ?, ?)
-            """, (
-                linear_issue_id, linear_identifier, fub_task_id, fub_person_id,
-                fub_deal_id, linear_team_id, linear_project_id, person_label_id,
-                origin, linear_updated_at, fub_updated_at
-            ))
-            return cursor.lastrowid
+            cursor = conn.execute(
+                f"INSERT INTO linear_sync_issue_map ("
+                f"    linear_issue_id, linear_identifier, fub_task_id, fub_person_id,"
+                f"    fub_deal_id, linear_team_id, linear_project_id, person_label_id,"
+                f"    origin, sync_status, last_synced_at, linear_updated_at, fub_updated_at"
+                f") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced', {_TS_DEFAULT}, ?, ?) "
+                f"RETURNING id",
+                (linear_issue_id, linear_identifier, fub_task_id, fub_person_id,
+                 fub_deal_id, linear_team_id, linear_project_id, person_label_id,
+                 origin, linear_updated_at, fub_updated_at)
+            )
+            return cursor.fetchone()['id']
 
     def update_mapping(
         self,
@@ -301,7 +272,7 @@ class Database:
         fub_updated_at: str = None,
     ):
         """Update a mapping."""
-        updates = ["updated_at = datetime('now')", "last_synced_at = datetime('now')"]
+        updates = [f"updated_at = {_TS_DEFAULT}", f"last_synced_at = {_TS_DEFAULT}"]
         params = []
 
         if sync_status is not None:
@@ -318,19 +289,19 @@ class Database:
 
         with self.connection() as conn:
             conn.execute(
-                f"UPDATE issue_map SET {', '.join(updates)} WHERE id = ?",
+                f"UPDATE linear_sync_issue_map SET {', '.join(updates)} WHERE id = ?",
                 params
             )
 
     def delete_mapping(self, mapping_id: int):
         """Delete a mapping."""
         with self.connection() as conn:
-            conn.execute("DELETE FROM issue_map WHERE id = ?", (mapping_id,))
+            conn.execute("DELETE FROM linear_sync_issue_map WHERE id = ?", (mapping_id,))
 
     def get_all_mappings(self) -> list[dict]:
         """Get all mappings."""
         with self.connection() as conn:
-            rows = conn.execute("SELECT * FROM issue_map ORDER BY created_at DESC").fetchall()
+            rows = conn.execute("SELECT * FROM linear_sync_issue_map ORDER BY created_at DESC").fetchall()
             return [dict(r) for r in rows]
 
     # =========================================================================
@@ -341,7 +312,7 @@ class Database:
         """Get Linear label for a FUB person."""
         with self.connection() as conn:
             row = conn.execute(
-                "SELECT * FROM person_labels WHERE fub_person_id = ?",
+                "SELECT * FROM linear_sync_person_labels WHERE fub_person_id = ?",
                 (fub_person_id,)
             ).fetchone()
             return dict(row) if row else None
@@ -356,7 +327,7 @@ class Database:
         """Set or update Linear label for a FUB person."""
         with self.connection() as conn:
             conn.execute("""
-                INSERT INTO person_labels (
+                INSERT INTO linear_sync_person_labels (
                     fub_person_id, fub_person_name, linear_label_id, linear_label_name
                 ) VALUES (?, ?, ?, ?)
                 ON CONFLICT(fub_person_id) DO UPDATE SET
@@ -368,7 +339,7 @@ class Database:
     def get_all_person_labels(self) -> list[dict]:
         """Get all person labels."""
         with self.connection() as conn:
-            rows = conn.execute("SELECT * FROM person_labels").fetchall()
+            rows = conn.execute("SELECT * FROM linear_sync_person_labels").fetchall()
             return [dict(r) for r in rows]
 
     # =========================================================================
@@ -379,7 +350,7 @@ class Database:
         """Get team configuration by key."""
         with self.connection() as conn:
             row = conn.execute(
-                "SELECT * FROM team_config WHERE team_key = ?",
+                "SELECT * FROM linear_sync_team_config WHERE team_key = ?",
                 (team_key,)
             ).fetchone()
             return dict(row) if row else None
@@ -396,7 +367,7 @@ class Database:
         """Set or update team configuration."""
         with self.connection() as conn:
             conn.execute("""
-                INSERT INTO team_config (
+                INSERT INTO linear_sync_team_config (
                     team_key, team_id, team_name, process_group,
                     default_state_id, completed_state_id
                 ) VALUES (?, ?, ?, ?, ?, ?)
@@ -411,7 +382,7 @@ class Database:
     def get_all_team_configs(self) -> list[dict]:
         """Get all team configurations."""
         with self.connection() as conn:
-            rows = conn.execute("SELECT * FROM team_config").fetchall()
+            rows = conn.execute("SELECT * FROM linear_sync_team_config").fetchall()
             return [dict(r) for r in rows]
 
     # =========================================================================
@@ -421,13 +392,13 @@ class Database:
     def cache_issue(self, issue: 'LinearIssue'):
         """Cache a Linear issue."""
         with self.connection() as conn:
-            conn.execute("""
-                INSERT INTO linear_cache (
+            conn.execute(f"""
+                INSERT INTO linear_sync_linear_cache (
                     id, identifier, title, description, priority,
                     state_id, state_name, state_type, team_id, team_name,
                     project_id, project_name, due_date, completed_at,
                     created_at, updated_at, label_ids, label_names, fetched_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, {_TS_DEFAULT})
                 ON CONFLICT(id) DO UPDATE SET
                     identifier = excluded.identifier,
                     title = excluded.title,
@@ -446,7 +417,7 @@ class Database:
                     updated_at = excluded.updated_at,
                     label_ids = excluded.label_ids,
                     label_names = excluded.label_names,
-                    fetched_at = datetime('now')
+                    fetched_at = {_TS_DEFAULT}
             """, (
                 issue.id, issue.identifier, issue.title, issue.description, issue.priority,
                 issue.state_id, issue.state_name, issue.state_type, issue.team_id, issue.team_name,
@@ -459,7 +430,7 @@ class Database:
         """Get a cached issue."""
         with self.connection() as conn:
             row = conn.execute(
-                "SELECT * FROM linear_cache WHERE id = ?", (issue_id,)
+                "SELECT * FROM linear_sync_linear_cache WHERE id = ?", (issue_id,)
             ).fetchone()
             return dict(row) if row else None
 
@@ -470,12 +441,12 @@ class Database:
     def cache_deal(self, deal: 'FUBDeal'):
         """Cache a FUB deal."""
         with self.connection() as conn:
-            conn.execute("""
-                INSERT INTO deal_cache (
+            conn.execute(f"""
+                INSERT INTO linear_sync_deal_cache (
                     id, person_id, pipeline_id, stage_id, stage_name,
                     deal_name, deal_value, property_address, property_city,
                     close_date, fetched_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, {_TS_DEFAULT}, ?)
                 ON CONFLICT(id) DO UPDATE SET
                     person_id = excluded.person_id,
                     pipeline_id = excluded.pipeline_id,
@@ -486,7 +457,7 @@ class Database:
                     property_address = excluded.property_address,
                     property_city = excluded.property_city,
                     close_date = excluded.close_date,
-                    fetched_at = datetime('now'),
+                    fetched_at = {_TS_DEFAULT},
                     updated_at = excluded.updated_at
             """, (
                 deal.id, deal.person_id, deal.pipeline_id, deal.stage_id, deal.stage_name,
@@ -498,7 +469,7 @@ class Database:
         """Get a cached deal."""
         with self.connection() as conn:
             row = conn.execute(
-                "SELECT * FROM deal_cache WHERE id = ?", (deal_id,)
+                "SELECT * FROM linear_sync_deal_cache WHERE id = ?", (deal_id,)
             ).fetchone()
             return dict(row) if row else None
 
@@ -506,7 +477,7 @@ class Database:
         """Get cached deals for a person."""
         with self.connection() as conn:
             rows = conn.execute(
-                "SELECT * FROM deal_cache WHERE person_id = ?",
+                "SELECT * FROM linear_sync_deal_cache WHERE person_id = ?",
                 (person_id,)
             ).fetchall()
             return [dict(r) for r in rows]
@@ -529,7 +500,7 @@ class Database:
         """Log a sync action."""
         with self.connection() as conn:
             conn.execute("""
-                INSERT INTO sync_log (
+                INSERT INTO linear_sync_sync_log (
                     direction, action, linear_issue_id, fub_task_id,
                     fub_person_id, fub_deal_id, details, status
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -544,7 +515,7 @@ class Database:
         """Get recent sync logs."""
         with self.connection() as conn:
             rows = conn.execute(
-                "SELECT * FROM sync_log ORDER BY timestamp DESC LIMIT ?",
+                "SELECT * FROM linear_sync_sync_log ORDER BY timestamp DESC LIMIT ?",
                 (limit,)
             ).fetchall()
             return [dict(r) for r in rows]
@@ -552,25 +523,22 @@ class Database:
     def get_sync_stats(self) -> dict:
         """Get sync statistics."""
         with self.connection() as conn:
-            # Total mappings
-            total = conn.execute("SELECT COUNT(*) as c FROM issue_map").fetchone()['c']
+            total = conn.execute("SELECT COUNT(*) as c FROM linear_sync_issue_map").fetchone()['c']
 
-            # By origin
-            by_origin = conn.execute("""
-                SELECT origin, COUNT(*) as c FROM issue_map GROUP BY origin
-            """).fetchall()
+            by_origin = conn.execute(
+                "SELECT origin, COUNT(*) as c FROM linear_sync_issue_map GROUP BY origin"
+            ).fetchall()
 
-            # By status
-            by_status = conn.execute("""
-                SELECT sync_status, COUNT(*) as c FROM issue_map GROUP BY sync_status
-            """).fetchall()
+            by_status = conn.execute(
+                "SELECT sync_status, COUNT(*) as c FROM linear_sync_issue_map GROUP BY sync_status"
+            ).fetchall()
 
-            # Recent log counts
             today = datetime.now().strftime('%Y-%m-%d')
-            today_logs = conn.execute("""
-                SELECT action, COUNT(*) as c FROM sync_log
-                WHERE timestamp >= ? GROUP BY action
-            """, (today,)).fetchall()
+            today_logs = conn.execute(
+                "SELECT action, COUNT(*) as c FROM linear_sync_sync_log "
+                "WHERE timestamp >= ? GROUP BY action",
+                (today,)
+            ).fetchall()
 
             return {
                 'total_mappings': total,
@@ -598,22 +566,23 @@ class Database:
         """Create a project instance record."""
         with self.connection() as conn:
             cursor = conn.execute("""
-                INSERT INTO project_instances (
+                INSERT INTO linear_sync_project_instances (
                     linear_project_id, linear_project_name, fub_person_id, fub_person_name,
                     phase, property_address, linear_team_id, person_label_id,
                     issue_count, status
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
+                RETURNING id
             """, (
                 linear_project_id, linear_project_name, fub_person_id, fub_person_name,
                 phase, property_address, linear_team_id, person_label_id, issue_count
             ))
-            return cursor.lastrowid
+            return cursor.fetchone()['id']
 
     def get_project_instance(self, linear_project_id: str) -> Optional[dict]:
         """Get a project instance by Linear project ID."""
         with self.connection() as conn:
             row = conn.execute(
-                "SELECT * FROM project_instances WHERE linear_project_id = ?",
+                "SELECT * FROM linear_sync_project_instances WHERE linear_project_id = ?",
                 (linear_project_id,)
             ).fetchone()
             return dict(row) if row else None
@@ -624,20 +593,17 @@ class Database:
         phase: str,
         property_address: str = None,
     ) -> Optional[dict]:
-        """Get a project for a person and phase.
-
-        For ACQUIRE/CLOSE phases, property_address is used to distinguish multiple deals.
-        """
+        """Get a project for a person and phase."""
         with self.connection() as conn:
             if property_address:
                 row = conn.execute("""
-                    SELECT * FROM project_instances
+                    SELECT * FROM linear_sync_project_instances
                     WHERE fub_person_id = ? AND phase = ? AND property_address = ?
                     AND status = 'active'
                 """, (fub_person_id, phase, property_address)).fetchone()
             else:
                 row = conn.execute("""
-                    SELECT * FROM project_instances
+                    SELECT * FROM linear_sync_project_instances
                     WHERE fub_person_id = ? AND phase = ? AND status = 'active'
                 """, (fub_person_id, phase)).fetchone()
             return dict(row) if row else None
@@ -646,7 +612,7 @@ class Database:
         """Get all projects for a person across all phases."""
         with self.connection() as conn:
             rows = conn.execute("""
-                SELECT * FROM project_instances
+                SELECT * FROM linear_sync_project_instances
                 WHERE fub_person_id = ?
                 ORDER BY created_at ASC
             """, (fub_person_id,)).fetchall()
@@ -657,13 +623,13 @@ class Database:
         with self.connection() as conn:
             if phase:
                 rows = conn.execute("""
-                    SELECT * FROM project_instances
+                    SELECT * FROM linear_sync_project_instances
                     WHERE status = 'active' AND phase = ?
                     ORDER BY created_at DESC
                 """, (phase,)).fetchall()
             else:
                 rows = conn.execute("""
-                    SELECT * FROM project_instances
+                    SELECT * FROM linear_sync_project_instances
                     WHERE status = 'active'
                     ORDER BY created_at DESC
                 """).fetchall()
@@ -676,7 +642,7 @@ class Database:
         completed_count: int = None,
     ):
         """Update a project instance."""
-        updates = ["updated_at = datetime('now')"]
+        updates = [f"updated_at = {_TS_DEFAULT}"]
         params = []
 
         if status is not None:
@@ -690,7 +656,8 @@ class Database:
 
         with self.connection() as conn:
             conn.execute(
-                f"UPDATE project_instances SET {', '.join(updates)} WHERE linear_project_id = ?",
+                f"UPDATE linear_sync_project_instances SET {', '.join(updates)} "
+                f"WHERE linear_project_id = ?",
                 params
             )
 
@@ -698,11 +665,11 @@ class Database:
         """Delete a project instance (and its milestones)."""
         with self.connection() as conn:
             conn.execute(
-                "DELETE FROM project_milestones WHERE linear_project_id = ?",
+                "DELETE FROM linear_sync_project_milestones WHERE linear_project_id = ?",
                 (linear_project_id,)
             )
             conn.execute(
-                "DELETE FROM project_instances WHERE linear_project_id = ?",
+                "DELETE FROM linear_sync_project_instances WHERE linear_project_id = ?",
                 (linear_project_id,)
             )
 
@@ -720,17 +687,18 @@ class Database:
         """Create a milestone record."""
         with self.connection() as conn:
             cursor = conn.execute("""
-                INSERT INTO project_milestones (
+                INSERT INTO linear_sync_project_milestones (
                     linear_milestone_id, linear_project_id, name, sort_order
                 ) VALUES (?, ?, ?, ?)
+                RETURNING id
             """, (linear_milestone_id, linear_project_id, name, sort_order))
-            return cursor.lastrowid
+            return cursor.fetchone()['id']
 
     def get_milestones_for_project(self, linear_project_id: str) -> list[dict]:
         """Get all milestones for a project."""
         with self.connection() as conn:
             rows = conn.execute("""
-                SELECT * FROM project_milestones
+                SELECT * FROM linear_sync_project_milestones
                 WHERE linear_project_id = ?
                 ORDER BY sort_order ASC
             """, (linear_project_id,)).fetchall()
@@ -739,20 +707,17 @@ class Database:
     def get_project_stats(self) -> dict:
         """Get project statistics."""
         with self.connection() as conn:
-            # Total active projects
             total_active = conn.execute(
-                "SELECT COUNT(*) as c FROM project_instances WHERE status = 'active'"
+                "SELECT COUNT(*) as c FROM linear_sync_project_instances WHERE status = 'active'"
             ).fetchone()['c']
 
-            # By phase
             by_phase = conn.execute("""
-                SELECT phase, COUNT(*) as c FROM project_instances
+                SELECT phase, COUNT(*) as c FROM linear_sync_project_instances
                 WHERE status = 'active' GROUP BY phase
             """).fetchall()
 
-            # Total completed
             total_completed = conn.execute(
-                "SELECT COUNT(*) as c FROM project_instances WHERE status = 'completed'"
+                "SELECT COUNT(*) as c FROM linear_sync_project_instances WHERE status = 'completed'"
             ).fetchone()['c']
 
             return {

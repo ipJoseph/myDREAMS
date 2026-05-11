@@ -1,46 +1,50 @@
 """
-Database management for Task Sync module.
+Database management for Task Sync module (Postgres-backed).
 
-SQLite with WAL mode for concurrent access.
+Bridges Todoist <-> FUB. Tables live in the dreams Postgres DB with the
+task_sync_* prefix. Schema is created idempotently at module load via
+CREATE TABLE IF NOT EXISTS. The legacy data/task_sync.db SQLite store
+has been migrated; see scripts/migrate_task_sync_to_postgres.py.
 """
 
-import sqlite3
+import logging
 from contextlib import contextmanager
 from datetime import datetime
-from pathlib import Path
-from typing import Optional, Any
+from typing import Optional
 
-from .config import config
+logger = logging.getLogger(__name__)
 
 
-SCHEMA = """
--- Bridge table: maps task IDs between systems and associates with deals
-CREATE TABLE IF NOT EXISTS task_map (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+# ISO-8601 UTC timestamp matching the prior SQLite datetime('now') usage
+# closely enough that downstream code that JSON-encodes or displays these
+# strings sees no behavioral change.
+_TS_DEFAULT = "to_char(NOW() AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS')"
+
+SCHEMA = f"""
+CREATE TABLE IF NOT EXISTS task_sync_task_map (
+    id SERIAL PRIMARY KEY,
     todoist_task_id TEXT UNIQUE,
     fub_task_id INTEGER UNIQUE,
     fub_person_id INTEGER,
     fub_deal_id INTEGER,
     todoist_project_id TEXT,
     todoist_section_id TEXT,
-    origin TEXT NOT NULL,  -- 'todoist' or 'fub'
-    sync_status TEXT DEFAULT 'synced',  -- synced, pending_to_todoist, pending_to_fub, conflict, error
+    origin TEXT NOT NULL,
+    sync_status TEXT DEFAULT 'synced',
     last_synced_at TEXT,
     todoist_updated_at TEXT,
     fub_updated_at TEXT,
-    created_at TEXT DEFAULT (datetime('now')),
-    updated_at TEXT DEFAULT (datetime('now'))
+    created_at TEXT DEFAULT {_TS_DEFAULT},
+    updated_at TEXT DEFAULT {_TS_DEFAULT}
 );
+CREATE INDEX IF NOT EXISTS idx_task_sync_task_map_todoist ON task_sync_task_map(todoist_task_id);
+CREATE INDEX IF NOT EXISTS idx_task_sync_task_map_fub ON task_sync_task_map(fub_task_id);
+CREATE INDEX IF NOT EXISTS idx_task_sync_task_map_deal ON task_sync_task_map(fub_deal_id);
+CREATE INDEX IF NOT EXISTS idx_task_sync_task_map_person ON task_sync_task_map(fub_person_id);
+CREATE INDEX IF NOT EXISTS idx_task_sync_task_map_status ON task_sync_task_map(sync_status);
 
-CREATE INDEX IF NOT EXISTS idx_task_map_todoist ON task_map(todoist_task_id);
-CREATE INDEX IF NOT EXISTS idx_task_map_fub ON task_map(fub_task_id);
-CREATE INDEX IF NOT EXISTS idx_task_map_deal ON task_map(fub_deal_id);
-CREATE INDEX IF NOT EXISTS idx_task_map_person ON task_map(fub_person_id);
-CREATE INDEX IF NOT EXISTS idx_task_map_status ON task_map(sync_status);
-
--- Deal cache: local snapshot of FUB deals
-CREATE TABLE IF NOT EXISTS deal_cache (
-    id INTEGER PRIMARY KEY,  -- FUB deal ID
+CREATE TABLE IF NOT EXISTS task_sync_deal_cache (
+    id INTEGER PRIMARY KEY,
     person_id INTEGER NOT NULL,
     pipeline_id INTEGER,
     stage_id INTEGER,
@@ -56,64 +60,54 @@ CREATE TABLE IF NOT EXISTS deal_cache (
     person_phone TEXT,
     todoist_project_id TEXT,
     todoist_section_id TEXT,
-    fetched_at TEXT DEFAULT (datetime('now')),
+    fetched_at TEXT DEFAULT {_TS_DEFAULT},
     updated_at TEXT
 );
+CREATE INDEX IF NOT EXISTS idx_task_sync_deal_cache_person ON task_sync_deal_cache(person_id);
+CREATE INDEX IF NOT EXISTS idx_task_sync_deal_cache_stage ON task_sync_deal_cache(stage_id);
 
-CREATE INDEX IF NOT EXISTS idx_deal_cache_person ON deal_cache(person_id);
-CREATE INDEX IF NOT EXISTS idx_deal_cache_stage ON deal_cache(stage_id);
-
--- Todoist project/section mapping
-CREATE TABLE IF NOT EXISTS todoist_projects (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+CREATE TABLE IF NOT EXISTS task_sync_todoist_projects (
+    id SERIAL PRIMARY KEY,
     todoist_project_id TEXT UNIQUE NOT NULL,
     project_name TEXT NOT NULL,
     fub_pipeline_id INTEGER,
     fub_stage_id INTEGER,
-    project_type TEXT NOT NULL,  -- 'pipeline_stage', 'general', 'personal'
-    created_at TEXT DEFAULT (datetime('now'))
+    project_type TEXT NOT NULL,
+    created_at TEXT DEFAULT {_TS_DEFAULT}
 );
 
--- Sync state: cursors, tokens, timestamps
-CREATE TABLE IF NOT EXISTS sync_state (
+CREATE TABLE IF NOT EXISTS task_sync_sync_state (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL,
-    updated_at TEXT DEFAULT (datetime('now'))
+    updated_at TEXT DEFAULT {_TS_DEFAULT}
 );
 
--- Sync log: audit trail
-CREATE TABLE IF NOT EXISTS sync_log (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    timestamp TEXT DEFAULT (datetime('now')),
-    direction TEXT NOT NULL,  -- 'fub_to_todoist', 'todoist_to_fub', 'internal'
-    action TEXT NOT NULL,  -- 'create', 'update', 'complete', 'delete', 'move', 'error'
+CREATE TABLE IF NOT EXISTS task_sync_sync_log (
+    id SERIAL PRIMARY KEY,
+    timestamp TEXT DEFAULT {_TS_DEFAULT},
+    direction TEXT NOT NULL,
+    action TEXT NOT NULL,
     todoist_task_id TEXT,
     fub_task_id INTEGER,
     fub_deal_id INTEGER,
-    details TEXT,  -- JSON
+    details TEXT,
     status TEXT DEFAULT 'success'
 );
-
-CREATE INDEX IF NOT EXISTS idx_sync_log_timestamp ON sync_log(timestamp);
-CREATE INDEX IF NOT EXISTS idx_sync_log_status ON sync_log(status);
+CREATE INDEX IF NOT EXISTS idx_task_sync_sync_log_timestamp ON task_sync_sync_log(timestamp);
+CREATE INDEX IF NOT EXISTS idx_task_sync_sync_log_status ON task_sync_sync_log(status);
 """
 
 
 class Database:
-    """Task sync database manager."""
+    """Task sync database manager (Postgres-backed via pg_adapter)."""
 
-    def __init__(self, db_path: Optional[Path] = None):
-        self.db_path = db_path or config.DB_PATH
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+    def __init__(self):
         self._init_schema()
 
-    def _get_connection(self) -> sqlite3.Connection:
-        """Get a database connection with WAL mode."""
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA journal_mode=WAL")
-        conn.execute("PRAGMA foreign_keys=ON")
-        return conn
+    def _get_connection(self):
+        """Get a pooled Postgres connection wrapped for sqlite3-compatible interface."""
+        from src.core.pg_adapter import get_db
+        return get_db()
 
     @contextmanager
     def connection(self):
@@ -129,7 +123,7 @@ class Database:
             conn.close()
 
     def _init_schema(self):
-        """Initialize database schema."""
+        """Initialize database schema (idempotent)."""
         with self.connection() as conn:
             conn.executescript(SCHEMA)
 
@@ -141,18 +135,20 @@ class Database:
         """Get a sync state value."""
         with self.connection() as conn:
             row = conn.execute(
-                "SELECT value FROM sync_state WHERE key = ?", (key,)
+                "SELECT value FROM task_sync_sync_state WHERE key = ?", (key,)
             ).fetchone()
             return row['value'] if row else None
 
     def set_state(self, key: str, value: str):
         """Set a sync state value."""
         with self.connection() as conn:
-            conn.execute("""
-                INSERT INTO sync_state (key, value, updated_at)
-                VALUES (?, ?, datetime('now'))
-                ON CONFLICT(key) DO UPDATE SET value = ?, updated_at = datetime('now')
-            """, (key, value, value))
+            conn.execute(
+                f"INSERT INTO task_sync_sync_state (key, value, updated_at) "
+                f"VALUES (?, ?, {_TS_DEFAULT}) "
+                f"ON CONFLICT(key) DO UPDATE SET value = excluded.value, "
+                f"updated_at = excluded.updated_at",
+                (key, value)
+            )
 
     # ==========================================================================
     # Task Map (Bridge Table)
@@ -162,7 +158,7 @@ class Database:
         """Get task mapping by FUB task ID."""
         with self.connection() as conn:
             row = conn.execute(
-                "SELECT * FROM task_map WHERE fub_task_id = ?", (fub_task_id,)
+                "SELECT * FROM task_sync_task_map WHERE fub_task_id = ?", (fub_task_id,)
             ).fetchone()
             return dict(row) if row else None
 
@@ -170,7 +166,7 @@ class Database:
         """Get task mapping by Todoist task ID."""
         with self.connection() as conn:
             row = conn.execute(
-                "SELECT * FROM task_map WHERE todoist_task_id = ?", (todoist_task_id,)
+                "SELECT * FROM task_sync_task_map WHERE todoist_task_id = ?", (todoist_task_id,)
             ).fetchone()
             return dict(row) if row else None
 
@@ -186,17 +182,17 @@ class Database:
     ) -> int:
         """Create a new task mapping. Returns mapping ID."""
         with self.connection() as conn:
-            cursor = conn.execute("""
-                INSERT INTO task_map (
-                    fub_task_id, todoist_task_id, fub_person_id, fub_deal_id,
-                    todoist_project_id, todoist_section_id, origin,
-                    sync_status, last_synced_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, 'synced', datetime('now'))
-            """, (
-                fub_task_id, todoist_task_id, fub_person_id, fub_deal_id,
-                todoist_project_id, todoist_section_id, origin
-            ))
-            return cursor.lastrowid
+            cursor = conn.execute(
+                f"INSERT INTO task_sync_task_map ("
+                f"    fub_task_id, todoist_task_id, fub_person_id, fub_deal_id,"
+                f"    todoist_project_id, todoist_section_id, origin,"
+                f"    sync_status, last_synced_at"
+                f") VALUES (?, ?, ?, ?, ?, ?, ?, 'synced', {_TS_DEFAULT}) "
+                f"RETURNING id",
+                (fub_task_id, todoist_task_id, fub_person_id, fub_deal_id,
+                 todoist_project_id, todoist_section_id, origin)
+            )
+            return cursor.fetchone()['id']
 
     def update_mapping(self, mapping_id: int, **kwargs):
         """Update a task mapping."""
@@ -209,14 +205,14 @@ class Database:
         values = list(kwargs.values()) + [mapping_id]
 
         with self.connection() as conn:
-            conn.execute(f"UPDATE task_map SET {sets} WHERE id = ?", values)
+            conn.execute(f"UPDATE task_sync_task_map SET {sets} WHERE id = ?", values)
 
     def get_pending_syncs(self, direction: str) -> list[dict]:
         """Get tasks pending sync in a direction."""
         status = f'pending_to_{"todoist" if direction == "fub_to_todoist" else "fub"}'
         with self.connection() as conn:
             rows = conn.execute(
-                "SELECT * FROM task_map WHERE sync_status = ?", (status,)
+                "SELECT * FROM task_sync_task_map WHERE sync_status = ?", (status,)
             ).fetchall()
             return [dict(row) for row in rows]
 
@@ -237,7 +233,7 @@ class Database:
         """Log a sync action."""
         with self.connection() as conn:
             conn.execute("""
-                INSERT INTO sync_log (
+                INSERT INTO task_sync_sync_log (
                     direction, action, todoist_task_id, fub_task_id,
                     fub_deal_id, details, status
                 ) VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -247,7 +243,7 @@ class Database:
         """Get recent sync log entries."""
         with self.connection() as conn:
             rows = conn.execute(
-                "SELECT * FROM sync_log ORDER BY timestamp DESC LIMIT ?", (limit,)
+                "SELECT * FROM task_sync_sync_log ORDER BY timestamp DESC LIMIT ?", (limit,)
             ).fetchall()
             return [dict(row) for row in rows]
 
@@ -259,7 +255,7 @@ class Database:
         """Cache a FUB deal for quick lookups."""
         with self.connection() as conn:
             conn.execute("""
-                INSERT INTO deal_cache (
+                INSERT INTO task_sync_deal_cache (
                     id, person_id, pipeline_id, stage_id, stage_name,
                     deal_name, deal_value, property_address, property_city,
                     property_state, property_zip, person_name, person_email,
@@ -279,7 +275,7 @@ class Database:
                     person_name = excluded.person_name,
                     person_email = excluded.person_email,
                     person_phone = excluded.person_phone,
-                    fetched_at = datetime('now'),
+                    fetched_at = """ + _TS_DEFAULT + """,
                     updated_at = excluded.updated_at
             """, (
                 deal.get('id'),
@@ -303,7 +299,7 @@ class Database:
         """Get a cached deal by ID."""
         with self.connection() as conn:
             row = conn.execute(
-                "SELECT * FROM deal_cache WHERE id = ?", (deal_id,)
+                "SELECT * FROM task_sync_deal_cache WHERE id = ?", (deal_id,)
             ).fetchone()
             return dict(row) if row else None
 
@@ -311,7 +307,7 @@ class Database:
         """Get all cached deals for a person."""
         with self.connection() as conn:
             rows = conn.execute(
-                "SELECT * FROM deal_cache WHERE person_id = ? ORDER BY updated_at DESC", (person_id,)
+                "SELECT * FROM task_sync_deal_cache WHERE person_id = ? ORDER BY updated_at DESC", (person_id,)
             ).fetchall()
             return [dict(row) for row in rows]
 
@@ -320,11 +316,7 @@ class Database:
     # ==========================================================================
 
     def get_dashboard_tasks(self, limit: int = 10) -> list[dict]:
-        """
-        Get tasks for dashboard display.
-
-        Returns tasks with FUB person and deal context for display.
-        """
+        """Get tasks for dashboard display."""
         with self.connection() as conn:
             rows = conn.execute("""
                 SELECT
@@ -340,8 +332,8 @@ class Database:
                     dc.stage_name as deal_stage,
                     dc.deal_name,
                     dc.property_address
-                FROM task_map tm
-                LEFT JOIN deal_cache dc ON tm.fub_deal_id = dc.id
+                FROM task_sync_task_map tm
+                LEFT JOIN task_sync_deal_cache dc ON tm.fub_deal_id = dc.id
                 WHERE tm.sync_status = 'synced'
                 ORDER BY tm.last_synced_at DESC
                 LIMIT ?
@@ -358,8 +350,8 @@ class Database:
                     dc.stage_name as deal_stage,
                     dc.deal_name,
                     dc.property_address
-                FROM task_map tm
-                LEFT JOIN deal_cache dc ON tm.fub_deal_id = dc.id
+                FROM task_sync_task_map tm
+                LEFT JOIN task_sync_deal_cache dc ON tm.fub_deal_id = dc.id
                 ORDER BY tm.created_at DESC
             """).fetchall()
             return [dict(row) for row in rows]
