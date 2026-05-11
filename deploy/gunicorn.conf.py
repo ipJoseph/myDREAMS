@@ -24,3 +24,24 @@ forwarded_allow_ips = "127.0.0.1"
 accesslog = "-"  # stdout -> journald
 errorlog = "-"   # stderr -> journald
 loglevel = "info"
+
+
+def post_fork(server, worker):
+    """Reset the psycopg2 pool in each worker after fork.
+
+    With preload_app=True, the master imports DREAMSDatabase, which creates
+    the psycopg2 ThreadedConnectionPool eagerly when first used. Forked
+    workers inherit those open SSL connections — but SSL session state lives
+    inside the libpq client, which can't be safely shared across processes.
+    Concurrent reuse causes "SSL error: decryption failed or bad record mac"
+    or "SSL SYSCALL error: EOF detected" (observed 2026-05-11 22:15 UTC on
+    /properties).
+
+    Fix: in each worker, drop the inherited pool reference and let it lazily
+    recreate on first use — that pool will own its own connections.
+    """
+    try:
+        from src.core import pg_adapter
+        pg_adapter._pool = None
+    except Exception as e:
+        worker.log.warning(f"post_fork: failed to reset pg_adapter pool: {e}")
