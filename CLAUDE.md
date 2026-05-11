@@ -177,10 +177,10 @@ The system is built around **one PostgreSQL database** that all apps share. Conn
 **Postgres-only for `dreams.db`.** Every code path that previously wrote to `data/dreams.db` now routes through `src.core.pg_adapter.get_db()`. The silent SQLite fallback in `pg_adapter.get_db()` is removed — calling it without `DATABASE_URL` set raises a `RuntimeError`. The `DREAMS_ALLOW_SQLITE_FALLBACK` env var escape hatch is also removed. `DREAMSDatabase.__init__` raises if invoked without `DATABASE_URL` or an explicit test-mode path. There is no longer a way for production code to silently grow the orphan `dreams.db`.
 
 **Allowed SQLite usage** (each documented and bounded):
-- `modules/task_sync/db.py` → `data/task_sync.db` — Todoist↔FUB bridge daemon (`mydreams-task-sync`). **Pending migration to Postgres** (separate project: schema design + data migration + daemon restart).
-- `modules/linear_sync/db.py` → `data/linear_sync.db` — Linear↔FUB bridge. **Pending migration to Postgres** (same as above).
-- `scripts/migrate_to_postgres.py` — one-shot migration tool, reads SQLite by design.
+- `scripts/migrate_to_postgres.py`, `scripts/migrate_task_sync_to_postgres.py` — one-shot migration tools, read SQLite by design.
 - `tests/conftest.py`, `tests/test_integration/test_public_api_bbo_guard.py` — test isolation. `DREAMSDatabase` accepts an explicit `db_path` argument for tests only; production code must omit the arg.
+
+**Migrated (2026-05-11):** `modules/task_sync/db.py` and `modules/linear_sync/db.py` now route through `pg_adapter.get_db()` against the dreams Postgres database with `task_sync_*` / `linear_sync_*` table prefixes. The legacy `data/task_sync.db` and `data/linear_sync.db` are kept on disk as `.bak` for 1-week rollback safety, then can be deleted.
 
 **If you find a `sqlite3.connect(...)` call against `data/dreams.db`** anywhere outside the allowed list above, it is a bug. The migration rule is: replace with `from src.core.pg_adapter import get_db; conn = get_db()`. Drop the `DB_PATH = ... / 'data' / 'dreams.db'` constant; it is meaningless.
 
