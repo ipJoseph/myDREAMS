@@ -84,7 +84,7 @@ def get_project_for_process(process: str) -> Optional[str]:
     return PROCESS_PROJECTS.get(process)
 
 
-def get_existing_todoist_projects() -> dict:
+def get_existing_task_sync_todoist_projects() -> dict:
     """Get existing Todoist projects as a dict of name -> project."""
     projects = todoist_client.get_projects()
     return {p['name']: p for p in projects}
@@ -94,7 +94,7 @@ def get_existing_mappings() -> list[dict]:
     """Get existing pipeline-to-project mappings from database."""
     with db.connection() as conn:
         rows = conn.execute("""
-            SELECT * FROM todoist_projects
+            SELECT * FROM task_sync_todoist_projects
             WHERE project_type = 'pipeline_stage'
             ORDER BY fub_pipeline_id, fub_stage_id
         """).fetchall()
@@ -110,7 +110,7 @@ def save_mapping(
     """Save a pipeline stage to Todoist project mapping."""
     with db.connection() as conn:
         conn.execute("""
-            INSERT INTO todoist_projects (
+            INSERT INTO task_sync_todoist_projects (
                 todoist_project_id, project_name, fub_pipeline_id,
                 fub_stage_id, project_type
             ) VALUES (?, ?, ?, ?, 'pipeline_stage')
@@ -125,7 +125,7 @@ def get_project_for_stage(pipeline_id: int, stage_id: int) -> Optional[str]:
     """Get the Todoist project ID for a FUB pipeline stage."""
     with db.connection() as conn:
         row = conn.execute("""
-            SELECT todoist_project_id FROM todoist_projects
+            SELECT todoist_project_id FROM task_sync_todoist_projects
             WHERE fub_pipeline_id = ? AND fub_stage_id = ?
             AND project_type = 'pipeline_stage'
         """, (pipeline_id, stage_id)).fetchone()
@@ -170,7 +170,7 @@ def run_setup_wizard(interactive: bool = True) -> dict:
     print(f"\nFound {len(pipelines)} FUB pipelines")
 
     # Get existing Todoist projects
-    existing_projects = get_existing_todoist_projects()
+    existing_projects = get_existing_task_sync_todoist_projects()
     print(f"Found {len(existing_projects)} existing Todoist projects")
 
     # Get existing mappings

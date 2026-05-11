@@ -257,7 +257,7 @@ class ProjectFactory:
         # Need to update issue_count separately since update_project_instance doesn't handle it
         with self.db.connection() as conn:
             conn.execute(
-                "UPDATE project_instances SET issue_count = ? WHERE linear_project_id = ?",
+                "UPDATE linear_sync_project_instances SET issue_count = ? WHERE linear_project_id = ?",
                 (len(issues_created), project.id)
             )
 

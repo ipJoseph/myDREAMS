@@ -136,8 +136,8 @@ def cmd_status():
 
     # Count mappings
     with db.connection() as conn:
-        mapping_count = conn.execute("SELECT COUNT(*) FROM task_map").fetchone()[0]
-        pending_count = conn.execute("SELECT COUNT(*) FROM task_map WHERE sync_status != 'synced'").fetchone()[0]
+        mapping_count = conn.execute("SELECT COUNT(*) FROM task_sync_task_map").fetchone()[0]
+        pending_count = conn.execute("SELECT COUNT(*) FROM task_sync_task_map WHERE sync_status != 'synced'").fetchone()[0]
     print(f"  Task mappings: {mapping_count} total, {pending_count} pending")
 
     # Get recent logs
@@ -362,7 +362,7 @@ def cmd_sync_todoist():
     with db.connection() as conn:
         mappings = conn.execute("""
             SELECT id, todoist_task_id, fub_task_id
-            FROM task_map
+            FROM task_sync_task_map
             WHERE todoist_task_id IS NOT NULL AND fub_task_id IS NOT NULL
         """).fetchall()
 
