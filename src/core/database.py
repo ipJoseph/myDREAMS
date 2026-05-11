@@ -28,27 +28,32 @@ class DREAMSDatabase:
         """
         Initialize database connection.
 
-        Production: no args; reads DATABASE_URL → PostgreSQL via pg_adapter.
-        Tests: explicit db_path → SQLite test isolation (NEVER used in production).
+        DATABASE_URL wins. If it's set, we use PostgreSQL regardless of
+        whether the caller passed a db_path (production callers historically
+        pass the legacy data/dreams.db default which we now ignore).
 
-        The default-to-data/dreams.db silent fallback that was growing the
-        905 MB orphan on PRD is gone. If DATABASE_URL is unset and no
-        explicit path is given, this raises.
+        If DATABASE_URL is not set:
+          - explicit db_path: SQLite (test isolation)
+          - no db_path: raise (no silent fallback)
         """
         from src.core.pg_adapter import is_postgres
 
-        if db_path is not None:
-            # Explicit path = test isolation only. SQLite is never the
-            # production backend.
+        if is_postgres():
+            self._use_postgres = True
+            self.db_path = None
+            if db_path is not None:
+                logger.debug(
+                    "DREAMSDatabase: ignoring db_path=%s, DATABASE_URL takes precedence",
+                    db_path,
+                )
+            logger.info("DREAMSDatabase using PostgreSQL")
+        elif db_path is not None:
+            # No DATABASE_URL + explicit path = SQLite test mode.
             self._use_postgres = False
             self.db_path = Path(db_path)
             self.db_path.parent.mkdir(parents=True, exist_ok=True)
             self._init_database()
             logger.warning(f"DREAMSDatabase using SQLite at {self.db_path} (test mode)")
-        elif is_postgres():
-            self._use_postgres = True
-            self.db_path = None
-            logger.info("DREAMSDatabase using PostgreSQL")
         else:
             raise RuntimeError(
                 "DREAMSDatabase requires DATABASE_URL (production) or "
