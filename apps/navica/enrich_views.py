@@ -149,9 +149,8 @@ def enrich_listings(all_listings: bool = False, test_mode: bool = False, include
     By default, only enriches ACTIVE and PENDING listings. Use --include-inactive
     to also process SOLD, EXPIRED, etc. (this will take a long time).
     """
-    conn = sqlite3.connect(str(DB_PATH))
-    conn.execute("PRAGMA busy_timeout = 30000")
-    conn.row_factory = sqlite3.Row
+    from src.core.pg_adapter import get_db
+    conn = get_db()
 
     # Base conditions for valid coordinates and elevation
     base_where = """
@@ -214,8 +213,8 @@ def enrich_listings(all_listings: bool = False, test_mode: bool = False, include
 
 def _flush_batch(batch: list[tuple]):
     """Write a batch of view_potential updates with a short-lived DB connection."""
-    conn = sqlite3.connect(str(DB_PATH))
-    conn.execute("PRAGMA busy_timeout = 30000")
+    from src.core.pg_adapter import get_db
+    conn = get_db()
     for score, listing_id in batch:
         conn.execute("UPDATE listings SET view_potential = ? WHERE id = ?", (score, listing_id))
     conn.commit()

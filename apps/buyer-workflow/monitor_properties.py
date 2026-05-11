@@ -66,10 +66,9 @@ class PropertyMonitor:
         self.changes = []
 
     def _get_connection(self):
-        """Get database connection."""
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
-        return conn
+        """Get database connection (routes through pg_adapter)."""
+        from src.core.pg_adapter import get_db
+        return get_db()
 
     def _ensure_monitor_tables(self, conn):
         """Ensure monitoring tables exist."""

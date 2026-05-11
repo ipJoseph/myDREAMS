@@ -69,8 +69,8 @@ def log_fub_write(
         if payload_summary and len(payload_summary) > 500:
             payload_summary = payload_summary[:497] + '...'
 
-        conn = sqlite3.connect(_DB_PATH)
-        conn.execute("PRAGMA busy_timeout = 3000")
+        from src.core.pg_adapter import get_db
+        conn = get_db()
         conn.execute(
             '''INSERT INTO fub_write_log
                (occurred_at, module, operation, endpoint, http_method,

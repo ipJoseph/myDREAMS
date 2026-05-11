@@ -44,8 +44,8 @@ log "=========================================="
 log "Pipeline finished."
 
 python3 -c "
-import sqlite3
-c = sqlite3.connect('data/dreams.db')
+from src.core.pg_adapter import get_db
+c = get_db()
 t = c.execute('SELECT COUNT(*) FROM listings WHERE latitude IS NOT NULL AND latitude != 0').fetchone()[0]
 e = c.execute('SELECT COUNT(*) FROM listings WHERE elevation_feet IS NOT NULL').fetchone()[0]
 f = c.execute('SELECT COUNT(*) FROM listings WHERE flood_zone IS NOT NULL').fetchone()[0]

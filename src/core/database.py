@@ -28,22 +28,33 @@ class DREAMSDatabase:
         """
         Initialize database connection.
 
-        If DATABASE_URL is set, uses PostgreSQL via pg_adapter (concurrent writes,
-        connection pooling). Otherwise falls back to SQLite at db_path.
+        Production: no args; reads DATABASE_URL → PostgreSQL via pg_adapter.
+        Tests: explicit db_path → SQLite test isolation (NEVER used in production).
+
+        The default-to-data/dreams.db silent fallback that was growing the
+        905 MB orphan on PRD is gone. If DATABASE_URL is unset and no
+        explicit path is given, this raises.
         """
         from src.core.pg_adapter import is_postgres
-        self._use_postgres = is_postgres()
 
-        if self._use_postgres:
-            self.db_path = None
-            logger.info("DREAMSDatabase using PostgreSQL (DATABASE_URL is set)")
-        else:
-            if db_path is None:
-                project_root = Path(__file__).parent.parent.parent
-                db_path = str(project_root / "data" / "dreams.db")
+        if db_path is not None:
+            # Explicit path = test isolation only. SQLite is never the
+            # production backend.
+            self._use_postgres = False
             self.db_path = Path(db_path)
             self.db_path.parent.mkdir(parents=True, exist_ok=True)
             self._init_database()
+            logger.warning(f"DREAMSDatabase using SQLite at {self.db_path} (test mode)")
+        elif is_postgres():
+            self._use_postgres = True
+            self.db_path = None
+            logger.info("DREAMSDatabase using PostgreSQL")
+        else:
+            raise RuntimeError(
+                "DREAMSDatabase requires DATABASE_URL (production) or "
+                "explicit db_path (test mode). The silent SQLite fallback "
+                "that wrote to data/dreams.db is removed."
+            )
 
         from src.core.services import ContactService
         self.contacts = ContactService(self)
@@ -235,8 +246,8 @@ class DREAMSDatabase:
     def _get_connection(self):
         """Get database connection with context manager.
 
-        PostgreSQL: returns PgConnectionWrapper from the connection pool.
-        SQLite: returns sqlite3 connection with Row factory.
+        Production (_use_postgres=True): pooled PgConnectionWrapper.
+        Tests (explicit db_path): sqlite3 connection with Row factory.
         """
         if self._use_postgres:
             from src.core.pg_adapter import get_connection

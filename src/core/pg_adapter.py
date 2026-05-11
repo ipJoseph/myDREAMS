@@ -56,23 +56,15 @@ def _get_database_url() -> Optional[str]:
 # incident: services kept running, pointed at a stale 905 MB SQLite file,
 # and nobody noticed for days. Crash-fast is the correct behaviour.
 #
-# Set DREAMS_ALLOW_SQLITE_FALLBACK=1 to restore the old silent fallback
-# (only useful for emergency bring-up scenarios).
+# The DREAMS_ALLOW_SQLITE_FALLBACK escape hatch was removed — there is no
+# scenario where production should run on SQLite. Fix the deployment.
 def _assert_backend_consistent() -> None:
     url = _get_database_url()
     if url and not _PG_AVAILABLE:
-        if os.getenv("DREAMS_ALLOW_SQLITE_FALLBACK", "").strip() in ("1", "true", "yes"):
-            logger.error(
-                "DATABASE_URL is set but psycopg2 is NOT installed. Falling "
-                "back to SQLite because DREAMS_ALLOW_SQLITE_FALLBACK is set. "
-                "FIX: pip install psycopg2-binary in this environment."
-            )
-            return
         raise ImportError(
             "DATABASE_URL is set but psycopg2 is NOT installed in this "
-            "Python environment. Services must not silently fall back to "
-            "SQLite. FIX: pip install psycopg2-binary (or set "
-            "DREAMS_ALLOW_SQLITE_FALLBACK=1 to temporarily bypass)."
+            "Python environment. SQLite fallback has been removed. "
+            "FIX: pip install psycopg2-binary."
         )
 
 
@@ -321,25 +313,21 @@ def get_connection_ctx():
 
 def get_db(db_path: Optional[str] = None):
     """
-    Unified database connection factory.
+    Unified database connection factory. Postgres only.
 
-    If DATABASE_URL is set and psycopg2 is available → PostgreSQL (pooled).
-    Otherwise → sqlite3 with WAL mode and 30s busy_timeout (existing behavior).
+    Reads DATABASE_URL and returns a pooled connection wrapped for
+    sqlite3-compatible interface. The silent SQLite fallback that
+    grew the 905 MB orphan dreams.db on PRD has been removed.
 
-    This function replaces the 16 separate get_db() implementations across
-    the codebase. Import it from here instead of creating local connections.
+    The db_path argument is retained for signature compatibility
+    with legacy callers but is ignored.
     """
-    if is_postgres():
-        return get_connection()
-
-    # Fallback to SQLite
-    if db_path is None:
-        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        db_path = os.getenv("DREAMS_DB_PATH", os.path.join(project_root, "data", "dreams.db"))
-
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode = WAL")
-    conn.execute("PRAGMA busy_timeout = 30000")
-    conn.execute("PRAGMA foreign_keys = ON")
-    return conn
+    if not is_postgres():
+        raise RuntimeError(
+            "pg_adapter.get_db() requires DATABASE_URL to be set. "
+            "The SQLite fallback (data/dreams.db) is removed; production "
+            "must run on Postgres. For test-mode SQLite isolation, use "
+            "the test_db fixture (instantiates DREAMSDatabase with an "
+            "explicit path)."
+        )
+    return get_connection()

@@ -205,8 +205,8 @@ def generate_fresh_insights(region, report_date, conn=None):
     """
     close_conn = False
     if conn is None:
-        conn = sqlite3.connect(DB_PATH, timeout=30)
-        conn.row_factory = sqlite3.Row
+        from src.core.pg_adapter import get_db
+        conn = get_db()
         close_conn = True
 
     try:
@@ -233,8 +233,8 @@ def generate_fresh_insights(region, report_date, conn=None):
 
 if __name__ == "__main__":
     """Quick test: show insights for all regions at the latest date."""
-    conn = sqlite3.connect(DB_PATH, timeout=30)
-    conn.row_factory = sqlite3.Row
+    from src.core.pg_adapter import get_db
+    conn = get_db()
 
     regions = [r[0] for r in conn.execute(
         "SELECT DISTINCT region FROM tmo_market_data ORDER BY region"

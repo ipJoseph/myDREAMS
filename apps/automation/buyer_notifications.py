@@ -35,11 +35,9 @@ DASHBOARD_URL = os.getenv('DASHBOARD_URL', 'https://app.wncmountain.homes')
 
 
 def _get_db():
-    """Get a database connection."""
-    conn = sqlite3.connect(config.DATABASE_PATH)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA busy_timeout = 5000")
-    return conn
+    """Get a database connection (routes through pg_adapter)."""
+    from src.core.pg_adapter import get_db
+    return get_db()
 
 
 def send_showing_request_alert(user_id: str, collection_id: str) -> bool:

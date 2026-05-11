@@ -292,8 +292,9 @@ def generate_date_range_report(db_path, start_date, end_date, output_dir):
     ORDER BY cc.occurred_at
     """
 
-    conn = sqlite3.connect(db_path)
-    cur = conn.cursor()
+    from src.core.pg_adapter import get_db
+    conn = get_db()
+    cur = conn
     cur.execute(query, (start_date.isoformat(), query_end.isoformat()))
     rows = cur.fetchall()
     conn.close()
@@ -752,8 +753,9 @@ def generate_report(db_path, week_start, output_dir):
     output_file = generate_date_range_report(db_path, week_start, week_end, output_dir)
 
     # Print summary for CLI usage
-    conn = sqlite3.connect(db_path)
-    cur = conn.cursor()
+    from src.core.pg_adapter import get_db
+    conn = get_db()
+    cur = conn
     query_end = week_start + timedelta(days=7)
     cur.execute("""
         SELECT COUNT(*),

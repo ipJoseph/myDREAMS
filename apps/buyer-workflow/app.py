@@ -128,34 +128,8 @@ def close_db(error):
 
 
 def init_db():
-    """Initialize database tables from schema.sql (SQLite only; PostgreSQL uses migration script)."""
-    from src.core.pg_adapter import is_postgres
-    if is_postgres():
-        return  # Schema managed by migrate_to_postgres.py
-
-    schema_path = Path(__file__).parent / 'schema.sql'
-    if not schema_path.exists():
-        return
-
-    db = sqlite3.connect(DB_PATH)
-    try:
-        schema = schema_path.read_text()
-        lines = [line for line in schema.splitlines() if not line.strip().startswith('--')]
-        clean_sql = '\n'.join(lines)
-        for statement in clean_sql.split(';'):
-            statement = statement.strip()
-            if not statement:
-                continue
-            try:
-                db.execute(statement)
-            except sqlite3.OperationalError:
-                pass
-        db.commit()
-        logger.info("Database schema initialized from schema.sql")
-    except Exception as e:
-        logger.error(f"Error initializing schema: {e}")
-    finally:
-        db.close()
+    """No-op. Schema is managed by Alembic migrations against Postgres."""
+    return
 
 
 # Initialize tables at startup

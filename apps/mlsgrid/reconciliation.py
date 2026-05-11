@@ -49,9 +49,8 @@ MISSING_FIELD_WARN_PCT = 5.0   # Warn if >5% of listings are missing a critical 
 
 
 def _get_connection():
-    conn = sqlite3.connect(str(DB_PATH), timeout=30)
-    conn.row_factory = sqlite3.Row
-    return conn
+    from src.core.pg_adapter import get_db
+    return get_db()
 
 
 def _save_result(check_type: str, result: dict):

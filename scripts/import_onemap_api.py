@@ -120,8 +120,8 @@ def import_county(county: str, update_all: bool = False):
     print('='*60)
 
     # Connect to database
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    from src.core.pg_adapter import get_db
+    conn = get_db()
 
     # Get our parcels for this county
     if update_all:
@@ -287,7 +287,8 @@ def import_county(county: str, update_all: bool = False):
 
 def get_county_stats():
     """Get current coordinate coverage by county."""
-    conn = sqlite3.connect(DB_PATH)
+    from src.core.pg_adapter import get_db
+    conn = get_db()
     cursor = conn.execute('''
         SELECT county,
                COUNT(*) as total,

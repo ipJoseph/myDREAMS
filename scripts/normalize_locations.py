@@ -40,8 +40,8 @@ CITY_FIXES = {
 def main():
     dry_run = '--dry-run' in sys.argv
 
-    conn = sqlite3.connect(str(DB_PATH))
-    conn.execute("PRAGMA busy_timeout = 5000")
+    from src.core.pg_adapter import get_db
+    conn = get_db()
 
     total_county = 0
     total_city = 0

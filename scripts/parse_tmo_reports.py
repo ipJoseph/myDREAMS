@@ -339,7 +339,8 @@ def parse_new_reports(dry_run=False):
 
     conn = None
     if not dry_run:
-        conn = sqlite3.connect(DB_PATH, timeout=30)
+        from src.core.pg_adapter import get_db
+        conn = get_db()
         _ensure_table(conn)
 
     for pdf_path in pdf_files:

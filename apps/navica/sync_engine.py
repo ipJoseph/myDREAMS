@@ -921,10 +921,12 @@ def detect_cross_listings(db_path: Path = None) -> int:
     Updates cross_listed_id and cross_listed_source columns.
 
     Returns number of cross-listed pairs found.
+
+    Note: db_path is kept for signature compatibility but ignored.
+    Connections route through pg_adapter.get_db() (Postgres on PRD/DEV).
     """
-    db = db_path or DB_PATH
-    conn = sqlite3.connect(str(db))
-    conn.row_factory = sqlite3.Row
+    from src.core.pg_adapter import get_db
+    conn = get_db()
 
     # Clear existing cross-listing data for Navica sources
     conn.execute("""

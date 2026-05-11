@@ -19,7 +19,8 @@ DB_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'dreams.db')
 OUT_DIR = os.path.join(os.path.dirname(__file__), 'snapshot_analysis')
 os.makedirs(OUT_DIR, exist_ok=True)
 
-conn = sqlite3.connect(DB_PATH)
+from src.core.pg_adapter import get_db
+conn = get_db()
 
 # Style
 plt.rcParams.update({

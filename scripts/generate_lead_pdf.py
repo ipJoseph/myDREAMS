@@ -47,9 +47,9 @@ BRAND_FAVORITE = colors.HexColor("#d4af37") # Gold for favorites
 
 def get_lead_from_db(name=None, email=None, lead_id=None):
     """Fetch lead data from the database."""
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
+    from src.core.pg_adapter import get_db
+    conn = get_db()
+    cursor = conn
 
     if lead_id:
         cursor.execute("SELECT * FROM leads WHERE id = ? OR fub_id = ?", (lead_id, lead_id))
@@ -82,9 +82,9 @@ def get_lead_from_db(name=None, email=None, lead_id=None):
 
 def get_property_activity(fub_id):
     """Fetch property view/favorite activity for a lead from contact_events."""
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
+    from src.core.pg_adapter import get_db
+    conn = get_db()
+    cursor = conn
 
     cursor.execute("""
         SELECT

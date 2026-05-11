@@ -133,8 +133,17 @@ python3 -m apps.mlsgrid.sync_engine --full --status Active
 
 **Database sync (PRD is canonical):**
 ```bash
-# Both DEV and PRD use PostgreSQL. Sync via pg_dump/pg_restore if needed.
-# Old SQLite sync script (sync-from-prd.sh) is retired.
+# Pull a snapshot from PRD. --clean --if-exists --create makes the dump
+# self-restoring: it drops the local 'dreams' DB and recreates it from PRD,
+# so re-runs against a populated DEV DB don't error or half-merge.
+ssh root@178.156.221.10 'sudo -u postgres pg_dump --clean --if-exists --create dreams' | gzip > /tmp/dreams-prd.sql.gz
+
+# Restore locally (connect to 'postgres' DB; the dump itself drops and recreates 'dreams'):
+gunzip -c /tmp/dreams-prd.sql.gz | psql -d postgres
+
+# The legacy SQLite script scripts/sync-from-prd.sh is RETIRED. It scp's
+# /opt/mydreams/data/dreams.db, which is now a stale orphan (see "SQLite
+# Deprecation Status" below). Do not run it.
 ```
 
 ## High-Level Architecture
@@ -150,7 +159,7 @@ The system is built around **one PostgreSQL database** that all apps share. Conn
    - `apps/property-extension-v3/` — Chrome extension for ad-hoc property capture
    - PropStream CSV imports (lower trust; missing fields)
 
-2. **Storage** is PostgreSQL (configured via `DATABASE_URL`). The `listings` table is the **single canonical property table** (there is no separate `properties` table). `mls_source` distinguishes origins (`'Navica'`, `'CanopyMLS'`). Photos are stored locally and referenced via `photo_local_path`.
+2. **Storage** is PostgreSQL (configured via `DATABASE_URL`); long-term we are moving to Supabase (managed Postgres). The connection string changes, application code does not. The `listings` table is the **single canonical property table** (there is no separate `properties` table). `mls_source` values: `'NavicaMLS'` (Carolina Smokies, dataset nav27), `'MountainLakesMLS'` (dataset nav26), `'CanopyMLS'` (Canopy / MLS Grid). Photos are owned by `apps/photos/manager.py` (`PhotoManager` is the single decision point) and referenced via `photo_local_path`.
 
 3. **Surfaces** all read from the same DB:
    - `apps/property-api` (Flask, :5000) — REST API. Public IDX endpoints under `/api/public` are registered as `public_bp` and respect `idx_opt_in` / `idx_address_display`.
@@ -160,6 +169,28 @@ The system is built around **one PostgreSQL database** that all apps share. Conn
 **Lead scoring** is multi-dimensional: HEAT (IDX activity), VALUE (revenue opportunity), RELATIONSHIP (comm frequency), PRIORITY (weighted blend). Scores live on the `contacts` table and drive the daily call list.
 
 **Production** runs on a single Hetzner VPS via systemd + gunicorn + Caddy. There is no staging environment between DEV and PRD.
+
+**Operational tripwires** (Phase 5, commits `84ee0f7`+): `scripts/check_cron_drift.sh`, `scripts/check_daemon_health.sh`, and `scripts/audit_photo_invariants.py` run on the PRD crontab and alert on sync staleness, daemon crashes, and photo-DB drift. Before "fixing" something one of these flags, read the script first; they encode invariants we've been burned by.
+
+## SQLite Deprecation Status (2026-05-11)
+
+**Postgres-only for `dreams.db`.** Every code path that previously wrote to `data/dreams.db` now routes through `src.core.pg_adapter.get_db()`. The silent SQLite fallback in `pg_adapter.get_db()` is removed — calling it without `DATABASE_URL` set raises a `RuntimeError`. The `DREAMS_ALLOW_SQLITE_FALLBACK` env var escape hatch is also removed. `DREAMSDatabase.__init__` raises if invoked without `DATABASE_URL` or an explicit test-mode path. There is no longer a way for production code to silently grow the orphan `dreams.db`.
+
+**Allowed SQLite usage** (each documented and bounded):
+- `modules/task_sync/db.py` → `data/task_sync.db` — Todoist↔FUB bridge daemon (`mydreams-task-sync`). **Pending migration to Postgres** (separate project: schema design + data migration + daemon restart).
+- `modules/linear_sync/db.py` → `data/linear_sync.db` — Linear↔FUB bridge. **Pending migration to Postgres** (same as above).
+- `scripts/migrate_to_postgres.py` — one-shot migration tool, reads SQLite by design.
+- `tests/conftest.py`, `tests/test_integration/test_public_api_bbo_guard.py` — test isolation. `DREAMSDatabase` accepts an explicit `db_path` argument for tests only; production code must omit the arg.
+
+**If you find a `sqlite3.connect(...)` call against `data/dreams.db`** anywhere outside the allowed list above, it is a bug. The migration rule is: replace with `from src.core.pg_adapter import get_db; conn = get_db()`. Drop the `DB_PATH = ... / 'data' / 'dreams.db'` constant; it is meaningless.
+
+**Migrating SQLite-specific syntax** when you touch a file:
+- `?` placeholders → leave as-is (pg_adapter translates).
+- `INSERT OR IGNORE` / `INSERT OR REPLACE` → `INSERT ... ON CONFLICT DO NOTHING/UPDATE`.
+- `PRAGMA table_info(t)` → `SELECT column_name FROM information_schema.columns WHERE table_name = ?`.
+- `ALTER TABLE t ADD COLUMN c TYPE` (with try/except for "exists") → `ALTER TABLE t ADD COLUMN IF NOT EXISTS c TYPE`.
+- `cursor = conn.cursor()` → `cursor = conn` (the `PgConnectionWrapper.execute()` saves a cursor on the connection; subsequent `fetchone()` reads from it).
+- `lastrowid` is `None` on Postgres — use `... RETURNING id` and `conn.execute(...).fetchone()['id']`.
 
 ## Documentation
 
@@ -200,7 +231,7 @@ Connected MCP servers provide direct tool access. **Prefer MCP tools over raw SQ
 - Photo serving: always local paths, never CDN URLs
 - Address normalization: use `normalizeAddr()` / `isAddressMatch()`
 - Collection/package IDs: UUID strings, not integers
-- MLS source identifiers: `'Navica'` for Carolina Smokies, `'CanopyMLS'` for Canopy/MLS Grid
+- MLS source identifiers: `'NavicaMLS'` (Carolina Smokies, dataset nav27), `'MountainLakesMLS'` (dataset nav26), `'CanopyMLS'` (Canopy / MLS Grid)
 
 ## Workflow Guidelines
 
@@ -252,11 +283,13 @@ ssh root@178.156.221.10 'systemctl status mydreams-dashboard'
 ```
 
 ### Sync Database
-PRD is the canonical database. DEV pulls from PRD on demand:
+PRD is the canonical database (PostgreSQL). DEV pulls from PRD on demand:
 ```bash
-# Pull PRD DB to DEV (normal workflow)
-scripts/sync-from-prd.sh
+# Pull PRD Postgres dump to DEV (self-restoring; safe to re-run against populated DEV)
+ssh root@178.156.221.10 'sudo -u postgres pg_dump --clean --if-exists --create dreams' | gzip > /tmp/dreams-prd.sql.gz
+gunzip -c /tmp/dreams-prd.sql.gz | psql -d postgres
 ```
+The legacy `scripts/sync-from-prd.sh` is RETIRED (it scp's a stale orphan SQLite file; see "SQLite Deprecation Status").
 
 ## Production Server (PRD)
 
@@ -279,8 +312,10 @@ scripts/sync-from-prd.sh
 # Pull latest and restart services
 ssh root@178.156.221.10 "cd /opt/mydreams && git pull && systemctl restart mydreams-api mydreams-dashboard"
 
-# Sync database to PRD
-scp /home/bigeug/myDREAMS/data/dreams.db root@178.156.221.10:/opt/mydreams/data/dreams.db
+# Sync database FROM PRD (PRD is canonical; never push DEV → PRD)
+# --clean --if-exists --create makes the dump self-restoring against any local state
+ssh root@178.156.221.10 'sudo -u postgres pg_dump --clean --if-exists --create dreams' | gzip > /tmp/dreams-prd.sql.gz
+gunzip -c /tmp/dreams-prd.sql.gz | psql -d postgres
 
 # Check service status
 ssh root@178.156.221.10 "systemctl status mydreams-api mydreams-dashboard"

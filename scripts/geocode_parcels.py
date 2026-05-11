@@ -150,8 +150,8 @@ def main():
     print(f"Method: {'Single address' if args.single else f'Batch (size={args.batch_size})'}")
     print()
 
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    from src.core.pg_adapter import get_db
+    conn = get_db()
 
     # Get parcels needing geocoding
     query = """

@@ -1,22 +1,21 @@
 #!/usr/bin/env python3
 """
-Ensure all required schema columns exist in the database.
+Ensure all required schema columns exist in the Postgres database.
 
-Run this after any database sync from PRD to DEV, or on app startup,
-to guarantee columns added via ALTER TABLE are present.
+Run this after any database sync from PRD to DEV, or on cron, to guarantee
+columns added via ALTER TABLE are present. Uses Postgres-native ADD COLUMN
+IF NOT EXISTS syntax (atomic, idempotent).
 
 Usage:
-    python3 scripts/ensure_schema.py              # uses default DB path
-    python3 scripts/ensure_schema.py --db /path   # specify DB path
+    python3 scripts/ensure_schema.py              # connects via DATABASE_URL
 """
 
 import argparse
-import sqlite3
 import sys
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).parent.parent
-DEFAULT_DB = PROJECT_ROOT / 'data' / 'dreams.db'
+sys.path.insert(0, str(PROJECT_ROOT))
 
 # Columns that may be missing after a DB sync from PRD
 LISTINGS_COLUMNS = {
@@ -50,22 +49,27 @@ PROPERTY_PACKAGES_COLUMNS = {
 
 # Email detail columns added to contact_communications
 CONTACT_COMMUNICATIONS_COLUMNS = {
-    'email_from': 'TEXT',           # Sender address
-    'email_to': 'TEXT',             # Recipient address
-    'subject': 'TEXT',              # Email subject line
-    'snippet': 'TEXT',              # Body preview / first ~500 chars
-    'email_type': 'TEXT',           # 'manual', 'drip', 'bulk', etc.
-    'fub_email_id': 'TEXT',         # FUB email ID for dedup
+    'email_from': 'TEXT',
+    'email_to': 'TEXT',
+    'subject': 'TEXT',
+    'snippet': 'TEXT',
+    'email_type': 'TEXT',
+    'fub_email_id': 'TEXT',
 }
 
 
 def ensure_columns(conn, table, columns):
-    """Add missing columns to a table. Returns count of columns added."""
-    existing = {r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+    """Add missing columns. Returns count of columns added."""
+    existing = {
+        row[0] for row in conn.execute(
+            "SELECT column_name FROM information_schema.columns WHERE table_name = ?",
+            (table,)
+        ).fetchall()
+    }
     added = 0
     for col, ctype in columns.items():
         if col not in existing:
-            conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {ctype}")
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col} {ctype}")
             print(f"  Added {table}.{col} ({ctype})")
             added += 1
     return added
@@ -81,11 +85,12 @@ def ensure_indexes(conn):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Ensure database schema is complete')
-    parser.add_argument('--db', type=str, default=str(DEFAULT_DB), help='Database path')
+    parser = argparse.ArgumentParser(description='Ensure Postgres schema is complete')
+    parser.add_argument('--db', type=str, help='(Ignored; routes through pg_adapter via DATABASE_URL)')
     args = parser.parse_args()
 
-    conn = sqlite3.connect(args.db)
+    from src.core.pg_adapter import get_db
+    conn = get_db()
 
     total = 0
     total += ensure_columns(conn, 'listings', LISTINGS_COLUMNS)

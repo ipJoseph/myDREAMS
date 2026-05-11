@@ -59,23 +59,13 @@ def main():
     now = datetime.now().isoformat()
     print(f"Database: {DB_PATH}")
 
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute("PRAGMA journal_mode = WAL")
-    conn.execute("PRAGMA busy_timeout = 30000")
+    from src.core.pg_adapter import get_db
+    conn = get_db()
 
-    # Add archive_status column if missing
-    try:
-        conn.execute("ALTER TABLE leads ADD COLUMN archive_status TEXT")
-        print("Added archive_status column")
-    except sqlite3.OperationalError:
-        print("archive_status column already exists")
-
-    # Add phone to users if missing
-    try:
-        conn.execute("ALTER TABLE users ADD COLUMN phone TEXT")
-        print("Added phone column to users")
-    except sqlite3.OperationalError:
-        pass
+    # Add columns if missing (Postgres-native idempotent syntax)
+    conn.execute("ALTER TABLE leads ADD COLUMN IF NOT EXISTS archive_status TEXT")
+    conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT")
+    conn.commit()
 
     # Step 1: Archive all existing contacts
     result = conn.execute(

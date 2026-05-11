@@ -64,7 +64,8 @@ def save_state(state):
 
 def get_latest_report_date():
     """Query the database for the most recent TMO report date."""
-    conn = sqlite3.connect(DB_PATH, timeout=30)
+    from src.core.pg_adapter import get_db
+    conn = get_db()
     row = conn.execute(
         "SELECT MAX(report_date) FROM tmo_market_data"
     ).fetchone()
@@ -205,8 +206,8 @@ def step_email(report_date, report_paths, args):
     dt = datetime.strptime(report_date, "%Y-%m-%d")
     date_display = dt.strftime("%B %d, %Y")
 
-    conn = sqlite3.connect(DB_PATH, timeout=30)
-    conn.row_factory = sqlite3.Row
+    from src.core.pg_adapter import get_db
+    conn = get_db()
 
     region_summaries = []
     region_insights_list = []

@@ -79,8 +79,9 @@ def download_photo(mls_number: str, url: str, dest_dir: Path) -> dict:
 
 
 def update_db_photo_path(db_path: Path, mls_number: str, local_path: str):
-    """Update listing with local photo path."""
-    conn = sqlite3.connect(str(db_path))
+    """Update listing with local photo path (db_path retained for signature compat, ignored)."""
+    from src.core.pg_adapter import get_db
+    conn = get_db()
     conn.execute(
         "UPDATE listings SET photo_local_path = ? WHERE mls_number = ?",
         [local_path, mls_number]
@@ -100,8 +101,8 @@ def main():
     PHOTOS_DIR.mkdir(parents=True, exist_ok=True)
 
     # Get listings needing photos
-    conn = sqlite3.connect(str(DB_PATH))
-    conn.row_factory = sqlite3.Row
+    from src.core.pg_adapter import get_db
+    conn = get_db()
 
     if args.status == 'ALL':
         query = """

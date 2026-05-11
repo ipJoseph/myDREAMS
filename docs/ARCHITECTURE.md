@@ -216,7 +216,7 @@ CREATE TABLE listings (
     idx_address_display INTEGER DEFAULT 1,
 
     -- MLS Metadata
-    mls_source TEXT DEFAULT 'Navica',       -- Navica or CanopyMLS
+    mls_source TEXT,                        -- 'NavicaMLS' (nav27), 'MountainLakesMLS' (nav26), or 'CanopyMLS'
     list_date TEXT,
     modification_timestamp TEXT,
     days_on_market INTEGER,

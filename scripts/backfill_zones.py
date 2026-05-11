@@ -35,11 +35,15 @@ def main():
     parser.add_argument('--db', type=str, default=str(DB_PATH), help='Path to database')
     args = parser.parse_args()
 
-    conn = sqlite3.connect(args.db)
-    conn.row_factory = sqlite3.Row
+    from src.core.pg_adapter import get_db
+    conn = get_db()
 
-    # Step 1: Ensure column exists
-    existing_cols = {row[1] for row in conn.execute("PRAGMA table_info(listings)").fetchall()}
+    # Step 1: Ensure column exists (Postgres information_schema lookup)
+    existing_cols = {
+        row[0] for row in conn.execute(
+            "SELECT column_name FROM information_schema.columns WHERE table_name='listings'"
+        ).fetchall()
+    }
     if 'zone' not in existing_cols:
         print("Adding 'zone' column to listings table...")
         if args.apply:

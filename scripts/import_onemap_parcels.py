@@ -85,8 +85,8 @@ def import_onemap(shapefile_path: str, county: str = None, update_all: bool = Fa
         print(f"County: {county}")
 
     # Connect to database
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    from src.core.pg_adapter import get_db
+    conn = get_db()
 
     # Get our parcels for this county that need coordinates
     if update_all:

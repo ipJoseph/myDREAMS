@@ -43,8 +43,8 @@ def get_db_setting(key: str, default: Any = None) -> Any:
         Setting value converted to appropriate type
     """
     try:
-        conn = sqlite3.connect(DATABASE_PATH)
-        conn.row_factory = sqlite3.Row
+        from src.core.pg_adapter import get_db
+        conn = get_db()
         row = conn.execute(
             'SELECT value, value_type FROM system_settings WHERE key = ?',
             (key,)

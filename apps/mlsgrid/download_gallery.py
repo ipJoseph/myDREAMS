@@ -153,9 +153,8 @@ def download_listing_gallery(mls_number: str, photos_json: str) -> dict:
 
 def update_db_only(photos_dir: Path, db_path: Path):
     """Rebuild photos column from files already on disk."""
-    conn = sqlite3.connect(str(db_path), timeout=60)
-    conn.execute('PRAGMA busy_timeout=60000')
-    conn.row_factory = sqlite3.Row
+    from src.core.pg_adapter import get_db
+    conn = get_db()
 
     rows = conn.execute(
         "SELECT mls_number, photos FROM listings WHERE mls_source = ? AND photos IS NOT NULL",
@@ -230,8 +229,8 @@ def main():
         return
 
     # Get listings with gallery photos
-    conn = sqlite3.connect(str(DB_PATH))
-    conn.row_factory = sqlite3.Row
+    from src.core.pg_adapter import get_db
+    conn = get_db()
 
     if args.status == 'ALL':
         query = """
@@ -307,7 +306,8 @@ def main():
 
             # Batch DB update every 200 listings
             if len(db_updates) >= 200:
-                conn = sqlite3.connect(str(DB_PATH))
+                from src.core.pg_adapter import get_db
+                conn = get_db()
                 conn.executemany(
                     "UPDATE listings SET photos = ? WHERE mls_number = ?",
                     db_updates
@@ -324,7 +324,8 @@ def main():
 
     # Final DB update
     if db_updates:
-        conn = sqlite3.connect(str(DB_PATH))
+        from src.core.pg_adapter import get_db
+        conn = get_db()
         conn.executemany(
             "UPDATE listings SET photos = ? WHERE mls_number = ?",
             db_updates

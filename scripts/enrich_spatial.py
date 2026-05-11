@@ -170,8 +170,8 @@ def main():
     print()
 
     # Connect to database
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    from src.core.pg_adapter import get_db
+    conn = get_db()
 
     # Get properties to enrich
     properties = get_properties_to_enrich(
