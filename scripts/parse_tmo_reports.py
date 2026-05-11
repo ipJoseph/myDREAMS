@@ -243,39 +243,47 @@ def region_folder_for_file(filename: str) -> str | None:
     return None
 
 
-def insert_rows(conn: sqlite3.Connection, rows: list[dict]) -> int:
-    """Insert or replace rows into tmo_market_data. Returns count inserted."""
-    sql = """
-        INSERT OR REPLACE INTO tmo_market_data (
-            region, property_type, report_date, price_range,
-            price_range_min, price_range_max,
-            active_listings, pending_listings, pending_ratio, months_inventory,
-            expired_listings_6mo, closed_listings_6mo,
-            avg_original_list_price, avg_final_list_price, avg_sale_price,
-            list_to_sale_ratio, avg_dom_sold, avg_dom_active, source_file
-        ) VALUES (
-            :region, :property_type, :report_date, :price_range,
-            :price_range_min, :price_range_max,
-            :active_listings, :pending_listings, :pending_ratio, :months_inventory,
-            :expired_listings_6mo, :closed_listings_6mo,
-            :avg_original_list_price, :avg_final_list_price, :avg_sale_price,
-            :list_to_sale_ratio, :avg_dom_sold, :avg_dom_active, :source_file
-        )
+_INSERT_COLS = [
+    "region", "property_type", "report_date", "price_range",
+    "price_range_min", "price_range_max",
+    "active_listings", "pending_listings", "pending_ratio", "months_inventory",
+    "expired_listings_6mo", "closed_listings_6mo",
+    "avg_original_list_price", "avg_final_list_price", "avg_sale_price",
+    "list_to_sale_ratio", "avg_dom_sold", "avg_dom_active", "source_file",
+]
+
+
+def insert_rows(conn, rows: list[dict]) -> int:
+    """Upsert rows into tmo_market_data. Returns count inserted/updated.
+
+    Postgres-native ON CONFLICT replaces SQLite's INSERT OR REPLACE.
+    Conflict target matches the unique index on (region, report_date, price_range).
     """
+    cols_csv = ", ".join(_INSERT_COLS)
+    placeholders = ", ".join("?" for _ in _INSERT_COLS)
+    update_clause = ", ".join(
+        f"{c} = excluded.{c}" for c in _INSERT_COLS
+        if c not in ("region", "report_date", "price_range")
+    )
+    sql = (
+        f"INSERT INTO tmo_market_data ({cols_csv}) "
+        f"VALUES ({placeholders}) "
+        f"ON CONFLICT (region, report_date, price_range) DO UPDATE SET "
+        f"{update_clause}"
+    )
     count = 0
     for row in rows:
-        conn.execute(sql, row)
+        params = tuple(row.get(c) for c in _INSERT_COLS)
+        conn.execute(sql, params)
         count += 1
     return count
 
 
 def _ensure_table(conn):
-    """Create tmo_market_data table if it doesn't exist."""
-    conn.execute("PRAGMA journal_mode = WAL")
-    conn.execute("PRAGMA busy_timeout = 10000")
+    """Create tmo_market_data table if it doesn't exist (Postgres syntax)."""
     conn.execute("""
         CREATE TABLE IF NOT EXISTS tmo_market_data (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             region TEXT NOT NULL,
             property_type TEXT NOT NULL,
             report_date TEXT NOT NULL,
