@@ -293,6 +293,8 @@ def generate_report(region, report_date=None, output_path=None):
         report_date = get_latest_date(conn, region)
     if not report_date:
         print(f"No data found for region: {region}")
+        try: conn.close()
+        except Exception: pass
         return
 
     trend = get_market_totals_trend(conn, region)
@@ -300,6 +302,8 @@ def generate_report(region, report_date=None, output_path=None):
     latest = [r for r in trend if r["report_date"] == report_date]
     if not latest:
         print(f"No data for {region} on {report_date}")
+        try: conn.close()
+        except Exception: pass
         return
     latest = latest[0]
 
@@ -606,6 +610,10 @@ def generate_report(region, report_date=None, output_path=None):
 
     c.save()
     print(f"Report saved: {output_path}")
+    try:
+        conn.close()
+    except Exception:
+        pass
     return output_path
 
 
