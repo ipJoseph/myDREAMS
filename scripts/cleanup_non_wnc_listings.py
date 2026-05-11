@@ -112,6 +112,49 @@ def get_to_delete_listings(conn):
     return [dict(r) for r in rows]
 
 
+def _scan_photo_dir_by_prefix(src_dir):
+    """Scan src_dir ONCE and build a {mls_number_prefix: [(filename, size)]} index.
+
+    Avoids per-listing glob() against a 1.4M-file directory (which is O(N) per
+    call due to filesystem readdir scan, killing the runtime).
+
+    A file is keyed by the part of its name before the first '.' or '_':
+        '12345.jpg'    -> '12345'
+        '12345_01.jpg' -> '12345'
+        '67890.jpeg'   -> '67890'
+    """
+    index = {}
+    if not src_dir.exists():
+        return index
+    log.info("  Scanning %s ... (one-time pass)", src_dir)
+    n = 0
+    with os.scandir(src_dir) as it:
+        for entry in it:
+            if not entry.is_file():
+                continue
+            name = entry.name
+            # Split on first '_' or '.', whichever comes first.
+            first_dot = name.find('.')
+            first_under = name.find('_')
+            if first_under == -1:
+                cut = first_dot
+            elif first_dot == -1:
+                cut = first_under
+            else:
+                cut = min(first_dot, first_under)
+            if cut <= 0:
+                continue
+            key = name[:cut]
+            try:
+                size = entry.stat().st_size
+            except OSError:
+                continue
+            index.setdefault(key, []).append((name, size))
+            n += 1
+    log.info("  Indexed %d files in %s", n, src_dir)
+    return index
+
+
 def quarantine_photos(listings, dry_run=False):
     """Move photo files for to-delete listings into the quarantine dir.
 
@@ -121,10 +164,14 @@ def quarantine_photos(listings, dry_run=False):
         (QUARANTINE_DIR / "mlsgrid").mkdir(parents=True, exist_ok=True)
         (QUARANTINE_DIR / "navica").mkdir(parents=True, exist_ok=True)
 
+    # Build per-source filename index ONCE (~1.4M files, takes seconds with scandir).
+    mlsgrid_index = _scan_photo_dir_by_prefix(PHOTOS_DIR / "mlsgrid")
+    navica_index = _scan_photo_dir_by_prefix(PHOTOS_DIR / "navica")
+
     files_moved = 0
     bytes_moved = 0
     listings_without_files = 0
-    progress_every = 1000
+    progress_every = 5000
 
     for i, r in enumerate(listings, 1):
         mls_number = r["mls_number"]
@@ -136,31 +183,27 @@ def quarantine_photos(listings, dry_run=False):
         if mls_source == "CanopyMLS":
             src_dir = PHOTOS_DIR / "mlsgrid"
             dst_dir = QUARANTINE_DIR / "mlsgrid"
+            index = mlsgrid_index
         elif mls_source in ("NavicaMLS", "MountainLakesMLS"):
             src_dir = PHOTOS_DIR / "navica"
             dst_dir = QUARANTINE_DIR / "navica"
+            index = navica_index
         else:
             listings_without_files += 1
             continue
 
-        # Match {mls_number}.* (primary) and {mls_number}_* (gallery).
-        matched = list(src_dir.glob(f"{mls_number}.*")) + list(src_dir.glob(f"{mls_number}_*"))
+        matched = index.get(str(mls_number), [])
         if not matched:
             listings_without_files += 1
             continue
 
-        for f in matched:
-            if not f.is_file():
-                continue
-            try:
-                size = f.stat().st_size
-            except OSError:
-                continue
+        for fname, size in matched:
+            src_path = src_dir / fname
             if not dry_run:
                 try:
-                    shutil.move(str(f), str(dst_dir / f.name))
+                    shutil.move(str(src_path), str(dst_dir / fname))
                 except OSError as e:
-                    log.warning("Move failed for %s: %s", f, e)
+                    log.warning("Move failed for %s: %s", src_path, e)
                     continue
             files_moved += 1
             bytes_moved += size
