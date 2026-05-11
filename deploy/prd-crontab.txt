@@ -103,3 +103,17 @@ PY=/opt/mydreams/venv/bin/python3
 # the last 90 min. Would have caught the 2026-04-21→23 /dev/null-redirected
 # daemon in 90 min instead of 2.5 days.
 45 * * * * /opt/mydreams/scripts/check_daemon_health.sh >> /opt/mydreams/data/logs/tripwires.log
+
+# ============================================================================
+# TMO Weekly Pipeline (restored 2026-05-11)
+# Daily check for new TMO PDFs in Eugy's Gmail. If new reports landed,
+# parses them into tmo_market_data, generates 5 regional analysis PDFs,
+# and emails Eugy with insights + PDF attachments.
+# Most days exits in seconds (no new PDFs). Report day = full pipeline.
+# Pipeline crashes auto-email Eugy via the on-failure alert path in
+# scripts/tmo_weekly_pipeline.py (added 2026-05-11). Log:
+#   /opt/mydreams/data/logs/tmo-pipeline-{YYYY-MM-DD}.log
+# Gmail OAuth token: /opt/mydreams/.secrets/gmail_token.json
+# (re-grant via scripts/gmail_auth_setup.py if "invalid_grant" appears)
+# ============================================================================
+0 13 * * * /opt/mydreams/scripts/run_tmo_pipeline.sh >> /opt/mydreams/data/logs/tmo-cron.log 2>&1

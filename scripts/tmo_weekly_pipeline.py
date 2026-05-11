@@ -21,7 +21,6 @@ Usage:
 
 import argparse
 import json
-import sqlite3
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -35,7 +34,6 @@ from scripts.parse_tmo_reports import parse_new_reports
 from scripts.generate_market_report import generate_report
 from scripts.market_insights_engine import generate_fresh_insights
 
-DB_PATH = PROJECT_ROOT / "data" / "dreams.db"
 STATE_FILE = PROJECT_ROOT / "data" / "tmo_pipeline_state.json"
 REPORTS_DIR = PROJECT_ROOT / "reports"
 
@@ -258,6 +256,32 @@ def step_email(report_date, report_paths, args):
     return success
 
 
+def send_failure_alert(error_text: str, args):
+    """Email an alert when the pipeline crashes. Best-effort; never raises."""
+    if args.dry_run or args.no_email:
+        return
+    try:
+        from apps.automation.email_service import send_email
+        from apps.automation import config
+        recipient = config.WEEKLY_SUMMARY_RECIPIENT or config.SMTP_USERNAME
+        if not recipient:
+            return
+        html_body = (
+            "<h2>TMO Pipeline FAILED</h2>"
+            "<p>The TMO weekly pipeline crashed. Investigate the cron log:</p>"
+            "<pre>ssh root@178.156.221.10 'tail -100 /opt/mydreams/data/logs/"
+            "tmo-pipeline-$(date +%Y-%m-%d).log'</pre>"
+            f"<h3>Error</h3><pre>{error_text}</pre>"
+        )
+        send_email(
+            to=recipient,
+            subject="[ALERT] TMO Pipeline FAILED",
+            html_body=html_body,
+        )
+    except Exception:
+        pass  # Don't let the failure-alert path itself crash the script
+
+
 def main():
     parser = argparse.ArgumentParser(description="TMO Weekly Pipeline")
     parser.add_argument("--dry-run", action="store_true",
@@ -331,4 +355,16 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    import traceback
+    try:
+        main()
+    except SystemExit:
+        raise
+    except Exception:
+        # Build a fake args object for the alert path; if argv parsing crashed
+        # earlier, we still want the alert to fire with sensible defaults.
+        class _Args:
+            dry_run = False
+            no_email = False
+        send_failure_alert(traceback.format_exc(), _Args())
+        raise
