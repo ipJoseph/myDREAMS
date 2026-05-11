@@ -66,7 +66,11 @@ def get_counties_csv():
 
 
 def preflight_counts(conn):
-    """Return dict of how many rows WOULD be deleted in each table."""
+    """Return dict of how many rows WOULD be deleted in each table.
+
+    Uses IN-subquery rather than correlated EXISTS — the correlated form
+    forced a nested-loop plan that hung on PRD (15K x 47K iterations).
+    """
     counties_csv = get_counties_csv()
 
     listings_count = conn.execute(
@@ -75,16 +79,20 @@ def preflight_counts(conn):
     ).fetchone()["n"]
 
     pc_count = conn.execute(
-        f"SELECT COUNT(*) AS n FROM property_changes pc "
-        f"WHERE EXISTS (SELECT 1 FROM listings l WHERE l.id = pc.property_id "
-        f"  AND (l.county NOT IN ({counties_csv}) OR l.county IS NULL))"
+        f"SELECT COUNT(*) AS n FROM property_changes "
+        f"WHERE property_id IN ("
+        f"  SELECT id FROM listings "
+        f"  WHERE county NOT IN ({counties_csv}) OR county IS NULL"
+        f")"
     ).fetchone()["n"]
 
     ce_count = conn.execute(
-        f"SELECT COUNT(*) AS n FROM contact_events ce "
-        f"WHERE EXISTS (SELECT 1 FROM listings l "
-        f"  WHERE l.mls_number = ce.property_mls "
-        f"  AND (l.county NOT IN ({counties_csv}) OR l.county IS NULL))"
+        f"SELECT COUNT(*) AS n FROM contact_events "
+        f"WHERE property_mls IN ("
+        f"  SELECT mls_number FROM listings "
+        f"  WHERE (county NOT IN ({counties_csv}) OR county IS NULL) "
+        f"  AND mls_number IS NOT NULL"
+        f")"
     ).fetchone()["n"]
 
     return {
