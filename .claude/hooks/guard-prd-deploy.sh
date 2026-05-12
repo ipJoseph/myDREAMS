@@ -81,7 +81,7 @@ jq -n '{
     hookSpecificOutput: {
         hookEventName: "PreToolUse",
         permissionDecision: "deny",
-        permissionDecisionReason: "PRD DEPLOY BLOCKED: This command targets the production server. You must ask Eugy for explicit permission before deploying to PRD. Develop and test on DEV first, then ask: Ready to deploy to PRD?"
+        permissionDecisionReason: "PRD DEPLOY BLOCKED: This command targets the production server. If Eugy has NOT granted permission yet, ask first: \"Ready to deploy to PRD?\" If Eugy HAS granted permission this turn, unlock the hook by running `touch .claude/prd-deploy-auth` (token is good for 15 min), then re-run the deploy. Do not punt with \"you run it via ! prefix\" — use the token mechanism."
     }
 }'
 exit 0
