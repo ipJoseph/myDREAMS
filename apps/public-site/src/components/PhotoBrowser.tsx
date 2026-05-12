@@ -188,13 +188,13 @@ export default function PhotoBrowser({ photos, address, city }: PhotoBrowserProp
             </button>
 
             {/* Current photo */}
-            <div className="relative w-full h-full max-w-5xl mx-16">
+            <div className="relative w-full h-full mx-4 sm:mx-12">
               <Image
                 key={current}
                 src={photos[current]}
                 alt={`Photo ${current + 1} of ${photos.length}`}
                 fill
-                sizes="90vw"
+                sizes="100vw"
                 className="object-contain"
                 unoptimized
                 priority
