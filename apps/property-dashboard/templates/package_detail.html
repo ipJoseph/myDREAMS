@@ -330,7 +330,9 @@
         {% if properties %}
         <div class="package-property-grid">
             {% for prop in properties %}
-            <div class="package-property-card" data-property-id="{{ prop.id }}">
+            <div class="package-property-card" data-property-id="{{ prop.id }}"
+                 onclick="openProperty('{{ prop.id }}', event)"
+                 style="cursor: pointer;">
                 <div class="package-property-image">
                     {% if prop.primary_photo or prop.photo_url %}
                     <img src="{{ prop.primary_photo or prop.photo_url }}" alt="{{ prop.address }}" loading="lazy">
@@ -441,6 +443,11 @@
     <script>
         const contactId = '{{ contact.id }}';
         const packageId = '{{ package.id }}';
+
+        function openProperty(propertyId, event) {
+            if (event && event.target.closest('a, button, input, .package-property-actions')) return;
+            window.location.href = '/properties/' + propertyId;
+        }
 
         function copyClientLink() {
             const input = document.getElementById('client-link');
