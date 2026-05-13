@@ -1081,6 +1081,52 @@
           || t.indexOf(aStreet) >= 0 || aStreet.indexOf(t) >= 0;
     }
 
+    function getDisplayAddress(p) {
+      // Human-readable string for the start/end input fields.
+      // (getRouteAddress can return {lat,lng} for geocoded coords, which
+      // is fine for the DirectionsService but useless in a text input.)
+      if (!p) return '';
+      var addr = p._csv_address || p.address || p.label || '';
+      if (!addr) return '';
+      var city = p._csv_city || p.city || '';
+      var state = p.state || 'NC';
+      return addr + (city ? ', ' + city : '') + ', ' + state;
+    }
+
+    function syncStartEndToOrder() {
+      // After a manual reorder, re-anchor the Start / End fields to the
+      // new first / last property — but only if the user hasn't typed in
+      // a custom address. "Custom" = a non-empty value that doesn't match
+      // any current property. Empty is treated as auto.
+      var selectedRoutable = PROPERTIES.filter(function(p) {
+        return p && p._selected && (p.address || p.label);
+      });
+      if (selectedRoutable.length === 0) return;
+
+      var firstAddr = getDisplayAddress(selectedRoutable[0]);
+      var lastAddr = getDisplayAddress(selectedRoutable[selectedRoutable.length - 1]);
+
+      var startEl = document.getElementById('cfgStart');
+      var endEl = document.getElementById('cfgEnd');
+      var roundtripEl = document.getElementById('cfgRoundtrip');
+
+      function isAuto(value) {
+        if (!value || !value.trim()) return true;  // empty = auto
+        for (var i = 0; i < PROPERTIES.length; i++) {
+          if (PROPERTIES[i] && isAddressMatch(value, PROPERTIES[i])) return true;
+        }
+        return false;  // typed address that matches no property = custom
+      }
+
+      if (startEl && firstAddr && isAuto(startEl.value)) {
+        startEl.value = firstAddr;
+      }
+      // Roundtrip mirrors start; end field is hidden / unused.
+      if (endEl && lastAddr && (!roundtripEl || !roundtripEl.checked) && isAuto(endEl.value)) {
+        endEl.value = lastAddr;
+      }
+    }
+
     function buildFullStopList() {
       fullStopList = [];
       var propCount = 0;
@@ -1713,6 +1759,12 @@
         var tmp = PROPERTIES[idxA];
         PROPERTIES[idxA] = PROPERTIES[idxB];
         PROPERTIES[idxB] = tmp;
+
+        // Re-anchor Start / End fields to new first / last when they
+        // weren't pinned to a custom address. Without this, the old
+        // first/last property gets pinned by the routing logic and the
+        // user's reorder appears blocked.
+        syncStartEndToOrder();
 
         savedState._stopOrder = PROPERTIES.filter(function(p) { return p._selected && p.id; }).map(function(p) { return p.id; });
         savedState._config = getConfig();
