@@ -660,6 +660,15 @@ def _build_property_card(stop: dict, listing: Optional[dict], stop_num: int, ver
 
     # Agent version: add extra details
     if listing and version == "agent":
+        agent_name = listing.get("listing_agent_name")
+        agent_phone = listing.get("listing_agent_phone")
+        if agent_name or agent_phone:
+            parts = []
+            if agent_name:
+                parts.append(_escape(str(agent_name)))
+            if agent_phone:
+                parts.append(_escape(str(agent_phone)))
+            extra_lines.append(f"Listing Agent: {' | '.join(parts)}")
         private = listing.get("private_remarks")
         if private:
             extra_lines.append(f"Agent Notes: {_escape(private)}")
