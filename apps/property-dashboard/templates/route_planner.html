@@ -207,6 +207,9 @@
     /* Print header (hidden on screen) */
     .print-header { display: none; }
 
+    /* Static Maps print img is screen-hidden; only shown in map-print mode */
+    #printMapImg { display: none; }
+
     @media print {
       @page { size: letter; margin: 0.4in; }
       * { color: #000 !important; background: #fff !important; font-family: 'Segoe UI', Arial, sans-serif !important; }
@@ -257,13 +260,13 @@
 
       /* ============================================================
        * Map-Print modes (Agent Map / Buyer Map buttons).
-       * The JS handler (printMapView) applies the layout inline so
-       * Google Maps re-renders tiles for the print dimensions BEFORE
-       * the print snapshot fires. These rules just polish the result
-       * (B&W table, force landscape, ensure browser prints colors).
-       * Only active when body has .print-map-mode class.
+       * Strategy: replace the live JS map (#map) with a Google Static
+       * Maps PNG (#printMapImg) for the print snapshot. The live map's
+       * tile imagery doesn't print reliably in Chrome; a real <img>
+       * does. Landscape orientation is handled by JS at print time
+       * (per-print @page injection) so the existing portrait Print
+       * button is unaffected.
        * ============================================================ */
-      @page { size: landscape; margin: 0.4in; }
       body.print-map-mode {
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
@@ -274,10 +277,15 @@
         margin-bottom: 12px;
       }
       body.print-map-mode .top-row .sidebar { display: none !important; }
-      body.print-map-mode .top-row #map {
-        flex: 1 !important;
-        height: 100% !important;
+      /* Hide the live JS map; show the Static Maps PNG in its place. */
+      body.print-map-mode #map { display: none !important; }
+      body.print-map-mode #printMapImg {
+        display: block !important;
         width: 100% !important;
+        max-height: 4.8in !important;
+        height: auto !important;
+        margin: 0 auto !important;
+        object-fit: contain;
         border: 1px solid #444;
       }
       body.print-map-mode .grid-panel {
@@ -1037,6 +1045,14 @@
 
         var order = result.routes[0].waypoint_order;
         var legs = result.routes[0].legs;
+
+        // Stash the encoded route polyline for the Static Maps print
+        // path. Newer JS API: overview_polyline is a string; older API
+        // wraps it in an object with .points.
+        var poly = result.routes[0].overview_polyline;
+        window.currentRoutePolyline = (typeof poly === 'string')
+          ? poly
+          : ((poly && poly.points) ? poly.points : '');
 
         if (isPropsOnly) {
           // Origin and destination are properties (or match properties)
@@ -2073,94 +2089,137 @@
       return (el && el.value.trim()) || (document.getElementById('showingName').value + ' - ' + getConfig().date);
     }
 
+    function buildStaticMapsURL(width, height) {
+      // Build a Google Static Maps URL that mirrors the live route map.
+      // Static Maps returns a real PNG that prints reliably (the live
+      // JS map's tile/canvas content is unreliable in browser print).
+      var key = (typeof GOOGLE_MAPS_KEY !== 'undefined' && GOOGLE_MAPS_KEY)
+        || localStorage.getItem('GOOGLE_MAPS_KEY') || '';
+      if (!key) return null;
+
+      // Walk allStopsOrdered (current route order). Skip break stops.
+      var src = (typeof allStopsOrdered !== 'undefined' && allStopsOrdered && allStopsOrdered.length)
+        ? allStopsOrdered
+        : PROPERTIES.filter(function(p) { return p && p._selected; });
+
+      var markers = [];
+      var num = 0;
+      for (var i = 0; i < src.length; i++) {
+        var p = src[i];
+        if (!p || p.isBreak) continue;
+        var lat = p.latitude, lng = p.longitude;
+        if (lat == null || lng == null) continue;
+        num++;
+        // label is single char only (1-9, A-Z); fall back to letters
+        // after stop 9 since URL needs to stay under ~8K chars.
+        var label = (num <= 9) ? String(num)
+                                : String.fromCharCode(64 + (num - 9));
+        markers.push('color:red%7Clabel:' + label + '%7C' + lat + ',' + lng);
+      }
+
+      if (markers.length === 0) return null;
+
+      var url = 'https://maps.googleapis.com/maps/api/staticmap?'
+              + 'size=' + width + 'x' + height
+              + '&scale=2'
+              + '&maptype=roadmap';
+
+      for (var m = 0; m < markers.length; m++) {
+        url += '&markers=' + markers[m];
+      }
+
+      // Path: encoded polyline of the actual driving route. Falls back
+      // to straight lines between markers if no polyline (Static Maps
+      // will auto-fit either way).
+      if (window.currentRoutePolyline) {
+        url += '&path=color:0x1a73e8ff%7Cweight:3%7Cenc:'
+             + encodeURIComponent(window.currentRoutePolyline);
+      }
+
+      url += '&key=' + key;
+      return url;
+    }
+
     function printMapView(version) {
-      // Print the visible map + property details in one landscape layout.
-      // Applies layout to the live DOM (not just @media print) so Google
-      // Maps re-renders tiles for the new dimensions BEFORE the print
-      // snapshot fires. Without this, only the HTML overlays (labels,
-      // attribution, controls) show up — the tile <img> elements aren't
-      // loaded for the print-sized container in time.
+      // Print the route map + property details in landscape.
+      // Strategy: replace the live JS map with a Google Static Maps PNG
+      // for the print snapshot (live map tiles don't print reliably in
+      // Chrome). Inject @page landscape rule for THIS print only.
       version = (version === 'buyer') ? 'buyer' : 'agent';
       document.body.classList.add('print-map-mode');
       document.body.classList.add('print-map-' + version);
 
-      var sidebar = document.querySelector('.top-row .sidebar');
-      var topRow = document.querySelector('.top-row');
+      // Inject landscape @page rule (removed by restore()).
+      var pageStyle = document.createElement('style');
+      pageStyle.id = 'printMapPageRule';
+      pageStyle.textContent = '@page { size: landscape; margin: 0.4in; }';
+      document.head.appendChild(pageStyle);
+
+      // Static Maps API caps at 640px per side (free) or 1280 with
+      // scale=2 (standard, ~no extra cost). Aim for landscape ratio.
+      var mapUrl = buildStaticMapsURL(1280, 600);
+
+      // Ensure the print-only <img> exists in the map container.
       var mapDiv = document.getElementById('map');
-      var gridPanel = document.getElementById('gridPanel');
-
-      // Stash originals so we can restore.
-      var stash = {
-        sidebarDisplay: sidebar ? sidebar.style.display : '',
-        topRowHeight: topRow ? topRow.style.height : '',
-        topRowFlex: topRow ? topRow.style.flex : '',
-        mapWidth: mapDiv ? mapDiv.style.width : '',
-        gridHeight: gridPanel ? gridPanel.style.height : '',
-        gridFlex: gridPanel ? gridPanel.style.flex : '',
-      };
-
-      // Apply landscape-friendly layout inline. ~6.5in wide x 4.8in tall
-      // map area is roughly half a landscape A4 / Letter sheet.
-      if (sidebar) sidebar.style.display = 'none';
-      if (topRow) {
-        topRow.style.height = '4.8in';
-        topRow.style.flex = '0 0 4.8in';
-      }
-      if (mapDiv) mapDiv.style.width = '100%';
-      if (gridPanel) {
-        gridPanel.style.height = 'auto';
-        gridPanel.style.flex = '1 1 auto';
+      var img = document.getElementById('printMapImg');
+      if (!img) {
+        img = document.createElement('img');
+        img.id = 'printMapImg';
+        img.alt = 'Route map';
+        // Inserted as a sibling of #map so CSS can swap visibility.
+        if (mapDiv && mapDiv.parentNode) {
+          mapDiv.parentNode.insertBefore(img, mapDiv);
+        }
       }
 
       function restore() {
-        if (sidebar) sidebar.style.display = stash.sidebarDisplay;
-        if (topRow) {
-          topRow.style.height = stash.topRowHeight;
-          topRow.style.flex = stash.topRowFlex;
-        }
-        if (mapDiv) mapDiv.style.width = stash.mapWidth;
-        if (gridPanel) {
-          gridPanel.style.height = stash.gridHeight;
-          gridPanel.style.flex = stash.gridFlex;
-        }
         document.body.classList.remove('print-map-mode');
         document.body.classList.remove('print-map-agent');
         document.body.classList.remove('print-map-buyer');
-        if (window.map && window.google && window.google.maps) {
-          google.maps.event.trigger(window.map, 'resize');
-        }
+        var s = document.getElementById('printMapPageRule');
+        if (s) s.parentNode.removeChild(s);
       }
-
-      // Restore once the print dialog closes (printed or cancelled).
       function onAfterPrint() {
         window.removeEventListener('afterprint', onAfterPrint);
         restore();
       }
       window.addEventListener('afterprint', onAfterPrint);
 
-      // Wait for tiles to load at the new size before printing.
       function doPrint() {
-        // Tiny extra delay so the browser repaints the new layout.
+        // Tiny tick so browser paints the swapped image.
         setTimeout(function() { window.print(); }, 100);
       }
 
-      if (window.map && window.google && window.google.maps) {
-        google.maps.event.trigger(window.map, 'resize');
-        var loaded = false;
-        var listener = google.maps.event.addListenerOnce(window.map, 'tilesloaded', function() {
-          loaded = true;
-          doPrint();
-        });
-        // Hard fallback: print after 2s even if tilesloaded never fires.
-        setTimeout(function() {
-          if (!loaded) {
-            try { google.maps.event.removeListener(listener); } catch (e) {}
-            doPrint();
-          }
-        }, 2000);
-      } else {
+      if (!mapUrl) {
+        // No API key or no markers — print without the map. The grid
+        // still prints; user gets a useful artifact.
+        if (img) img.style.display = 'none';
         doPrint();
+        return;
       }
+
+      // Wait for the static image to load, then print. Hard 4s fallback.
+      var done = false;
+      img.onload = function() {
+        if (done) return;
+        done = true;
+        doPrint();
+      };
+      img.onerror = function() {
+        if (done) return;
+        done = true;
+        // Static Maps API not enabled / quota / network — print without map.
+        console.warn('Static map failed to load; printing without map.');
+        if (img) img.style.display = 'none';
+        doPrint();
+      };
+      img.src = mapUrl;
+      setTimeout(function() {
+        if (!done) {
+          done = true;
+          doPrint();
+        }
+      }, 4000);
     }
 
     function printItinerary(version) {
