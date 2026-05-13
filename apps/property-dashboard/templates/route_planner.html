@@ -254,6 +254,60 @@
       .prop-table .notes-row input { font-size: 12px; font-weight: 700 !important; font-style: normal; color: #000 !important; }
       .prop-table .duration-input { font-weight: 700 !important; }
       .prop-table .duration-suffix { font-size: 10px; color: #555 !important; }
+
+      /* ============================================================
+       * Map-Print modes (Agent Map / Buyer Map buttons).
+       * Override the grid-only print defaults above to show the map
+       * at the top and the property details below in B&W.
+       * Only active when body has .print-map-mode class.
+       * ============================================================ */
+      body.print-map-mode .top-row {
+        display: flex !important;
+        height: 4.8in !important;
+        page-break-after: avoid;
+        margin-bottom: 12px;
+      }
+      body.print-map-mode .top-row .sidebar { display: none !important; }
+      body.print-map-mode .top-row #map {
+        flex: 1 !important;
+        height: 100% !important;
+        width: 100% !important;
+        border: 1px solid #444;
+      }
+      body.print-map-mode .grid-panel {
+        background: #fff !important;
+        color: #000 !important;
+        page-break-inside: auto;
+      }
+      body.print-map-mode .grid-panel-header { display: none !important; }
+      body.print-map-mode .btn-row { display: none !important; }
+      body.print-map-mode .prop-table th {
+        background: #e6e6e6 !important;
+        color: #000 !important;
+        border-bottom: 2px solid #000 !important;
+      }
+      body.print-map-mode .prop-table td {
+        color: #000 !important;
+        border-bottom: 1px solid #bbb !important;
+      }
+      body.print-map-mode .prop-table input {
+        color: #000 !important;
+        font-weight: 600;
+      }
+      body.print-map-mode .prop-table .stop-badge {
+        background: #000 !important;
+        color: #fff !important;
+        border: none !important;
+      }
+
+      /* Buyer Map: hide agent/notes content (no door codes, no listing
+       * agent name/phone). The notes-row holds door codes + the inline
+       * notes input; the last 2 columns hold agent name + phone. */
+      body.print-map-buyer .prop-table .notes-row { display: none !important; }
+      body.print-map-buyer .prop-table th:nth-last-child(-n+2),
+      body.print-map-buyer .prop-table td:nth-last-child(-n+2) {
+        display: none !important;
+      }
     }
   </style>
 </head>
@@ -375,7 +429,9 @@
             style="background: #0f1d32; border: 1px solid #1e3a5f; color: #e0e6ed; padding: 3px 8px; border-radius: 3px; font-size: 11px; font-family: inherit; width: 200px;"
             onfocus="this.style.borderColor='#c8a84e'" onblur="this.style.borderColor='#1e3a5f'">
           <button class="grid-view-btn" onclick="printItinerary('agent')" title="Agent itinerary PDF" style="border-color: #c8a84e; color: #c8a84e;">Agent Itinerary</button>
+          <button class="grid-view-btn" onclick="printMapView('agent')" title="Print map + property details (with door codes / agent contacts)" style="border-color: #c8a84e; color: #c8a84e;">Agent Map</button>
           <button class="grid-view-btn" onclick="printItinerary('buyer')" title="Buyer itinerary PDF" style="border-color: #4a9eff; color: #4a9eff;">Buyer Itinerary</button>
+          <button class="grid-view-btn" onclick="printMapView('buyer')" title="Print map + property details (no door codes / agent contacts)" style="border-color: #4a9eff; color: #4a9eff;">Buyer Map</button>
           <button class="grid-view-btn" onclick="printDetails()" title="Print grid details">Print</button>
           <span style="width: 1px; background: #1e3a5f; margin: 0 4px;"></span>
           <button class="grid-view-btn" onclick="setGridView('collapse')" title="Hide grid panel">Collapse</button>
@@ -411,7 +467,9 @@
         <button class="btn btn-outline" onclick="exportCSV()">Export CSV</button>
         <button class="btn btn-outline" onclick="exportKML()">Export to Google My Maps</button>
         <button class="btn btn-outline" onclick="printItinerary('agent')" style="border-color: #c8a84e; color: #c8a84e;">Agent Itinerary</button>
+        <button class="btn btn-outline" onclick="printMapView('agent')" style="border-color: #c8a84e; color: #c8a84e;" title="Print map + property details (with door codes / agent contacts)">Agent Map</button>
         <button class="btn btn-outline" onclick="printItinerary('buyer')" style="border-color: #4a9eff; color: #4a9eff;">Buyer Itinerary</button>
+        <button class="btn btn-outline" onclick="printMapView('buyer')" style="border-color: #4a9eff; color: #4a9eff;" title="Print map + property details (no door codes / agent contacts)">Buyer Map</button>
       </div>
     </div>
   </div>
@@ -2008,6 +2066,43 @@
       var el = document.getElementById('itineraryName');
       return (el && el.value.trim()) || (document.getElementById('showingName').value + ' - ' + getConfig().date);
     }
+
+    function printMapView(version) {
+      // Print the visible map + property details in one layout.
+      // version 'agent' includes door codes / listing agent contact;
+      // version 'buyer' hides them (CSS gates via body class).
+      version = (version === 'buyer') ? 'buyer' : 'agent';
+      document.body.classList.add('print-map-mode');
+      document.body.classList.add('print-map-' + version);
+
+      // Force the map to recompute tile layout for the print dimensions
+      // (the @media print CSS gives the map div a much larger size than
+      // it had on screen). Without this, the printed map is the on-screen
+      // crop scaled up, not freshly rendered tiles.
+      function triggerMapResize() {
+        if (window.map && window.google && window.google.maps) {
+          google.maps.event.trigger(window.map, 'resize');
+        }
+      }
+      triggerMapResize();
+
+      // Slight delay so map tiles repaint before the print dialog opens.
+      setTimeout(function() {
+        window.print();
+      }, 350);
+    }
+
+    // Restore the screen layout once the print dialog closes (printed or cancelled).
+    window.addEventListener('afterprint', function() {
+      if (document.body.classList.contains('print-map-mode')) {
+        document.body.classList.remove('print-map-mode');
+        document.body.classList.remove('print-map-agent');
+        document.body.classList.remove('print-map-buyer');
+        if (window.map && window.google && window.google.maps) {
+          google.maps.event.trigger(window.map, 'resize');
+        }
+      }
+    });
 
     function printItinerary(version) {
       version = version || 'agent';
