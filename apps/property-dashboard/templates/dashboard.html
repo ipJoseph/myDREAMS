@@ -679,29 +679,40 @@
             <button class="dash-search-btn" onclick="applyFilters()">Search</button>
         </div>
         <div class="dash-filter-row">
-            <select id="minPriceFilter" class="dash-filter-select" onchange="applyFilters()">
-                <option value="">Min Price</option>
-                <option value="100000" {% if selected_min_price == 100000 %}selected{% endif %}>$100k+</option>
-                <option value="200000" {% if selected_min_price == 200000 %}selected{% endif %}>$200k+</option>
-                <option value="300000" {% if selected_min_price == 300000 %}selected{% endif %}>$300k+</option>
-                <option value="400000" {% if selected_min_price == 400000 %}selected{% endif %}>$400k+</option>
-                <option value="500000" {% if selected_min_price == 500000 %}selected{% endif %}>$500k+</option>
-                <option value="750000" {% if selected_min_price == 750000 %}selected{% endif %}>$750k+</option>
-                <option value="1000000" {% if selected_min_price == 1000000 %}selected{% endif %}>$1M+</option>
-                <option value="2000000" {% if selected_min_price == 2000000 %}selected{% endif %}>$2M+</option>
-            </select>
+            <!-- Free-form number inputs with datalist of common ranges
+                 (predetermined values still appear as a dropdown when the
+                 input gains focus, but any value is accepted: e.g. a
+                 buyer searching $700k-$800k can type the exact bounds). -->
+            <input type="number" id="minPriceFilter" class="dash-filter-select"
+                   placeholder="Min Price" min="0" step="10000"
+                   list="priceSuggestions"
+                   value="{{ selected_min_price if selected_min_price else '' }}"
+                   onchange="applyFilters()"
+                   onkeydown="if(event.key==='Enter') applyFilters()">
 
-            <select id="maxPriceFilter" class="dash-filter-select" onchange="applyFilters()">
-                <option value="">Max Price</option>
-                <option value="100000" {% if selected_max_price == 100000 %}selected{% endif %}>Up to $100k</option>
-                <option value="200000" {% if selected_max_price == 200000 %}selected{% endif %}>Up to $200k</option>
-                <option value="300000" {% if selected_max_price == 300000 %}selected{% endif %}>Up to $300k</option>
-                <option value="400000" {% if selected_max_price == 400000 %}selected{% endif %}>Up to $400k</option>
-                <option value="500000" {% if selected_max_price == 500000 %}selected{% endif %}>Up to $500k</option>
-                <option value="750000" {% if selected_max_price == 750000 %}selected{% endif %}>Up to $750k</option>
-                <option value="1000000" {% if selected_max_price == 1000000 %}selected{% endif %}>Up to $1M</option>
-                <option value="2000000" {% if selected_max_price == 2000000 %}selected{% endif %}>Up to $2M</option>
-            </select>
+            <input type="number" id="maxPriceFilter" class="dash-filter-select"
+                   placeholder="Max Price" min="0" step="10000"
+                   list="priceSuggestions"
+                   value="{{ selected_max_price if selected_max_price else '' }}"
+                   onchange="applyFilters()"
+                   onkeydown="if(event.key==='Enter') applyFilters()">
+
+            <datalist id="priceSuggestions">
+                <option value="100000">$100k</option>
+                <option value="200000">$200k</option>
+                <option value="300000">$300k</option>
+                <option value="400000">$400k</option>
+                <option value="500000">$500k</option>
+                <option value="600000">$600k</option>
+                <option value="700000">$700k</option>
+                <option value="800000">$800k</option>
+                <option value="900000">$900k</option>
+                <option value="1000000">$1M</option>
+                <option value="1250000">$1.25M</option>
+                <option value="1500000">$1.5M</option>
+                <option value="2000000">$2M</option>
+                <option value="3000000">$3M</option>
+            </datalist>
 
             <select id="bedsFilter" class="dash-filter-select" onchange="applyFilters()">
                 <option value="">Beds</option>
