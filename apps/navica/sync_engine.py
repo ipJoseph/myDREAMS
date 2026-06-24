@@ -680,6 +680,24 @@ class NavicaSyncEngine:
         stats['api_stats'] = self.client.get_stats()
         return stats
 
+    @staticmethod
+    def _ts_after(mod_ts_str: Optional[str], since: 'datetime') -> bool:
+        """Return True if mod_ts_str is missing/unparseable (safe include) or >= since."""
+        if not mod_ts_str:
+            return True
+        for fmt in (
+            '%Y-%m-%dT%H:%M:%S.%fZ',
+            '%Y-%m-%dT%H:%M:%SZ',
+            '%Y-%m-%dT%H:%M:%S.%f',
+            '%Y-%m-%dT%H:%M:%S',
+        ):
+            try:
+                dt = datetime.strptime(mod_ts_str, fmt).replace(tzinfo=timezone.utc)
+                return dt >= since
+            except ValueError:
+                continue
+        return True  # unparseable → include to be safe
+
     def run_incremental_sync(
         self,
         status: str = None,
@@ -727,8 +745,8 @@ class NavicaSyncEngine:
             modified_since = datetime.now(timezone.utc) - timedelta(hours=24)
 
         try:
-            # Note: Navica API doesn't support server-side ModificationTimestamp filtering.
-            # We fetch all listings of the given status and filter client-side.
+            # Navica API doesn't support server-side ModificationTimestamp filtering,
+            # so we fetch all current listings and filter client-side below.
             properties = self.client.fetch_properties(
                 status=status,
                 max_records=max_records,
@@ -738,8 +756,25 @@ class NavicaSyncEngine:
             stats['errors'] += 1
             return stats
 
+        api_total = len(properties)
+        logger.info(f"Fetched {api_total} properties from API")
+
+        # Client-side timestamp filter: only process records changed since last sync.
+        # Use a 2-minute buffer to cover clock skew between our server and Navica's.
+        if modified_since:
+            if modified_since.tzinfo is None:
+                modified_since = modified_since.replace(tzinfo=timezone.utc)
+            cutoff = modified_since - timedelta(minutes=2)
+            properties = [
+                p for p in properties
+                if self._ts_after(p.get('ModificationTimestamp'), cutoff)
+            ]
+            logger.info(
+                f"After timestamp filter: {len(properties)} changed properties "
+                f"(of {api_total} fetched, since {modified_since.isoformat()})"
+            )
+
         stats['fetched'] = len(properties)
-        logger.info(f"Fetched {len(properties)} changed properties")
 
         if not properties:
             logger.info("No changes since last sync")

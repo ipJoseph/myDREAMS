@@ -346,7 +346,7 @@ def run_monthly_completeness_audit() -> dict:
             row = conn.execute(
                 f"SELECT COUNT(*) as cnt FROM listings "
                 f"WHERE mls_source = ? AND UPPER(status) = 'ACTIVE' "
-                f"AND ({field} IS NULL OR {field} = '')",
+                f"AND ({field} IS NULL OR {field}::text = '')",
                 (MLS_SOURCE,)
             ).fetchone()
             missing = row['cnt']
