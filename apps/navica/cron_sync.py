@@ -2,9 +2,9 @@
 """
 Navica MLS Automated Sync (Cron Job)
 
-Syncs both Carolina Smokies (nav27) and Mountain Lakes (nav26) datasets.
-Performs incremental sync by default, with full sync options for
-nightly rebuilds. Runs cross-listing detection after each sync.
+Syncs Carolina Smokies (nav27) ONLY. Mountain Lakes (nav26) was removed
+2026-06-30 when ML MLS migrated from Navica to Hive/SourceRE. See apps/hive/
+for the replacement sync engine.
 
 Recommended crontab entries:
     # Incremental sync every 15 minutes during business hours
@@ -32,10 +32,9 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from apps.navica.sync_engine import NavicaSyncEngine, detect_cross_listings, print_stats
 
-# All Navica datasets to sync
+# Carolina Smokies only — Mountain Lakes moved to Hive/SourceRE on 2026-06-30
 NAVICA_DATASETS = [
     {'dataset_code': 'nav27', 'mls_source': 'NavicaMLS'},
-    {'dataset_code': 'nav26', 'mls_source': 'MountainLakesMLS'},
 ]
 
 
