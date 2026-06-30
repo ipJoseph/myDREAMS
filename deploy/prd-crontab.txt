@@ -49,8 +49,8 @@ PY=/opt/mydreams/venv/bin/python3
 0 4 * * * cd /opt/mydreams && $PY scripts/ensure_schema.py >> /opt/mydreams/data/logs/schema.log 2>&1
 
 # ============================================================================
-# Navica MLS (REST API): Carolina Smokies (nav27) + Mountain Lakes (nav26)
-# One entrypoint (apps.navica.cron_sync) handles both datasets.
+# Navica MLS (REST API): Carolina Smokies (nav27) ONLY
+# Mountain Lakes (nav26) RETIRED 2026-06-30 — see Hive section below.
 # Restored 2026-04-21 after docs/incidents/20260324-navica-feed-stopped.md:
 # previously ran from a manual crontab entry that was never committed and was
 # wiped when prd-crontab.txt was first installed on 2026-03-21.
@@ -69,6 +69,22 @@ PY=/opt/mydreams/venv/bin/python3
 
 # Navica weekly sold (BBO feed) - Sunday 3:30 AM UTC (staggered after Canopy photo dl)
 30 3 * * 0 cd /opt/mydreams && $PY -m apps.navica.cron_sync --weekly-sold >> /opt/mydreams/data/logs/navica-sync.log 2>&1
+
+# ============================================================================
+# Hive (SourceRE) MLS: Mountain Lakes Board of REALTORS®
+# Replaces Navica nav26 as of 2026-06-30. Token expires 2027-06-30.
+# Staggered at :20/:50 (navica=:15/:45, canopy=:00/:30) to avoid pool collision.
+# ============================================================================
+
+# Hive incremental sync every 30 min at :20 and :50, 12:00-01:59 UTC (8am-9pm EDT)
+20,50 12-23 * * * cd /opt/mydreams && $PY -m apps.hive.cron_sync >> /opt/mydreams/data/logs/hive-sync.log 2>&1
+20,50 0-1 * * * cd /opt/mydreams && $PY -m apps.hive.cron_sync >> /opt/mydreams/data/logs/hive-sync.log 2>&1
+
+# Hive nightly full sync at 2:45 AM UTC (staggered after navica nightly at 2:30)
+45 2 * * * cd /opt/mydreams && $PY -m apps.hive.cron_sync --nightly >> /opt/mydreams/data/logs/hive-sync.log 2>&1
+
+# Hive daily member sync at 6:30 AM UTC
+30 6 * * * cd /opt/mydreams && $PY -m apps.hive.cron_sync --sync-members >> /opt/mydreams/data/logs/hive-sync.log 2>&1
 
 # ============================================================================
 # DISABLED 2026-04-10 — JTH-FUB API access revoked, pivoting to Eugy's personal FUB
