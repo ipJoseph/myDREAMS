@@ -337,17 +337,10 @@ class MLSGridClient:
 
             next_url = data['@odata.nextLink']
 
-            # The nextLink is a full URL; use it directly
-            self._rate_limit()
-            self.stats['requests'] += 1
-
+            # Route through _request() so pages 2+ get the same retry,
+            # backoff, and 429/5xx handling as page 1.
             try:
-                response = self.session.get(next_url, timeout=self.timeout)
-                self.throttle.record()  # Track in central limiter (was missing, caused rate violations)
-                if response.status_code != 200:
-                    logger.warning(f"Page {page + 1} failed ({response.status_code})")
-                    break
-
+                response = self._request('GET', next_url)
                 data = response.json()
                 results = data.get('value', [])
                 all_results.extend(results)

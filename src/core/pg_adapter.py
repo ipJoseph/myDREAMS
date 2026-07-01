@@ -7,7 +7,7 @@ methods in DREAMSDatabase and 16 get_db() functions across the codebase
 work with PostgreSQL without rewriting their SQL.
 
 Usage:
-    from src.core.pg_adapter import get_connection, get_raw_connection
+    from src.core.pg_adapter import get_connection, raw_connection
 
     # Via the adapter (sqlite3-compatible interface):
     with get_connection() as conn:
@@ -15,7 +15,8 @@ Usage:
         conn.commit()
 
     # Raw psycopg2 connection (for code that needs PostgreSQL-specific features):
-    conn = get_raw_connection()
+    with raw_connection() as conn:
+        ...
 
 When DATABASE_URL is not set, falls back to sqlite3 so DEV keeps working.
 """
@@ -288,10 +289,26 @@ def get_connection() -> PgConnectionWrapper:
     return PgConnectionWrapper(conn)
 
 
-def get_raw_connection():
-    """Get a raw psycopg2 connection (for migration scripts etc.)."""
+@contextmanager
+def raw_connection():
+    """
+    Context manager yielding a raw psycopg2 connection from the pool.
+
+    The connection is returned to the pool on exit, even if an exception
+    is raised. Use this for migration scripts or code that needs
+    PostgreSQL-specific features not available through PgConnectionWrapper.
+
+    Usage:
+        with raw_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT 1")
+    """
     pool = _get_pool()
-    return pool.getconn()
+    conn = pool.getconn()
+    try:
+        yield conn
+    finally:
+        pool.putconn(conn)
 
 
 @contextmanager

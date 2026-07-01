@@ -104,7 +104,26 @@ class DREAMSDatabase:
         Only runs for SQLite (PostgreSQL schema is managed by migrate_to_postgres.py).
         """
         if self._use_postgres:
+            logger.debug(
+                "_apply_migrations: Postgres backend detected, skipping "
+                "(use ensure_schema.py for PRD schema changes)"
+            )
             return
+
+        # -----------------------------------------------------------------------
+        # IMPORTANT: THIS METHOD IS A NO-OP ON POSTGRES (BY DESIGN)
+        #
+        # PRD runs PostgreSQL. The early-return above means NOTHING below this
+        # line ever executes in production. Do NOT add PRD schema changes here.
+        #
+        # To apply schema changes on PRD:
+        #   1. Add the ALTER TABLE / CREATE TABLE statements to scripts/ensure_schema.py
+        #   2. Run: python3 scripts/ensure_schema.py (on PRD or via SSH)
+        #
+        # This method exists solely for SQLite test-mode compatibility (pytest
+        # fixtures that spin up a fresh in-memory or temp-file DB). It will
+        # never run against the production or development Postgres instance.
+        # -----------------------------------------------------------------------
 
         # Get existing columns in leads table
         cursor = conn.execute("PRAGMA table_info(leads)")

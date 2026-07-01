@@ -139,7 +139,7 @@ class MLSGridSyncEngine:
             # The Navica sync engine already creates the listings table schema.
             # We just need to make sure our indexes exist.
             conn.execute('''
-                CREATE INDEX IF NOT EXISTS idx_listings_mls
+                CREATE INDEX IF NOT EXISTS idx_listings_mls_source_number
                 ON listings(mls_source, mls_number)
             ''')
             conn.execute('''

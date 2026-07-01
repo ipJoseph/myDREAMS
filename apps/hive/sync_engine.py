@@ -253,6 +253,19 @@ class HiveSyncEngine:
             }
             update_data['updated_at'] = now
 
+            # Gallery gate: any change in photo content means the local
+            # gallery is stale. Flip the row back to 'pending' so the
+            # nightly/post-sync backfill redownloads before it's shown
+            # on the public site. Only applies when photo fields are in
+            # this update (timestamp-change path; skip_photo_fields means
+            # nothing changed so status stays as-is).
+            if not skip_photo_fields and (
+                'photos' in update_data or 'primary_photo' in update_data
+                or 'photo_count' in update_data
+                or 'photos_change_timestamp' in update_data
+            ):
+                update_data['gallery_status'] = 'pending'
+
             if update_data:
                 set_clause = ", ".join([f"{k} = ?" for k in update_data])
                 values = list(update_data.values()) + [existing_dict['id']]

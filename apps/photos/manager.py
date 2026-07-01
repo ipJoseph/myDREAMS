@@ -167,11 +167,10 @@ def update_db_photo_paths(
 ) -> None:
     """Update the database with local photo paths after download.
 
-    Writes the authoritative local-paths JSON and bumps photo_verified_at.
-    Does NOT set gallery_status here — the caller decides ready/pending
-    based on per-MLS readiness rules (PHOTO_PIPELINE_SPEC invariant #1)
-    and the listing's expected photo_count. See _download_listing_photos
-    in apps/mlsgrid/sync_engine.py for the Canopy-path example.
+    Writes the authoritative local-paths JSON, bumps photo_verified_at,
+    and sets gallery_status='ready' when enough photos are local (same
+    tolerance as gallery_backfill_strict: up to max(3, 10% of photo_count)
+    failures allowed before the gallery is considered incomplete).
 
     photo_local_path and photo_ready are deprecated and no longer written;
     gallery_status is the source of truth.
@@ -194,20 +193,41 @@ def update_db_photo_paths(
             if result.local_urls and result.local_urls[0].startswith("/api/")
             else None
         )
+
+        # Determine whether the gallery is complete enough to mark ready.
+        # Fetch photo_count from DB so we can apply the same broken-photo
+        # tolerance used by gallery_backfill_strict (max(3, 10%) failures).
+        photo_count_row = conn.execute(
+            "SELECT photo_count FROM listings "
+            "WHERE mls_source = ? AND mls_number = ?",
+            [mls_source, mls_number],
+        ).fetchone()
+        photo_count = 0
+        if photo_count_row:
+            raw_pc = photo_count_row[0] if isinstance(photo_count_row, (list, tuple)) else photo_count_row.get("photo_count")
+            photo_count = int(raw_pc) if raw_pc else 0
+        broken_allowed = max(3, photo_count // 10) if photo_count else 3
+        min_required = max(1, photo_count - broken_allowed) if photo_count else 1
+        gallery_ready = bool(primary_local) and len(result.local_urls) >= min_required
+        new_gallery_status = 'ready' if gallery_ready else 'pending'
+
         if primary_local:
             conn.execute(
                 "UPDATE listings SET photos = ?, primary_photo = ?, "
-                "photo_verified_at = CURRENT_TIMESTAMP "
+                "photo_verified_at = CURRENT_TIMESTAMP, "
+                "gallery_status = ? "
                 "WHERE mls_source = ? AND mls_number = ?",
                 [json.dumps(result.local_urls), primary_local,
-                 mls_source, mls_number],
+                 new_gallery_status, mls_source, mls_number],
             )
         else:
             conn.execute(
                 "UPDATE listings SET photos = ?, "
-                "photo_verified_at = CURRENT_TIMESTAMP "
+                "photo_verified_at = CURRENT_TIMESTAMP, "
+                "gallery_status = ? "
                 "WHERE mls_source = ? AND mls_number = ?",
-                [json.dumps(result.local_urls), mls_source, mls_number],
+                [json.dumps(result.local_urls), new_gallery_status,
+                 mls_source, mls_number],
             )
         if owns_conn:
             conn.commit()

@@ -543,6 +543,27 @@ class NavicaSyncEngine:
         ])
         return cursor.lastrowid
 
+    def _reconcile_stale_listings(self, conn, fetched_mls_numbers: set) -> int:
+        """Mark NavicaMLS ACTIVE listings not in fetched_mls_numbers as WITHDRAWN."""
+        if not fetched_mls_numbers:
+            return 0
+        # Fetch all currently-ACTIVE NavicaMLS mls_numbers from the DB
+        rows = conn.execute(
+            "SELECT mls_number FROM listings WHERE mls_source = ? AND UPPER(status) = 'ACTIVE'",
+            (self.mls_source,)
+        ).fetchall()
+        stale = [r['mls_number'] for r in rows if r['mls_number'] not in fetched_mls_numbers]
+        if not stale:
+            return 0
+        logger.warning(f"Reconciliation: {len(stale)} NavicaMLS listings not in full sync — marking WITHDRAWN")
+        for mls_number in stale:
+            conn.execute(
+                "UPDATE listings SET status = 'WITHDRAWN', updated_at = ? WHERE mls_source = ? AND mls_number = ?",
+                (datetime.now(timezone.utc).isoformat(), self.mls_source, mls_number)
+            )
+        conn.commit()
+        return len(stale)
+
     # ---------------------------------------------------------------
     # Main sync methods
     # ---------------------------------------------------------------
@@ -613,9 +634,11 @@ class NavicaSyncEngine:
         if dry_run:
             logger.info("DRY RUN: No database changes will be made")
 
+        fetched_mls_numbers = set()
         conn = self._get_connection()
         try:
             for i, prop in enumerate(properties):
+                savepoint = f"sync_row_{i}"
                 try:
                     listing = map_reso_to_listing(prop, self.mls_source)
 
@@ -625,12 +648,20 @@ class NavicaSyncEngine:
                         stats['out_of_scope_skipped'] = stats.get('out_of_scope_skipped', 0) + 1
                         continue
 
-                    # Ensure schema has all columns this listing needs
+                    if listing.get('mls_number'):
+                        fetched_mls_numbers.add(listing['mls_number'])
+
+                    # Ensure schema has all columns this listing needs.
+                    # DDL (ALTER TABLE) issues an implicit commit on Postgres,
+                    # which releases any open savepoint. So we commit first,
+                    # then open the per-row savepoint AFTER the DDL commit.
                     if set(listing.keys()) - self._known_listing_columns:
                         self._known_listing_columns = ensure_listing_columns(
                             conn, listing, self._known_listing_columns
                         )
                         conn.commit()
+
+                    conn.execute(f"SAVEPOINT {savepoint}")
 
                     result = self._upsert_listing(conn, listing, dry_run=dry_run)
 
@@ -641,6 +672,8 @@ class NavicaSyncEngine:
                     else:
                         stats['skipped'] += 1
 
+                    conn.execute(f"RELEASE SAVEPOINT {savepoint}")
+
                     if (i + 1) % 100 == 0:
                         logger.info(f"Processed {i + 1}/{len(properties)}...")
                         if not dry_run:
@@ -649,16 +682,29 @@ class NavicaSyncEngine:
                 except Exception as e:
                     logger.error(f"Error processing {prop.get('ListingId')}: {e}")
                     stats['errors'] += 1
-                    # Per-row isolation: rollback the aborted statement so the
-                    # next row can proceed. See companion fix in the other
-                    # except clause below.
+                    # Roll back JUST this row's savepoint so sibling rows
+                    # already committed in this transaction survive. One bad
+                    # row (e.g. integer overflow on LotSizeSquareFeet) no
+                    # longer poisons every subsequent row in the batch.
                     try:
-                        conn.rollback()
+                        conn.execute(f"ROLLBACK TO SAVEPOINT {savepoint}")
+                        conn.execute(f"RELEASE SAVEPOINT {savepoint}")
                     except Exception:
-                        pass
+                        # Savepoint not open (e.g. DDL path committed before
+                        # the savepoint was set); fall back to full rollback.
+                        try:
+                            conn.rollback()
+                        except Exception:
+                            pass
 
             if not dry_run:
                 conn.commit()
+
+                # Reconcile: any NavicaMLS ACTIVE listing not seen in this full sync is stale
+                if fetched_mls_numbers:
+                    reconcile_result = self._reconcile_stale_listings(conn, fetched_mls_numbers)
+                    stats['stale_withdrawn'] = reconcile_result
+                    logger.info(f"Reconciliation: marked {reconcile_result} stale NavicaMLS listings as WITHDRAWN")
 
                 # Save sync state
                 self._save_sync_state({
@@ -791,6 +837,7 @@ class NavicaSyncEngine:
         conn = self._get_connection()
         try:
             for i, prop in enumerate(properties):
+                savepoint = f"sync_row_{i}"
                 try:
                     listing = map_reso_to_listing(prop, self.mls_source)
 
@@ -800,12 +847,17 @@ class NavicaSyncEngine:
                         stats['out_of_scope_skipped'] = stats.get('out_of_scope_skipped', 0) + 1
                         continue
 
-                    # Ensure schema has all columns this listing needs
+                    # Ensure schema has all columns this listing needs.
+                    # DDL (ALTER TABLE) issues an implicit commit on Postgres,
+                    # which releases any open savepoint. So we commit first,
+                    # then open the per-row savepoint AFTER the DDL commit.
                     if set(listing.keys()) - self._known_listing_columns:
                         self._known_listing_columns = ensure_listing_columns(
                             conn, listing, self._known_listing_columns
                         )
                         conn.commit()
+
+                    conn.execute(f"SAVEPOINT {savepoint}")
 
                     result = self._upsert_listing(conn, listing, dry_run=dry_run)
 
@@ -816,6 +868,8 @@ class NavicaSyncEngine:
                     else:
                         stats['skipped'] += 1
 
+                    conn.execute(f"RELEASE SAVEPOINT {savepoint}")
+
                     if (i + 1) % 100 == 0:
                         logger.info(f"Processed {i + 1}/{len(properties)}...")
                         if not dry_run:
@@ -824,15 +878,20 @@ class NavicaSyncEngine:
                 except Exception as e:
                     logger.error(f"Error processing {prop.get('ListingId')}: {e}")
                     stats['errors'] += 1
-                    # Rollback the failed statement so the next row's UPSERT
-                    # is not rejected with 'current transaction is aborted'.
-                    # Without this, one bad row (e.g. integer overflow on
-                    # LotSizeSquareFeet) poisons every subsequent row in the
-                    # batch; the 2026-04-21 backfill lost ~946 rows this way.
+                    # Roll back JUST this row's savepoint so sibling rows
+                    # already committed in this transaction survive. One bad
+                    # row (e.g. integer overflow on LotSizeSquareFeet) no
+                    # longer poisons every subsequent row in the batch.
                     try:
-                        conn.rollback()
+                        conn.execute(f"ROLLBACK TO SAVEPOINT {savepoint}")
+                        conn.execute(f"RELEASE SAVEPOINT {savepoint}")
                     except Exception:
-                        pass  # already rolled back
+                        # Savepoint not open (e.g. DDL path committed before
+                        # the savepoint was set); fall back to full rollback.
+                        try:
+                            conn.rollback()
+                        except Exception:
+                            pass
 
             if not dry_run:
                 conn.commit()

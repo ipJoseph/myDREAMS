@@ -67,20 +67,6 @@ except ImportError:
     get_tasks_by_project = None
     get_active_deals = None
 
-# Load environment variables
-def load_env_file():
-    env_path = Path(__file__).parent.parent.parent / '.env'
-    if os.path.exists(env_path):
-        with open(env_path) as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith('#') and '=' in line:
-                    key, value = line.split('=', 1)
-                    value = value.strip().strip('"').strip("'")
-                    os.environ[key] = value
-
-load_env_file()
-
 # Initialise Sentry before Flask so its integration can hook request handling.
 # No-op when SENTRY_DSN is unset, so this is safe in all environments.
 from src.core.monitoring import init_sentry

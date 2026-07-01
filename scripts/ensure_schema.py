@@ -79,6 +79,9 @@ def ensure_indexes(conn):
     """Create indexes if they don't exist."""
     indexes = [
         "CREATE INDEX IF NOT EXISTS idx_listings_zone ON listings(zone)",
+        "CREATE INDEX IF NOT EXISTS idx_listings_mls_source ON listings(mls_source)",
+        "CREATE INDEX IF NOT EXISTS idx_listings_updated_at ON listings(updated_at DESC)",
+        "CREATE INDEX IF NOT EXISTS idx_listings_mls_source_number ON listings(mls_source, mls_number)",
     ]
     for idx in indexes:
         conn.execute(idx)

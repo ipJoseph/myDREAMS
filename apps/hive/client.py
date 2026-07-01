@@ -180,13 +180,10 @@ class HiveClient:
                 all_results = all_results[:max_records]
                 break
 
-            self._rate_limit()
-            self.stats['requests'] += 1
+            # Route through _request() so pages 2+ get the same retry,
+            # backoff, and 429/5xx handling as page 1.
             try:
-                response = self.session.get(data['@odata.nextLink'], timeout=self.timeout)
-                if response.status_code != 200:
-                    logger.warning(f"Page {page + 1} failed ({response.status_code})")
-                    break
+                response = self._request('GET', data['@odata.nextLink'])
                 data = response.json()
                 results = data.get('value', [])
                 all_results.extend(results)
