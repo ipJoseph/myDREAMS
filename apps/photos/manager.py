@@ -239,6 +239,9 @@ def update_db_photo_paths(
             pass
     except Exception as e:
         logger.warning(f"Failed to update photo paths for {mls_number}: {e}")
+        if conn is not None:
+            try: conn.rollback()
+            except Exception: pass
         if owns_conn and conn is not None:
             try: conn.close()
             except Exception: pass
@@ -365,6 +368,8 @@ def run_photo_fill(
                     conn.commit()
                 except Exception as e:
                     logger.warning(f"periodic commit failed at row {i+1}: {e}")
+                    try: conn.rollback()
+                    except Exception: pass
 
             if (i + 1) % 100 == 0:
                 logger.info(f"  Photo fill progress: {i + 1}/{len(rows)} "
@@ -375,6 +380,8 @@ def run_photo_fill(
             conn.commit()
         except Exception as e:
             logger.warning(f"final commit failed: {e}")
+            try: conn.rollback()
+            except Exception: pass
     finally:
         try: conn.close()
         except Exception: pass
