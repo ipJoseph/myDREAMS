@@ -488,7 +488,7 @@ ZONE_MAP = {
     'Haywood': 2, 'Transylvania': 2, 'Henderson': 2, 'Buncombe': 2, 'Madison': 2,
     # Zone 3 - East WNC
     'Yancey': 3, 'Mitchell': 3, 'Avery': 3, 'McDowell': 3, 'Burke': 3,
-    'Rutherford': 3, 'Polk': 3,
+    'Rutherford': 3, 'Polk': 3, 'Caldwell': 3,
 }
 
 
@@ -755,7 +755,7 @@ def map_reso_to_listing(prop: Dict, mls_source: str = 'NavicaMLS') -> Dict[str, 
         # "column X is of type integer but expression is of type boolean".
         'idx_opt_in': int(bool(prop.get('InternetEntireListingDisplayYN', True))),
         'idx_address_display': int(bool(prop.get('InternetAddressDisplayYN', True))),
-        'vow_opt_in': prop.get('VirtualTourURLUnbranded'),
+        'vow_opt_in': int(bool(prop.get('VirtualOfficeWebsiteYN'))),
 
         # Documents
         'documents_count': prop.get('DocumentsCount'),
