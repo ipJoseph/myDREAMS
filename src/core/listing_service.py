@@ -432,18 +432,16 @@ def _fetch_and_download_photos_from_api(mls: str, photos_dir: Path) -> List[str]
         # Update DB with local paths
         if local_urls:
             try:
-                import sqlite3 as _sql
-                db_path = PROJECT_ROOT / 'data' / 'dreams.db'
-                conn = _sql.connect(str(db_path), timeout=10)
-                conn.execute('PRAGMA busy_timeout=10000')
+                from src.core.pg_adapter import get_db
+                _conn = get_db()
                 primary_path = str(photos_dir / f"{mls}.jpg")
-                conn.execute(
+                _conn.execute(
                     "UPDATE listings SET photos = ?, photo_local_path = ? "
                     "WHERE mls_number = ?",
                     [json.dumps(local_urls), primary_path, mls]
                 )
-                conn.commit()
-                conn.close()
+                _conn.commit()
+                _conn.close()
             except Exception as e:
                 logger.debug(f"DB update failed for {mls}: {e}")
 

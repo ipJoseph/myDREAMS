@@ -149,8 +149,9 @@ def download_listing_photos(
 
         conn.execute(
             """UPDATE listings SET
+               primary_photo = ?,
+               photos = ?,
                photo_local_path = ?,
-               photos_local = ?,
                photos_refreshed_at = ?,
                gallery_status = ?,
                gallery_priority = 0
@@ -158,6 +159,7 @@ def download_listing_photos(
             [
                 primary_local,
                 json.dumps(local_paths),
+                primary_local,
                 datetime.now(timezone.utc).isoformat(),
                 gallery_status,
                 mls_number,

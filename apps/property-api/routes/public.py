@@ -491,9 +491,9 @@ def get_shared_collection(share_token):
                           l.property_type, l.beds, l.baths, l.sqft, l.acreage,
                           l.elevation_feet, l.primary_photo, l.photo_count,
                           l.days_on_market, l.list_date,
-                          pp.display_order, pp.agent_notes
+                          pp.display_order
                    FROM package_properties pp
-                   JOIN listings l ON l.id = pp.listing_id
+                   JOIN listings l ON l.id = pp.listing_id AND l.idx_opt_in = 1
                    WHERE pp.package_id = ?
                    ORDER BY pp.display_order, pp.added_at''',
                 [collection['id']]
@@ -1025,7 +1025,7 @@ def get_listing_brochure(listing_id):
         }), 500
 
     listing = get_listing_data(listing_id)
-    if not listing:
+    if not listing or not listing.get('idx_opt_in'):
         return jsonify({
             'success': False,
             'error': {'code': 'NOT_FOUND', 'message': 'Listing not found'}
@@ -1174,9 +1174,9 @@ def get_featured_collection(slug):
                           l.days_on_market, l.list_date,
                           l.year_built, l.lot_sqft, l.stories,
                           l.public_remarks,
-                          pp.display_order, pp.agent_notes
+                          pp.display_order
                    FROM package_properties pp
-                   JOIN listings l ON l.id = pp.listing_id
+                   JOIN listings l ON l.id = pp.listing_id AND l.idx_opt_in = 1
                    WHERE pp.package_id = ?
                    ORDER BY pp.display_order, pp.added_at''',
                 [collection['id']]

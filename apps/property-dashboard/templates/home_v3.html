@@ -2084,7 +2084,7 @@
 (function() {
     // ═══════════ PRE-SERIALIZED CONTACT DATA ═══════════
     const FUB_URL = {{ fub_url | tojson }};
-    const CONTACTS = {{ contacts_json|safe }};
+    const CONTACTS = {{ contacts_json|tojson }};
     const CURRENT_USER_ID = {{ current_user_id }};
     let currentSessionId = null;
     let currentContactIdx = 0;

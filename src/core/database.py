@@ -6887,9 +6887,11 @@ class DREAMSDatabase:
             cursor = conn.execute('''
                 INSERT INTO power_hour_sessions (user_id, started_at, status)
                 VALUES (?, ?, 'active')
+                RETURNING id
             ''', [user_id, datetime.now().isoformat()])
             conn.commit()
-            return cursor.lastrowid
+            row = cursor.fetchone()
+            return row['id'] if row else None
 
     def record_power_hour_disposition(
         self, session_id: int, contact_id: str, disposition: str, notes: str = None
@@ -6899,6 +6901,7 @@ class DREAMSDatabase:
             cursor = conn.execute('''
                 INSERT INTO power_hour_dispositions (session_id, contact_id, disposition, notes)
                 VALUES (?, ?, ?, ?)
+                RETURNING id
             ''', [session_id, contact_id, disposition, notes])
 
             # Update session counters
@@ -6926,7 +6929,8 @@ class DREAMSDatabase:
                 ''', [session_id])
 
             conn.commit()
-            return cursor.lastrowid
+            row = cursor.fetchone()
+            return row['id'] if row else None
 
     def end_power_hour_session(self, session_id: int) -> Dict[str, Any]:
         """End a Power Hour session and return summary stats."""
