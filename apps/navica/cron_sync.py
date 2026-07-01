@@ -32,6 +32,7 @@ PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from apps.navica.sync_engine import NavicaSyncEngine, detect_cross_listings, print_stats
+from apps.photos.manager import run_photo_fill
 
 # Carolina Smokies only — Mountain Lakes moved to Hive/SourceRE on 2026-06-30
 NAVICA_DATASETS = [
@@ -96,6 +97,12 @@ def run_incremental():
     if pairs:
         logger.info(f"Cross-listing: {pairs} properties found in both MLSs")
 
+    # Download photos for up to 50 pending NavicaMLS listings per cycle.
+    # CDN URLs don't expire so downloads always succeed against stored URLs.
+    logger.info("NavicaMLS photo fill (limit=50)...")
+    report = run_photo_fill(mls_source='NavicaMLS', status='ACTIVE', limit=50)
+    logger.info(f"NavicaMLS photo fill: {report.downloaded} downloaded, {report.already_ok} already ok, {report.failed} failed")
+
 
 def run_nightly():
     """Nightly full sync of active and pending listings for all datasets."""
@@ -129,6 +136,13 @@ def run_nightly():
     pairs = detect_cross_listings()
     if pairs:
         logger.info(f"Cross-listing: {pairs} properties found in both MLSs")
+
+    # Nightly: unlimited photo backfill for all pending NavicaMLS listings.
+    logger.info("NavicaMLS nightly photo fill (unlimited)...")
+    report = run_photo_fill(mls_source='NavicaMLS', status='ACTIVE')
+    logger.info(f"NavicaMLS photo fill: {report.downloaded} downloaded, {report.already_ok} already ok, {report.failed} failed")
+    pending_report = run_photo_fill(mls_source='NavicaMLS', status='PENDING')
+    logger.info(f"NavicaMLS pending fill: {pending_report.downloaded} downloaded, {pending_report.failed} failed")
 
 
 def run_weekly_sold():
