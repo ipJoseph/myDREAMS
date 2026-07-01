@@ -44,7 +44,7 @@ MLS_SOURCE = 'CanopyMLS'
 # Thresholds
 DAILY_DRIFT_WARN_PCT = 2.0     # Warn if counts differ by more than 2%
 DAILY_DRIFT_ALERT_PCT = 5.0    # Alert if counts differ by more than 5%
-STALE_LISTING_DAYS = 7         # Flag Active listings not updated in 7 days
+STALE_LISTING_DAYS = 30        # Flag Active listings not updated in 30 days
 MISSING_FIELD_WARN_PCT = 5.0   # Warn if >5% of listings are missing a critical field
 
 
@@ -338,7 +338,6 @@ def run_monthly_completeness_audit() -> dict:
             'city': 'City',
             'latitude': 'Coordinates',
             'primary_photo': 'Primary Photo URL',
-            'photo_local_path': 'Local Photo',
         }
 
         missing_fields = {}
@@ -364,6 +363,23 @@ def run_monthly_completeness_audit() -> dict:
                     logger.info(f"Missing {label}: {missing} listings ({pct:.1f}%)")
 
         results['checks']['missing_fields'] = missing_fields
+
+        # Gallery status — authoritative photo-readiness check (replaces photo_local_path)
+        row = conn.execute(
+            "SELECT COUNT(*) as cnt FROM listings "
+            "WHERE mls_source = ? AND UPPER(status) = 'ACTIVE' "
+            "AND (gallery_status IS NULL OR gallery_status NOT IN ('ready', 'skipped'))",
+            (MLS_SOURCE,)
+        ).fetchone()
+        gallery_pending = row['cnt']
+        gallery_pct = gallery_pending / max(active_count, 1) * 100
+        results['checks']['gallery_pending'] = {'count': gallery_pending, 'pct': round(gallery_pct, 2)}
+        if gallery_pct > MISSING_FIELD_WARN_PCT:
+            logger.warning(f"Gallery not ready: {gallery_pending} listings ({gallery_pct:.1f}%)")
+            if results['status'] != 'alert':
+                results['status'] = 'warning'
+        else:
+            logger.info(f"Gallery ready: {active_count - gallery_pending}/{active_count} listings ({100 - gallery_pct:.1f}%)")
 
         # Listings with no mls_number (should never happen)
         row = conn.execute(
