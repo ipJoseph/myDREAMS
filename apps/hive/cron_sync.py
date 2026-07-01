@@ -46,6 +46,15 @@ def setup_logging():
     )
 
 
+def run_photo_download(limit: int = None):
+    """Download pending Hive/ML photos (CDN → local)."""
+    logger = logging.getLogger('hive.cron')
+    logger.info("Starting Hive photo download...")
+    from apps.hive import download_photos as _dl
+    _dl.run(max_rps=2.0, limit=limit)
+    logger.info("Hive photo download complete")
+
+
 def run_incremental():
     logger = logging.getLogger('hive.cron')
     logger.info("Starting incremental sync (Mountain Lakes via Hive)...")
@@ -54,18 +63,18 @@ def run_incremental():
     logger.info(
         f"Incremental complete: {stats['fetched']} fetched, "
         f"{stats['created']} created, {stats['updated']} updated, "
-        f"{stats['deleted']} deleted, {stats['errors']} errors, "
-        f"{stats.get('photos_downloaded', 0)} photos"
+        f"{stats['deleted']} deleted, {stats['errors']} errors"
     )
+    run_photo_download(limit=200)
     return stats
 
 
 def run_nightly():
-    """Nightly full sync — Active + Pending + Coming Soon."""
+    """Nightly full sync — Active + Pending + Coming Soon, then photo backfill."""
     logger = logging.getLogger('hive.cron')
 
     engine = HiveSyncEngine()
-    total = {'fetched': 0, 'created': 0, 'updated': 0, 'deleted': 0, 'errors': 0, 'photos_downloaded': 0}
+    total = {'fetched': 0, 'created': 0, 'updated': 0, 'deleted': 0, 'errors': 0}
 
     for status in ('Active', 'Pending', 'Coming Soon'):
         logger.info(f"Nightly phase: {status}")
@@ -74,11 +83,11 @@ def run_nightly():
             total[k] += stats.get(k, 0)
 
     logger.info(
-        f"Nightly complete: {total['fetched']} fetched, "
+        f"Nightly sync complete: {total['fetched']} fetched, "
         f"{total['created']} created, {total['updated']} updated, "
-        f"{total['deleted']} deleted, {total['errors']} errors, "
-        f"{total['photos_downloaded']} photos"
+        f"{total['deleted']} deleted, {total['errors']} errors"
     )
+    run_photo_download()
     return total
 
 

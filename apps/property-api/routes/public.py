@@ -896,7 +896,7 @@ def parse_search_query():
         conn = _pg_get_db(str(DB_PATH))
         try:
             row = conn.execute(
-                "SELECT id FROM listings WHERE mls_number = ? OR mls_number = ?",
+                "SELECT id FROM listings WHERE (mls_number = ? OR mls_number = ?) AND idx_opt_in = 1",
                 [mls, f'CAR{mls}']
             ).fetchone()
         finally:

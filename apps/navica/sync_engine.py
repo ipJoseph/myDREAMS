@@ -416,6 +416,10 @@ class NavicaSyncEngine:
             }
             update_data['updated_at'] = now
 
+            _photo_fields = {'primary_photo', 'photos', 'photo_count', 'photos_change_timestamp'}
+            if _photo_fields & set(update_data.keys()):
+                update_data['gallery_status'] = 'pending'
+
             if update_data:
                 set_clause = ", ".join([f"{k} = ?" for k in update_data.keys()])
                 values = list(update_data.values())
@@ -430,6 +434,7 @@ class NavicaSyncEngine:
             # Insert new listing
             listing['captured_at'] = now
             listing['updated_at'] = now
+            listing.setdefault('gallery_status', 'pending')
 
             # Filter out None values
             insert_data = {k: v for k, v in listing.items() if v is not None}
@@ -528,6 +533,7 @@ class NavicaSyncEngine:
                 records_processed, records_created, records_updated, records_failed,
                 started_at, completed_at, error_message, details
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            RETURNING id
         ''', [
             sync_type,
             f'navica_{self.feed}',
@@ -541,17 +547,29 @@ class NavicaSyncEngine:
             error,
             json.dumps(stats),
         ])
-        return cursor.lastrowid
+        row = cursor.fetchone()
+        return row['id'] if row else None
 
-    def _reconcile_stale_listings(self, conn, fetched_mls_numbers: set) -> int:
-        """Mark NavicaMLS ACTIVE listings not in fetched_mls_numbers as WITHDRAWN."""
+    def _reconcile_stale_listings(self, conn, fetched_mls_numbers: set, status_filter: str = None) -> int:
+        """Mark NavicaMLS listings not in fetched_mls_numbers as WITHDRAWN.
+
+        status_filter must match the status used for the full sync fetch so that
+        a partial fetch (e.g. status='Active') is only compared against DB rows
+        with that same status — never against the full Active set when the fetch
+        was Pending-only.
+        """
         if not fetched_mls_numbers:
             return 0
-        # Fetch all currently-ACTIVE NavicaMLS mls_numbers from the DB
-        rows = conn.execute(
-            "SELECT mls_number FROM listings WHERE mls_source = ? AND UPPER(status) = 'ACTIVE'",
-            (self.mls_source,)
-        ).fetchall()
+        if status_filter:
+            rows = conn.execute(
+                "SELECT mls_number FROM listings WHERE mls_source = ? AND UPPER(status) = UPPER(?)",
+                (self.mls_source, status_filter)
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT mls_number FROM listings WHERE mls_source = ? AND UPPER(status) = 'ACTIVE'",
+                (self.mls_source,)
+            ).fetchall()
         stale = [r['mls_number'] for r in rows if r['mls_number'] not in fetched_mls_numbers]
         if not stale:
             return 0
@@ -700,9 +718,10 @@ class NavicaSyncEngine:
             if not dry_run:
                 conn.commit()
 
-                # Reconcile: any NavicaMLS ACTIVE listing not seen in this full sync is stale
+                # Reconcile: any listing with the same status not seen in this fetch is stale.
+                # Pass status so a Pending-only sync doesn't mark Active listings WITHDRAWN.
                 if fetched_mls_numbers:
-                    reconcile_result = self._reconcile_stale_listings(conn, fetched_mls_numbers)
+                    reconcile_result = self._reconcile_stale_listings(conn, fetched_mls_numbers, status_filter=status)
                     stats['stale_withdrawn'] = reconcile_result
                     logger.info(f"Reconciliation: marked {reconcile_result} stale NavicaMLS listings as WITHDRAWN")
 

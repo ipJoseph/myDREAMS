@@ -274,6 +274,7 @@ class HiveSyncEngine:
         else:
             listing['captured_at'] = now
             listing['updated_at'] = now
+            listing.setdefault('gallery_status', 'pending')
             insert_data = {k: v for k, v in listing.items() if v is not None}
             columns = list(insert_data.keys())
             placeholders = ', '.join(['?' for _ in columns])

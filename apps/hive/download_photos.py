@@ -131,7 +131,12 @@ def download_listing_photos(
 
         data = photo_dl.download_photo(cdn_url)
         if data:
-            saved = storage.save_atomic(source_dir, filename, data)
+            try:
+                storage.save_atomic(source_dir, filename, data)
+            except OSError as exc:
+                logger.error(f"  DISK ERROR saving {filename}: {exc}")
+                errors += 1
+                continue
             key = (MLS_SOURCE or '').lower().replace(' ', '')
             source_name = storage.SOURCE_DIRS.get(key, key)
             local_paths.append(f"/api/public/photos/{source_name}/{filename}")

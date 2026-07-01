@@ -225,13 +225,14 @@ def api_add_expense_item(report_id):
     with deps.db._get_connection() as conn:
         cursor = conn.execute(
             "INSERT INTO expense_items (report_id, name, description, amount, category, created_at) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
+            "VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
             [report_id, data.get('name', ''), data.get('description', ''),
              float(data.get('amount', 0)), data.get('category', ''), now],
         )
+        row = cursor.fetchone()
         conn.execute("UPDATE expense_reports SET updated_at=? WHERE id=?", [now, report_id])
         conn.commit()
-        item_id = cursor.lastrowid
+        item_id = row['id'] if row else None
     return jsonify({'success': True, 'id': item_id})
 
 

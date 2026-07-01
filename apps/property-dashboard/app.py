@@ -7,7 +7,7 @@ A web-based summary view of properties and contacts from SQLite (source of truth
 import json
 import logging
 import os
-import sqlite3
+
 import sys
 import subprocess
 import statistics
@@ -4845,7 +4845,7 @@ def photo_status():
 
     from src.core.pg_adapter import get_db as _pg_get_db
     db_conn = _pg_get_db(str(DB_PATH))
-    db_conn.row_factory = sqlite3.Row
+
 
     # Per-source stats with gallery_status breakdown.
     # photo_local_path is deprecated as of 2026-04-23 — gallery_status is
@@ -5415,10 +5415,17 @@ def create_idx_portfolio():
     if not mls_numbers:
         return jsonify({'success': False, 'error': 'No MLS numbers provided'}), 400
 
+    import re as _re
+    _safe = _re.compile(r'^[A-Za-z0-9\-_.]+$')
+    if not all(_safe.match(str(n)) for n in mls_numbers):
+        return jsonify({'success': False, 'error': 'Invalid MLS number format'}), 400
+    if search_name and not _safe.match(search_name):
+        return jsonify({'success': False, 'error': 'Invalid search name format'}), 400
+
     # Path to the launch script and progress file
     launch_script = os.path.join(os.path.dirname(__file__), 'launch_idx.sh')
     progress_file = os.path.join(os.path.dirname(__file__), 'logs', 'idx-progress.json')
-    mls_string = ','.join(mls_numbers)
+    mls_string = ','.join(str(n) for n in mls_numbers)
 
     # Clear old progress file to avoid race condition with polling
     try:

@@ -242,7 +242,7 @@ class PropertyMonitor:
               AND status IN ('active', 'Active')
         ''', (datetime.utcnow().isoformat(),))
 
-        updated = conn.rowcount
+        updated = conn.execute("SELECT COUNT(*) FROM listings WHERE list_date IS NOT NULL AND status IN ('active', 'Active')").fetchone()[0]
         logger.info(f"Updated DOM for {updated} properties")
         return updated
 

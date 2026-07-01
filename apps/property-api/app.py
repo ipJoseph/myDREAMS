@@ -111,7 +111,7 @@ def check_api_key():
 
     # Fail-closed in production if API key is not configured
     if not API_KEY:
-        if os.environ.get('DREAMS_ENV') in ('prd', 'production'):
+        if (os.environ.get('DREAMS_ENV') or '').lower() in ('prd', 'production'):
             return jsonify({'error': 'Service unavailable'}), 503
         return None
 

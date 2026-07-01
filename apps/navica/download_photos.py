@@ -1,14 +1,22 @@
 """
-Download primary photos for Navica MLS listings.
+DEPRECATED — legacy Navica photo downloader. Do not run.
 
-Downloads the primary photo for each listing that has a photo URL
-but no local file yet. Uses concurrent downloads for speed.
+Superseded by:
+  * apps/photos/manager.py PhotoManager.run_photo_fill — canonical photo pipeline
+  * scripts/gallery_backfill_strict.py — catchup sweep
 
-Usage:
-    python3 -m apps.navica.download_photos
-    python3 -m apps.navica.download_photos --max 50  # limit count
-    python3 -m apps.navica.download_photos --workers 10  # parallel downloads
+This script only writes the deprecated photo_local_path column (not
+primary_photo, photos, or gallery_status). Running it will produce no
+visible photos in the public grid and may leave gallery_status stuck at
+NULL or 'pending' indefinitely.
 """
+
+import sys
+print("ERROR: apps.navica.download_photos is deprecated. Use apps/photos/manager.py instead.", file=sys.stderr)
+sys.exit(1)
+
+# --- original code preserved below for reference ---
+
 
 import argparse
 import os

@@ -685,6 +685,7 @@ class MLSGridSyncEngine:
                 records_processed, records_created, records_updated, records_failed,
                 started_at, completed_at, error_message, details
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            RETURNING id
         ''', [
             sync_type,
             'mlsgrid_canopy',
@@ -698,7 +699,8 @@ class MLSGridSyncEngine:
             error,
             json.dumps(stats),
         ])
-        return cursor.lastrowid
+        row = cursor.fetchone()
+        return row['id'] if row else None
 
     # ---------------------------------------------------------------
     # Main sync methods

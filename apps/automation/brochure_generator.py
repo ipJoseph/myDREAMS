@@ -302,13 +302,10 @@ def generate_collection_pdf(share_token: str) -> tuple[bytes | None, str]:
         collection_dict = dict(collection)
         collection_name = collection['name'] or 'Collection'
 
-        # Get full listing data in order. Don't filter by idx_opt_in: this
-        # is an agent-to-buyer share, not public syndication, and the agent
-        # has direct authority to share these listings.
         rows = conn.execute(
             '''SELECT l.*, pkp.display_order, pkp.agent_notes as pkg_agent_notes
                FROM package_properties pkp
-               JOIN listings l ON l.id = pkp.listing_id
+               JOIN listings l ON l.id = pkp.listing_id AND l.idx_opt_in = 1
                WHERE pkp.package_id = ?
                ORDER BY pkp.display_order, pkp.added_at''',
             [collection['id']]
