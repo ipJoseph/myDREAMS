@@ -21,6 +21,7 @@ Recommended crontab entries:
 """
 
 import argparse
+import fcntl
 import logging
 import os
 import sys
@@ -36,6 +37,8 @@ from apps.navica.sync_engine import NavicaSyncEngine, detect_cross_listings, pri
 NAVICA_DATASETS = [
     {'dataset_code': 'nav27', 'mls_source': 'NavicaMLS'},
 ]
+
+LOCK_FILE = PROJECT_ROOT / 'data' / '.navica_sync.lock'
 
 
 def setup_logging(log_dir: Path = None):
@@ -178,6 +181,17 @@ def main():
     load_env()
     setup_logging()
 
+    logger = logging.getLogger('navica.cron')
+
+    LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
+    lock_fd = open(LOCK_FILE, 'w')
+    try:
+        fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        logger.info("Another Navica sync is already running, skipping.")
+        lock_fd.close()
+        return 0
+
     try:
         if args.nightly:
             run_nightly()
@@ -189,8 +203,11 @@ def main():
             # Default: incremental sync
             run_incremental()
     except Exception as e:
-        logging.getLogger('navica.cron').error(f"Sync failed: {e}", exc_info=True)
+        logger.error(f"Sync failed: {e}", exc_info=True)
         return 1
+    finally:
+        fcntl.flock(lock_fd, fcntl.LOCK_UN)
+        lock_fd.close()
 
     return 0
 

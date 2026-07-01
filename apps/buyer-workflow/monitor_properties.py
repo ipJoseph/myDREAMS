@@ -25,7 +25,6 @@ import argparse
 import json
 import logging
 import os
-import sqlite3
 import sys
 import uuid
 from datetime import datetime, timedelta
@@ -72,10 +71,8 @@ class PropertyMonitor:
 
     def _ensure_monitor_tables(self, conn):
         """Ensure monitoring tables exist."""
-        cursor = conn.cursor()
-
         # Property monitors table
-        cursor.execute('''
+        conn.execute('''
             CREATE TABLE IF NOT EXISTS property_monitors (
                 id TEXT PRIMARY KEY,
                 property_id TEXT NOT NULL UNIQUE,
@@ -101,7 +98,7 @@ class PropertyMonitor:
         ''')
 
         # Property changes log
-        cursor.execute('''
+        conn.execute('''
             CREATE TABLE IF NOT EXISTS property_changes (
                 id TEXT PRIMARY KEY,
                 property_id TEXT NOT NULL,
@@ -143,9 +140,8 @@ class PropertyMonitor:
         if limit:
             query += f' LIMIT {limit}'
 
-        cursor = conn.cursor()
-        cursor.execute(query, params)
-        return [dict(row) for row in cursor.fetchall()]
+        conn.execute(query, params)
+        return [dict(row) for row in conn.fetchall()]
 
     def update_from_redfin(self, property_data: Dict) -> Optional[Dict]:
         """
@@ -171,13 +167,12 @@ class PropertyMonitor:
         now = datetime.utcnow().isoformat()
 
         # Get or create monitor record
-        cursor = conn.cursor()
-        cursor.execute('SELECT * FROM property_monitors WHERE property_id = ?', (prop_id,))
-        monitor = cursor.fetchone()
+        conn.execute('SELECT * FROM property_monitors WHERE property_id = ?', (prop_id,))
+        monitor = conn.fetchone()
 
         if not monitor:
             # Create monitor record
-            cursor.execute('''
+            conn.execute('''
                 INSERT INTO property_monitors (id, property_id, last_price, last_status, last_dom, last_checked_at)
                 VALUES (?, ?, ?, ?, ?, ?)
             ''', (str(uuid.uuid4()), prop_id, prop.get('list_price'), prop.get('status'),
@@ -218,7 +213,7 @@ class PropertyMonitor:
                 logger.info(f"Status change: {prop.get('address')} {old_status} → {new_status}")
 
         # Update monitor record
-        cursor.execute('''
+        conn.execute('''
             UPDATE property_monitors
             SET last_price = ?, last_status = ?, last_dom = ?,
                 last_checked_at = ?, last_changed_at = CASE WHEN ? > 0 THEN ? ELSE last_changed_at END
@@ -228,7 +223,7 @@ class PropertyMonitor:
 
         # Log changes
         for change in changes:
-            cursor.execute('''
+            conn.execute('''
                 INSERT INTO property_changes (id, property_id, change_type, old_value, new_value, change_percent, detected_at, source)
                 VALUES (?, ?, ?, ?, ?, ?, ?, 'monitor')
             ''', (str(uuid.uuid4()), change['property_id'], change['change_type'],
@@ -238,11 +233,8 @@ class PropertyMonitor:
 
     def update_dom(self, conn):
         """Update days on market for all active properties based on list_date."""
-        cursor = conn.cursor()
-        today = datetime.now().date()
-
         # Update DOM based on list_date
-        cursor.execute('''
+        conn.execute('''
             UPDATE listings
             SET days_on_market = (CURRENT_DATE - list_date::date),
                 updated_at = ?
@@ -250,7 +242,7 @@ class PropertyMonitor:
               AND status IN ('active', 'Active')
         ''', (datetime.utcnow().isoformat(),))
 
-        updated = cursor.rowcount
+        updated = conn.rowcount
         logger.info(f"Updated DOM for {updated} properties")
         return updated
 
@@ -270,9 +262,8 @@ class PropertyMonitor:
 
         query += ' LIMIT 100'
 
-        cursor = conn.cursor()
-        cursor.execute(query, params)
-        return [dict(row) for row in cursor.fetchall()]
+        conn.execute(query, params)
+        return [dict(row) for row in conn.fetchall()]
 
     def run_monitoring(self, county: str = None, limit: int = None, check_only: bool = False) -> Dict:
         """Run the full monitoring process."""
@@ -320,16 +311,18 @@ class PropertyMonitor:
 
     def get_recent_changes(self, days: int = 7, county: str = None) -> List[Dict]:
         """Get recent property changes."""
+        from datetime import timezone
         conn = self._get_connection()
 
         try:
+            cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
             query = '''
                 SELECT pc.*, p.address, p.city, p.county, p.list_price
                 FROM property_changes pc
                 JOIN listings p ON pc.property_id = p.id
-                WHERE pc.detected_at >= datetime('now', ?)
+                WHERE pc.detected_at >= ?
             '''
-            params = [f'-{days} days']
+            params = [cutoff]
 
             if county:
                 query += ' AND LOWER(p.county) = LOWER(?)'
@@ -337,9 +330,8 @@ class PropertyMonitor:
 
             query += ' ORDER BY pc.detected_at DESC'
 
-            cursor = conn.cursor()
-            cursor.execute(query, params)
-            return [dict(row) for row in cursor.fetchall()]
+            conn.execute(query, params)
+            return [dict(row) for row in conn.fetchall()]
 
         finally:
             conn.close()

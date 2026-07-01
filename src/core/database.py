@@ -2490,9 +2490,11 @@ class DREAMSDatabase:
             cursor = conn.execute('''
                 INSERT INTO sync_log (sync_type, source, direction)
                 VALUES (?, ?, ?)
+                RETURNING id
             ''', (sync_type, source, direction))
             conn.commit()
-            return cursor.lastrowid
+            row = cursor.fetchone()
+            return row['id'] if row else None
     
     def log_sync_complete(
         self,
@@ -2578,12 +2580,14 @@ class DREAMSDatabase:
                  website_visits, properties_viewed, calls_inbound, calls_outbound,
                  texts_total, intent_signal_count, heat_delta, trend_direction, sync_id)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                RETURNING id
             ''', (
                 contact_id, heat_score, value_score, relationship_score, priority_score,
                 website_visits, properties_viewed, calls_inbound, calls_outbound,
                 texts_total, intent_signal_count, heat_delta, trend_direction, sync_id
             ))
             conn.commit()
+            row = cursor.fetchone()
 
             # Update lead with trend and last recorded timestamp
             conn.execute('''
@@ -2594,7 +2598,7 @@ class DREAMSDatabase:
             ''', (trend_direction, datetime.now().isoformat(), contact_id))
             conn.commit()
 
-            return cursor.lastrowid
+            return row['id'] if row else None
 
     def get_latest_scoring(self, contact_id: str) -> Optional[Dict[str, Any]]:
         """Get the most recent scoring snapshot for a contact."""
@@ -4716,9 +4720,11 @@ class DREAMSDatabase:
                 INSERT INTO contact_actions
                 (contact_id, action_type, description, due_date, priority, created_by)
                 VALUES (?, ?, ?, ?, ?, ?)
+                RETURNING id
             ''', (contact_id, action_type, description, due_date, priority, created_by))
             conn.commit()
-            return cursor.lastrowid
+            row = cursor.fetchone()
+            return row['id'] if row else None
 
     def get_contact_actions(
         self,
@@ -4856,9 +4862,11 @@ class DREAMSDatabase:
             cursor = conn.execute('''
                 INSERT INTO scoring_runs (source, config_snapshot, status)
                 VALUES (?, ?, 'running')
+                RETURNING id
             ''', (source, config_json))
             conn.commit()
-            return cursor.lastrowid
+            row = cursor.fetchone()
+            return row['id'] if row else None
 
     def complete_scoring_run(
         self,
@@ -6441,10 +6449,12 @@ class DREAMSDatabase:
                 INSERT INTO automation_log
                 (rule_name, contact_id, contact_name, action_type, action_detail, cooldown_until, success)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
+                RETURNING id
             ''', (rule_name, contact_id, contact_name, action_type, action_detail,
                   cooldown_until, 1 if success else 0))
             conn.commit()
-            return cursor.lastrowid
+            row = cursor.fetchone()
+            return row['id'] if row else None
 
     def get_automation_log(self, limit: int = 50, rule_name: str = None) -> List[Dict[str, Any]]:
         """Get recent automation log entries."""

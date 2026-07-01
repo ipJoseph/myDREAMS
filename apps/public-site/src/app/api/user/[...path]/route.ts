@@ -15,10 +15,9 @@ import { auth } from "@/lib/auth";
 import { SignJWT } from "jose";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
-const AUTH_SECRET = process.env.AUTH_SECRET || "";
 
-async function createUserJWT(userId: string): Promise<string> {
-  const secret = new TextEncoder().encode(AUTH_SECRET);
+async function createUserJWT(userId: string, authSecret: string): Promise<string> {
+  const secret = new TextEncoder().encode(authSecret);
   return new SignJWT({ id: userId, sub: userId })
     .setProtectedHeader({ alg: "HS256" })
     .setExpirationTime("5m")
@@ -29,6 +28,11 @@ async function proxyToFlask(
   req: NextRequest,
   pathSegments: string[],
 ): Promise<NextResponse> {
+  const AUTH_SECRET = process.env.AUTH_SECRET;
+  if (!AUTH_SECRET) {
+    return NextResponse.json({ error: "Server misconfiguration" }, { status: 503 });
+  }
+
   const session = await auth();
   const flaskPath = `/api/user/${pathSegments.join("/")}`;
   const url = `${API_BASE}${flaskPath}`;
@@ -41,7 +45,7 @@ async function proxyToFlask(
   // Add auth header if we have a session; otherwise forward without it
   // and let Flask decide whether to return 401
   if (session?.user?.id) {
-    const token = await createUserJWT(session.user.id);
+    const token = await createUserJWT(session.user.id, AUTH_SECRET);
     headers["Authorization"] = `Bearer ${token}`;
   }
 

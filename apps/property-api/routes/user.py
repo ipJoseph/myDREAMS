@@ -37,6 +37,16 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 user_bp = Blueprint('user', __name__)
 
+
+class AuthMisconfiguredError(Exception):
+    """Raised when AUTH_SECRET is not set in the environment."""
+
+
+@user_bp.app_errorhandler(AuthMisconfiguredError)
+def handle_auth_misconfigured(e):
+    logger.error('AUTH_SECRET is not configured; rejecting request')
+    return jsonify({'error': 'Authentication not configured'}), 503
+
 DB_PATH = os.getenv('DREAMS_DB_PATH', str(PROJECT_ROOT / 'data' / 'dreams.db'))
 
 
@@ -72,7 +82,7 @@ def _get_user_from_jwt():
     token = auth_header[7:]
     auth_secret = os.getenv('AUTH_SECRET')
     if not auth_secret:
-        return None
+        raise AuthMisconfiguredError('AUTH_SECRET not set')
 
     try:
         import jwt
@@ -331,6 +341,11 @@ def oauth_sync():
     Called from Auth.js jwt callback when a user signs in with Google.
     Creates the user if they don't exist, or returns existing user.
     """
+    # Shared secret check: fail-closed if env var is not set or header doesn't match
+    sync_secret = os.environ.get('NEXT_OAUTH_SYNC_SECRET')
+    if not sync_secret or request.headers.get('X-Oauth-Sync-Secret') != sync_secret:
+        return jsonify({'error': 'Unauthorized'}), 401
+
     data = request.get_json()
     if not data:
         return jsonify({'success': False, 'error': 'Request body required'}), 400

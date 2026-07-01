@@ -88,6 +88,13 @@ init_sentry("property-dashboard")
 
 app = Flask(__name__)
 
+_secret_key = os.environ.get('FLASK_SECRET_KEY')
+if not _secret_key:
+    import secrets
+    _secret_key = secrets.token_hex(32)
+    logger.warning("FLASK_SECRET_KEY not set — using ephemeral key. Sessions will reset on each restart.")
+app.config['SECRET_KEY'] = _secret_key
+
 # County GIS and document links for WNC counties.
 # {parcel} = raw parcel number from DB. {parcel_dashed} = Jackson-format with dashes.
 # Each county has: gis (map link), prc (property record card), docs (other documents).
@@ -225,7 +232,7 @@ if not DASHBOARD_USERNAME or not DASHBOARD_PASSWORD:
         logger.warning("DASHBOARD_USERNAME/PASSWORD not set. Dashboard authentication is disabled (dev mode).")
 
 # Client Portfolio Password (simple key-based access)
-CLIENT_PORTFOLIO_KEY = os.getenv('CLIENT_PORTFOLIO_KEY', 'dreams2026')
+CLIENT_PORTFOLIO_KEY = os.getenv('CLIENT_PORTFOLIO_KEY')  # No default — unset means deny all
 
 # Current user configuration (for filtering contacts)
 CURRENT_USER_ID = int(os.getenv('FUB_MY_USER_ID', 8))  # Default: Joseph Williams
@@ -747,6 +754,19 @@ def calculate_status_counts(properties: List[Dict[str, Any]]) -> Dict[str, int]:
         status = p.get('status') or 'Unknown'
         counts[status] = counts.get(status, 0) + 1
     return counts
+
+
+@app.errorhandler(404)
+def not_found(e):
+    if request.path.startswith('/api/'):
+        return jsonify({'error': 'Not found'}), 404
+    return render_template('error.html', code=404, message='Page not found'), 404
+
+@app.errorhandler(500)
+def server_error(e):
+    if request.path.startswith('/api/'):
+        return jsonify({'error': 'Internal server error'}), 500
+    return render_template('error.html', code=500, message='Something went wrong'), 500
 
 
 @app.route('/')
@@ -4029,6 +4049,10 @@ def client_dashboard(client_name):
     # Check for key-based access
     key = request.args.get('key', '')
 
+    # Fail closed: if the env var is not configured, deny all access
+    if CLIENT_PORTFOLIO_KEY is None:
+        return "Client portfolios not configured", 403
+
     # Handle POST form submission for password
     if request.method == 'POST':
         submitted_key = request.form.get('password', '')
@@ -5445,9 +5469,12 @@ def create_idx_portfolio():
             # Extract client name from search_name (format: YYMMDD.HHMM.ClientName)
             parts = search_name.split('.')
             client_name = parts[-1] if len(parts) >= 3 else search_name
-            # Build the shareable URL with the access key
+            # Build the shareable URL with the access key (only if key is configured)
             base_url = request.host_url.rstrip('/')
-            client_url = f"{base_url}/client/{client_name}?key={CLIENT_PORTFOLIO_KEY}"
+            if CLIENT_PORTFOLIO_KEY:
+                client_url = f"{base_url}/client/{client_name}?key={CLIENT_PORTFOLIO_KEY}"
+            else:
+                client_url = f"{base_url}/client/{client_name}"
 
         return jsonify({
             'success': True,

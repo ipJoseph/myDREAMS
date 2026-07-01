@@ -21,7 +21,7 @@ MCP Tools Exposed:
 import json
 import os
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Optional
 
@@ -670,8 +670,9 @@ async def get_stats() -> str:
 
     # Activity counts
     stats["total_events"] = conn.execute("SELECT COUNT(*) FROM contact_events").fetchone()[0]
+    _cutoff_7d = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
     stats["events_last_7_days"] = conn.execute(
-        "SELECT COUNT(*) FROM contact_events WHERE occurred_at >= datetime('now', '-7 days')"
+        "SELECT COUNT(*) FROM contact_events WHERE occurred_at >= ?", (_cutoff_7d,)
     ).fetchone()[0]
 
     # Communication counts

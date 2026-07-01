@@ -109,8 +109,10 @@ def check_api_key():
     if request.path.startswith('/api/user/'):
         return None
 
-    # Skip auth if no API key is configured (local development)
+    # Fail-closed in production if API key is not configured
     if not API_KEY:
+        if os.environ.get('DREAMS_ENV') in ('prd', 'production'):
+            return jsonify({'error': 'Service unavailable'}), 503
         return None
 
     # Check X-API-Key header
@@ -150,6 +152,18 @@ if _LIMITER_AVAILABLE:
         storage_uri="memory://",  # Good enough for single-process; swap to redis:// if we scale out
         headers_enabled=True,  # Send X-RateLimit-* headers on responses
     )
+    # SEC-P2-2: Rate limit auth endpoints to slow brute-force and account enumeration.
+    # Same view_functions-patch pattern as the contact form below.
+    _login_endpoint = 'user.login'
+    app.view_functions[_login_endpoint] = limiter.limit("10 per minute")(
+        app.view_functions[_login_endpoint]
+    )
+
+    _register_endpoint = 'user.register'
+    app.view_functions[_register_endpoint] = limiter.limit("5 per hour")(
+        app.view_functions[_register_endpoint]
+    )
+
     _contact_endpoint = 'public_writes.create_public_contact'
     _original_view = app.view_functions[_contact_endpoint]
     _limited_view = limiter.limit("10 per hour")(_original_view)

@@ -161,13 +161,9 @@ def ensure_listing_columns(conn, listing_dict: Dict[str, Any],
         else:
             col_type = 'TEXT'
 
-        try:
-            conn.execute(f"ALTER TABLE listings ADD COLUMN {col_name} {col_type}")
-            known_columns.add(col_name)
-            logger.info(f"Added column {col_name} ({col_type}) to listings table")
-        except Exception:
-            # Column already exists (race condition or cache miss)
-            known_columns.add(col_name)
+        conn.execute(f"ALTER TABLE listings ADD COLUMN IF NOT EXISTS {col_name} {col_type}")
+        known_columns.add(col_name)
+        logger.info(f"Added column {col_name} ({col_type}) to listings table")
 
     return known_columns
 
