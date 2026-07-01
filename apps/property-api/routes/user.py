@@ -888,9 +888,9 @@ def get_collection(collection_id):
                       l.property_type, l.beds, l.baths, l.sqft, l.acreage,
                       l.primary_photo, l.photo_count, l.days_on_market,
                       l.elevation_feet,
-                      pp.display_order, pp.agent_notes, pp.added_at
+                      pp.display_order, pp.added_at
                FROM package_properties pp
-               JOIN listings l ON l.id = pp.listing_id
+               JOIN listings l ON l.id = pp.listing_id AND l.idx_opt_in = 1
                WHERE pp.package_id = ?
                ORDER BY pp.display_order, pp.added_at''',
             [collection_id]
@@ -1017,11 +1017,14 @@ def add_to_collection(collection_id):
             [collection_id]
         ).fetchone()[0]
 
-        # Get listing details for activity metadata
+        # Gate on IDX opt-in before allowing listing into a collection
         listing_info = db.execute(
-            'SELECT address, city, list_price FROM listings WHERE id = ?',
+            'SELECT address, city, list_price FROM listings WHERE id = ? AND idx_opt_in = 1',
             [listing_id]
         ).fetchone()
+        if not listing_info:
+            db.close()
+            return jsonify({'success': False, 'error': 'Listing not found'}), 404
 
         item_id = str(uuid.uuid4())
         db.execute(

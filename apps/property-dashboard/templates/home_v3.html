@@ -1469,7 +1469,7 @@
                             {% for group in narrative_items %}
                             <div class="overnight-group">
                                 <div class="overnight-group-header" onclick="toggleCollapse(this)">
-                                    <div class="away-icon {{ group.css_class }}">{{ group.icon | safe }}</div>
+                                    <div class="away-icon {{ group.css_class }}">{{ group.icon }}</div>
                                     <div class="overnight-group-title">{{ group.title }}</div>
                                     <div class="overnight-group-count">({{ group.entries|length }})</div>
                                     <span class="collapse-chevron">&#9660;</span>

@@ -215,7 +215,12 @@ def _process_listing(
             stats["errors"] += 1
             continue
 
-        save_atomic_fn(photos_dir, filename, data)
+        try:
+            save_atomic_fn(photos_dir, filename, data)
+        except OSError as exc:
+            logger.error(f"DISK ERROR saving {filename}: {exc}")
+            stats["errors"] += 1
+            continue
         local_urls.append(f"/api/public/photos/mlsgrid/{filename}")
         stats["downloaded"] += 1
 

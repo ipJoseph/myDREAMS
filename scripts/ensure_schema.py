@@ -82,6 +82,18 @@ def ensure_indexes(conn):
         "CREATE INDEX IF NOT EXISTS idx_listings_mls_source ON listings(mls_source)",
         "CREATE INDEX IF NOT EXISTS idx_listings_updated_at ON listings(updated_at DESC)",
         "CREATE INDEX IF NOT EXISTS idx_listings_mls_source_number ON listings(mls_source, mls_number)",
+        # Public IDX query hot path: every public grid load filters both columns
+        "CREATE INDEX IF NOT EXISTS idx_listings_idx_opt_in ON listings(idx_opt_in)",
+        "CREATE INDEX IF NOT EXISTS idx_listings_gallery_status ON listings(gallery_status)",
+        # Covering index for the dominant public query pattern and audit_photo_invariants cron
+        "CREATE INDEX IF NOT EXISTS idx_listings_public_query ON listings(idx_opt_in, status, gallery_status, mls_source)",
+        # Property search filter columns
+        "CREATE INDEX IF NOT EXISTS idx_listings_status ON listings(status)",
+        "CREATE INDEX IF NOT EXISTS idx_listings_beds ON listings(beds)",
+        "CREATE INDEX IF NOT EXISTS idx_listings_baths ON listings(baths)",
+        "CREATE INDEX IF NOT EXISTS idx_listings_county ON listings(county)",
+        "CREATE INDEX IF NOT EXISTS idx_listings_city ON listings(city)",
+        "CREATE INDEX IF NOT EXISTS idx_listings_list_price ON listings(list_price)",
     ]
     for idx in indexes:
         conn.execute(idx)

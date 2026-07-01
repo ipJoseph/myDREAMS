@@ -1332,6 +1332,32 @@ class DREAMSDatabase:
         'reassignment_suspect_at',
     }
 
+    # Whitelist of valid column names for the contact_requirements table
+    REQUIREMENTS_COLUMNS = {
+        'id', 'contact_id',
+        'price_min', 'price_min_source', 'price_min_confidence',
+        'price_max', 'price_max_source', 'price_max_confidence',
+        'beds_min', 'beds_min_source', 'beds_min_confidence',
+        'baths_min', 'baths_min_source', 'baths_min_confidence',
+        'sqft_min', 'sqft_min_source', 'sqft_min_confidence',
+        'acreage_min', 'acreage_min_source', 'acreage_min_confidence',
+        'counties', 'counties_source', 'counties_confidence',
+        'cities', 'cities_source', 'cities_confidence',
+        'property_types', 'property_types_source', 'property_types_confidence',
+        'must_have_features', 'must_have_source', 'must_have_confidence',
+        'nice_to_have_features',
+        'deal_breakers', 'deal_breakers_source', 'deal_breakers_confidence',
+        'views_required', 'views_source', 'views_confidence',
+        'water_features', 'water_source', 'water_confidence',
+        'urgency', 'urgency_source', 'urgency_confidence',
+        'move_in_date',
+        'financing_status', 'financing_source', 'financing_confidence',
+        'pre_approval_amount',
+        'agent_overrides',
+        'overall_confidence', 'data_completeness',
+        'last_consolidated_at', 'created_at', 'updated_at',
+    }
+
     # Whitelist of valid column names for the contact_snapshots table
     SNAPSHOT_COLUMNS = {
         'contact_id', 'snapshot_at', 'sync_id',
@@ -2000,8 +2026,15 @@ class DREAMSDatabase:
             close_conn = True
 
         try:
-            cursor = conn.execute("PRAGMA table_info(listings)")
-            self._listings_columns_cache = {row[1] for row in cursor.fetchall()}
+            if self._use_postgres:
+                cursor = conn.execute(
+                    "SELECT column_name FROM information_schema.columns "
+                    "WHERE table_name = 'listings' AND table_schema = 'public'"
+                )
+                self._listings_columns_cache = {row[0] for row in cursor.fetchall()}
+            else:
+                cursor = conn.execute("PRAGMA table_info(listings)")
+                self._listings_columns_cache = {row[1] for row in cursor.fetchall()}
         finally:
             if close_conn:
                 conn.close()
@@ -5668,6 +5701,7 @@ class DREAMSDatabase:
 
     def _upsert_requirements(self, data: Dict[str, Any]) -> None:
         """Insert or update contact requirements."""
+        data = {k: v for k, v in data.items() if k in self.REQUIREMENTS_COLUMNS}
         with self._get_connection() as conn:
             # Check if exists
             existing = conn.execute(
@@ -7025,6 +7059,10 @@ class DREAMSDatabase:
                 RETURNING id
             ''', [session_id, contact_id, disposition, notes])
 
+            # Fetch the new row ID before any further statements or commit;
+            # psycopg2 cursors do not buffer results past a commit boundary.
+            row = cursor.fetchone()
+
             # Update session counters
             counter_map = {
                 'called': 'calls_reached',
@@ -7050,7 +7088,6 @@ class DREAMSDatabase:
                 ''', [session_id])
 
             conn.commit()
-            row = cursor.fetchone()
             return row['id'] if row else None
 
     def end_power_hour_session(self, session_id: int) -> Dict[str, Any]:
