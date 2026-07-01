@@ -1,7 +1,33 @@
 """
-DREAMS Database Module
+DREAMS Database Module — DREAMSDatabase (7,300 lines, 163 methods)
 
-SQLite database operations for the canonical data store.
+This is a god class that evolved organically. It is the canonical data layer
+for all DREAMS apps. Until it is decomposed, use these section markers to
+navigate. Each section is a candidate for extraction into src/core/db/<name>.py.
+
+SECTION MAP (grep for the ─── marker):
+  Settings & Configuration    get_setting / set_setting
+  Contacts / Leads            upsert_lead / get_lead / get_leads / ...
+  Properties / Listings       upsert_property / find_matching_properties / ...
+  Sync Log & Lead Scoring     log_sync_start / insert_scoring_history / ...
+  Communications & Events     insert_communication / insert_event / ...
+  IDX Cache                   get_idx_cache / upsert_idx_cache / ...
+  Contact-Property Relations  get_contact_property_summary / ...
+  Property Changes            insert_property_change / get_price_history / ...
+  Pipeline & Dashboard        get_pipeline_snapshot / get_todays_actions / ...
+  Pursuits                    create_pursuit / add_property_to_pursuit / ...
+  Call Lists                  get_call_list_contacts / get_fub_style_lists
+  Buyer Matching              match_listings_to_buyer / auto_populate_matches
+  Daily Activity              record_daily_activity / aggregate_daily_activity
+  Contact Actions             add_contact_action / get_pending_actions
+  Scoring Runs                start_scoring_run / complete_scoring_run
+  Recent Contacts             get_recent_contacts
+  Workflows                   get_contact_workflow / update_workflow_stage
+  Requirements                get_consolidated_requirements / consolidate
+  FUB Users & Assignment      sync_fub_users / update_contact_assignment
+  Automation                  check_automation_cooldown / log_automation_firing
+  Morning Briefing            get_morning_briefing_contacts / get_overnight_narrative
+  Power Hour                  create_power_hour_session / record_disposition
 """
 
 import sqlite3
@@ -1062,6 +1088,9 @@ class DREAMSDatabase:
     # USER-LEAD RESOLUTION
     # ==========================================
 
+
+    # ─── Settings & Configuration ────────────────────────────────────────────────
+
     def resolve_user_lead_id(self, user_id: str) -> Optional[str]:
         """Resolve a public-site user ID to a leads table ID.
 
@@ -1219,6 +1248,9 @@ class DREAMSDatabase:
     # LEAD OPERATIONS
     # ==========================================
     
+
+    # ─── Contacts / Leads ─────────────────────────────────────────────────────────
+
     def upsert_lead(self, lead: Lead) -> bool:
         """Insert or update a lead."""
         with self._get_connection() as conn:
@@ -1617,6 +1649,9 @@ class DREAMSDatabase:
     # PROPERTY OPERATIONS
     # ==========================================
     
+
+    # ─── Properties / Listings ────────────────────────────────────────────────────
+
     def upsert_property(self, property: Property) -> bool:
         """Insert or update a property in the listings table."""
         data = property.to_dict()
@@ -2498,6 +2533,9 @@ class DREAMSDatabase:
     # SYNC LOG OPERATIONS
     # ==========================================
 
+
+    # ─── Sync Log & Lead Scoring ──────────────────────────────────────────────────
+
     def log_sync_start(
         self,
         sync_type: str,
@@ -2657,6 +2695,9 @@ class DREAMSDatabase:
     # ==========================================
     # CONTACT COMMUNICATIONS OPERATIONS
     # ==========================================
+
+
+    # ─── Communications & Events ──────────────────────────────────────────────────
 
     def communication_exists(self, comm_id: str) -> bool:
         """Check if a communication record already exists."""
@@ -2886,6 +2927,9 @@ class DREAMSDatabase:
 
     IDX_BASE_URL = "https://www.smokymountainhomes4sale.com/property"
 
+
+    # ─── IDX Cache ────────────────────────────────────────────────────────────────
+
     def get_idx_property_url(self, mls_number: str) -> str:
         """Generate IDX property URL from MLS number."""
         return f"{self.IDX_BASE_URL}/{mls_number}"
@@ -2955,6 +2999,9 @@ class DREAMSDatabase:
     # ==========================================
     # PROPERTIES VIEWED OPERATIONS
     # ==========================================
+
+
+    # ─── Contact-Property Relationships ───────────────────────────────────────────
 
     def get_contact_property_summary(self, contact_id: str) -> List[Dict[str, Any]]:
         """
@@ -3117,6 +3164,9 @@ class DREAMSDatabase:
     # PROPERTY CHANGES OPERATIONS
     # ==========================================
 
+
+    # ─── Property Changes & Price History ─────────────────────────────────────────
+
     def insert_property_change(
         self,
         property_address: str,
@@ -3274,6 +3324,9 @@ class DREAMSDatabase:
     # ==========================================
     # DASHBOARD (HOME PAGE) OPERATIONS
     # ==========================================
+
+
+    # ─── Pipeline & Dashboard ─────────────────────────────────────────────────────
 
     def get_pipeline_snapshot(self, user_id: Optional[int] = None) -> Dict[str, Any]:
         """
@@ -3566,6 +3619,9 @@ class DREAMSDatabase:
                 'going_cold': [dict(row) for row in going_cold]
             }
 
+
+    # ─── Pursuits ─────────────────────────────────────────────────────────────────
+
     def get_hottest_leads(self, limit: int = 5, user_id: Optional[int] = None) -> List[Dict]:
         """
         Get the hottest leads by heat score.
@@ -3834,6 +3890,9 @@ class DREAMSDatabase:
                 buyers.append(buyer)
 
             return buyers
+
+
+    # ─── Call Lists ───────────────────────────────────────────────────────────────
 
     def get_call_list_contacts(self, list_type: str, user_id: Optional[int] = None, limit: int = 50) -> List[Dict]:
         """
@@ -4305,6 +4364,9 @@ class DREAMSDatabase:
     # PROPERTY MATCHING OPERATIONS
     # ==========================================
 
+
+    # ─── Buyer Matching ───────────────────────────────────────────────────────────
+
     def match_listings_to_buyer(
         self,
         buyer_id: str,
@@ -4525,6 +4587,9 @@ class DREAMSDatabase:
     # CONTACT DAILY ACTIVITY OPERATIONS
     # ==========================================
 
+
+    # ─── Daily Activity ───────────────────────────────────────────────────────────
+
     def record_daily_activity(
         self,
         contact_id: str,
@@ -4711,6 +4776,9 @@ class DREAMSDatabase:
     # CONTACT ACTIONS OPERATIONS
     # ==========================================
 
+
+    # ─── Contact Actions ──────────────────────────────────────────────────────────
+
     def add_contact_action(
         self,
         contact_id: str,
@@ -4859,6 +4927,9 @@ class DREAMSDatabase:
     # ==========================================
     # SCORING RUNS OPERATIONS
     # ==========================================
+
+
+    # ─── Scoring Runs ─────────────────────────────────────────────────────────────
 
     def start_scoring_run(
         self,
@@ -5015,6 +5086,9 @@ class DREAMSDatabase:
             ''').fetchone()
             return dict(row) if row else None
 
+
+    # ─── Recent Contacts ──────────────────────────────────────────────────────────
+
     def get_recent_contacts(self, days: int = 3, user_id: Optional[int] = None) -> List[Dict[str, Any]]:
         """
         Get contacts created in the last N days, deduplicated by email.
@@ -5088,6 +5162,9 @@ class DREAMSDatabase:
         ('closed', 'Closed', 'Transaction completed'),
         ('nurture', 'Nurture', 'Long-term follow-up'),
     ]
+
+
+    # ─── Workflows ────────────────────────────────────────────────────────────────
 
     def get_contact_workflow(self, contact_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -5361,6 +5438,9 @@ class DREAMSDatabase:
         'notes': 0.6,       # Parsed from agent notes
         'override': 1.0,    # Manual agent override
     }
+
+
+    # ─── Requirements ─────────────────────────────────────────────────────────────
 
     def get_consolidated_requirements(self, contact_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -5909,6 +5989,9 @@ class DREAMSDatabase:
     # FUB USERS OPERATIONS
     # ==========================================
 
+
+    # ─── FUB Users & Assignment ───────────────────────────────────────────────────
+
     def sync_fub_users(self, users: List[Dict[str, Any]]) -> int:
         """
         Sync FUB users to local cache.
@@ -6437,6 +6520,9 @@ class DREAMSDatabase:
     # AUTOMATION LOG OPERATIONS
     # ==========================================
 
+
+    # ─── Automation ───────────────────────────────────────────────────────────────
+
     def check_automation_cooldown(self, rule_name: str, contact_id: str) -> bool:
         """
         Check if a rule is in cooldown for a contact.
@@ -6533,6 +6619,9 @@ class DREAMSDatabase:
     # ═══════════════════════════════════════════════════════════════
     # MISSION CONTROL: Morning Briefing & Power Hour
     # ═══════════════════════════════════════════════════════════════
+
+
+    # ─── Morning Briefing & Overnight Narrative ───────────────────────────────────
 
     def get_morning_briefing_contacts(self, user_id: Optional[int] = None, limit: int = 30) -> List[Dict]:
         """
@@ -6909,6 +6998,9 @@ class DREAMSDatabase:
             }
 
     # ─── Power Hour CRUD ──────────────────────────────────────────
+
+
+    # ─── Power Hour ───────────────────────────────────────────────────────────────
 
     def create_power_hour_session(self, user_id: int) -> int:
         """Create a new Power Hour session. Returns the session ID."""

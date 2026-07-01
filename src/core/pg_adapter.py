@@ -151,37 +151,36 @@ class DictRow(dict):
 # This handles: "INSERT INTO t (a, b) VALUES (?, ?)" → "INSERT INTO t (a, b) VALUES (%s, %s)"
 # It skips ? inside single-quoted strings like "WHERE name = 'what?'"
 def _translate_placeholders(query: str) -> str:
-    """Translate sqlite3 ? placeholders to psycopg2 %s placeholders."""
-    # Also escape any literal % signs that aren't already %% (psycopg2 treats % as format)
-    # First, protect existing %% pairs
-    query = query.replace('%%', '\x00DOUBLEPCT\x00')
-    # Escape lone % that aren't followed by s (which would be our translated placeholders)
-    # Actually, simpler: just replace ? with %s, then handle % escaping
-    # We need to be careful about % in LIKE patterns
+    """Translate sqlite3 ? placeholders to psycopg2 %s placeholders.
 
+    Handles:
+    - '' (escaped single quote inside a string literal) without toggling in_quote
+    - % in LIKE patterns (escaped to %% for psycopg2)
+    """
     result = []
     in_quote = False
     i = 0
     while i < len(query):
         ch = query[i]
         if ch == "'":
+            if in_quote and i + 1 < len(query) and query[i + 1] == "'":
+                # Escaped single quote inside a string literal — emit both, stay in quote
+                result.append("''")
+                i += 2
+                continue
             in_quote = not in_quote
             result.append(ch)
         elif ch == '?' and not in_quote:
             result.append('%s')
-        elif ch == '%' and not in_quote:
-            # Check if this is already a %s (from our translation) or a LIKE %
-            # If next char is 's' and we just added it, skip
-            # For LIKE patterns, we need to keep % as-is since psycopg2
-            # handles them correctly in parameterized queries
+        elif ch == '%':
+            # psycopg2 interprets % in the entire query string, including inside
+            # SQL string literals. All % must be doubled.
             result.append('%%')
         else:
             result.append(ch)
         i += 1
 
-    out = ''.join(result)
-    out = out.replace('\x00DOUBLEPCT\x00', '%%')
-    return out
+    return ''.join(result)
 
 
 class PgConnectionWrapper:

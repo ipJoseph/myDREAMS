@@ -20,7 +20,7 @@ from zoneinfo import ZoneInfo
 ET = ZoneInfo("America/New_York")
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-from flask import Flask, render_template, render_template_string, request, jsonify, Response, redirect, url_for, send_from_directory
+from flask import Flask, g, render_template, request, jsonify, Response, redirect, url_for, send_from_directory
 from dotenv import load_dotenv
 
 # Module logger
@@ -276,106 +276,6 @@ def inject_globals():
     }
 
 
-# Simple password form for client portfolio
-CLIENT_PASSWORD_FORM = '''
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Access Property Portfolio | Jon Tharp Homes</title>
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-        .login-card {
-            background: white;
-            border-radius: 16px;
-            padding: 40px;
-            max-width: 400px;
-            width: 100%;
-            box-shadow: 0 25px 50px rgba(0,0,0,0.25);
-            text-align: center;
-        }
-        .login-card h1 {
-            color: #1e3a5f;
-            font-size: 24px;
-            margin-bottom: 8px;
-        }
-        .login-card .subtitle {
-            color: #64748b;
-            font-size: 14px;
-            margin-bottom: 32px;
-        }
-        .login-card .client-name {
-            color: #0ea5e9;
-            font-weight: 600;
-        }
-        .login-card input[type="password"] {
-            width: 100%;
-            padding: 14px 16px;
-            font-size: 16px;
-            border: 2px solid #e2e8f0;
-            border-radius: 8px;
-            margin-bottom: 16px;
-            outline: none;
-            transition: border-color 0.2s;
-        }
-        .login-card input[type="password"]:focus {
-            border-color: #0ea5e9;
-        }
-        .login-card button {
-            width: 100%;
-            padding: 14px 16px;
-            font-size: 16px;
-            font-weight: 600;
-            color: white;
-            background: #1e3a5f;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-        .login-card button:hover {
-            background: #0f172a;
-        }
-        .error {
-            color: #dc2626;
-            font-size: 14px;
-            margin-bottom: 16px;
-        }
-        .branding {
-            margin-top: 24px;
-            font-size: 12px;
-            color: #94a3b8;
-        }
-    </style>
-</head>
-<body>
-    <div class="login-card">
-        <h1>Property Portfolio</h1>
-        <p class="subtitle">Curated properties for <span class="client-name">{{ client_name }}</span></p>
-        {% if error %}
-        <p class="error">{{ error }}</p>
-        {% endif %}
-        <form method="POST">
-            <input type="password" name="password" placeholder="Enter access code" autofocus required>
-            <button type="submit">View Properties</button>
-        </form>
-        <p class="branding">Jon Tharp Homes | Keller Williams</p>
-    </div>
-</body>
-</html>
-'''
-
-
 def check_auth(username, password):
     """Check if a username/password combination is valid."""
     return username == DASHBOARD_USERNAME and password == DASHBOARD_PASSWORD
@@ -420,12 +320,17 @@ NOTION_HEADERS = {
 }
 
 
-# Database helper
+# Database helper — one DREAMSDatabase per request, closed on teardown
 def get_db():
-    """Get database instance."""
-    from src.core.database import DREAMSDatabase
-    db_path = os.getenv('DREAMS_DB_PATH', str(PROJECT_ROOT / 'data' / 'dreams.db'))
-    return DREAMSDatabase(db_path)
+    """Return a request-scoped DREAMSDatabase (cached on flask.g)."""
+    if 'dreams_db' not in g:
+        g.dreams_db = DREAMSDatabase(DB_PATH)
+    return g.dreams_db
+
+
+@app.teardown_appcontext
+def _close_request_db(exc=None):
+    g.pop('dreams_db', None)
 
 
 def enrich_properties_with_idx_photos(properties: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -956,6 +861,9 @@ def home():
 # ═══════════════════════════════════════════════════════════════
 # END OF DAY REPORT
 # ═══════════════════════════════════════════════════════════════
+
+
+# # ─── BLUEPRINT CANDIDATE: reporting ── /eod /reports/ /api/reports/ ─────────────
 
 @app.route('/eod')
 @requires_auth
@@ -1499,6 +1407,9 @@ def open_house_signin():
 # MISSION CONTROL: Power Hour & Live Activity API Endpoints
 # ═══════════════════════════════════════════════════════════════
 
+
+# # ─── BLUEPRINT CANDIDATE: power_hour ── /api/power-hour/ ───────────────────────
+
 @app.route('/api/power-hour/start', methods=['POST'])
 @requires_auth
 def api_power_hour_start():
@@ -1829,6 +1740,9 @@ def api_power_hour_fub_queue(dreams_key):
     return jsonify({'success': True, 'contacts': ph_contacts, 'count': len(ph_contacts)})
 
 
+
+# # ─── BLUEPRINT CANDIDATE: activity ── /api/live-activity /inbox /call-list ────
+
 @app.route('/api/live-activity')
 @requires_auth
 def api_live_activity():
@@ -1996,6 +1910,9 @@ def api_fub_list():
         'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
     })
 
+
+
+# # ─── BLUEPRINT CANDIDATE: pursuits ── /pursuits ────────────────────────────────
 
 @app.route('/pursuits')
 @requires_auth
@@ -2227,6 +2144,9 @@ def api_active_pursuits():
 # ===== COLLECTIONS route aliases (renamed from Pursuits) =====
 # These map /collections/* URLs to the same handlers as /pursuits/*
 # Keeps old /pursuits URLs working for backward compatibility.
+
+
+# # ─── BLUEPRINT CANDIDATE: collections ── /collections /buyer-collections ───────
 
 @app.route('/collections')
 @requires_auth
@@ -2985,6 +2905,9 @@ def api_delete_saved_route(collection_id, showing_id):
 # ── Standalone Showings Planner (CSV / manual entry) ─────────────────────
 
 
+
+# # ─── BLUEPRINT CANDIDATE: showings ── /showings /buyer-collections/route-planner
+
 @app.route('/showings')
 @requires_auth
 def showings_list():
@@ -3429,6 +3352,9 @@ def pursuit_brochure(pursuit_id):
 # TEMPLATE MANAGEMENT ROUTES
 # =============================================================================
 
+
+# # ─── BLUEPRINT CANDIDATE: templates ── /templates /smart-collections ──────────
+
 @app.route('/templates')
 @requires_auth
 def templates_list():
@@ -3832,6 +3758,9 @@ def smart_collections_detect():
     return redirect('/smart-collections')
 
 
+
+# # ─── BLUEPRINT CANDIDATE: properties ── /properties /listings /photos ──────────
+
 @app.route('/properties')
 @requires_auth
 def properties_list():
@@ -4023,6 +3952,9 @@ def properties_map():
                          max_price=max_price)
 
 
+
+# # ─── BLUEPRINT CANDIDATE: client_portal ── /client/ /lead/ ─────────────────────
+
 @app.route('/lead/<client_name>')
 def lead_dashboard_redirect(client_name):
     """Redirect old /lead/ URLs to new /client/ URLs"""
@@ -4046,11 +3978,11 @@ def client_dashboard(client_name):
             # Redirect with key in URL so they can bookmark it
             return redirect(url_for('client_dashboard', client_name=client_name, key=submitted_key))
         else:
-            return render_template_string(CLIENT_PASSWORD_FORM, client_name=client_name, error="Invalid password. Please try again.")
+            return render_template('client_password.html', client_name=client_name, error="Invalid password. Please try again.")
 
     # Check if key is valid
     if key != CLIENT_PORTFOLIO_KEY:
-        return render_template_string(CLIENT_PASSWORD_FORM, client_name=client_name, error=None)
+        return render_template('client_password.html', client_name=client_name, error=None)
 
     # Get filter parameters
     status = request.args.get('status', '')
@@ -4532,6 +4464,9 @@ def compute_trends(contacts):
     }
 
 
+
+# # ─── BLUEPRINT CANDIDATE: contacts ── /contacts ─────────────────────────────────
+
 @app.route('/contacts')
 @requires_auth
 def contacts_list():
@@ -4760,6 +4695,9 @@ def contact_detail(contact_id):
 # ACTIONS PAGE
 # =========================================================================
 
+
+# # ─── BLUEPRINT CANDIDATE: actions ── /actions /api/actions ─────────────────────
+
 @app.route('/actions')
 @requires_auth
 def actions_list():
@@ -4809,6 +4747,9 @@ def actions_list():
 # =========================================================================
 # SCORING RUNS PAGE
 # =========================================================================
+
+
+# # ─── BLUEPRINT CANDIDATE: system ── /system/ /admin/ ───────────────────────────
 
 @app.route('/system/scoring-runs')
 @requires_auth
@@ -6296,6 +6237,9 @@ def contact_package_pdf(contact_id, package_id):
 # WORKFLOW PIPELINE ROUTES (Phase 4: Kanban Pipeline)
 # =========================================================================
 
+
+# # ─── BLUEPRINT CANDIDATE: pipeline ── /pipeline /api/workflow ──────────────────
+
 @app.route('/pipeline')
 @requires_auth
 def workflow_pipeline():
@@ -6549,6 +6493,9 @@ def api_refresh_requirements(contact_id):
 # ==========================================
 # Property Changes Routes
 # ==========================================
+
+
+# # ─── BLUEPRINT CANDIDATE: changes ── /properties/changes ───────────────────────
 
 @app.route('/properties/changes')
 @requires_auth
@@ -7193,6 +7140,9 @@ def api_scoring_preview():
 # PDF Generator Routes
 # ==========================================
 
+
+# # ─── BLUEPRINT CANDIDATE: pdf ── /pdf-generator /api/pdf /api/leads/search ────
+
 @app.route('/pdf-generator')
 @requires_auth
 def pdf_generator():
@@ -7738,6 +7688,9 @@ def serve_photo(filename):
     return send_from_directory(photos_dir, filename)
 
 
+
+# # ─── BLUEPRINT CANDIDATE: data_quality ── /data-quality /api/data-quality ──────
+
 @app.route('/data-quality')
 @requires_auth
 def data_quality():
@@ -7881,6 +7834,9 @@ def api_data_quality():
 # Automation Rules Admin Routes
 # ==========================================
 
+
+# # ─── BLUEPRINT CANDIDATE: automation ── /admin/automation ──────────────────────
+
 @app.route('/admin/automation')
 @requires_auth
 def admin_automation():
@@ -7956,6 +7912,9 @@ def admin_automation_save():
 # ---------------------------------------------------------------------------
 # SOP Documents
 # ---------------------------------------------------------------------------
+
+
+# # ─── BLUEPRINT CANDIDATE: sop ── /sop/ ─────────────────────────────────────────
 
 @app.route('/sop/lead-gen-calling')
 @requires_auth
@@ -8202,6 +8161,9 @@ def _explain_dreams_only(contact, dreams_key):
 
     return "Different methodology"
 
+
+
+# # ─── BLUEPRINT CANDIDATE: smart_lists ── /smart-lists /api/smart-lists ─────────
 
 @app.route('/smart-lists')
 @requires_auth

@@ -169,6 +169,11 @@ if _LIMITER_AVAILABLE:
     _limited_view = limiter.limit("10 per hour")(_original_view)
     app.view_functions[_contact_endpoint] = _limited_view
 
+    _events_endpoint = 'public_writes.track_public_event'
+    app.view_functions[_events_endpoint] = limiter.limit("60 per minute")(
+        app.view_functions[_events_endpoint]
+    )
+
 # Initialize services
 notion_sync_service = None
 idx_validation_service = None

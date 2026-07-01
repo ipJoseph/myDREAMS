@@ -492,7 +492,7 @@ def generate_overnight_narrative(overnight_data: Dict[str, Any]) -> List[Dict[st
     if viewed_items:
         groups.append({
             'title': 'Viewed Properties',
-            'icon': '&#128065;',
+            'icon': '👁',
             'css_class': 'activity',
             'entries': viewed_items,
         })
@@ -500,7 +500,7 @@ def generate_overnight_narrative(overnight_data: Dict[str, Any]) -> List[Dict[st
     if favorited_items:
         groups.append({
             'title': 'Saved Properties',
-            'icon': '&#11088;',
+            'icon': '⭐',
             'css_class': 'favorited',
             'entries': favorited_items,
         })
@@ -508,7 +508,7 @@ def generate_overnight_narrative(overnight_data: Dict[str, Any]) -> List[Dict[st
     if shared_items:
         groups.append({
             'title': 'Shared Properties',
-            'icon': '&#128228;',
+            'icon': '📤',
             'css_class': 'shared',
             'entries': shared_items,
         })
@@ -536,7 +536,7 @@ def generate_overnight_narrative(overnight_data: Dict[str, Any]) -> List[Dict[st
     if price_items:
         groups.append({
             'title': 'Price Drops',
-            'icon': '&#128181;',
+            'icon': '💵',
             'css_class': 'price_drop',
             'entries': price_items,
         })
@@ -551,7 +551,7 @@ def generate_overnight_narrative(overnight_data: Dict[str, Any]) -> List[Dict[st
     if cold_items:
         groups.append({
             'title': 'Going Cold',
-            'icon': '&#129398;',
+            'icon': '🥶',
             'css_class': 'going_cold',
             'entries': cold_items,
         })
@@ -588,7 +588,7 @@ def generate_overnight_narrative(overnight_data: Dict[str, Any]) -> List[Dict[st
     if lead_items:
         groups.append({
             'title': 'New Leads',
-            'icon': '&#128100;',
+            'icon': '👤',
             'css_class': 'new_lead',
             'entries': lead_items,
         })

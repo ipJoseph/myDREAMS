@@ -323,6 +323,7 @@ class HiveSyncEngine:
             from src.core.regions import is_in_scope
 
             for i, prop in enumerate(properties):
+                savepoint = f"sync_row_{i}"
                 try:
                     listing = map_reso_to_listing(prop, self.mls_source)
 
@@ -339,10 +340,10 @@ class HiveSyncEngine:
                         )
                         conn.commit()
 
-                    conn.execute("SAVEPOINT row_sync")
+                    conn.execute(f"SAVEPOINT {savepoint}")
                     result = self._upsert_listing(conn, listing, raw_prop=prop, dry_run=dry_run)
                     stats[result] = stats.get(result, 0) + 1
-                    conn.execute("RELEASE SAVEPOINT row_sync")
+                    conn.execute(f"RELEASE SAVEPOINT {savepoint}")
 
                     if (i + 1) % 100 == 0:
                         logger.info(f"Processed {i + 1}/{len(properties)}...")
@@ -353,8 +354,8 @@ class HiveSyncEngine:
                     logger.error(f"Error processing {prop.get('ListingId')}: {e}")
                     stats['errors'] += 1
                     try:
-                        conn.execute("ROLLBACK TO SAVEPOINT row_sync")
-                        conn.execute("RELEASE SAVEPOINT row_sync")
+                        conn.execute(f"ROLLBACK TO SAVEPOINT {savepoint}")
+                        conn.execute(f"RELEASE SAVEPOINT {savepoint}")
                     except Exception:
                         conn.rollback()
 
@@ -434,6 +435,7 @@ class HiveSyncEngine:
             from src.core.regions import is_in_scope
 
             for i, prop in enumerate(properties):
+                savepoint = f"sync_row_{i}"
                 try:
                     listing = map_reso_to_listing(prop, self.mls_source)
 
@@ -448,10 +450,10 @@ class HiveSyncEngine:
                         )
                         conn.commit()
 
-                    conn.execute("SAVEPOINT row_sync")
+                    conn.execute(f"SAVEPOINT {savepoint}")
                     result = self._upsert_listing(conn, listing, raw_prop=prop, dry_run=dry_run)
                     stats[result] = stats.get(result, 0) + 1
-                    conn.execute("RELEASE SAVEPOINT row_sync")
+                    conn.execute(f"RELEASE SAVEPOINT {savepoint}")
 
                     if (i + 1) % 100 == 0:
                         logger.info(f"Processed {i + 1}/{stats['fetched']}...")
@@ -462,8 +464,8 @@ class HiveSyncEngine:
                     logger.error(f"Error processing {prop.get('ListingId')}: {e}")
                     stats['errors'] += 1
                     try:
-                        conn.execute("ROLLBACK TO SAVEPOINT row_sync")
-                        conn.execute("RELEASE SAVEPOINT row_sync")
+                        conn.execute(f"ROLLBACK TO SAVEPOINT {savepoint}")
+                        conn.execute(f"RELEASE SAVEPOINT {savepoint}")
                     except Exception:
                         conn.rollback()
 

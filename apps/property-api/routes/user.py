@@ -467,7 +467,7 @@ def list_favorites():
                       l.property_type, l.beds, l.baths, l.sqft, l.acreage,
                       l.primary_photo, l.days_on_market, l.list_date
                FROM user_favorites uf
-               JOIN listings l ON l.id = uf.listing_id
+               JOIN listings l ON l.id = uf.listing_id AND l.idx_opt_in = 1
                WHERE uf.user_id = ?
                ORDER BY uf.created_at DESC''',
             [user_id]
@@ -500,15 +500,15 @@ def add_favorite():
     try:
         db = get_db()
 
-        # Verify listing exists
-        listing = db.execute('SELECT id FROM listings WHERE id = ?', [listing_id]).fetchone()
+        # Verify listing exists and is IDX-eligible
+        listing = db.execute('SELECT id FROM listings WHERE id = ? AND idx_opt_in = 1', [listing_id]).fetchone()
         if not listing:
             db.close()
             return jsonify({'success': False, 'error': 'Listing not found'}), 404
 
         # Get listing details for activity metadata
         listing_info = db.execute(
-            'SELECT address, city, list_price FROM listings WHERE id = ?',
+            'SELECT address, city, list_price FROM listings WHERE id = ? AND idx_opt_in = 1',
             [listing_id]
         ).fetchone()
 
@@ -572,7 +572,7 @@ def check_favorites():
     if not ids_param:
         return jsonify({'success': True, 'data': []})
 
-    listing_ids = [lid.strip() for lid in ids_param.split(',') if lid.strip()]
+    listing_ids = [lid.strip() for lid in ids_param.split(',') if lid.strip()][:200]
     if not listing_ids:
         return jsonify({'success': True, 'data': []})
 
