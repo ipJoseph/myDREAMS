@@ -43,9 +43,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Database path
-DB_PATH = os.getenv('DREAMS_DB_PATH', str(PROJECT_ROOT / 'data' / 'dreams.db'))
-
 # NC OneMap API for additional data
 ONEMAP_URL = "https://services.nconemap.gov/secure/rest/services/NC1Map_Parcels/MapServer/1/query"
 
@@ -53,8 +50,7 @@ ONEMAP_URL = "https://services.nconemap.gov/secure/rest/services/NC1Map_Parcels/
 class PropertyMonitor:
     """Monitors properties for changes and updates data."""
 
-    def __init__(self, db_path: str = DB_PATH):
-        self.db_path = db_path
+    def __init__(self):
         self.stats = {
             'checked': 0,
             'updated': 0,
@@ -306,6 +302,9 @@ class PropertyMonitor:
                 'missing_photos': len(missing_photos),
             }
 
+        except Exception:
+            conn.rollback()
+            raise
         finally:
             conn.close()
 
@@ -343,7 +342,6 @@ def main():
     parser.add_argument('--limit', type=int, help='Max properties to check')
     parser.add_argument('--check-only', action='store_true', help='Check without saving changes')
     parser.add_argument('--recent', type=int, metavar='DAYS', help='Show recent changes (last N days)')
-    parser.add_argument('--db', default=DB_PATH, help='Database path')
     parser.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
 
     args = parser.parse_args()
@@ -351,7 +349,7 @@ def main():
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
 
-    monitor = PropertyMonitor(db_path=args.db)
+    monitor = PropertyMonitor()
 
     if args.recent:
         changes = monitor.get_recent_changes(days=args.recent, county=args.county)

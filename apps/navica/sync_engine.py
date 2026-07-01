@@ -367,7 +367,7 @@ class NavicaSyncEngine:
                     change['detected_at'],
                 ])
             except Exception as e:
-                logger.debug(f"Could not record change (table schema mismatch): {e}")
+                logger.warning(f"Could not record change (table schema mismatch): {e}")
 
     # ---------------------------------------------------------------
     # Upsert logic

@@ -26,10 +26,14 @@ def test_db_path(tmp_path):
 
 
 @pytest.fixture
-def test_db(test_db_path):
+def test_db(monkeypatch, test_db_path):
     """Create an in-memory test database with schema."""
+    # Unset DATABASE_URL so DREAMSDatabase uses the temp SQLite path
+    # instead of the real dev/prod Postgres instance.
+    monkeypatch.delenv("DATABASE_URL", raising=False)
     from src.core.database import DREAMSDatabase
     db = DREAMSDatabase(str(test_db_path))
+    db._init_database()
     yield db
     # Cleanup happens automatically when temp directory is removed
 

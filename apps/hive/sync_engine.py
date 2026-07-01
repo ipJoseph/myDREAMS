@@ -164,7 +164,7 @@ class HiveSyncEngine:
                      change['new_value'], change.get('pct_change'), change['detected_at']],
                 )
             except Exception as e:
-                logger.debug(f"Could not record change: {e}")
+                logger.warning(f"Could not record change: {e}")
 
     # ---------------------------------------------------------------
     # Upsert

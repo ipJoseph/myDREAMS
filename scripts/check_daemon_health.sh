@@ -64,6 +64,16 @@ for unit in $units; do
     fi
 done
 
+# HTTP health check for core services
+for service_check in "mydreams-api:5000" "mydreams-dashboard:5001"; do
+    svc="${service_check%%:*}"
+    port="${service_check##*:}"
+    http_status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "http://localhost:${port}/health/db" 2>/dev/null)
+    if [ "$http_status" != "200" ]; then
+        echo "WARN: ${svc} /health/db returned HTTP ${http_status} (expected 200)" >&2
+    fi
+done
+
 if [ "$alerts" -gt 0 ]; then
     exit 1
 fi

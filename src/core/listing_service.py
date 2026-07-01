@@ -18,6 +18,7 @@ import logging
 import os
 import re
 import sqlite3
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -53,10 +54,29 @@ MLS_PRIORITY = {
     'CanopyMLS': 3,
 }
 
+def _resolve_photos_base() -> Path:
+    """Return the base photos directory, matching storage._get_base() logic.
+
+    PRD uses /mnt/dreams-photos if the mlsgrid subdir exists there.
+    DEV falls back to data/photos under the project root.
+    This avoids a symlink dependency: the path is resolved at import time
+    using the same heuristic that apps/photos/storage.py uses.
+    """
+    prd_base = Path("/mnt/dreams-photos")
+    if (prd_base / "mlsgrid").is_dir():
+        return prd_base
+    dev_base = PROJECT_ROOT / "data" / "photos"
+    if (dev_base / "mlsgrid").is_dir():
+        return dev_base
+    return dev_base
+
+
+_PHOTOS_BASE = _resolve_photos_base()
+
 PHOTOS_DIRS = {
-    'mlsgrid': PROJECT_ROOT / 'data' / 'photos' / 'mlsgrid',
-    'canopy': PROJECT_ROOT / 'data' / 'photos' / 'mlsgrid',
-    'navica': PROJECT_ROOT / 'data' / 'photos' / 'navica',
+    'mlsgrid': _PHOTOS_BASE / 'mlsgrid',
+    'canopy': _PHOTOS_BASE / 'mlsgrid',
+    'navica': _PHOTOS_BASE / 'navica',
 }
 
 # Sort columns whitelisted against SQL injection
@@ -434,14 +454,16 @@ def _fetch_and_download_photos_from_api(mls: str, photos_dir: Path) -> List[str]
             try:
                 from src.core.pg_adapter import get_db
                 _conn = get_db()
-                primary_path = str(photos_dir / f"{mls}.jpg")
-                _conn.execute(
-                    "UPDATE listings SET photos = ?, photo_local_path = ? "
-                    "WHERE mls_number = ?",
-                    [json.dumps(local_urls), primary_path, mls]
-                )
-                _conn.commit()
-                _conn.close()
+                try:
+                    primary_path = str(photos_dir / f"{mls}.jpg")
+                    _conn.execute(
+                        "UPDATE listings SET photos = ?, photo_local_path = ? "
+                        "WHERE mls_number = ?",
+                        [json.dumps(local_urls), primary_path, mls]
+                    )
+                    _conn.commit()
+                finally:
+                    _conn.close()
             except Exception as e:
                 logger.debug(f"DB update failed for {mls}: {e}")
 
@@ -618,10 +640,15 @@ class ListingService:
             str(PROJECT_ROOT / 'data' / 'dreams.db')
         )
 
+    @contextmanager
     def _get_connection(self):
-        """Get database connection (PostgreSQL if DATABASE_URL set, else SQLite)."""
+        """Context manager that yields a database connection and guarantees close."""
         from src.core.pg_adapter import get_db
-        return get_db(self.db_path)
+        conn = get_db(self.db_path)
+        try:
+            yield conn
+        finally:
+            conn.close()
 
     def _build_conditions(self, filters: ListingFilters) -> tuple:
         """Build WHERE conditions and params from ListingFilters.
@@ -645,7 +672,7 @@ class ListingService:
             conditions.append(
                 "(gallery_status = 'ready' OR "
                 " (primary_photo IS NOT NULL AND primary_photo != '' "
-                "  AND LEFT(primary_photo, 19) = '/api/public/photos/'))"
+                "  AND SUBSTR(primary_photo, 1, 19) = '/api/public/photos/'))"
             )
 
         # Zone filtering (public site)
@@ -801,8 +828,7 @@ class ListingService:
         Returns:
             SearchResult with listings, total count, and pagination info
         """
-        conn = self._get_connection()
-        try:
+        with self._get_connection() as conn:
             conditions, params = self._build_conditions(filters)
 
             # Add dedup condition
@@ -864,8 +890,6 @@ class ListingService:
                 page=page,
                 limit=limit,
             )
-        finally:
-            conn.close()
 
     def get_listing(self, listing_id: str, fields: Optional[List[str]] = None,
                     require_idx: bool = False) -> Optional[dict]:
@@ -879,8 +903,7 @@ class ListingService:
         Returns:
             Listing dict or None if not found
         """
-        conn = self._get_connection()
-        try:
+        with self._get_connection() as conn:
             if fields:
                 # Always include address_key for cross-MLS sibling lookup
                 query_fields = list(fields)
@@ -944,8 +967,6 @@ class ListingService:
             listing['also_listed_on'] = also_listed_on
 
             return listing
-        finally:
-            conn.close()
 
     def get_map_markers(self, filters: ListingFilters,
                         fields: Optional[List[str]] = None,
@@ -960,8 +981,7 @@ class ListingService:
         Returns:
             List of listing dicts with coordinates
         """
-        conn = self._get_connection()
-        try:
+        with self._get_connection() as conn:
             conditions, params = self._build_conditions(filters)
             conditions.append("latitude IS NOT NULL")
             conditions.append("longitude IS NOT NULL")
@@ -994,8 +1014,6 @@ class ListingService:
                 listings.append(d)
 
             return listings
-        finally:
-            conn.close()
 
     def count_listings(self, filters: ListingFilters, dedup: bool = True) -> int:
         """Count listings matching filters.
@@ -1007,8 +1025,7 @@ class ListingService:
         Returns:
             Integer count
         """
-        conn = self._get_connection()
-        try:
+        with self._get_connection() as conn:
             conditions, params = self._build_conditions(filters)
 
             if dedup:
@@ -1024,13 +1041,10 @@ class ListingService:
             where_clause = " AND ".join(conditions) if conditions else "1=1"
             count_sql = f"SELECT COUNT(*) FROM listings WHERE {where_clause}"
             return conn.execute(count_sql, params).fetchone()[0]
-        finally:
-            conn.close()
 
     def get_filter_options(self) -> Dict[str, Any]:
         """Get distinct values for filter dropdowns."""
-        conn = self._get_connection()
-        try:
+        with self._get_connection() as conn:
             options: Dict[str, Any] = {}
 
             options['clients'] = sorted([r[0] for r in conn.execute(
@@ -1058,5 +1072,3 @@ class ListingService:
             options['county_cities'] = county_cities
 
             return options
-        finally:
-            conn.close()

@@ -2,7 +2,9 @@
 """
 DREAMS Database MCP Server
 
-Provides Claude Code with direct access to the myDREAMS SQLite database.
+Provides Claude Code with direct access to the myDREAMS database.
+PostgreSQL is the primary backend when DATABASE_URL is set; SQLite is not
+used as a fallback and will raise at startup if psycopg2 is unavailable.
 Supports querying leads, properties, activities, and generating reports.
 
 Usage:
@@ -48,6 +50,15 @@ try:
     _PG_AVAILABLE = True
 except ImportError:
     pass
+
+# Crash fast if DATABASE_URL is set but psycopg2 is missing -- mirrors
+# src/core/pg_adapter.py's _assert_backend_consistent() pattern.  The stale
+# data/dreams.db SQLite file must never silently become the active backend.
+if DATABASE_URL and not _PG_AVAILABLE:
+    raise ImportError(
+        "DATABASE_URL is set but psycopg2 is not installed in this Python environment. "
+        "SQLite fallback has been removed. Fix: pip install psycopg2-binary"
+    )
 
 
 def _use_postgres() -> bool:
@@ -627,12 +638,20 @@ async def run_sql(args: dict) -> str:
     if not sql.upper().startswith("SELECT"):
         return "Error: Only SELECT queries are allowed."
 
-    # Block dangerous keywords
-    dangerous = ["INSERT", "UPDATE", "DELETE", "DROP", "ALTER", "CREATE", "TRUNCATE", "ATTACH"]
-    sql_upper = sql.upper()
-    for keyword in dangerous:
-        if keyword in sql_upper:
-            return f"Error: {keyword} operations are not allowed."
+    # The PostgreSQL connection is opened with default_transaction_read_only=on
+    # (see get_connection()), which is the real enforcement mechanism against
+    # writes.  A naive keyword blocklist on the uppercased SQL string is
+    # bypassable via semicolons, comments, or quoting tricks and provides only
+    # false confidence, so it has been removed.
+    #
+    # What we DO check: reject multi-statement injection by disallowing
+    # semicolons that appear outside of single-quoted string literals.
+    in_quote = False
+    for i, ch in enumerate(sql):
+        if ch == "'" and (i == 0 or sql[i - 1] != '\\'):
+            in_quote = not in_quote
+        if ch == ';' and not in_quote:
+            return "Error: Multi-statement queries are not allowed."
 
     conn = get_connection()
 

@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import base64
 import os
-import sqlite3
+import re
 import uuid
 from datetime import datetime
 
@@ -102,12 +102,9 @@ def _ensure_expense_tables():
                 created_at TEXT NOT NULL
             )
         """)
-        try:
-            conn.execute("ALTER TABLE expense_items ADD COLUMN receipt_data BLOB")
-            conn.execute("ALTER TABLE expense_items ADD COLUMN receipt_mime TEXT")
-            conn.execute("ALTER TABLE expense_items ADD COLUMN receipt_name TEXT")
-        except sqlite3.OperationalError:
-            pass
+        conn.execute("ALTER TABLE expense_items ADD COLUMN IF NOT EXISTS receipt_data BLOB")
+        conn.execute("ALTER TABLE expense_items ADD COLUMN IF NOT EXISTS receipt_mime TEXT")
+        conn.execute("ALTER TABLE expense_items ADD COLUMN IF NOT EXISTS receipt_name TEXT")
         conn.commit()
 
 
@@ -294,7 +291,7 @@ def api_upload_receipt(report_id, item_id):
         conn.execute(
             "UPDATE expense_items SET receipt_data=?, receipt_mime=?, receipt_name=? "
             "WHERE id=? AND report_id=?",
-            [sqlite3.Binary(data), mime, f.filename, item_id, report_id],
+            [data, mime, f.filename, item_id, report_id],
         )
         conn.execute("UPDATE expense_reports SET updated_at=? WHERE id=?", [now, report_id])
         conn.commit()
@@ -315,10 +312,12 @@ def api_get_receipt(report_id, item_id):
     if not row or not row['receipt_data']:
         return "No receipt", 404
 
+    raw_name = row['receipt_name'] or 'receipt'
+    safe_name = re.sub(r'[^\w\-.]', '_', raw_name)[:200]
     return Response(
         row['receipt_data'],
         mimetype=row['receipt_mime'] or 'image/jpeg',
-        headers={'Content-Disposition': f'inline; filename="{row["receipt_name"] or "receipt"}"'},
+        headers={'Content-Disposition': f'inline; filename="{safe_name}"'},
     )
 
 

@@ -1,0 +1,1320 @@
+MLS Field Name,MLS Field Description,Grid Field Name,Grid Lookup Name,Grid Values,MLS Lookup Name,MLS Values
+AboveGradeFinishedAreaSource,Above Grade Finished Area Source,AboveGradeFinishedAreaSource,AreaSource,Appraiser,AreaSource,Appraiser
+AboveGradeFinishedAreaSource,Above Grade Finished Area Source,AboveGradeFinishedAreaSource,AreaSource,Assessor,AreaSource,Assessor
+AboveGradeFinishedAreaSource,Above Grade Finished Area Source,AboveGradeFinishedAreaSource,AreaSource,Builder,AreaSource,Builder
+AboveGradeFinishedAreaSource,Above Grade Finished Area Source,AboveGradeFinishedAreaSource,AreaSource,Estimated,AreaSource,Estimated
+AboveGradeFinishedAreaSource,Above Grade Finished Area Source,AboveGradeFinishedAreaSource,AreaSource,Other,AreaSource,Other
+AboveGradeFinishedAreaSource,Above Grade Finished Area Source,AboveGradeFinishedAreaSource,AreaSource,Owner,AreaSource,Owner
+AboveGradeFinishedAreaSource,Above Grade Finished Area Source,AboveGradeFinishedAreaSource,AreaSource,Plans,AreaSource,Plans
+AboveGradeFinishedAreaSource,Above Grade Finished Area Source,AboveGradeFinishedAreaSource,AreaSource,Public Records,AreaSource,Public Records
+AboveGradeFinishedAreaSource,Above Grade Finished Area Source,AboveGradeFinishedAreaSource,AreaSource,See Remarks,AreaSource,See Remarks
+AboveGradeFinishedAreaSource,Above Grade Finished Area Source,AboveGradeFinishedAreaSource,AreaSource,Appraiser,AreaSource,Appraiser
+AboveGradeFinishedAreaSource,Above Grade Finished Area Source,AboveGradeFinishedAreaSource,AreaSource,Assessor,AreaSource,Assessor
+AboveGradeFinishedAreaSource,Above Grade Finished Area Source,AboveGradeFinishedAreaSource,AreaSource,Builder,AreaSource,Builder
+AboveGradeFinishedAreaSource,Above Grade Finished Area Source,AboveGradeFinishedAreaSource,AreaSource,Estimated,AreaSource,Estimated
+AboveGradeFinishedAreaSource,Above Grade Finished Area Source,AboveGradeFinishedAreaSource,AreaSource,Other,AreaSource,Other
+AboveGradeFinishedAreaSource,Above Grade Finished Area Source,AboveGradeFinishedAreaSource,AreaSource,Owner,AreaSource,Owner
+AboveGradeFinishedAreaSource,Above Grade Finished Area Source,AboveGradeFinishedAreaSource,AreaSource,Plans,AreaSource,Plans
+AboveGradeFinishedAreaSource,Above Grade Finished Area Source,AboveGradeFinishedAreaSource,AreaSource,Public Records,AreaSource,Public Records
+AboveGradeFinishedAreaSource,Above Grade Finished Area Source,AboveGradeFinishedAreaSource,AreaSource,See Remarks,AreaSource,See Remarks
+AboveGradeFinishedAreaUnits,Above Grade Finished Area Units,AboveGradeFinishedAreaUnits,AreaUnits,Square Feet,AreaUnits,Square Feet
+AboveGradeFinishedAreaUnits,Above Grade Finished Area Units,AboveGradeFinishedAreaUnits,AreaUnits,Square Feet,AreaUnits,Square Feet
+AccessibilityFeatures,Accessibility Features,AccessibilityFeatures,AccessibilityFeatures,Zero-Grade Entry,AccessibilityFeatures,Zero-Grade Entry
+AccessibilityFeatures,Accessibility Features,AccessibilityFeatures,AccessibilityFeatures,Two or More Access Exits,AccessibilityFeatures,2 or More Access Exits
+AccessibilityFeatures,Accessibility Features,AccessibilityFeatures,AccessibilityFeatures,Accessible,AccessibilityFeatures,Accessible
+AccessibilityFeatures,Accessibility Features,AccessibilityFeatures,AccessibilityFeatures,Bath 60 Inch Turning Radius,AccessibilityFeatures,Bath 60 Inch Turning Radius
+AccessibilityFeatures,Accessibility Features,AccessibilityFeatures,AccessibilityFeatures,Bath Grab Bars,AccessibilityFeatures,Bath Grab Bars
+AccessibilityFeatures,Accessibility Features,AccessibilityFeatures,AccessibilityFeatures,Bath Low Mirrors,AccessibilityFeatures,Bath Low Mirrors
+AccessibilityFeatures,Accessibility Features,AccessibilityFeatures,AccessibilityFeatures,Bath Lever Faucets ,AccessibilityFeatures,Bath Lever Faucets 
+AccessibilityFeatures,Accessibility Features,AccessibilityFeatures,AccessibilityFeatures,Bath Raised Toilet,AccessibilityFeatures,Bath Raised Toilet
+AccessibilityFeatures,Accessibility Features,AccessibilityFeatures,AccessibilityFeatures,Roll-In Shower,AccessibilityFeatures,Bath Roll-In Shower
+AccessibilityFeatures,Accessibility Features,AccessibilityFeatures,AccessibilityFeatures,Bath Roll-Under Sink,AccessibilityFeatures,Bath Roll-Under Sink
+AccessibilityFeatures,Accessibility Features,AccessibilityFeatures,AccessibilityFeatures,Bath Scald Control Faucet,AccessibilityFeatures,Bath Scald Control Faucet
+AccessibilityFeatures,Accessibility Features,AccessibilityFeatures,AccessibilityFeatures,Closet Bars 15-48 Inches,AccessibilityFeatures,Closet Bars 15-48 Inches
+AccessibilityFeatures,Accessibility Features,AccessibilityFeatures,AccessibilityFeatures,Exterior Curb Cuts,AccessibilityFeatures,Exterior Curb Cuts
+AccessibilityFeatures,Accessibility Features,AccessibilityFeatures,AccessibilityFeatures,Lever Door Handles,AccessibilityFeatures,Doors-Lever Handle
+AccessibilityFeatures,Accessibility Features,AccessibilityFeatures,AccessibilityFeatures,Door Width 32 Inches or More,AccessibilityFeatures,Door Width 32 Inches or More 
+AccessibilityFeatures,Accessibility Features,AccessibilityFeatures,AccessibilityFeatures,Doors-Recede,AccessibilityFeatures,Doors-Recede
+AccessibilityFeatures,Accessibility Features,AccessibilityFeatures,AccessibilityFeatures,Swing In Door(s),AccessibilityFeatures,Doors-Swing In
+AccessibilityFeatures,Accessibility Features,AccessibilityFeatures,AccessibilityFeatures,Elevator,AccessibilityFeatures,Elevator
+AccessibilityFeatures,Accessibility Features,AccessibilityFeatures,AccessibilityFeatures,En Suite Bathroom,AccessibilityFeatures,En-Suite Bathroom
+AccessibilityFeatures,Accessibility Features,AccessibilityFeatures,AccessibilityFeatures,Exterior Wheelchair Lift,AccessibilityFeatures,Exterior Wheelchair Lift
+AccessibilityFeatures,Accessibility Features,AccessibilityFeatures,AccessibilityFeatures,Garage Door Height Greater Than 84 inches,AccessibilityFeatures,Garage Door Height Greater Than 84 inches
+AccessibilityFeatures,Accessibility Features,AccessibilityFeatures,AccessibilityFeatures,Hall Width 36 Inches or More,AccessibilityFeatures,Hall Width 36 Inches or More 
+AccessibilityFeatures,Accessibility Features,AccessibilityFeatures,AccessibilityFeatures,Handicap Parking,AccessibilityFeatures,Handicap Parking
+AccessibilityFeatures,Accessibility Features,AccessibilityFeatures,AccessibilityFeatures,Mobility Friendly Flooring,AccessibilityFeatures,Mobility Friendly Flooring
+AccessibilityFeatures,Accessibility Features,AccessibilityFeatures,AccessibilityFeatures,Kitchen Raised Dishwasher,AccessibilityFeatures,Kitchen Raised Dishwasher
+AccessibilityFeatures,Accessibility Features,AccessibilityFeatures,AccessibilityFeatures,Kitchen 60 Inch Turning Radius,AccessibilityFeatures,Kitchen 60 Inch Turning Radius
+AccessibilityFeatures,Accessibility Features,AccessibilityFeatures,AccessibilityFeatures,Kitchen Low Cabinetry,AccessibilityFeatures,Kitchen Low Cabinetry
+AccessibilityFeatures,Accessibility Features,AccessibilityFeatures,AccessibilityFeatures,Kitchen Low Counters,AccessibilityFeatures,Kitchen Low Counters
+AccessibilityFeatures,Accessibility Features,AccessibilityFeatures,AccessibilityFeatures,Kitchen Modified Range,AccessibilityFeatures,Kitchen Modified Range
+AccessibilityFeatures,Accessibility Features,AccessibilityFeatures,AccessibilityFeatures,Kitchen Roll-Under Sink,AccessibilityFeatures,Kitchen Roll-Under Sink
+AccessibilityFeatures,Accessibility Features,AccessibilityFeatures,AccessibilityFeatures,Kitchen Side Open Oven,AccessibilityFeatures,Kitchen Side Open Oven
+AccessibilityFeatures,Accessibility Features,AccessibilityFeatures,AccessibilityFeatures,Lowered Light Switches,AccessibilityFeatures,Lowered Light Switches
+AccessibilityFeatures,Accessibility Features,AccessibilityFeatures,AccessibilityFeatures,Entry Slope less than 1 foot,AccessibilityFeatures,Entry Slope Less Than 1 Foot
+AccessibilityFeatures,Accessibility Features,AccessibilityFeatures,AccessibilityFeatures,No Interior Steps,AccessibilityFeatures,No Interior Steps
+AccessibilityFeatures,Accessibility Features,AccessibilityFeatures,AccessibilityFeatures,See Remarks,AccessibilityFeatures,Other - See Remarks
+AccessibilityFeatures,Accessibility Features,AccessibilityFeatures,AccessibilityFeatures,Pool Power Lift,AccessibilityFeatures,Pool Power Lift
+AccessibilityFeatures,Accessibility Features,AccessibilityFeatures,AccessibilityFeatures,Pool Ramp Entry,AccessibilityFeatures,Pool Ramp Entry
+AccessibilityFeatures,Accessibility Features,AccessibilityFeatures,AccessibilityFeatures,Ramp(s)-Main Level,AccessibilityFeatures,Ramp(s)-Main Level
+AccessibilityFeatures,Accessibility Features,AccessibilityFeatures,AccessibilityFeatures,Remote Devices,AccessibilityFeatures,Remote Devices
+AccessibilityFeatures,Accessibility Features,AccessibilityFeatures,AccessibilityFeatures,Stair Lift,AccessibilityFeatures,Stair Lift
+AccessibilityFeatures,Accessibility Features,AccessibilityFeatures,AccessibilityFeatures,Thresholds 5/8 Inches,AccessibilityFeatures,Thresholds 5/8 Inches
+AccessibilityFeatures,Accessibility Features,AccessibilityFeatures,AccessibilityFeatures,Tactile/Visual Markers,AccessibilityFeatures,Tactile/Visual Markers
+AccessibilityFeatures,Accessibility Features,AccessibilityFeatures,AccessibilityFeatures,Vehicle Transfer Area,AccessibilityFeatures,Vehicle Transfer Area
+AccessibilityFeatures,Accessibility Features,AccessibilityFeatures,AccessibilityFeatures,Wheelchair Height Mailbox,AccessibilityFeatures,Wheelchair Height Mailbox
+AccessibilityFeatures,Accessibility Features,AccessibilityFeatures,AccessibilityFeatures,Wheelchair Height Shelves,AccessibilityFeatures,Wheelchair Height Shelves
+Appliances,Appliances,Appliances,Appliances,Bar Fridge,Appliances,Beverage Refrigerator
+Appliances,Appliances,Appliances,Appliances,Electric Cooktop,Appliances,Electric Cooktop
+Appliances,Appliances,Appliances,Appliances,Gas Cooktop,Appliances,Gas Cooktop
+Appliances,Appliances,Appliances,Appliances,Induction Cooktop,Appliances,Induction Cooktop
+Appliances,Appliances,Appliances,Appliances,Convection Microwave,Appliances,Convection Microwave
+Appliances,Appliances,Appliances,Appliances,Convection Oven,Appliances,Convection Oven
+Appliances,Appliances,Appliances,Appliances,Double Oven,Appliances,Double Oven
+Appliances,Appliances,Appliances,Appliances,Down Draft,Appliances,Downdraft Cooktop
+Appliances,Appliances,Appliances,Appliances,Disposal,Appliances,Disposal
+Appliances,Appliances,Appliances,Appliances,Dryer,Appliances,Dryer
+Appliances,Appliances,Appliances,Appliances,Dual Flush Toilets,Appliances,Dual Flush Toilets
+Appliances,Appliances,Appliances,Appliances,Dishwasher,Appliances,Dishwasher
+Appliances,Appliances,Appliances,Appliances,Electric Oven,Appliances,Electric Oven
+Appliances,Appliances,Appliances,Appliances,Electric Range,Appliances,Electric Range
+Appliances,Appliances,Appliances,Appliances,Electric Water Heater,Appliances,Electric Water Heater
+Appliances,Appliances,Appliances,Appliances,ENERGY STAR Qualified Dryer,Appliances,Energy Star® Dryer
+Appliances,Appliances,Appliances,Appliances,ENERGY STAR Qualified Dishwasher,Appliances,Energy Star® Dishwasher
+Appliances,Appliances,Appliances,Appliances,ENERGY STAR Qualified Freezer,Appliances,Energy Star® Freezer
+Appliances,Appliances,Appliances,Appliances,ENERGY STAR Qualified Light Fixtures,Appliances,Energy Star® Light Fixtures
+Appliances,Appliances,Appliances,Appliances,ENERGY STAR Qualified Refrigerator,Appliances,Energy Star® Refrigerator
+Appliances,Appliances,Appliances,Appliances,ENERGY STAR Qualified Washer,Appliances,Energy Star® Clothes Washer
+Appliances,Appliances,Appliances,Appliances,Exhaust Fan,Appliances,Exhaust Fan
+Appliances,Appliances,Appliances,Appliances,Exhaust Hood,Appliances,Exhaust Hood
+Appliances,Appliances,Appliances,Appliances,Filtration System,Appliances,Filtration System
+Appliances,Appliances,Appliances,Appliances,Freezer,Appliances,Freezer
+Appliances,Appliances,Appliances,Appliances,Gas Oven,Appliances,Gas Oven
+Appliances,Appliances,Appliances,Appliances,Gas Range,Appliances,Gas Range
+Appliances,Appliances,Appliances,Appliances,Gas Water Heater,Appliances,Gas Water Heater
+Appliances,Appliances,Appliances,Appliances,Indoor Grill,Appliances,Grilltop
+Appliances,Appliances,Appliances,Appliances,Heat Pump Water Heater,Appliances,Hybrid Heat Pump Water Heater
+Appliances,Appliances,Appliances,Appliances,Ice Maker,Appliances,Ice Maker
+Appliances,Appliances,Appliances,Appliances,Low Flow Fixtures,Appliances,Low Flow Fixtures
+Appliances,Appliances,Appliances,Appliances,Microwave,Appliances,Microwave
+Appliances,Appliances,Appliances,Appliances,None,Appliances,None
+Appliances,Appliances,Appliances,Appliances,Oil Water Heater,Appliances,Oil Water Heater
+Appliances,Appliances,Appliances,Appliances,Other,Appliances,Other
+Appliances,Appliances,Appliances,Appliances,Oven,Appliances,Oven
+Appliances,Appliances,Appliances,Appliances,Plumbed For Ice Maker,Appliances,Plumbed For Ice Maker
+Appliances,Appliances,Appliances,Appliances,Propane Water Heater,Appliances,Propane Water Heater
+Appliances,Appliances,Appliances,Appliances,Refrigerator,Appliances,Refrigerator
+Appliances,Appliances,Appliances,Appliances,Refrigerator with Ice Maker,Appliances,Refrigerator with Ice Maker
+Appliances,Appliances,Appliances,Appliances,Self Cleaning Oven,Appliances,Self Cleaning Oven
+Appliances,Appliances,Appliances,Appliances,Solar Hot Water,Appliances,Solar Hot Water
+Appliances,Appliances,Appliances,Appliances,Tankless Water Heater,Appliances,Tankless Water Heater
+Appliances,Appliances,Appliances,Appliances,Trash Compactor,Appliances,Trash Compactor
+Appliances,Appliances,Appliances,Appliances,Washer,Appliances,Washer
+Appliances,Appliances,Appliances,Appliances,Washer/Dryer,Appliances,Washer/Dryer Included
+Appliances,Appliances,Appliances,Appliances,Water Softener,Appliances,Water Softener
+Appliances,Appliances,Appliances,Appliances,Wine Refrigerator,Appliances,Wine Refrigerator
+Appliances,Appliances,Appliances,Appliances,Wall Oven,Appliances,Wall Oven
+Appliances,Appliances,Appliances,Appliances,Warming Drawer,Appliances,Warming Drawer
+ArchitecturalStyle,Architectural Style,ArchitecturalStyle,ArchitecturalStyle,A-Frame,ArchitecturalStyle,A-Frame
+ArchitecturalStyle,Architectural Style,ArchitecturalStyle,ArchitecturalStyle,Barndominium,ArchitecturalStyle,Barndominium
+ArchitecturalStyle,Architectural Style,ArchitecturalStyle,ArchitecturalStyle,Cottage,ArchitecturalStyle,Cottage
+ArchitecturalStyle,Architectural Style,ArchitecturalStyle,ArchitecturalStyle,Bungalow,ArchitecturalStyle,Bungalow
+ArchitecturalStyle,Architectural Style,ArchitecturalStyle,ArchitecturalStyle,Cabin,ArchitecturalStyle,Cabin
+ArchitecturalStyle,Architectural Style,ArchitecturalStyle,ArchitecturalStyle,Cape Cod,ArchitecturalStyle,Cape Cod
+ArchitecturalStyle,Architectural Style,ArchitecturalStyle,ArchitecturalStyle,Charleston,ArchitecturalStyle,Charleston
+ArchitecturalStyle,Architectural Style,ArchitecturalStyle,ArchitecturalStyle,Circular,ArchitecturalStyle,Circular
+ArchitecturalStyle,Architectural Style,ArchitecturalStyle,ArchitecturalStyle,Colonial,ArchitecturalStyle,Colonial
+ArchitecturalStyle,Architectural Style,ArchitecturalStyle,ArchitecturalStyle,Contemporary,ArchitecturalStyle,Contemporary
+ArchitecturalStyle,Architectural Style,ArchitecturalStyle,ArchitecturalStyle,Arts and Crafts,ArchitecturalStyle,Arts and Crafts
+ArchitecturalStyle,Architectural Style,ArchitecturalStyle,ArchitecturalStyle,Dome,ArchitecturalStyle,Dome
+ArchitecturalStyle,Architectural Style,ArchitecturalStyle,ArchitecturalStyle,European,ArchitecturalStyle,European
+ArchitecturalStyle,Architectural Style,ArchitecturalStyle,ArchitecturalStyle,Farmhouse,ArchitecturalStyle,Farmhouse
+ArchitecturalStyle,Architectural Style,ArchitecturalStyle,ArchitecturalStyle,French Provincial,ArchitecturalStyle,French Provincial
+ArchitecturalStyle,Architectural Style,ArchitecturalStyle,ArchitecturalStyle,Georgian,ArchitecturalStyle,Georgian
+ArchitecturalStyle,Architectural Style,ArchitecturalStyle,ArchitecturalStyle,Mediterranean,ArchitecturalStyle,Mediterranean
+ArchitecturalStyle,Architectural Style,ArchitecturalStyle,ArchitecturalStyle,Modern,ArchitecturalStyle,Modern
+ArchitecturalStyle,Architectural Style,ArchitecturalStyle,ArchitecturalStyle,Old World,ArchitecturalStyle,Old World
+ArchitecturalStyle,Architectural Style,ArchitecturalStyle,ArchitecturalStyle,Other,ArchitecturalStyle,Other
+ArchitecturalStyle,Architectural Style,ArchitecturalStyle,ArchitecturalStyle,Post and Beam,ArchitecturalStyle,Post and Beam
+ArchitecturalStyle,Architectural Style,ArchitecturalStyle,ArchitecturalStyle,Ranch,ArchitecturalStyle,Ranch
+ArchitecturalStyle,Architectural Style,ArchitecturalStyle,ArchitecturalStyle,Rustic,ArchitecturalStyle,Rustic
+ArchitecturalStyle,Architectural Style,ArchitecturalStyle,ArchitecturalStyle,Spanish,ArchitecturalStyle,Spanish
+ArchitecturalStyle,Architectural Style,ArchitecturalStyle,ArchitecturalStyle,Traditional,ArchitecturalStyle,Traditional
+ArchitecturalStyle,Architectural Style,ArchitecturalStyle,ArchitecturalStyle,Transitional,ArchitecturalStyle,Transitional
+ArchitecturalStyle,Architectural Style,ArchitecturalStyle,ArchitecturalStyle,Tudor,ArchitecturalStyle,Tudor
+ArchitecturalStyle,Architectural Style,ArchitecturalStyle,ArchitecturalStyle,Victorian,ArchitecturalStyle,Victorian
+ArchitecturalStyle,Architectural Style,ArchitecturalStyle,ArchitecturalStyle,Williamsburg,ArchitecturalStyle,Williamsburg
+AssociationFee2Frequency,Association Fee 2 Frequency,AssociationFee2Frequency,FeeFrequency,Annually,FeeFrequency,Annually
+AssociationFee2Frequency,Association Fee 2 Frequency,AssociationFee2Frequency,FeeFrequency,Monthly,FeeFrequency,Monthly
+AssociationFee2Frequency,Association Fee 2 Frequency,AssociationFee2Frequency,FeeFrequency,Quarterly,FeeFrequency,Quarterly
+AssociationFee2Frequency,Association Fee 2 Frequency,AssociationFee2Frequency,FeeFrequency,Semi-Annually,FeeFrequency,Semi-Annually
+AssociationFee2Frequency,Association Fee 2 Frequency,AssociationFee2Frequency,FeeFrequency,Triannual,FeeFrequency,Triannual
+AssociationFeeFrequency,Association Fee Frequency,AssociationFeeFrequency,FeeFrequency,Annually,FeeFrequency,Annually
+AssociationFeeFrequency,Association Fee Frequency,AssociationFeeFrequency,FeeFrequency,Monthly,FeeFrequency,Monthly
+AssociationFeeFrequency,Association Fee Frequency,AssociationFeeFrequency,FeeFrequency,Quarterly,FeeFrequency,Quarterly
+AssociationFeeFrequency,Association Fee Frequency,AssociationFeeFrequency,FeeFrequency,Semi-Annually,FeeFrequency,Semi-Annually
+AssociationFeeFrequency,Association Fee Frequency,AssociationFeeFrequency,FeeFrequency,Triannual,FeeFrequency,Triannual
+Basement,Basement,Basement,Basement,Apartment,Basement,Apartment
+Basement,Basement,Basement,Basement,Bath/Stubbed,Basement,Bath/Stubbed
+Basement,Basement,Basement,Basement,Finished,Basement,Finished
+Basement,Basement,Basement,Basement,Basement Garage Door,Basement,Basement Garage Door
+Basement,Basement,Basement,Basement,Basement Shop,Basement,Basement Shop
+Basement,Basement,Basement,Basement,Daylight,Basement,Daylight
+Basement,Basement,Basement,Basement,Dirt Floor,Basement,Dirt Floor
+Basement,Basement,Basement,Basement,Exterior Entry,Basement,Exterior Entry
+Basement,Basement,Basement,Basement,French Drain,Basement,French Drain
+Basement,Basement,Basement,Basement,Full,Basement,Full
+Basement,Basement,Basement,Basement,Interior Entry,Basement,Interior Entry
+Basement,Basement,Basement,Basement,Multiple Below-Grade Levels,Basement,Multiple Below-Grade Levels
+Basement,Basement,Basement,Basement,Other,Basement,Other
+Basement,Basement,Basement,Basement,Partial,Basement,Partial
+Basement,Basement,Basement,Basement,Partially Finished,Basement,Partially Finished
+Basement,Basement,Basement,Basement,Storage Space,Basement,Storage Space
+Basement,Basement,Basement,Basement,Sump Pump,Basement,Sump Pump
+Basement,Basement,Basement,Basement,Unfinished,Basement,Unfinished
+Basement,Basement,Basement,Basement,Walk-Out Access,Basement,Walk-Out Access
+Basement,Basement,Basement,Basement,Walk-Up Access,Basement,Walk-Up Access
+Basement,Basement,Basement,Basement,Apartment,Basement,Apartment
+Basement,Basement,Basement,Basement,Bath/Stubbed,Basement,Bath/Stubbed
+Basement,Basement,Basement,Basement,Finished,Basement,Finished
+Basement,Basement,Basement,Basement,Basement Garage Door,Basement,Basement Garage Door
+Basement,Basement,Basement,Basement,Basement Shop,Basement,Basement Shop
+Basement,Basement,Basement,Basement,Daylight,Basement,Daylight
+Basement,Basement,Basement,Basement,Dirt Floor,Basement,Dirt Floor
+Basement,Basement,Basement,Basement,Exterior Entry,Basement,Exterior Entry
+Basement,Basement,Basement,Basement,French Drain,Basement,French Drain
+Basement,Basement,Basement,Basement,Full,Basement,Full
+Basement,Basement,Basement,Basement,Interior Entry,Basement,Interior Entry
+Basement,Basement,Basement,Basement,Multiple Below-Grade Levels,Basement,Multiple Below-Grade Levels
+Basement,Basement,Basement,Basement,Other,Basement,Other
+Basement,Basement,Basement,Basement,Partial,Basement,Partial
+Basement,Basement,Basement,Basement,Partially Finished,Basement,Partially Finished
+Basement,Basement,Basement,Basement,Storage Space,Basement,Storage Space
+Basement,Basement,Basement,Basement,Sump Pump,Basement,Sump Pump
+Basement,Basement,Basement,Basement,Unfinished,Basement,Unfinished
+Basement,Basement,Basement,Basement,Walk-Out Access,Basement,Walk-Out Access
+Basement,Basement,Basement,Basement,Walk-Up Access,Basement,Walk-Up Access
+BelowGradeFinishedAreaSource,Below Grade Finished Area Source,BelowGradeFinishedAreaSource,AreaSource,Appraiser,AreaSource,Appraiser
+BelowGradeFinishedAreaSource,Below Grade Finished Area Source,BelowGradeFinishedAreaSource,AreaSource,Assessor,AreaSource,Assessor
+BelowGradeFinishedAreaSource,Below Grade Finished Area Source,BelowGradeFinishedAreaSource,AreaSource,Builder,AreaSource,Builder
+BelowGradeFinishedAreaSource,Below Grade Finished Area Source,BelowGradeFinishedAreaSource,AreaSource,Estimated,AreaSource,Estimated
+BelowGradeFinishedAreaSource,Below Grade Finished Area Source,BelowGradeFinishedAreaSource,AreaSource,Other,AreaSource,Other
+BelowGradeFinishedAreaSource,Below Grade Finished Area Source,BelowGradeFinishedAreaSource,AreaSource,Owner,AreaSource,Owner
+BelowGradeFinishedAreaSource,Below Grade Finished Area Source,BelowGradeFinishedAreaSource,AreaSource,Plans,AreaSource,Plans
+BelowGradeFinishedAreaSource,Below Grade Finished Area Source,BelowGradeFinishedAreaSource,AreaSource,Public Records,AreaSource,Public Records
+BelowGradeFinishedAreaSource,Below Grade Finished Area Source,BelowGradeFinishedAreaSource,AreaSource,See Remarks,AreaSource,See Remarks
+BelowGradeFinishedAreaSource,Below Grade Finished Area Source,BelowGradeFinishedAreaSource,AreaSource,Appraiser,AreaSource,Appraiser
+BelowGradeFinishedAreaSource,Below Grade Finished Area Source,BelowGradeFinishedAreaSource,AreaSource,Assessor,AreaSource,Assessor
+BelowGradeFinishedAreaSource,Below Grade Finished Area Source,BelowGradeFinishedAreaSource,AreaSource,Builder,AreaSource,Builder
+BelowGradeFinishedAreaSource,Below Grade Finished Area Source,BelowGradeFinishedAreaSource,AreaSource,Estimated,AreaSource,Estimated
+BelowGradeFinishedAreaSource,Below Grade Finished Area Source,BelowGradeFinishedAreaSource,AreaSource,Other,AreaSource,Other
+BelowGradeFinishedAreaSource,Below Grade Finished Area Source,BelowGradeFinishedAreaSource,AreaSource,Owner,AreaSource,Owner
+BelowGradeFinishedAreaSource,Below Grade Finished Area Source,BelowGradeFinishedAreaSource,AreaSource,Plans,AreaSource,Plans
+BelowGradeFinishedAreaSource,Below Grade Finished Area Source,BelowGradeFinishedAreaSource,AreaSource,Public Records,AreaSource,Public Records
+BelowGradeFinishedAreaSource,Below Grade Finished Area Source,BelowGradeFinishedAreaSource,AreaSource,See Remarks,AreaSource,See Remarks
+BelowGradeFinishedAreaUnits,Below Grade Finished Area Units,BelowGradeFinishedAreaUnits,AreaUnits,Square Feet,AreaUnits,Square Feet
+BelowGradeFinishedAreaUnits,Below Grade Finished Area Units,BelowGradeFinishedAreaUnits,AreaUnits,Square Feet,AreaUnits,Square Feet
+BuildingAreaSource,Building Area Source,BuildingAreaSource,AreaSource,Appraiser,AreaSource,Appraiser
+BuildingAreaSource,Building Area Source,BuildingAreaSource,AreaSource,Assessor,AreaSource,Assessor
+BuildingAreaSource,Building Area Source,BuildingAreaSource,AreaSource,Builder,AreaSource,Builder
+BuildingAreaSource,Building Area Source,BuildingAreaSource,AreaSource,Estimated,AreaSource,Estimated
+BuildingAreaSource,Building Area Source,BuildingAreaSource,AreaSource,Other,AreaSource,Other
+BuildingAreaSource,Building Area Source,BuildingAreaSource,AreaSource,Owner,AreaSource,Owner
+BuildingAreaSource,Building Area Source,BuildingAreaSource,AreaSource,Plans,AreaSource,Plans
+BuildingAreaSource,Building Area Source,BuildingAreaSource,AreaSource,Public Records,AreaSource,Public Records
+BuildingAreaSource,Building Area Source,BuildingAreaSource,AreaSource,See Remarks,AreaSource,See Remarks
+BuildingAreaSource,Building Area Source,BuildingAreaSource,AreaSource,Appraiser,AreaSource,Appraiser
+BuildingAreaSource,Building Area Source,BuildingAreaSource,AreaSource,Assessor,AreaSource,Assessor
+BuildingAreaSource,Building Area Source,BuildingAreaSource,AreaSource,Builder,AreaSource,Builder
+BuildingAreaSource,Building Area Source,BuildingAreaSource,AreaSource,Estimated,AreaSource,Estimated
+BuildingAreaSource,Building Area Source,BuildingAreaSource,AreaSource,Other,AreaSource,Other
+BuildingAreaSource,Building Area Source,BuildingAreaSource,AreaSource,Owner,AreaSource,Owner
+BuildingAreaSource,Building Area Source,BuildingAreaSource,AreaSource,Plans,AreaSource,Plans
+BuildingAreaSource,Building Area Source,BuildingAreaSource,AreaSource,Public Records,AreaSource,Public Records
+BuildingAreaSource,Building Area Source,BuildingAreaSource,AreaSource,See Remarks,AreaSource,See Remarks
+BuildingAreaUnits,Building Area Units,BuildingAreaUnits,AreaUnits,Square Feet,AreaUnits,Square Feet
+BuildingAreaUnits,Building Area Units,BuildingAreaUnits,AreaUnits,Square Feet,AreaUnits,Square Feet
+BuildingFeatures,Building Features,BuildingFeatures,BuildingFeatures,Delivery Door,BuildingFeatures,Delivery Door
+BuildingFeatures,Building Features,BuildingFeatures,BuildingFeatures,Elevator,BuildingFeatures,Elevator
+BuildingFeatures,Building Features,BuildingFeatures,BuildingFeatures,Fixed Furniture,BuildingFeatures,Fixed Furniture
+BuildingFeatures,Building Features,BuildingFeatures,BuildingFeatures,Front Elevation,BuildingFeatures,Front Elevation
+BuildingFeatures,Building Features,BuildingFeatures,BuildingFeatures,Loading Dock,BuildingFeatures,Loading Dock
+BuildingFeatures,Building Features,BuildingFeatures,BuildingFeatures,Receptions Room,BuildingFeatures,Reception Area
+BuildingFeatures,Building Features,BuildingFeatures,BuildingFeatures,Delivery Door,BuildingFeatures,Delivery Door
+BuildingFeatures,Building Features,BuildingFeatures,BuildingFeatures,Elevator,BuildingFeatures,Elevator
+BuildingFeatures,Building Features,BuildingFeatures,BuildingFeatures,Fixed Furniture,BuildingFeatures,Fixed Furniture
+BuildingFeatures,Building Features,BuildingFeatures,BuildingFeatures,Front Elevation,BuildingFeatures,Front Elevation
+BuildingFeatures,Building Features,BuildingFeatures,BuildingFeatures,Loading Dock,BuildingFeatures,Loading Dock
+BuildingFeatures,Building Features,BuildingFeatures,BuildingFeatures,Receptions Room,BuildingFeatures,Reception Area
+CommunityFeatures,Community Features,CommunityFeatures,CommunityFeatures,Fifty Five and Older,CommunityFeatures,55 and Older
+CommunityFeatures,Community Features,CommunityFeatures,CommunityFeatures,Airport/Runway,CommunityFeatures,Airport/Runway
+CommunityFeatures,Community Features,CommunityFeatures,CommunityFeatures,Boat Storage,CommunityFeatures,Boat Storage
+CommunityFeatures,Community Features,CommunityFeatures,CommunityFeatures,Business Center,CommunityFeatures,Business Center
+CommunityFeatures,Community Features,CommunityFeatures,CommunityFeatures,Cabana,CommunityFeatures,Cabana
+CommunityFeatures,Community Features,CommunityFeatures,CommunityFeatures,Clubhouse,CommunityFeatures,Club House
+CommunityFeatures,Community Features,CommunityFeatures,CommunityFeatures,Concierge,CommunityFeatures,Concierge
+CommunityFeatures,Community Features,CommunityFeatures,CommunityFeatures,Dog Park,CommunityFeatures,Dog Park
+CommunityFeatures,Community Features,CommunityFeatures,CommunityFeatures,Elevator,CommunityFeatures,Elevator
+CommunityFeatures,Community Features,CommunityFeatures,CommunityFeatures,Fitness Center,CommunityFeatures,Fitness Center
+CommunityFeatures,Community Features,CommunityFeatures,CommunityFeatures,Gated,CommunityFeatures,Gated Community
+CommunityFeatures,Community Features,CommunityFeatures,CommunityFeatures,Game Court,CommunityFeatures,Game Court
+CommunityFeatures,Community Features,CommunityFeatures,CommunityFeatures,Golf,CommunityFeatures,Golf Course
+CommunityFeatures,Community Features,CommunityFeatures,CommunityFeatures,Helipad,CommunityFeatures,Helipad
+CommunityFeatures,Community Features,CommunityFeatures,CommunityFeatures,Hot Tub,CommunityFeatures,Hot Tub
+CommunityFeatures,Community Features,CommunityFeatures,CommunityFeatures,Lake Access,CommunityFeatures,Lake Access
+CommunityFeatures,Community Features,CommunityFeatures,CommunityFeatures,None,CommunityFeatures,None
+CommunityFeatures,Community Features,CommunityFeatures,CommunityFeatures,Other,CommunityFeatures,Other
+CommunityFeatures,Community Features,CommunityFeatures,CommunityFeatures,Pickleball,CommunityFeatures,Pickleball
+CommunityFeatures,Community Features,CommunityFeatures,CommunityFeatures,Picnic Area,CommunityFeatures,Picnic Area
+CommunityFeatures,Community Features,CommunityFeatures,CommunityFeatures,Playground,CommunityFeatures,Playground
+CommunityFeatures,Community Features,CommunityFeatures,CommunityFeatures,Pond,CommunityFeatures,Pond
+CommunityFeatures,Community Features,CommunityFeatures,CommunityFeatures,Indoor Pool,CommunityFeatures,Indoor Pool
+CommunityFeatures,Community Features,CommunityFeatures,CommunityFeatures,Outdoor Pool,CommunityFeatures,Outdoor Pool
+CommunityFeatures,Community Features,CommunityFeatures,CommunityFeatures,Putting Green,CommunityFeatures,Putting Green
+CommunityFeatures,Community Features,CommunityFeatures,CommunityFeatures,Recreation Area,CommunityFeatures,Recreation Area
+CommunityFeatures,Community Features,CommunityFeatures,CommunityFeatures,Rooftop Terrace,CommunityFeatures,Rooftop Terrace
+CommunityFeatures,Community Features,CommunityFeatures,CommunityFeatures,RV/Boat Storage,CommunityFeatures,RV/Boat Storage
+CommunityFeatures,Community Features,CommunityFeatures,CommunityFeatures,RV Storage,CommunityFeatures,RV Storage
+CommunityFeatures,Community Features,CommunityFeatures,CommunityFeatures,Sauna,CommunityFeatures,Sauna
+CommunityFeatures,Community Features,CommunityFeatures,CommunityFeatures,Sidewalks,CommunityFeatures,Sidewalks
+CommunityFeatures,Community Features,CommunityFeatures,CommunityFeatures,Ski Slopes,CommunityFeatures,Ski Slopes
+CommunityFeatures,Community Features,CommunityFeatures,CommunityFeatures,Sport Court,CommunityFeatures,Sport Court
+CommunityFeatures,Community Features,CommunityFeatures,CommunityFeatures,Stable(s),CommunityFeatures,Stable(s)
+CommunityFeatures,Community Features,CommunityFeatures,CommunityFeatures,Street Lights,CommunityFeatures,Street Lights
+CommunityFeatures,Community Features,CommunityFeatures,CommunityFeatures,Tennis Court(s),CommunityFeatures,Tennis Court(s)
+CommunityFeatures,Community Features,CommunityFeatures,CommunityFeatures,Walking Trails,CommunityFeatures,Walking Trails
+ConstructionMaterials,Construction Materials,ConstructionMaterials,ConstructionMaterials,Aluminum,ConstructionMaterials,Aluminum
+ConstructionMaterials,Construction Materials,ConstructionMaterials,ConstructionMaterials,Asbestos,ConstructionMaterials,Asbestos
+ConstructionMaterials,Construction Materials,ConstructionMaterials,ConstructionMaterials,Block,ConstructionMaterials,Block
+ConstructionMaterials,Construction Materials,ConstructionMaterials,ConstructionMaterials,Brick,ConstructionMaterials,Brick
+ConstructionMaterials,Construction Materials,ConstructionMaterials,ConstructionMaterials,Brick - Solid,ConstructionMaterials,Brick - Solid
+ConstructionMaterials,Construction Materials,ConstructionMaterials,ConstructionMaterials,Brick Full,ConstructionMaterials,Brick Full
+ConstructionMaterials,Construction Materials,ConstructionMaterials,ConstructionMaterials,Brick Partial,ConstructionMaterials,Brick Partial
+ConstructionMaterials,Construction Materials,ConstructionMaterials,ConstructionMaterials,Cedar Shake,ConstructionMaterials,Cedar Shake
+ConstructionMaterials,Construction Materials,ConstructionMaterials,ConstructionMaterials,Block,ConstructionMaterials,Concrete Block
+ConstructionMaterials,Construction Materials,ConstructionMaterials,ConstructionMaterials,Concrete,ConstructionMaterials,Concrete
+ConstructionMaterials,Construction Materials,ConstructionMaterials,ConstructionMaterials,Fiber Cement,ConstructionMaterials,Fiber Cement
+ConstructionMaterials,Construction Materials,ConstructionMaterials,ConstructionMaterials,Frame,ConstructionMaterials,Frame
+ConstructionMaterials,Construction Materials,ConstructionMaterials,ConstructionMaterials,Glass,ConstructionMaterials,Glass
+ConstructionMaterials,Construction Materials,ConstructionMaterials,ConstructionMaterials,Hardboard Siding,ConstructionMaterials,Hardboard Siding
+ConstructionMaterials,Construction Materials,ConstructionMaterials,ConstructionMaterials,Hol Tile,ConstructionMaterials,Hol Tile
+ConstructionMaterials,Construction Materials,ConstructionMaterials,ConstructionMaterials,Log,ConstructionMaterials,Log
+ConstructionMaterials,Construction Materials,ConstructionMaterials,ConstructionMaterials,Metal,ConstructionMaterials,Metal
+ConstructionMaterials,Construction Materials,ConstructionMaterials,ConstructionMaterials,N/A,ConstructionMaterials,N/A
+ConstructionMaterials,Construction Materials,ConstructionMaterials,ConstructionMaterials,Other - See Remarks,ConstructionMaterials,Other - See Remarks
+ConstructionMaterials,Construction Materials,ConstructionMaterials,ConstructionMaterials,Rough Sawn,ConstructionMaterials,Rough Sawn
+ConstructionMaterials,Construction Materials,ConstructionMaterials,ConstructionMaterials,Shingle/Shake,ConstructionMaterials,Shingle
+ConstructionMaterials,Construction Materials,ConstructionMaterials,ConstructionMaterials,Stone,ConstructionMaterials,Stone
+ConstructionMaterials,Construction Materials,ConstructionMaterials,ConstructionMaterials,Stone Veneer,ConstructionMaterials,Stone Veneer
+ConstructionMaterials,Construction Materials,ConstructionMaterials,ConstructionMaterials,Stucco,ConstructionMaterials,Stucco
+ConstructionMaterials,Construction Materials,ConstructionMaterials,ConstructionMaterials,Hard Stucco,ConstructionMaterials,Hard Stucco
+ConstructionMaterials,Construction Materials,ConstructionMaterials,ConstructionMaterials,Synthetic Stucco,ConstructionMaterials,Synthetic Stucco
+ConstructionMaterials,Construction Materials,ConstructionMaterials,ConstructionMaterials,Tilt up Walls,ConstructionMaterials,Tlt Wall
+ConstructionMaterials,Construction Materials,ConstructionMaterials,ConstructionMaterials,Vinyl,ConstructionMaterials,Vinyl
+ConstructionMaterials,Construction Materials,ConstructionMaterials,ConstructionMaterials,Wood,ConstructionMaterials,Wood
+Cooling,Cooling,Cooling,Cooling,Attic Fan,Cooling,Attic Fan
+Cooling,Cooling,Cooling,Cooling,Ceiling Fan(s),Cooling,Ceiling Fan(s)
+Cooling,Cooling,Cooling,Cooling,Central Air,Cooling,Central Air
+Cooling,Cooling,Cooling,Cooling,Dual,Cooling,Dual
+Cooling,Cooling,Cooling,Cooling,Ductless,Cooling,Ductless
+Cooling,Cooling,Cooling,Cooling,Electric,Cooling,Electric
+Cooling,Cooling,Cooling,Cooling,Gas,Cooling,Gas
+Cooling,Cooling,Cooling,Cooling,Geothermal,Cooling,Geothermal
+Cooling,Cooling,Cooling,Cooling,ENERGY STAR Qualified Equipment,Cooling,ENERGY STAR Qualified Equipment
+Cooling,Cooling,Cooling,Cooling,Heat Pump,Cooling,Heat Pump
+Cooling,Cooling,Cooling,Cooling,Humidity Control,Cooling,Humidity Control
+Cooling,Cooling,Cooling,Cooling,Multi Units,Cooling,Multi Units
+Cooling,Cooling,Cooling,Cooling,N/A,Cooling,N/A
+Cooling,Cooling,Cooling,Cooling,None,Cooling,None
+Cooling,Cooling,Cooling,Cooling,Office Only,Cooling,Office only
+Cooling,Cooling,Cooling,Cooling,Other - See Remarks,Cooling,Other - See Remarks
+Cooling,Cooling,Cooling,Cooling,Separate Meters,Cooling,Separate Meters
+Cooling,Cooling,Cooling,Cooling,Total,Cooling,Total Area
+Cooling,Cooling,Cooling,Cooling,Varies by Unit,Cooling,Varies by Unit
+Cooling,Cooling,Cooling,Cooling,Wall Unit(s),Cooling,Wall Unit(s)
+Cooling,Cooling,Cooling,Cooling,Window Unit(s),Cooling,Window Unit(s)
+Cooling,Cooling,Cooling,Cooling,Zoned,Cooling,Zoned
+Country,Country,Country,Country,United States,Country,United States
+DevelopmentStatus,Development Status,DevelopmentStatus,DevelopmentStatus,Completed,DevelopmentStatus,Completed
+DevelopmentStatus,Development Status,DevelopmentStatus,DevelopmentStatus,Land/Home Package,DevelopmentStatus,Land/Home Package
+DevelopmentStatus,Development Status,DevelopmentStatus,DevelopmentStatus,Proposed,DevelopmentStatus,Proposed
+DevelopmentStatus,Development Status,DevelopmentStatus,DevelopmentStatus,Under Construction,DevelopmentStatus,Under Construction
+DevelopmentStatus,Development Status,DevelopmentStatus,DevelopmentStatus,Completed,DevelopmentStatus,Completed
+DevelopmentStatus,Development Status,DevelopmentStatus,DevelopmentStatus,Land/Home Package,DevelopmentStatus,Land/Home Package
+DevelopmentStatus,Development Status,DevelopmentStatus,DevelopmentStatus,Proposed,DevelopmentStatus,Proposed
+DevelopmentStatus,Development Status,DevelopmentStatus,DevelopmentStatus,Under Construction,DevelopmentStatus,Under Construction
+DoorFeatures,Door Features,DoorFeatures,DoorFeatures,French Doors,DoorFeatures,French Doors
+DoorFeatures,Door Features,DoorFeatures,DoorFeatures,Insulated Door(s),DoorFeatures,Insulated Door(s)
+DoorFeatures,Door Features,DoorFeatures,DoorFeatures,Mirrored Closet Door(s),DoorFeatures,Mirrored Closet Door(s)
+DoorFeatures,Door Features,DoorFeatures,DoorFeatures,Pocket Doors,DoorFeatures,Pocket Doors
+DoorFeatures,Door Features,DoorFeatures,DoorFeatures,Screen Door(s),DoorFeatures,Screen Door(s)
+DoorFeatures,Door Features,DoorFeatures,DoorFeatures,Sliding Doors,DoorFeatures,Sliding Doors
+DoorFeatures,Door Features,DoorFeatures,DoorFeatures,Storm Door(s),DoorFeatures,Storm Door(s)
+DoorFeatures,Door Features,DoorFeatures,DoorFeatures,French Doors,DoorFeatures,French Doors
+DoorFeatures,Door Features,DoorFeatures,DoorFeatures,Insulated Door(s),DoorFeatures,Insulated Door(s)
+DoorFeatures,Door Features,DoorFeatures,DoorFeatures,Mirrored Closet Door(s),DoorFeatures,Mirrored Closet Door(s)
+DoorFeatures,Door Features,DoorFeatures,DoorFeatures,Pocket Doors,DoorFeatures,Pocket Doors
+DoorFeatures,Door Features,DoorFeatures,DoorFeatures,Screen Door(s),DoorFeatures,Screen Door(s)
+DoorFeatures,Door Features,DoorFeatures,DoorFeatures,Sliding Doors,DoorFeatures,Sliding Doors
+DoorFeatures,Door Features,DoorFeatures,DoorFeatures,Storm Door(s),DoorFeatures,Storm Door(s)
+ExteriorFeatures,Exterior Features,ExteriorFeatures,ExteriorFeatures,Above Ground Hot Tub / Spa,ExteriorFeatures,Above Ground Hot Tub / Spa
+ExteriorFeatures,Exterior Features,ExteriorFeatures,ExteriorFeatures,Elevator,ExteriorFeatures,Elevator
+ExteriorFeatures,Exterior Features,ExteriorFeatures,ExteriorFeatures,Fence,ExteriorFeatures,Fenced Pasture
+ExteriorFeatures,Exterior Features,ExteriorFeatures,ExteriorFeatures,Fire Pit,ExteriorFeatures,Fire pit
+ExteriorFeatures,Exterior Features,ExteriorFeatures,ExteriorFeatures,Dock - Floating,ExteriorFeatures,Floating Dock
+ExteriorFeatures,Exterior Features,ExteriorFeatures,ExteriorFeatures,Hot Tub,ExteriorFeatures,Hot Tub
+ExteriorFeatures,Exterior Features,ExteriorFeatures,ExteriorFeatures,Gas Grill,ExteriorFeatures,In-Ground Gas Grill
+ExteriorFeatures,Exterior Features,ExteriorFeatures,ExteriorFeatures,In-Ground Irrigation,ExteriorFeatures,In-Ground Irrigation
+ExteriorFeatures,Exterior Features,ExteriorFeatures,ExteriorFeatures,In-Ground Hot Tub / Spa,ExteriorFeatures,In-Ground Hot Tub / Spa
+ExteriorFeatures,Exterior Features,ExteriorFeatures,ExteriorFeatures,Lawn Maintenance,ExteriorFeatures,Lawn Maintenance
+ExteriorFeatures,Exterior Features,ExteriorFeatures,ExteriorFeatures,Livestock Run In,ExteriorFeatures,Livestock Run In
+ExteriorFeatures,Exterior Features,ExteriorFeatures,ExteriorFeatures,Other - See Remarks,ExteriorFeatures,Other - See Remarks
+ExteriorFeatures,Exterior Features,ExteriorFeatures,ExteriorFeatures,Outdoor Kitchen,ExteriorFeatures,Outdoor Kitchen
+ExteriorFeatures,Exterior Features,ExteriorFeatures,ExteriorFeatures,Outdoor Shower,ExteriorFeatures,Outdoor Shower
+ExteriorFeatures,Exterior Features,ExteriorFeatures,ExteriorFeatures,Pool-Above Ground,ExteriorFeatures,Pool-Above Ground
+ExteriorFeatures,Exterior Features,ExteriorFeatures,ExteriorFeatures,In Ground Pool,ExteriorFeatures,Pool-In-Ground
+ExteriorFeatures,Exterior Features,ExteriorFeatures,ExteriorFeatures,Porte-cochere,ExteriorFeatures,Porte-cochere
+ExteriorFeatures,Exterior Features,ExteriorFeatures,ExteriorFeatures,Rainwater Catchment,ExteriorFeatures,Rainwater Catchment
+ExteriorFeatures,Exterior Features,ExteriorFeatures,ExteriorFeatures,Rooftop Terrace,ExteriorFeatures,Rooftop Terrace
+ExteriorFeatures,Exterior Features,ExteriorFeatures,ExteriorFeatures,Sauna,ExteriorFeatures,Sauna
+ExteriorFeatures,Exterior Features,ExteriorFeatures,ExteriorFeatures,Storage,ExteriorFeatures,Storage
+ExteriorFeatures,Exterior Features,ExteriorFeatures,ExteriorFeatures,Storage Unit (Off Site),ExteriorFeatures,Storage Unit (Off Site)
+ExteriorFeatures,Exterior Features,ExteriorFeatures,ExteriorFeatures,Tennis Court(s),ExteriorFeatures,Tennis Court(s)
+Fencing,Fencing,Fencing,Fencing,Back Yard,Fencing,Back Yard
+Fencing,Fencing,Fencing,Fencing,Barbed Wire,Fencing,Barbed Wire
+Fencing,Fencing,Fencing,Fencing,Chain Link,Fencing,Chain Link
+Fencing,Fencing,Fencing,Fencing,Cross Fenced,Fencing,Cross Fenced
+Fencing,Fencing,Fencing,Fencing,Electric,Fencing,Electric
+Fencing,Fencing,Fencing,Fencing,Fenced,Fencing,Fenced
+Fencing,Fencing,Fencing,Fencing,Front Yard,Fencing,Front Yard
+Fencing,Fencing,Fencing,Fencing,Full,Fencing,Full
+Fencing,Fencing,Fencing,Fencing,Invisible,Fencing,Invisible
+Fencing,Fencing,Fencing,Fencing,Partial,Fencing,Partial
+Fencing,Fencing,Fencing,Fencing,Privacy,Fencing,Privacy
+Fencing,Fencing,Fencing,Fencing,Stone,Fencing,Stone
+Fencing,Fencing,Fencing,Fencing,Wood,Fencing,Wood
+Fencing,Fencing,Fencing,Fencing,Back Yard,Fencing,Back Yard
+Fencing,Fencing,Fencing,Fencing,Barbed Wire,Fencing,Barbed Wire
+Fencing,Fencing,Fencing,Fencing,Chain Link,Fencing,Chain Link
+Fencing,Fencing,Fencing,Fencing,Cross Fenced,Fencing,Cross Fenced
+Fencing,Fencing,Fencing,Fencing,Electric,Fencing,Electric
+Fencing,Fencing,Fencing,Fencing,Fenced,Fencing,Fenced
+Fencing,Fencing,Fencing,Fencing,Front Yard,Fencing,Front Yard
+Fencing,Fencing,Fencing,Fencing,Full,Fencing,Full
+Fencing,Fencing,Fencing,Fencing,Invisible,Fencing,Invisible
+Fencing,Fencing,Fencing,Fencing,Partial,Fencing,Partial
+Fencing,Fencing,Fencing,Fencing,Privacy,Fencing,Privacy
+Fencing,Fencing,Fencing,Fencing,Stone,Fencing,Stone
+Fencing,Fencing,Fencing,Fencing,Wood,Fencing,Wood
+FireplaceFeatures,Fireplace Features,FireplaceFeatures,FireplaceFeatures,Bonus Room,FireplaceFeatures,Bonus Room
+FireplaceFeatures,Fireplace Features,FireplaceFeatures,FireplaceFeatures,Den,FireplaceFeatures,Den
+FireplaceFeatures,Fireplace Features,FireplaceFeatures,FireplaceFeatures,Electric,FireplaceFeatures,Electric
+FireplaceFeatures,Fireplace Features,FireplaceFeatures,FireplaceFeatures,Family Room,FireplaceFeatures,Family Room
+FireplaceFeatures,Fireplace Features,FireplaceFeatures,FireplaceFeatures,Fire Pit,FireplaceFeatures,Fire pit
+FireplaceFeatures,Fireplace Features,FireplaceFeatures,FireplaceFeatures,Gas,FireplaceFeatures,Gas
+FireplaceFeatures,Fireplace Features,FireplaceFeatures,FireplaceFeatures,Gas Log,FireplaceFeatures,Gas Log(s)
+FireplaceFeatures,Fireplace Features,FireplaceFeatures,FireplaceFeatures,Gas Starter,FireplaceFeatures,Gas Starter
+FireplaceFeatures,Fireplace Features,FireplaceFeatures,FireplaceFeatures,Gas Vented,FireplaceFeatures,Gas Vented
+FireplaceFeatures,Fireplace Features,FireplaceFeatures,FireplaceFeatures,Great Room,FireplaceFeatures,Great Room
+FireplaceFeatures,Fireplace Features,FireplaceFeatures,FireplaceFeatures,Insert,FireplaceFeatures,Insert
+FireplaceFeatures,Fireplace Features,FireplaceFeatures,FireplaceFeatures,Keeping Room,FireplaceFeatures,Keeping Room
+FireplaceFeatures,Fireplace Features,FireplaceFeatures,FireplaceFeatures,Kitchen,FireplaceFeatures,Kitchen
+FireplaceFeatures,Fireplace Features,FireplaceFeatures,FireplaceFeatures,Living Room,FireplaceFeatures,Living Room
+FireplaceFeatures,Fireplace Features,FireplaceFeatures,FireplaceFeatures,Primary Bedroom,FireplaceFeatures,Primary Bedroom
+FireplaceFeatures,Fireplace Features,FireplaceFeatures,FireplaceFeatures,Non-Functional,FireplaceFeatures,Non-functioning
+FireplaceFeatures,Fireplace Features,FireplaceFeatures,FireplaceFeatures,Other - See Remarks,FireplaceFeatures,Other - See Remarks
+FireplaceFeatures,Fireplace Features,FireplaceFeatures,FireplaceFeatures,Outside,FireplaceFeatures,Outside
+FireplaceFeatures,Fireplace Features,FireplaceFeatures,FireplaceFeatures,Pellet Stove,FireplaceFeatures,Pellet Stove
+FireplaceFeatures,Fireplace Features,FireplaceFeatures,FireplaceFeatures,Porch,FireplaceFeatures,Porch
+FireplaceFeatures,Fireplace Features,FireplaceFeatures,FireplaceFeatures,Propane,FireplaceFeatures,Propane
+FireplaceFeatures,Fireplace Features,FireplaceFeatures,FireplaceFeatures,Recreation Room,FireplaceFeatures,Recreation Room
+FireplaceFeatures,Fireplace Features,FireplaceFeatures,FireplaceFeatures,See Through,FireplaceFeatures,See Through
+FireplaceFeatures,Fireplace Features,FireplaceFeatures,FireplaceFeatures,Gas Unvented,FireplaceFeatures,Gas Unvented
+FireplaceFeatures,Fireplace Features,FireplaceFeatures,FireplaceFeatures,Wood Burning,FireplaceFeatures,Wood Burning
+FireplaceFeatures,Fireplace Features,FireplaceFeatures,FireplaceFeatures,Wood Burning Stove,FireplaceFeatures,Wood Burning Stove
+Flooring,Flooring,Flooring,Flooring,Bamboo,Flooring,Bamboo
+Flooring,Flooring,Flooring,Flooring,Brick,Flooring,Brick
+Flooring,Flooring,Flooring,Flooring,Carpet,Flooring,Carpet
+Flooring,Flooring,Flooring,Flooring,Concrete,Flooring,Concrete
+Flooring,Flooring,Flooring,Flooring,Cork,Flooring,Cork
+Flooring,Flooring,Flooring,Flooring,Tile,Flooring,Laminate Tile
+Flooring,Flooring,Flooring,Flooring,Laminate,Flooring,Laminate Stone
+Flooring,Flooring,Flooring,Flooring,Laminate,Flooring,Laminate Wood
+Flooring,Flooring,Flooring,Flooring,Linoleum,Flooring,Linoleum
+Flooring,Flooring,Flooring,Flooring,Marble,Flooring,Marble
+Flooring,Flooring,Flooring,Flooring,Other - See Remarks,Flooring,Other - See Remarks
+Flooring,Flooring,Flooring,Flooring,Parquet,Flooring,Parquet
+Flooring,Flooring,Flooring,Flooring,Hardwood,Flooring,Prefinished Wood
+Flooring,Flooring,Flooring,Flooring,Slate,Flooring,Slate
+Flooring,Flooring,Flooring,Flooring,Stone,Flooring,Stone
+Flooring,Flooring,Flooring,Flooring,Sustainable,Flooring,Sustainable
+Flooring,Flooring,Flooring,Flooring,Terrazzo,Flooring,Terrazzo
+Flooring,Flooring,Flooring,Flooring,Tile,Flooring,Tile
+Flooring,Flooring,Flooring,Flooring,Vinyl,Flooring,Vinyl
+Flooring,Flooring,Flooring,Flooring,Vinyl,Flooring,Vinyl Plank
+Flooring,Flooring,Flooring,Flooring,Wood,Flooring,Wood
+FoundationDetails,Foundation Details,FoundationDetails,FoundationDetails,Basement,FoundationDetails,Basement
+FoundationDetails,Foundation Details,FoundationDetails,FoundationDetails,Crawl Space,FoundationDetails,Crawl Space
+FoundationDetails,Foundation Details,FoundationDetails,FoundationDetails,None,FoundationDetails,N/A
+FoundationDetails,Foundation Details,FoundationDetails,FoundationDetails,Other - See Remarks,FoundationDetails,Other - See Remarks
+FoundationDetails,Foundation Details,FoundationDetails,FoundationDetails,Permanent,FoundationDetails,Permanent
+FoundationDetails,Foundation Details,FoundationDetails,FoundationDetails,Pillar/Post/Pier,FoundationDetails,Pillar/Post/Pier
+FoundationDetails,Foundation Details,FoundationDetails,FoundationDetails,Slab,FoundationDetails,Slab
+FoundationDetails,Foundation Details,FoundationDetails,FoundationDetails,Stone,FoundationDetails,Stone
+Furnished,Furnished,Furnished,Furnished,Furnished,Furnished,Furnished
+Furnished,Furnished,Furnished,Furnished,Negotiable,Furnished,Negotiable
+Furnished,Furnished,Furnished,Furnished,Partially,Furnished,Partially
+Furnished,Furnished,Furnished,Furnished,Unfurnished,Furnished,Unfurnished
+GreenSustainability,Green Sustainability,GreenSustainability,GreenSustainability,Advanced Framing,GreenSustainability,Advanced Framing
+GreenSustainability,Green Sustainability,GreenSustainability,GreenSustainability,Concrete Construction,GreenSustainability,Concrete Construction
+GreenSustainability,Green Sustainability,GreenSustainability,GreenSustainability,Engineered Wood Products,GreenSustainability,Engineered Wood Products
+GreenSustainability,Green Sustainability,GreenSustainability,GreenSustainability,Low VOC Coatings,GreenSustainability,Low VOC Coatings
+GreenSustainability,Green Sustainability,GreenSustainability,GreenSustainability,No VOC Coatings,GreenSustainability,No VOC Coatings
+GreenSustainability,Green Sustainability,GreenSustainability,GreenSustainability,Photovoltaic - Solar Power,GreenSustainability,Photovoltaic - Solar Power
+GreenSustainability,Green Sustainability,GreenSustainability,GreenSustainability,Recycled Materials,GreenSustainability,Recycled Materials
+GreenSustainability,Green Sustainability,GreenSustainability,GreenSustainability,Salvaged Materials,GreenSustainability,Salvaged Materials
+GreenSustainability,Green Sustainability,GreenSustainability,GreenSustainability,Spray Foam Insulation,GreenSustainability,Spray Foam Insulation
+GreenSustainability,Green Sustainability,GreenSustainability,GreenSustainability,XeriscapinDrought Resist. Plnts,GreenSustainability,XeriscapinDrought Resist. Plnts
+GreenSustainability,Green Sustainability,GreenSustainability,GreenSustainability,Advanced Framing,GreenSustainability,Advanced Framing
+GreenSustainability,Green Sustainability,GreenSustainability,GreenSustainability,Concrete Construction,GreenSustainability,Concrete Construction
+GreenSustainability,Green Sustainability,GreenSustainability,GreenSustainability,Engineered Wood Products,GreenSustainability,Engineered Wood Products
+GreenSustainability,Green Sustainability,GreenSustainability,GreenSustainability,Low VOC Coatings,GreenSustainability,Low VOC Coatings
+GreenSustainability,Green Sustainability,GreenSustainability,GreenSustainability,No VOC Coatings,GreenSustainability,No VOC Coatings
+GreenSustainability,Green Sustainability,GreenSustainability,GreenSustainability,Photovoltaic - Solar Power,GreenSustainability,Photovoltaic - Solar Power
+GreenSustainability,Green Sustainability,GreenSustainability,GreenSustainability,Recycled Materials,GreenSustainability,Recycled Materials
+GreenSustainability,Green Sustainability,GreenSustainability,GreenSustainability,Salvaged Materials,GreenSustainability,Salvaged Materials
+GreenSustainability,Green Sustainability,GreenSustainability,GreenSustainability,Spray Foam Insulation,GreenSustainability,Spray Foam Insulation
+GreenSustainability,Green Sustainability,GreenSustainability,GreenSustainability,XeriscapinDrought Resist. Plnts,GreenSustainability,XeriscapinDrought Resist. Plnts
+Heating,Heating,Heating,Heating,Active Solar,Heating,Active Solar Heat
+Heating,Heating,Heating,Heating,Apollo System,Heating,Apollo System
+Heating,Heating,Heating,Heating,Baseboard,Heating,Baseboard
+Heating,Heating,Heating,Heating,Central,Heating,Central
+Heating,Heating,Heating,Heating,Ductless,Heating,Ductless
+Heating,Heating,Heating,Heating,Electric,Heating,Electric
+Heating,Heating,Heating,Heating,ENERGY STAR Qualified Equipment,Heating,Energy Star HVAC
+Heating,Heating,Heating,Heating,Floor Furnace,Heating,Floor Furnace
+Heating,Heating,Heating,Heating,Forced Air,Heating,Forced Air
+Heating,Heating,Heating,Heating,Fresh Air Ventilation,Heating,Fresh Air Ventilation
+Heating,Heating,Heating,Heating,Geothermal,Heating,Geothermal
+Heating,Heating,Heating,Heating,Heat Pump,Heating,Heat Pump
+Heating,Heating,Heating,Heating,Hot Water,Heating,Hot Water
+Heating,Heating,Heating,Heating,Humidity Control,Heating,Humidity Control
+Heating,Heating,Heating,Heating,Kerosene,Heating,Kerosene
+Heating,Heating,Heating,Heating,None,Heating,N/A
+Heating,Heating,Heating,Heating,Natural Gas,Heating,Natural Gas
+Heating,Heating,Heating,Heating,None,Heating,None
+Heating,Heating,Heating,Heating,Office Only,Heating,Office only
+Heating,Heating,Heating,Heating,Oil,Heating,Oil
+Heating,Heating,Heating,Heating,Other - See Remarks,Heating,Other - See Remarks
+Heating,Heating,Heating,Heating,Passive Solar,Heating,Passive Solar
+Heating,Heating,Heating,Heating,Propane,Heating,Propane
+Heating,Heating,Heating,Heating,Radiant Floor,Heating,Radiant Floor
+Heating,Heating,Heating,Heating,Radiant,Heating,Radiant
+Heating,Heating,Heating,Heating,Sealed Combustion Fireplace,Heating,Sealed Combustion Fireplace
+Heating,Heating,Heating,Heating,Sealed Combustion Woodstove,Heating,Sealed Combustion Woodstove
+Heating,Heating,Heating,Heating,Separate Meters,Heating,Separate Meters
+Heating,Heating,Heating,Heating,Solar,Heating,Solar
+Heating,Heating,Heating,Heating,Space Heater,Heating,Space Heater
+Heating,Heating,Heating,Heating,Steam,Heating,Steam
+Heating,Heating,Heating,Heating,Total Area,Heating,Total Area
+Heating,Heating,Heating,Heating,Wood Stove,Heating,Woodstove
+Heating,Heating,Heating,Heating,Wall Furnace,Heating,Wall Furnace
+Heating,Heating,Heating,Heating,Zoned,Heating,Zoned
+HorseAmenities,Horse Amenities,HorseAmenities,HorseAmenities,Arena,HorseAmenities,Arena
+HorseAmenities,Horse Amenities,HorseAmenities,HorseAmenities,Arena covered,HorseAmenities,Arena covered
+HorseAmenities,Horse Amenities,HorseAmenities,HorseAmenities,Barn,HorseAmenities,Barn
+HorseAmenities,Horse Amenities,HorseAmenities,HorseAmenities,Boarding Facilities,HorseAmenities,Boarding Facilities
+HorseAmenities,Horse Amenities,HorseAmenities,HorseAmenities,Corral(s),HorseAmenities,Corral(s)
+HorseAmenities,Horse Amenities,HorseAmenities,HorseAmenities,Equestrian Facilities,HorseAmenities,Equestrian Facilities
+HorseAmenities,Horse Amenities,HorseAmenities,HorseAmenities,Hay Storage,HorseAmenities,Hay Storage
+HorseAmenities,Horse Amenities,HorseAmenities,HorseAmenities,Horses Allowed,HorseAmenities,Horses Allowed
+HorseAmenities,Horse Amenities,HorseAmenities,HorseAmenities,None,HorseAmenities,None
+HorseAmenities,Horse Amenities,HorseAmenities,HorseAmenities,Other - See Remarks,HorseAmenities,Other - See Remarks
+HorseAmenities,Horse Amenities,HorseAmenities,HorseAmenities,Paddocks,HorseAmenities,Paddocks
+HorseAmenities,Horse Amenities,HorseAmenities,HorseAmenities,Palpation Chute,HorseAmenities,Palpation Chute
+HorseAmenities,Horse Amenities,HorseAmenities,HorseAmenities,Pasture,HorseAmenities,Pasture
+HorseAmenities,Horse Amenities,HorseAmenities,HorseAmenities,Riding Trail,HorseAmenities,Riding Trail
+HorseAmenities,Horse Amenities,HorseAmenities,HorseAmenities,Run in Shelter,HorseAmenities,Run in Shelter
+HorseAmenities,Horse Amenities,HorseAmenities,HorseAmenities,Round Pen,HorseAmenities,Round Pen
+HorseAmenities,Horse Amenities,HorseAmenities,HorseAmenities,Shaving Bin,HorseAmenities,Shaving Bin
+HorseAmenities,Horse Amenities,HorseAmenities,HorseAmenities,Stable(s),HorseAmenities,Stable(s)
+HorseAmenities,Horse Amenities,HorseAmenities,HorseAmenities,Tack Room,HorseAmenities,Tack Room
+HorseAmenities,Horse Amenities,HorseAmenities,HorseAmenities,Trailer Storage,HorseAmenities,Trailer Storage
+HorseAmenities,Horse Amenities,HorseAmenities,HorseAmenities,Wash Rack,HorseAmenities,Wash Rack
+HorseAmenities,Horse Amenities,HorseAmenities,HorseAmenities,Arena,HorseAmenities,Arena
+HorseAmenities,Horse Amenities,HorseAmenities,HorseAmenities,Arena covered,HorseAmenities,Arena covered
+HorseAmenities,Horse Amenities,HorseAmenities,HorseAmenities,Barn,HorseAmenities,Barn
+HorseAmenities,Horse Amenities,HorseAmenities,HorseAmenities,Boarding Facilities,HorseAmenities,Boarding Facilities
+HorseAmenities,Horse Amenities,HorseAmenities,HorseAmenities,Corral(s),HorseAmenities,Corral(s)
+HorseAmenities,Horse Amenities,HorseAmenities,HorseAmenities,Equestrian Facilities,HorseAmenities,Equestrian Facilities
+HorseAmenities,Horse Amenities,HorseAmenities,HorseAmenities,Hay Storage,HorseAmenities,Hay Storage
+HorseAmenities,Horse Amenities,HorseAmenities,HorseAmenities,Horses Allowed,HorseAmenities,Horses Allowed
+HorseAmenities,Horse Amenities,HorseAmenities,HorseAmenities,None,HorseAmenities,None
+HorseAmenities,Horse Amenities,HorseAmenities,HorseAmenities,Other - See Remarks,HorseAmenities,Other - See Remarks
+HorseAmenities,Horse Amenities,HorseAmenities,HorseAmenities,Paddocks,HorseAmenities,Paddocks
+HorseAmenities,Horse Amenities,HorseAmenities,HorseAmenities,Palpation Chute,HorseAmenities,Palpation Chute
+HorseAmenities,Horse Amenities,HorseAmenities,HorseAmenities,Pasture,HorseAmenities,Pasture
+HorseAmenities,Horse Amenities,HorseAmenities,HorseAmenities,Riding Trail,HorseAmenities,Riding Trail
+HorseAmenities,Horse Amenities,HorseAmenities,HorseAmenities,Run in Shelter,HorseAmenities,Run in Shelter
+HorseAmenities,Horse Amenities,HorseAmenities,HorseAmenities,Round Pen,HorseAmenities,Round Pen
+HorseAmenities,Horse Amenities,HorseAmenities,HorseAmenities,Shaving Bin,HorseAmenities,Shaving Bin
+HorseAmenities,Horse Amenities,HorseAmenities,HorseAmenities,Stable(s),HorseAmenities,Stable(s)
+HorseAmenities,Horse Amenities,HorseAmenities,HorseAmenities,Tack Room,HorseAmenities,Tack Room
+HorseAmenities,Horse Amenities,HorseAmenities,HorseAmenities,Trailer Storage,HorseAmenities,Trailer Storage
+HorseAmenities,Horse Amenities,HorseAmenities,HorseAmenities,Wash Rack,HorseAmenities,Wash Rack
+InteriorFeatures,Interior Features,InteriorFeatures,InteriorOrRoomFeatures,Attic Finished,InteriorFeatures,Attic Finished
+InteriorFeatures,Interior Features,InteriorFeatures,InteriorOrRoomFeatures,Attic Other,InteriorFeatures,Attic Other
+InteriorFeatures,Interior Features,InteriorFeatures,InteriorOrRoomFeatures,Attic Stairs Fixed,InteriorFeatures,Attic Stairs Fixed
+InteriorFeatures,Interior Features,InteriorFeatures,InteriorOrRoomFeatures,Attic Stairs Pulldown,InteriorFeatures,Attic Stairs Pulldown
+InteriorFeatures,Interior Features,InteriorFeatures,InteriorOrRoomFeatures,Attic Walk In,InteriorFeatures,Attic Walk-in
+InteriorFeatures,Interior Features,InteriorFeatures,InteriorOrRoomFeatures,Breakfast Bar,InteriorFeatures,Breakfast Bar
+InteriorFeatures,Interior Features,InteriorFeatures,InteriorOrRoomFeatures,Built-in Features,InteriorFeatures,Built-in Features
+InteriorFeatures,Interior Features,InteriorFeatures,InteriorOrRoomFeatures,Cathedral Ceiling(s),InteriorFeatures,Cathedral Ceiling(s)
+InteriorFeatures,Interior Features,InteriorFeatures,InteriorOrRoomFeatures,Computer Niche,InteriorFeatures,Computer Niche
+InteriorFeatures,Interior Features,InteriorFeatures,InteriorOrRoomFeatures,Cable Prewire,InteriorFeatures,Cable Prewire
+InteriorFeatures,Interior Features,InteriorFeatures,InteriorOrRoomFeatures,Central Vacuum,InteriorFeatures,Central Vacuum
+InteriorFeatures,Interior Features,InteriorFeatures,InteriorOrRoomFeatures,Drop Zone,InteriorFeatures,Drop Zone
+InteriorFeatures,Interior Features,InteriorFeatures,InteriorOrRoomFeatures,Elevator,InteriorFeatures,Elevator
+InteriorFeatures,Interior Features,InteriorFeatures,InteriorOrRoomFeatures,Entrance Foyer,InteriorFeatures,Entrance Foyer
+InteriorFeatures,Interior Features,InteriorFeatures,InteriorOrRoomFeatures,Garden Tub,InteriorFeatures,Garden Tub
+InteriorFeatures,Interior Features,InteriorFeatures,InteriorOrRoomFeatures,Hot Tub,InteriorFeatures,Hot Tub
+InteriorFeatures,Interior Features,InteriorFeatures,InteriorOrRoomFeatures,Kitchen Island,InteriorFeatures,Kitchen Island
+InteriorFeatures,Interior Features,InteriorFeatures,InteriorOrRoomFeatures,None,InteriorFeatures,None
+InteriorFeatures,Interior Features,InteriorFeatures,InteriorOrRoomFeatures,Open Floorplan,InteriorFeatures,Open Floorplan
+InteriorFeatures,Interior Features,InteriorFeatures,InteriorOrRoomFeatures,Other - See Remarks,InteriorFeatures,Other - See Remarks
+InteriorFeatures,Interior Features,InteriorFeatures,InteriorOrRoomFeatures,Pantry,InteriorFeatures,Pantry
+InteriorFeatures,Interior Features,InteriorFeatures,InteriorOrRoomFeatures,Sauna,InteriorFeatures,Sauna
+InteriorFeatures,Interior Features,InteriorFeatures,InteriorOrRoomFeatures,Split Bedroom,InteriorFeatures,Split BR Plan
+InteriorFeatures,Interior Features,InteriorFeatures,InteriorOrRoomFeatures,Storage,InteriorFeatures,Storage
+InteriorFeatures,Interior Features,InteriorFeatures,InteriorOrRoomFeatures,Tray Ceiling(s),InteriorFeatures,Tray Ceiling(s)
+InteriorFeatures,Interior Features,InteriorFeatures,InteriorOrRoomFeatures,Vaulted Ceiling(s),InteriorFeatures,Vaulted Ceiling(s)
+InteriorFeatures,Interior Features,InteriorFeatures,InteriorOrRoomFeatures,Wet Bar,InteriorFeatures,Wet Bar
+InteriorFeatures,Interior Features,InteriorFeatures,InteriorOrRoomFeatures,Whirlpool,InteriorFeatures,Whirlpool
+InteriorFeatures,Interior Features,InteriorFeatures,InteriorOrRoomFeatures,Walk-In Closet(s),InteriorFeatures,Walk-In Closet(s)
+InteriorFeatures,Interior Features,InteriorFeatures,InteriorOrRoomFeatures,Walk-In Pantry,InteriorFeatures,Walk-In Pantry
+LaundryFeatures,Laundry Features,LaundryFeatures,LaundryFeatures,Common Area,LaundryFeatures,Common Area
+LaundryFeatures,Laundry Features,LaundryFeatures,LaundryFeatures,Dryer Hookup,LaundryFeatures,Dryer Hookup
+LaundryFeatures,Laundry Features,LaundryFeatures,LaundryFeatures,Electric Dryer Hookup,LaundryFeatures,Electric Dryer Hookup
+LaundryFeatures,Laundry Features,LaundryFeatures,LaundryFeatures,Gas Dryer Hookup,LaundryFeatures,Gas Dryer Hookup
+LaundryFeatures,Laundry Features,LaundryFeatures,LaundryFeatures,In Bathroom,LaundryFeatures,In Bathroom
+LaundryFeatures,Laundry Features,LaundryFeatures,LaundryFeatures,In Basement,LaundryFeatures,In Basement
+LaundryFeatures,Laundry Features,LaundryFeatures,LaundryFeatures,In Carport,LaundryFeatures,In Carport
+LaundryFeatures,Laundry Features,LaundryFeatures,LaundryFeatures,In Garage,LaundryFeatures,In Garage
+LaundryFeatures,Laundry Features,LaundryFeatures,LaundryFeatures,In Hall,LaundryFeatures,In Hall
+LaundryFeatures,Laundry Features,LaundryFeatures,LaundryFeatures,In Kitchen,LaundryFeatures,In Kitchen
+LaundryFeatures,Laundry Features,LaundryFeatures,LaundryFeatures,Mud Room,LaundryFeatures,In Mud Room
+LaundryFeatures,Laundry Features,LaundryFeatures,LaundryFeatures,Inside,LaundryFeatures,Inside
+LaundryFeatures,Laundry Features,LaundryFeatures,LaundryFeatures,In Unit,LaundryFeatures,In Unit
+LaundryFeatures,Laundry Features,LaundryFeatures,LaundryFeatures,Utility Room,LaundryFeatures,In Utility Room
+LaundryFeatures,Laundry Features,LaundryFeatures,LaundryFeatures,Laundry Chute,LaundryFeatures,Laundry Chute
+LaundryFeatures,Laundry Features,LaundryFeatures,LaundryFeatures,Laundry Closet,LaundryFeatures,Laundry Closet
+LaundryFeatures,Laundry Features,LaundryFeatures,LaundryFeatures,Laundry Room,LaundryFeatures,Laundry Room
+LaundryFeatures,Laundry Features,LaundryFeatures,LaundryFeatures,Lower Level,LaundryFeatures,Lower Level
+LaundryFeatures,Laundry Features,LaundryFeatures,LaundryFeatures,Main Level,LaundryFeatures,Main Level
+LaundryFeatures,Laundry Features,LaundryFeatures,LaundryFeatures,Multiple Locations,LaundryFeatures,Multiple Locations
+LaundryFeatures,Laundry Features,LaundryFeatures,LaundryFeatures,None,LaundryFeatures,None
+LaundryFeatures,Laundry Features,LaundryFeatures,LaundryFeatures,Other - See Remarks,LaundryFeatures,Other - See Remarks
+LaundryFeatures,Laundry Features,LaundryFeatures,LaundryFeatures,Outside,LaundryFeatures,Outside
+LaundryFeatures,Laundry Features,LaundryFeatures,LaundryFeatures,Porch,LaundryFeatures,Porch
+LaundryFeatures,Laundry Features,LaundryFeatures,LaundryFeatures,Sink,LaundryFeatures,Sink
+LaundryFeatures,Laundry Features,LaundryFeatures,LaundryFeatures,Third Level,LaundryFeatures,Third Level
+LaundryFeatures,Laundry Features,LaundryFeatures,LaundryFeatures,Upper Level,LaundryFeatures,Upper Level
+LaundryFeatures,Laundry Features,LaundryFeatures,LaundryFeatures,Washer Hookup,LaundryFeatures,Washer Hookup
+LeaseTerm,Lease Term,LeaseTerm,LeaseTerm,12 Months,LeaseTerm,1 Year
+LeaseTerm,Lease Term,LeaseTerm,LeaseTerm,Month To Month,LeaseTerm,Month To Month
+LeaseTerm,Lease Term,LeaseTerm,LeaseTerm,Multi-Year,LeaseTerm,Multiple Years
+LeaseTerm,Lease Term,LeaseTerm,LeaseTerm,Other - See Remarks,LeaseTerm,Other - See Remarks
+LeaseTerm,Lease Term,LeaseTerm,LeaseTerm,Weekly,LeaseTerm,Weekly
+Levels,Levels,Levels,Levels,One,Levels,1 Story
+Levels,Levels,Levels,Levels,1 Story/F.R.O.G.,Levels,1 Story/F.R.O.G.
+Levels,Levels,Levels,Levels,One and One Half,Levels,1.5 Story
+Levels,Levels,Levels,Levels,Two,Levels,2 Story
+Levels,Levels,Levels,Levels,Two and a Half,Levels,2.5 Story
+Levels,Levels,Levels,Levels,Three,Levels,3 Story
+Levels,Levels,Levels,Levels,Four,Levels,4 Story
+Levels,Levels,Levels,Levels,5 Story or more,Levels,5 Story or more
+Levels,Levels,Levels,Levels,Split Entry (Bi-Level),Levels,Split Foyer
+Levels,Levels,Levels,Levels,None,Levels,None
+Levels,Levels,Levels,Levels,Split Level,Levels,Split Level
+Levels,Levels,Levels,Levels,Tri-Level,Levels,Tri-Level
+Levels,Levels,Levels,Levels,One,Levels,1 Story
+Levels,Levels,Levels,Levels,1 Story/F.R.O.G.,Levels,1 Story/F.R.O.G.
+Levels,Levels,Levels,Levels,One and One Half,Levels,1.5 Story
+Levels,Levels,Levels,Levels,Two,Levels,2 Story
+Levels,Levels,Levels,Levels,Two and a Half,Levels,2.5 Story
+Levels,Levels,Levels,Levels,Three,Levels,3 Story
+Levels,Levels,Levels,Levels,Four,Levels,4 Story
+Levels,Levels,Levels,Levels,5 Story or more,Levels,5 Story or more
+Levels,Levels,Levels,Levels,Split Entry (Bi-Level),Levels,Split Foyer
+Levels,Levels,Levels,Levels,None,Levels,None
+Levels,Levels,Levels,Levels,Split Level,Levels,Split Level
+Levels,Levels,Levels,Levels,Tri-Level,Levels,Tri-Level
+ListingAgreement,Listing Agreement,ListingAgreement,ListingAgreement,Exclusive Agency,ListingAgreement,Exclusive Agency
+ListingAgreement,Listing Agreement,ListingAgreement,ListingAgreement,Exclusive Right With Exception,ListingAgreement,Exclusive Right With Exception
+ListingAgreement,Listing Agreement,ListingAgreement,ListingAgreement,Exclusive Right To Lease,ListingAgreement,Exclusive Right To Lease
+ListingAgreement,Listing Agreement,ListingAgreement,ListingAgreement,Exclusive Right To Sell,ListingAgreement,Exclusive Right To Sell
+ListingService,Listing Service,ListingService,ListingService,Full Service,ListingService,Full Service
+ListingService,Listing Service,ListingService,ListingService,Limited Service,ListingService,Limited Service
+ListingTerms,Listing Terms,ListingTerms,ListingTerms,ARM Loan,ListingTerms,ARM Loan
+ListingTerms,Listing Terms,ListingTerms,ListingTerms,Assumable,ListingTerms,Assumable
+ListingTerms,Listing Terms,ListingTerms,ListingTerms,Build To Suit,ListingTerms,Build To Suit
+ListingTerms,Listing Terms,ListingTerms,ListingTerms,Cash,ListingTerms,Cash
+ListingTerms,Listing Terms,ListingTerms,ListingTerms,Construction Perm Loan,ListingTerms,Construction Perm Loan
+ListingTerms,Listing Terms,ListingTerms,ListingTerms,Conventional,ListingTerms,Conventional
+ListingTerms,Listing Terms,ListingTerms,ListingTerms,Exchange,ListingTerms,Exchange
+ListingTerms,Listing Terms,ListingTerms,ListingTerms,FHA,ListingTerms,FHA
+ListingTerms,Listing Terms,ListingTerms,ListingTerms,FHA 203(K),ListingTerms,FHA 203(K)
+ListingTerms,Listing Terms,ListingTerms,ListingTerms,FMHA,ListingTerms,FMHA
+ListingTerms,Listing Terms,ListingTerms,ListingTerms,Hard Money Loan,ListingTerms,Hard Money Loan
+ListingTerms,Listing Terms,ListingTerms,ListingTerms,Land Use Ground Lease Fee,ListingTerms,Land Use Ground Lease Fee
+ListingTerms,Listing Terms,ListingTerms,ListingTerms,Lease,ListingTerms,Lease
+ListingTerms,Listing Terms,ListingTerms,ListingTerms,Lease Back,ListingTerms,Lease Back
+ListingTerms,Listing Terms,ListingTerms,ListingTerms,Lease Option,ListingTerms,Lease Option
+ListingTerms,Listing Terms,ListingTerms,ListingTerms,Lease Purchase,ListingTerms,Lease Purchase
+ListingTerms,Listing Terms,ListingTerms,ListingTerms,NC Bond,ListingTerms,NC Bond
+ListingTerms,Listing Terms,ListingTerms,ListingTerms,Nonconforming Loan,ListingTerms,Nonconforming Loan
+ListingTerms,Listing Terms,ListingTerms,ListingTerms,Other - See Remarks,ListingTerms,Other - See Remarks
+ListingTerms,Listing Terms,ListingTerms,ListingTerms,Owner Financing,ListingTerms,Owner Financing
+ListingTerms,Listing Terms,ListingTerms,ListingTerms,Private,ListingTerms,Private Money Loan
+ListingTerms,Listing Terms,ListingTerms,ListingTerms,Private,ListingTerms,Private Lending Source
+ListingTerms,Listing Terms,ListingTerms,ListingTerms,USDA Loan,ListingTerms,USDA Loan
+ListingTerms,Listing Terms,ListingTerms,ListingTerms,VA Loan,ListingTerms,VA Loan
+ListingTerms,Listing Terms,ListingTerms,ListingTerms,Wrap Around,ListingTerms,Wrap Around
+LivingAreaSource,Living Area Source,LivingAreaSource,AreaSource,Appraiser,AreaSource,Appraiser
+LivingAreaSource,Living Area Source,LivingAreaSource,AreaSource,Assessor,AreaSource,Assessor
+LivingAreaSource,Living Area Source,LivingAreaSource,AreaSource,Builder,AreaSource,Builder
+LivingAreaSource,Living Area Source,LivingAreaSource,AreaSource,Estimated,AreaSource,Estimated
+LivingAreaSource,Living Area Source,LivingAreaSource,AreaSource,Other,AreaSource,Other
+LivingAreaSource,Living Area Source,LivingAreaSource,AreaSource,Owner,AreaSource,Owner
+LivingAreaSource,Living Area Source,LivingAreaSource,AreaSource,Plans,AreaSource,Plans
+LivingAreaSource,Living Area Source,LivingAreaSource,AreaSource,Public Records,AreaSource,Public Records
+LivingAreaSource,Living Area Source,LivingAreaSource,AreaSource,See Remarks,AreaSource,See Remarks
+LivingAreaSource,Living Area Source,LivingAreaSource,AreaSource,Appraiser,AreaSource,Appraiser
+LivingAreaSource,Living Area Source,LivingAreaSource,AreaSource,Assessor,AreaSource,Assessor
+LivingAreaSource,Living Area Source,LivingAreaSource,AreaSource,Builder,AreaSource,Builder
+LivingAreaSource,Living Area Source,LivingAreaSource,AreaSource,Estimated,AreaSource,Estimated
+LivingAreaSource,Living Area Source,LivingAreaSource,AreaSource,Other,AreaSource,Other
+LivingAreaSource,Living Area Source,LivingAreaSource,AreaSource,Owner,AreaSource,Owner
+LivingAreaSource,Living Area Source,LivingAreaSource,AreaSource,Plans,AreaSource,Plans
+LivingAreaSource,Living Area Source,LivingAreaSource,AreaSource,Public Records,AreaSource,Public Records
+LivingAreaSource,Living Area Source,LivingAreaSource,AreaSource,See Remarks,AreaSource,See Remarks
+LivingAreaUnits,Living Area Units,LivingAreaUnits,AreaUnits,Square Feet,AreaUnits,Square Feet
+LivingAreaUnits,Living Area Units,LivingAreaUnits,AreaUnits,Square Feet,AreaUnits,Square Feet
+LotFeatures,Lot Features,LotFeatures,LotFeatures,Waterfall - Artificial,LotFeatures,Waterfall - Artificial
+LotFeatures,Lot Features,LotFeatures,LotFeatures,Beach Front,LotFeatures,Beachfront
+LotFeatures,Lot Features,LotFeatures,LotFeatures,Cleared,LotFeatures,Cleared
+LotFeatures,Lot Features,LotFeatures,LotFeatures,Corner Lot,LotFeatures,Corner Lot
+LotFeatures,Lot Features,LotFeatures,LotFeatures,Creek Front,LotFeatures,Creekfront
+LotFeatures,Lot Features,LotFeatures,LotFeatures,Crops,LotFeatures,Crops
+LotFeatures,Lot Features,LotFeatures,LotFeatures,Cul-De-Sac,LotFeatures,Cul-De-Sac
+LotFeatures,Lot Features,LotFeatures,LotFeatures,End Unit,LotFeatures,End Unit
+LotFeatures,Lot Features,LotFeatures,LotFeatures,Flood Fringe Area,LotFeatures,Flood Fringe Area
+LotFeatures,Lot Features,LotFeatures,LotFeatures,Flood Plain/Bottom Land,LotFeatures,Flood Plain
+LotFeatures,Lot Features,LotFeatures,LotFeatures,Orchard(s),LotFeatures,Fruit Trees
+LotFeatures,Lot Features,LotFeatures,LotFeatures,Green Area,LotFeatures,Green Area
+LotFeatures,Lot Features,LotFeatures,LotFeatures,Hilly,LotFeatures,Hilly
+LotFeatures,Lot Features,LotFeatures,LotFeatures,Infill Lot,LotFeatures,Infill Lot
+LotFeatures,Lot Features,LotFeatures,LotFeatures,Lake On Property,LotFeatures,Lake
+LotFeatures,Lot Features,LotFeatures,LotFeatures,Level,LotFeatures,Level
+LotFeatures,Lot Features,LotFeatures,LotFeatures,Adjoins Forest,LotFeatures,Adjoins Nat/State Forest
+LotFeatures,Lot Features,LotFeatures,LotFeatures,On Golf Course,LotFeatures,On Golf Course
+LotFeatures,Lot Features,LotFeatures,LotFeatures,Open Lot,LotFeatures,Open Lot
+LotFeatures,Lot Features,LotFeatures,LotFeatures,Other - See Remarks,LotFeatures,Other - See Remarks
+LotFeatures,Lot Features,LotFeatures,LotFeatures,Pasture,LotFeatures,Pasture
+LotFeatures,Lot Features,LotFeatures,LotFeatures,Paved,LotFeatures,Paved
+LotFeatures,Lot Features,LotFeatures,LotFeatures,Pond(s),LotFeatures,Pond
+LotFeatures,Lot Features,LotFeatures,LotFeatures,Private,LotFeatures,Private
+LotFeatures,Lot Features,LotFeatures,LotFeatures,River Front,LotFeatures,Riverfront
+LotFeatures,Lot Features,LotFeatures,LotFeatures,Rolling Slope,LotFeatures,Rolling Slope
+LotFeatures,Lot Features,LotFeatures,LotFeatures,Runway Lot,LotFeatures,Runway Lot
+LotFeatures,Lot Features,LotFeatures,LotFeatures,Sloped,LotFeatures,Sloped
+LotFeatures,Lot Features,LotFeatures,LotFeatures,Steep Slope,LotFeatures,Steep Slope
+LotFeatures,Lot Features,LotFeatures,LotFeatures,Creek/Stream,LotFeatures,Stream/Creek
+LotFeatures,Lot Features,LotFeatures,LotFeatures,Taxiway Lot,LotFeatures,Taxiway Lot
+LotFeatures,Lot Features,LotFeatures,LotFeatures,Wooded,LotFeatures,Trees
+LotFeatures,Lot Features,LotFeatures,LotFeatures,Views,LotFeatures,Views
+LotFeatures,Lot Features,LotFeatures,LotFeatures,Wetlands,LotFeatures,Wetlands
+LotFeatures,Lot Features,LotFeatures,LotFeatures,Waterfall,LotFeatures,Waterfall
+LotFeatures,Lot Features,LotFeatures,LotFeatures,Wooded,LotFeatures,Wooded
+LotFeatures,Lot Features,LotFeatures,LotFeatures,Waterfront,LotFeatures,Waterfront
+LotSizeUnits,Lot Size Units,LotSizeUnits,LotSizeUnits,Acres,LotSizeUnits,Acres
+LotSizeUnits,Lot Size Units,LotSizeUnits,LotSizeUnits,Square Feet,LotSizeUnits,Square Feet
+LotSizeUnits,Lot Size Units,LotSizeUnits,LotSizeUnits,Square Meters,LotSizeUnits,Square Meters
+MajorChangeType,Major Change Type,MajorChangeType,ChangeType,Active,ChangeType,Active
+MajorChangeType,Major Change Type,MajorChangeType,ChangeType,Under Contract-Showings,ChangeType,Under Contract-Show
+MajorChangeType,Major Change Type,MajorChangeType,ChangeType,Application Received,ChangeType,Application Received
+MajorChangeType,Major Change Type,MajorChangeType,ChangeType,Buyer Agency Compensation,ChangeType,Buyer Agency Compensation
+MajorChangeType,Major Change Type,MajorChangeType,ChangeType,Back On Market,ChangeType,Back On Market
+MajorChangeType,Major Change Type,MajorChangeType,ChangeType,Closed,ChangeType,Closed
+MajorChangeType,Major Change Type,MajorChangeType,ChangeType,Coming Soon,ChangeType,Coming Soon
+MajorChangeType,Major Change Type,MajorChangeType,ChangeType,Expired,ChangeType,Expired
+MajorChangeType,Major Change Type,MajorChangeType,ChangeType,Temporarily Off Market,ChangeType,Temp Off Mkt/Hold
+MajorChangeType,Major Change Type,MajorChangeType,ChangeType,New Listing,ChangeType,New Listing
+MajorChangeType,Major Change Type,MajorChangeType,ChangeType,Price Change,ChangeType,Price Change
+MajorChangeType,Major Change Type,MajorChangeType,ChangeType,Sub Agency Compensation,ChangeType,Sub Agency Compensation
+MajorChangeType,Major Change Type,MajorChangeType,ChangeType,Under Contract-No Showings,ChangeType,Under Contract-No Show
+MajorChangeType,Major Change Type,MajorChangeType,ChangeType,Withdrawn,ChangeType,Withdrawn
+OtherEquipment,Other Equipment,OtherEquipment,OtherEquipment,Compressor,OtherEquipment,Compressor
+OtherEquipment,Other Equipment,OtherEquipment,OtherEquipment,Conveyor System,OtherEquipment,Conveyor
+OtherEquipment,Other Equipment,OtherEquipment,OtherEquipment,Fuel Pump,OtherEquipment,Fuel Pump
+OtherEquipment,Other Equipment,OtherEquipment,OtherEquipment,Fuel Tank(s),OtherEquipment,Fuel Tank
+OtherEquipment,Other Equipment,OtherEquipment,OtherEquipment,Fuel Tank - Leased,OtherEquipment,Fuel Tank - Leased
+OtherEquipment,Other Equipment,OtherEquipment,OtherEquipment,Fuel Tank - Owned,OtherEquipment,Fuel Tank - Owned
+OtherEquipment,Other Equipment,OtherEquipment,OtherEquipment,Generator,OtherEquipment,Generator
+OtherEquipment,Other Equipment,OtherEquipment,OtherEquipment,Generator Hookup,OtherEquipment,Generator Hookup
+OtherEquipment,Other Equipment,OtherEquipment,OtherEquipment,Network Ready,OtherEquipment,Network Ready
+OtherEquipment,Other Equipment,OtherEquipment,OtherEquipment,Other - See Remarks,OtherEquipment,Other - See Remarks
+OtherEquipment,Other Equipment,OtherEquipment,OtherEquipment,Surround Sound,OtherEquipment,Surround Sound
+OtherEquipment,Other Equipment,OtherEquipment,OtherEquipment,Compressor,OtherEquipment,Compressor
+OtherEquipment,Other Equipment,OtherEquipment,OtherEquipment,Conveyor System,OtherEquipment,Conveyor
+OtherEquipment,Other Equipment,OtherEquipment,OtherEquipment,Fuel Pump,OtherEquipment,Fuel Pump
+OtherEquipment,Other Equipment,OtherEquipment,OtherEquipment,Fuel Tank(s),OtherEquipment,Fuel Tank
+OtherEquipment,Other Equipment,OtherEquipment,OtherEquipment,Fuel Tank - Leased,OtherEquipment,Fuel Tank - Leased
+OtherEquipment,Other Equipment,OtherEquipment,OtherEquipment,Fuel Tank - Owned,OtherEquipment,Fuel Tank - Owned
+OtherEquipment,Other Equipment,OtherEquipment,OtherEquipment,Generator,OtherEquipment,Generator
+OtherEquipment,Other Equipment,OtherEquipment,OtherEquipment,Generator Hookup,OtherEquipment,Generator Hookup
+OtherEquipment,Other Equipment,OtherEquipment,OtherEquipment,Network Ready,OtherEquipment,Network Ready
+OtherEquipment,Other Equipment,OtherEquipment,OtherEquipment,Other - See Remarks,OtherEquipment,Other - See Remarks
+OtherEquipment,Other Equipment,OtherEquipment,OtherEquipment,Surround Sound,OtherEquipment,Surround Sound
+OtherStructures,Other Structures,OtherStructures,OtherStructures,Airplane Hangar,OtherStructures,Airplane Hangar
+OtherStructures,Other Structures,OtherStructures,OtherStructures,Auto Shop,OtherStructures,Auto Shop
+OtherStructures,Other Structures,OtherStructures,OtherStructures,Barn(s),OtherStructures,Barn(s)
+OtherStructures,Other Structures,OtherStructures,OtherStructures,Detached Garage,OtherStructures,Detached Garage
+OtherStructures,Other Structures,OtherStructures,OtherStructures,Feed Barn,OtherStructures,Feed Barn
+OtherStructures,Other Structures,OtherStructures,OtherStructures,Greenhouse,OtherStructures,Greenhouse
+OtherStructures,Other Structures,OtherStructures,OtherStructures,Gazebo,OtherStructures,Gazebo
+OtherStructures,Other Structures,OtherStructures,OtherStructures,Hay Storage,OtherStructures,Hay Storage
+OtherStructures,Other Structures,OtherStructures,OtherStructures,House-As Is,OtherStructures,House-As Is
+OtherStructures,Other Structures,OtherStructures,OtherStructures,Manufactured Home(s),OtherStructures,Manufactured Home(s)
+OtherStructures,Other Structures,OtherStructures,OtherStructures,Milk Parlor,OtherStructures,Milk Parlor
+OtherStructures,Other Structures,OtherStructures,OtherStructures,None,OtherStructures,None
+OtherStructures,Other Structures,OtherStructures,OtherStructures,Other - See Remarks,OtherStructures,Other - See Remarks
+OtherStructures,Other Structures,OtherStructures,OtherStructures,Outbuilding,OtherStructures,Outbuilding
+OtherStructures,Other Structures,OtherStructures,OtherStructures,Packing Shed,OtherStructures,Packing Shed
+OtherStructures,Other Structures,OtherStructures,OtherStructures,Shed(s),OtherStructures,Shed(s)
+OtherStructures,Other Structures,OtherStructures,OtherStructures,Storage,OtherStructures,Storage
+OtherStructures,Other Structures,OtherStructures,OtherStructures,Tractor Shed,OtherStructures,Tractor Shed
+OtherStructures,Other Structures,OtherStructures,OtherStructures,Workshop,OtherStructures,Workshop
+OtherStructures,Other Structures,OtherStructures,OtherStructures,Airplane Hangar,OtherStructures,Airplane Hangar
+OtherStructures,Other Structures,OtherStructures,OtherStructures,Auto Shop,OtherStructures,Auto Shop
+OtherStructures,Other Structures,OtherStructures,OtherStructures,Barn(s),OtherStructures,Barn(s)
+OtherStructures,Other Structures,OtherStructures,OtherStructures,Detached Garage,OtherStructures,Detached Garage
+OtherStructures,Other Structures,OtherStructures,OtherStructures,Feed Barn,OtherStructures,Feed Barn
+OtherStructures,Other Structures,OtherStructures,OtherStructures,Greenhouse,OtherStructures,Greenhouse
+OtherStructures,Other Structures,OtherStructures,OtherStructures,Gazebo,OtherStructures,Gazebo
+OtherStructures,Other Structures,OtherStructures,OtherStructures,Hay Storage,OtherStructures,Hay Storage
+OtherStructures,Other Structures,OtherStructures,OtherStructures,House-As Is,OtherStructures,House-As Is
+OtherStructures,Other Structures,OtherStructures,OtherStructures,Manufactured Home(s),OtherStructures,Manufactured Home(s)
+OtherStructures,Other Structures,OtherStructures,OtherStructures,Milk Parlor,OtherStructures,Milk Parlor
+OtherStructures,Other Structures,OtherStructures,OtherStructures,None,OtherStructures,None
+OtherStructures,Other Structures,OtherStructures,OtherStructures,Other - See Remarks,OtherStructures,Other - See Remarks
+OtherStructures,Other Structures,OtherStructures,OtherStructures,Outbuilding,OtherStructures,Outbuilding
+OtherStructures,Other Structures,OtherStructures,OtherStructures,Packing Shed,OtherStructures,Packing Shed
+OtherStructures,Other Structures,OtherStructures,OtherStructures,Shed(s),OtherStructures,Shed(s)
+OtherStructures,Other Structures,OtherStructures,OtherStructures,Storage,OtherStructures,Storage
+OtherStructures,Other Structures,OtherStructures,OtherStructures,Tractor Shed,OtherStructures,Tractor Shed
+OtherStructures,Other Structures,OtherStructures,OtherStructures,Workshop,OtherStructures,Workshop
+OwnerPays,Owner Pays,OwnerPays,OwnerPays,All Utilities,OwnerPays,All Utilities
+OwnerPays,Owner Pays,OwnerPays,OwnerPays,Cable TV,OwnerPays,Cable TV
+OwnerPays,Owner Pays,OwnerPays,OwnerPays,Electricity,OwnerPays,Electricity
+OwnerPays,Owner Pays,OwnerPays,OwnerPays,Exterior Maintenance,OwnerPays,Exterior Maintenance
+OwnerPays,Owner Pays,OwnerPays,OwnerPays,Gas,OwnerPays,Gas
+OwnerPays,Owner Pays,OwnerPays,OwnerPays,Interior Common Lights,OwnerPays,Interior Common Lights
+OwnerPays,Owner Pays,OwnerPays,OwnerPays,Management,OwnerPays,Management
+OwnerPays,Owner Pays,OwnerPays,OwnerPays,None,OwnerPays,None
+OwnerPays,Owner Pays,OwnerPays,OwnerPays,Other - See Remarks,OwnerPays,Other - See Remarks
+OwnerPays,Owner Pays,OwnerPays,OwnerPays,Outdoor Lighting,OwnerPays,Outdoor Lighting
+OwnerPays,Owner Pays,OwnerPays,OwnerPays,Sewer,OwnerPays,Sewer
+OwnerPays,Owner Pays,OwnerPays,OwnerPays,Snow Removal,OwnerPays,Snow Removal
+OwnerPays,Owner Pays,OwnerPays,OwnerPays,Trash Collection,OwnerPays,Trash Collection
+OwnerPays,Owner Pays,OwnerPays,OwnerPays,Water,OwnerPays,Water
+OwnerPays,Owner Pays,OwnerPays,OwnerPays,All Utilities,OwnerPays,All Utilities
+OwnerPays,Owner Pays,OwnerPays,OwnerPays,Cable TV,OwnerPays,Cable TV
+OwnerPays,Owner Pays,OwnerPays,OwnerPays,Electricity,OwnerPays,Electricity
+OwnerPays,Owner Pays,OwnerPays,OwnerPays,Exterior Maintenance,OwnerPays,Exterior Maintenance
+OwnerPays,Owner Pays,OwnerPays,OwnerPays,Gas,OwnerPays,Gas
+OwnerPays,Owner Pays,OwnerPays,OwnerPays,Interior Common Lights,OwnerPays,Interior Common Lights
+OwnerPays,Owner Pays,OwnerPays,OwnerPays,Management,OwnerPays,Management
+OwnerPays,Owner Pays,OwnerPays,OwnerPays,None,OwnerPays,None
+OwnerPays,Owner Pays,OwnerPays,OwnerPays,Other - See Remarks,OwnerPays,Other - See Remarks
+OwnerPays,Owner Pays,OwnerPays,OwnerPays,Outdoor Lighting,OwnerPays,Outdoor Lighting
+OwnerPays,Owner Pays,OwnerPays,OwnerPays,Sewer,OwnerPays,Sewer
+OwnerPays,Owner Pays,OwnerPays,OwnerPays,Snow Removal,OwnerPays,Snow Removal
+OwnerPays,Owner Pays,OwnerPays,OwnerPays,Trash Collection,OwnerPays,Trash Collection
+OwnerPays,Owner Pays,OwnerPays,OwnerPays,Water,OwnerPays,Water
+ParkingFeatures,Parking Features,ParkingFeatures,ParkingFeatures,Assigned,ParkingFeatures,Assigned
+ParkingFeatures,Parking Features,ParkingFeatures,ParkingFeatures,Attached Carport,ParkingFeatures,Attached Carport
+ParkingFeatures,Parking Features,ParkingFeatures,ParkingFeatures,Attached Garage,ParkingFeatures,Garage Attached
+ParkingFeatures,Parking Features,ParkingFeatures,ParkingFeatures,Basement,ParkingFeatures,Basement
+ParkingFeatures,Parking Features,ParkingFeatures,ParkingFeatures,Carport,ParkingFeatures,Carport
+ParkingFeatures,Parking Features,ParkingFeatures,ParkingFeatures,Circular Driveway,ParkingFeatures,Circular Driveway
+ParkingFeatures,Parking Features,ParkingFeatures,ParkingFeatures,Parking Deck,ParkingFeatures,Parking Deck
+ParkingFeatures,Parking Features,ParkingFeatures,ParkingFeatures,Detached Carport,ParkingFeatures,Detached Carport
+ParkingFeatures,Parking Features,ParkingFeatures,ParkingFeatures,Detached Garage,ParkingFeatures,Garage Detached
+ParkingFeatures,Parking Features,ParkingFeatures,ParkingFeatures,Driveway,ParkingFeatures,Driveway
+ParkingFeatures,Parking Features,ParkingFeatures,ParkingFeatures,Electric Gate,ParkingFeatures,Electric Gate
+ParkingFeatures,Parking Features,ParkingFeatures,ParkingFeatures,Electric Vehicle Charging Station(s),ParkingFeatures,Electric Vehicle Charging Station(s)
+ParkingFeatures,Parking Features,ParkingFeatures,ParkingFeatures,Garage,ParkingFeatures,Garage
+ParkingFeatures,Parking Features,ParkingFeatures,ParkingFeatures,Garage Door Opener,ParkingFeatures,Garage Door Opener
+ParkingFeatures,Parking Features,ParkingFeatures,ParkingFeatures,Garage Faces Front,ParkingFeatures,Garage Faces Front
+ParkingFeatures,Parking Features,ParkingFeatures,ParkingFeatures,Garage Faces Rear,ParkingFeatures,Garage Faces Rear
+ParkingFeatures,Parking Features,ParkingFeatures,ParkingFeatures,Garage Faces Side,ParkingFeatures,Garage Faces Side
+ParkingFeatures,Parking Features,ParkingFeatures,ParkingFeatures,Garage Shop,ParkingFeatures,Garage Shop
+ParkingFeatures,Parking Features,ParkingFeatures,ParkingFeatures,Golf Cart Garage,ParkingFeatures,Golf Cart Garage
+ParkingFeatures,Parking Features,ParkingFeatures,ParkingFeatures,Garage (Off Site),ParkingFeatures,Garage (Off Site)
+ParkingFeatures,Parking Features,ParkingFeatures,ParkingFeatures,Keypad Entry,ParkingFeatures,Keypad Entry
+ParkingFeatures,Parking Features,ParkingFeatures,ParkingFeatures,None,ParkingFeatures,None
+ParkingFeatures,Parking Features,ParkingFeatures,ParkingFeatures,On Street,ParkingFeatures,On Street
+ParkingFeatures,Parking Features,ParkingFeatures,ParkingFeatures,Other - See Remarks,ParkingFeatures,Other - See Remarks
+ParkingFeatures,Parking Features,ParkingFeatures,ParkingFeatures,Parking Garage,ParkingFeatures,Parking Garage
+ParkingFeatures,Parking Features,ParkingFeatures,ParkingFeatures,Parking Lot,ParkingFeatures,Parking Lot
+ParkingFeatures,Parking Features,ParkingFeatures,ParkingFeatures,Parking Space(s),ParkingFeatures,Parking Space(s)
+ParkingFeatures,Parking Features,ParkingFeatures,ParkingFeatures,Parking Space(s) (Off Site),ParkingFeatures,Parking Space(s) (Off Site)
+ParkingFeatures,Parking Features,ParkingFeatures,ParkingFeatures,RV Access/Parking,ParkingFeatures,RV Access/Parking
+ParkingFeatures,Parking Features,ParkingFeatures,ParkingFeatures,Shared Driveway,ParkingFeatures,Shared Driveway
+ParkingFeatures,Parking Features,ParkingFeatures,ParkingFeatures,Tandem,ParkingFeatures,Tandem
+PatioAndPorchFeatures,Patio And Porch Features,PatioAndPorchFeatures,PatioAndPorchFeatures,Awning(s),PatioAndPorchFeatures,Awnings
+PatioAndPorchFeatures,Patio And Porch Features,PatioAndPorchFeatures,PatioAndPorchFeatures,Balcony,PatioAndPorchFeatures,Balcony
+PatioAndPorchFeatures,Patio And Porch Features,PatioAndPorchFeatures,PatioAndPorchFeatures,Covered,PatioAndPorchFeatures,Covered
+PatioAndPorchFeatures,Patio And Porch Features,PatioAndPorchFeatures,PatioAndPorchFeatures,Deck,PatioAndPorchFeatures,Deck
+PatioAndPorchFeatures,Patio And Porch Features,PatioAndPorchFeatures,PatioAndPorchFeatures,Enclosed,PatioAndPorchFeatures,Enclosed
+PatioAndPorchFeatures,Patio And Porch Features,PatioAndPorchFeatures,PatioAndPorchFeatures,Front Porch,PatioAndPorchFeatures,Front Porch
+PatioAndPorchFeatures,Patio And Porch Features,PatioAndPorchFeatures,PatioAndPorchFeatures,Glass Enclosed,PatioAndPorchFeatures,Glass Enclosed
+PatioAndPorchFeatures,Patio And Porch Features,PatioAndPorchFeatures,PatioAndPorchFeatures,Other - See Remarks,PatioAndPorchFeatures,Other - See Remarks
+PatioAndPorchFeatures,Patio And Porch Features,PatioAndPorchFeatures,PatioAndPorchFeatures,Patio,PatioAndPorchFeatures,Patio
+PatioAndPorchFeatures,Patio And Porch Features,PatioAndPorchFeatures,PatioAndPorchFeatures,Porch,PatioAndPorchFeatures,Porch
+PatioAndPorchFeatures,Patio And Porch Features,PatioAndPorchFeatures,PatioAndPorchFeatures,Rear Porch,PatioAndPorchFeatures,Rear Porch
+PatioAndPorchFeatures,Patio And Porch Features,PatioAndPorchFeatures,PatioAndPorchFeatures,Screened,PatioAndPorchFeatures,Screened
+PatioAndPorchFeatures,Patio And Porch Features,PatioAndPorchFeatures,PatioAndPorchFeatures,Side Porch,PatioAndPorchFeatures,Side Porch
+PatioAndPorchFeatures,Patio And Porch Features,PatioAndPorchFeatures,PatioAndPorchFeatures,Terrace,PatioAndPorchFeatures,Terrace
+PatioAndPorchFeatures,Patio And Porch Features,PatioAndPorchFeatures,PatioAndPorchFeatures,Wrap Around,PatioAndPorchFeatures,Wrap Around
+PatioAndPorchFeatures,Patio And Porch Features,PatioAndPorchFeatures,PatioAndPorchFeatures,Awning(s),PatioAndPorchFeatures,Awnings
+PatioAndPorchFeatures,Patio And Porch Features,PatioAndPorchFeatures,PatioAndPorchFeatures,Balcony,PatioAndPorchFeatures,Balcony
+PatioAndPorchFeatures,Patio And Porch Features,PatioAndPorchFeatures,PatioAndPorchFeatures,Covered,PatioAndPorchFeatures,Covered
+PatioAndPorchFeatures,Patio And Porch Features,PatioAndPorchFeatures,PatioAndPorchFeatures,Deck,PatioAndPorchFeatures,Deck
+PatioAndPorchFeatures,Patio And Porch Features,PatioAndPorchFeatures,PatioAndPorchFeatures,Enclosed,PatioAndPorchFeatures,Enclosed
+PatioAndPorchFeatures,Patio And Porch Features,PatioAndPorchFeatures,PatioAndPorchFeatures,Front Porch,PatioAndPorchFeatures,Front Porch
+PatioAndPorchFeatures,Patio And Porch Features,PatioAndPorchFeatures,PatioAndPorchFeatures,Glass Enclosed,PatioAndPorchFeatures,Glass Enclosed
+PatioAndPorchFeatures,Patio And Porch Features,PatioAndPorchFeatures,PatioAndPorchFeatures,Other - See Remarks,PatioAndPorchFeatures,Other - See Remarks
+PatioAndPorchFeatures,Patio And Porch Features,PatioAndPorchFeatures,PatioAndPorchFeatures,Patio,PatioAndPorchFeatures,Patio
+PatioAndPorchFeatures,Patio And Porch Features,PatioAndPorchFeatures,PatioAndPorchFeatures,Porch,PatioAndPorchFeatures,Porch
+PatioAndPorchFeatures,Patio And Porch Features,PatioAndPorchFeatures,PatioAndPorchFeatures,Rear Porch,PatioAndPorchFeatures,Rear Porch
+PatioAndPorchFeatures,Patio And Porch Features,PatioAndPorchFeatures,PatioAndPorchFeatures,Screened,PatioAndPorchFeatures,Screened
+PatioAndPorchFeatures,Patio And Porch Features,PatioAndPorchFeatures,PatioAndPorchFeatures,Side Porch,PatioAndPorchFeatures,Side Porch
+PatioAndPorchFeatures,Patio And Porch Features,PatioAndPorchFeatures,PatioAndPorchFeatures,Terrace,PatioAndPorchFeatures,Terrace
+PatioAndPorchFeatures,Patio And Porch Features,PatioAndPorchFeatures,PatioAndPorchFeatures,Wrap Around,PatioAndPorchFeatures,Wrap Around
+PetsAllowed,Pets Allowed,PetsAllowed,PetsAllowed,Breed Restrictions,PetsAllowed,Breed Restrictions
+PetsAllowed,Pets Allowed,PetsAllowed,PetsAllowed,Conditional,PetsAllowed,Conditional
+PetsAllowed,Pets Allowed,PetsAllowed,PetsAllowed,Call,PetsAllowed,Call
+PetsAllowed,Pets Allowed,PetsAllowed,PetsAllowed,Cats OK,PetsAllowed,Cats OK
+PetsAllowed,Pets Allowed,PetsAllowed,PetsAllowed,Dogs OK,PetsAllowed,Dogs OK
+PetsAllowed,Pets Allowed,PetsAllowed,PetsAllowed,Number Limit,PetsAllowed,Number Limit
+PetsAllowed,Pets Allowed,PetsAllowed,PetsAllowed,No,PetsAllowed,No
+PetsAllowed,Pets Allowed,PetsAllowed,PetsAllowed,Size Limit,PetsAllowed,Size Limit
+PetsAllowed,Pets Allowed,PetsAllowed,PetsAllowed,Yes,PetsAllowed,Yes
+PoolFeatures,Pool Features,PoolFeatures,PoolFeatures,Above Ground,PoolFeatures,Above Ground
+PoolFeatures,Pool Features,PoolFeatures,PoolFeatures,Fenced,PoolFeatures,Fenced
+PoolFeatures,Pool Features,PoolFeatures,PoolFeatures,Heated,PoolFeatures,Heated
+PoolFeatures,Pool Features,PoolFeatures,PoolFeatures,Indoor,PoolFeatures,Indoor
+PoolFeatures,Pool Features,PoolFeatures,PoolFeatures, Indoor Pool - Community,PoolFeatures,Indoor Pool - Community
+PoolFeatures,Pool Features,PoolFeatures,PoolFeatures,Infinity,PoolFeatures,Infinity
+PoolFeatures,Pool Features,PoolFeatures,PoolFeatures,In Ground,PoolFeatures,In Ground
+PoolFeatures,Pool Features,PoolFeatures,PoolFeatures,Lap,PoolFeatures,Lap
+PoolFeatures,Pool Features,PoolFeatures,PoolFeatures,Outdoor Pool,PoolFeatures,Outdoor Pool
+PoolFeatures,Pool Features,PoolFeatures,PoolFeatures,Outdoor Pool – Community,PoolFeatures,Outdoor Pool – Community
+PoolFeatures,Pool Features,PoolFeatures,PoolFeatures,Plunge Pool,PoolFeatures,Plunge Pool
+PoolFeatures,Pool Features,PoolFeatures,PoolFeatures,Pool/Spa Combo,PoolFeatures,Pool/Spa Combo
+PoolFeatures,Pool Features,PoolFeatures,PoolFeatures,Salt Water,PoolFeatures,Salt Water
+PossibleUse,Possible Use,PossibleUse,PossibleUse,Agricultural,PossibleUse,Agricultural
+PossibleUse,Possible Use,PossibleUse,PossibleUse,Cattle,PossibleUse,Cattle
+PossibleUse,Possible Use,PossibleUse,PossibleUse,Commercial,PossibleUse,Commercial
+PossibleUse,Possible Use,PossibleUse,PossibleUse,Dairy,PossibleUse,Dairy
+PossibleUse,Possible Use,PossibleUse,PossibleUse,Development,PossibleUse,Development
+PossibleUse,Possible Use,PossibleUse,PossibleUse,Farm,PossibleUse,Farm
+PossibleUse,Possible Use,PossibleUse,PossibleUse,Fishery,PossibleUse,Fishery
+PossibleUse,Possible Use,PossibleUse,PossibleUse,Gardening,PossibleUse,Gardening
+PossibleUse,Possible Use,PossibleUse,PossibleUse,Horses,PossibleUse,Horses
+PossibleUse,Possible Use,PossibleUse,PossibleUse,Industrial,PossibleUse,Industrial
+PossibleUse,Possible Use,PossibleUse,PossibleUse,Multi-Family,PossibleUse,Multi-Family
+PossibleUse,Possible Use,PossibleUse,PossibleUse,Orchard,PossibleUse,Orchard
+PossibleUse,Possible Use,PossibleUse,PossibleUse,Other - See Remarks,PossibleUse,Other - See Remarks
+PossibleUse,Possible Use,PossibleUse,PossibleUse,Pasture/Grazing,PossibleUse,Pasture/Grazing
+PossibleUse,Possible Use,PossibleUse,PossibleUse,Poultry,PossibleUse,Poultry
+PossibleUse,Possible Use,PossibleUse,PossibleUse,Private Estate,PossibleUse,Private Estate
+PossibleUse,Possible Use,PossibleUse,PossibleUse,Recreational,PossibleUse,Recreational
+PossibleUse,Possible Use,PossibleUse,PossibleUse,Residential,PossibleUse,Residential
+PossibleUse,Possible Use,PossibleUse,PossibleUse,Subdevelopment,PossibleUse,Subdevelopment
+PossibleUse,Possible Use,PossibleUse,PossibleUse,Timber,PossibleUse,Timber
+PossibleUse,Possible Use,PossibleUse,PossibleUse,Tree Farm/Timber,PossibleUse,Tree Farm
+PropertySubType,Property Sub Type,PropertySubType,PropertySubType,Triplex,PropertySubType,Triplex
+PropertySubType,Property Sub Type,PropertySubType,PropertySubType,Fourplex,PropertySubType,Fourplex
+PropertySubType,Property Sub Type,PropertySubType,PropertySubType,Fiveplex,PropertySubType,Fiveplex
+PropertySubType,Property Sub Type,PropertySubType,PropertySubType,Sixplex,PropertySubType,Sixplex
+PropertySubType,Property Sub Type,PropertySubType,PropertySubType,Sevenplex,PropertySubType,Sevenplex
+PropertySubType,Property Sub Type,PropertySubType,PropertySubType,Eightplex,PropertySubType,Eightplex
+PropertySubType,Property Sub Type,PropertySubType,PropertySubType,Eightplex+,PropertySubType,Eightplex+
+PropertySubType,Property Sub Type,PropertySubType,PropertySubType,Acreage,PropertySubType,Acreage
+PropertySubType,Property Sub Type,PropertySubType,PropertySubType,Apartment,PropertySubType,Apartments
+PropertySubType,Property Sub Type,PropertySubType,PropertySubType,Automotive,PropertySubType,Auto Service
+PropertySubType,Property Sub Type,PropertySubType,PropertySubType,Bed/Breakfast,PropertySubType,Bed/Breakfast
+PropertySubType,Property Sub Type,PropertySubType,PropertySubType,Business,PropertySubType,Business
+PropertySubType,Property Sub Type,PropertySubType,PropertySubType,Cabin,PropertySubType,Cabin
+PropertySubType,Property Sub Type,PropertySubType,PropertySubType,Commercial,PropertySubType,Commercial
+PropertySubType,Property Sub Type,PropertySubType,PropertySubType,Condominium,PropertySubType,Condominium
+PropertySubType,Property Sub Type,PropertySubType,PropertySubType,Convenience Store,PropertySubType,Convenience Store
+PropertySubType,Property Sub Type,PropertySubType,PropertySubType,Stock Cooperative,PropertySubType,Stock Cooperative
+PropertySubType,Property Sub Type,PropertySubType,PropertySubType,Duplex,PropertySubType,Duplex
+PropertySubType,Property Sub Type,PropertySubType,PropertySubType,Farm,PropertySubType,Farm
+PropertySubType,Property Sub Type,PropertySubType,PropertySubType,Food/Beverage,PropertySubType,Food Service
+PropertySubType,Property Sub Type,PropertySubType,PropertySubType,Free Standing Store,PropertySubType,Free Standing Retail
+PropertySubType,Property Sub Type,PropertySubType,PropertySubType,Gas Station,PropertySubType,Gas Station
+PropertySubType,Property Sub Type,PropertySubType,PropertySubType,Gas Station with Convenience Store,PropertySubType,Gas Station with Convenience Store
+PropertySubType,Property Sub Type,PropertySubType,PropertySubType,Hotel/Motel,PropertySubType,Hotel/Motel
+PropertySubType,Property Sub Type,PropertySubType,PropertySubType,Industrial,PropertySubType,Industrial
+PropertySubType,Property Sub Type,PropertySubType,PropertySubType,Lot,PropertySubType,Lot
+PropertySubType,Property Sub Type,PropertySubType,PropertySubType,Manufacturing / Warehousing,PropertySubType,Manufacturing
+PropertySubType,Property Sub Type,PropertySubType,PropertySubType,Medical,PropertySubType,Medical/Dental
+PropertySubType,Property Sub Type,PropertySubType,PropertySubType,Manufactured Home Park,PropertySubType,Manufactured Home Park
+PropertySubType,Property Sub Type,PropertySubType,PropertySubType,Mobile Home,PropertySubType,Mobile
+PropertySubType,Property Sub Type,PropertySubType,PropertySubType,N/A,PropertySubType,N/A
+PropertySubType,Property Sub Type,PropertySubType,PropertySubType,None,PropertySubType,None
+PropertySubType,Property Sub Type,PropertySubType,PropertySubType,Office,PropertySubType,Office
+PropertySubType,Property Sub Type,PropertySubType,PropertySubType,Other,PropertySubType,Other
+PropertySubType,Property Sub Type,PropertySubType,PropertySubType,Portfolio,PropertySubType,Portfolio
+PropertySubType,Property Sub Type,PropertySubType,PropertySubType,Retail,PropertySubType,Retail
+PropertySubType,Property Sub Type,PropertySubType,PropertySubType,Retail Center,PropertySubType,Retail Center
+PropertySubType,Property Sub Type,PropertySubType,PropertySubType,Single Family Residence,PropertySubType,Single Family
+PropertySubType,Property Sub Type,PropertySubType,PropertySubType,Showroom/Office,PropertySubType,Showroom/Office
+PropertySubType,Property Sub Type,PropertySubType,PropertySubType,Special Purpose,PropertySubType,Special Purpose
+PropertySubType,Property Sub Type,PropertySubType,PropertySubType,Townhouse,PropertySubType,Townhouse
+PropertySubType,Property Sub Type,PropertySubType,PropertySubType,Unimproved Commercial,PropertySubType,Unimproved Commercial
+PropertySubType,Property Sub Type,PropertySubType,PropertySubType,Warehouse/Office,PropertySubType,Warehouse/Office
+PropertyType,Property Type,PropertyType,PropertyType,Commercial Lease,PropertyType,Commercial Lease
+PropertyType,Property Type,PropertyType,PropertyType,Commercial Sale,PropertyType,Commercial Sale
+PropertyType,Property Type,PropertyType,PropertyType,Land,PropertyType,Land
+PropertyType,Property Type,PropertyType,PropertyType,Residential,PropertyType,Residential
+PropertyType,Property Type,PropertyType,PropertyType,Residential Income,PropertyType,Residential Multi Unit
+PropertyType,Property Type,PropertyType,PropertyType,Residential Lease,PropertyType,Residential Rental
+RoadFrontageType,Road Frontage Type,RoadFrontageType,RoadFrontageType,4 Lane Highway,RoadFrontageType,4 Lane Highway
+RoadFrontageType,Road Frontage Type,RoadFrontageType,RoadFrontageType,City Street,RoadFrontageType,City Street
+RoadFrontageType,Road Frontage Type,RoadFrontageType,RoadFrontageType,County Road,RoadFrontageType,County Road
+RoadFrontageType,Road Frontage Type,RoadFrontageType,RoadFrontageType,Easement,RoadFrontageType,Easement
+RoadFrontageType,Road Frontage Type,RoadFrontageType,RoadFrontageType,Interstate 1 mile or Less,RoadFrontageType,Interstate 1 mi or less
+RoadFrontageType,Road Frontage Type,RoadFrontageType,RoadFrontageType,Interstate,RoadFrontageType,Interstate Frontage
+RoadFrontageType,Road Frontage Type,RoadFrontageType,RoadFrontageType,Other - See Remarks,RoadFrontageType,Other - See Remarks
+RoadFrontageType,Road Frontage Type,RoadFrontageType,RoadFrontageType,Private Road,RoadFrontageType,Private Road
+RoadFrontageType,Road Frontage Type,RoadFrontageType,RoadFrontageType,Highway,RoadFrontageType,State Highway
+RoadFrontageType,Road Frontage Type,RoadFrontageType,RoadFrontageType,State Road,RoadFrontageType,State Road
+RoadFrontageType,Road Frontage Type,RoadFrontageType,RoadFrontageType,Unimproved,RoadFrontageType,Unimproved
+RoadFrontageType,Road Frontage Type,RoadFrontageType,RoadFrontageType,Highway,RoadFrontageType,US Highway
+RoadResponsibility,Road Responsibility,RoadResponsibility,RoadResponsibility,Dedicated to Public Use Pending Acceptance,RoadResponsibility,Dedicated to Public Use Pending Acceptance
+RoadResponsibility,Road Responsibility,RoadResponsibility,RoadResponsibility,No Road,RoadResponsibility,No Road
+RoadResponsibility,Road Responsibility,RoadResponsibility,RoadResponsibility,Other - See Remarks,RoadResponsibility,Other - See Remarks
+RoadResponsibility,Road Responsibility,RoadResponsibility,RoadResponsibility,Private Maintained Road,RoadResponsibility,Privately Maintained Road
+RoadResponsibility,Road Responsibility,RoadResponsibility,RoadResponsibility,Publicly Maintained Road,RoadResponsibility,Publicly Maintained Road
+RoadResponsibility,Road Responsibility,RoadResponsibility,RoadResponsibility,Road Maintenance Agreement,RoadResponsibility,Road Maintenance Agreement
+Driveway,Driveway,RoadSurfaceType,RoadSurfaceType,Asphalt,Driveway,Asphalt
+Driveway,Driveway,RoadSurfaceType,RoadSurfaceType,Brick,Driveway,Brick
+Driveway,Driveway,RoadSurfaceType,RoadSurfaceType,Cobblestone,Driveway,Cobblestone
+Driveway,Driveway,RoadSurfaceType,RoadSurfaceType,Concrete,Driveway,Concrete
+Driveway,Driveway,RoadSurfaceType,RoadSurfaceType,Dirt,Driveway,Earth
+Driveway,Driveway,RoadSurfaceType,RoadSurfaceType,Gated,Driveway,Gated
+Driveway,Driveway,RoadSurfaceType,RoadSurfaceType,Gravel,Driveway,Gravel
+Driveway,Driveway,RoadSurfaceType,RoadSurfaceType,None,Driveway,None
+Driveway,Driveway,RoadSurfaceType,RoadSurfaceType,Other,Driveway,Other
+Driveway,Driveway,RoadSurfaceType,RoadSurfaceType,Stone,Driveway,Stone
+RoadSurfaceType,Road Surface Type,RoadSurfaceType,RoadSurfaceType,Concrete,RoadSurfaceType,Concrete
+RoadSurfaceType,Road Surface Type,RoadSurfaceType,RoadSurfaceType,Dirt,RoadSurfaceType,Dirt
+RoadSurfaceType,Road Surface Type,RoadSurfaceType,RoadSurfaceType,Gravel,RoadSurfaceType,Gravel
+RoadSurfaceType,Road Surface Type,RoadSurfaceType,RoadSurfaceType,Other,RoadSurfaceType,Other
+RoadSurfaceType,Road Surface Type,RoadSurfaceType,RoadSurfaceType,Paved,RoadSurfaceType,Paved
+Roof,Roof,Roof,Roof,Aluminum,Roof,Aluminum
+Roof,Roof,Roof,Roof,Architectural Shingle,Roof,Architectural Shingle
+Roof,Roof,Roof,Roof,Asbestos Shingle,Roof,Asbestos Shingle
+Roof,Roof,Roof,Roof,Built-Up,Roof,Built-Up
+Roof,Roof,Roof,Roof,Composition,Roof,Composition Shingle
+Roof,Roof,Roof,Roof,Concrete Deck,Roof,Concrete Deck
+Roof,Roof,Roof,Roof,Fiberglass,Roof,Fiberglass Shingle
+Roof,Roof,Roof,Roof,Flat,Roof,Flat
+Roof,Roof,Roof,Roof,Insulated,Roof,Insulated
+Roof,Roof,Roof,Roof,Metal,Roof,Metal
+Roof,Roof,Roof,Roof,None,Roof,N/A
+Roof,Roof,Roof,Roof,Other - See Remarks,Roof,Other - See Remarks
+Roof,Roof,Roof,Roof,Rubber,Roof,Rubber
+Roof,Roof,Roof,Roof,Slate,Roof,Slate
+Roof,Roof,Roof,Roof,Steel,Roof,Steel Deck
+Roof,Roof,Roof,Roof,Steel,Roof,Steel Joists
+Roof,Roof,Roof,Roof,Steel,Roof,Steel Trusses
+Roof,Roof,Roof,Roof,Tar/Gravel,Roof,Tar/Gravel
+Roof,Roof,Roof,Roof,Tile,Roof,Tile
+Roof,Roof,Roof,Roof,Wood Joists,Roof,Wood Joists
+Roof,Roof,Roof,Roof,Wood,Roof,Wood
+Roof,Roof,Roof,Roof,Wood Rafters,Roof,Wood Rafters
+Roof,Roof,Roof,Roof,Wood,Roof,Wood Shake
+Roof,Roof,Roof,Roof,Wood Trusses,Roof,Wood Trusses
+SecurityFeatures,Security Features,SecurityFeatures,SecurityFeatures,Carbon Monoxide Detector(s),SecurityFeatures,Carbon Monoxide Detector(s)
+SecurityFeatures,Security Features,SecurityFeatures,SecurityFeatures,Fire Sprinkler System,SecurityFeatures,Fire Sprinkler System
+SecurityFeatures,Security Features,SecurityFeatures,SecurityFeatures,Intercom,SecurityFeatures,Intercom
+SecurityFeatures,Security Features,SecurityFeatures,SecurityFeatures,None ,SecurityFeatures,None
+SecurityFeatures,Security Features,SecurityFeatures,SecurityFeatures,Radon Mitigation System,SecurityFeatures,Radon Mitigation System
+SecurityFeatures,Security Features,SecurityFeatures,SecurityFeatures,Security System,SecurityFeatures,Security System
+SecurityFeatures,Security Features,SecurityFeatures,SecurityFeatures,Security Service,SecurityFeatures,Security Service
+SecurityFeatures,Security Features,SecurityFeatures,SecurityFeatures,Smoke Detector(s),SecurityFeatures,Smoke Detector
+SecurityFeatures,Security Features,SecurityFeatures,SecurityFeatures,Carbon Monoxide Detector(s),SecurityFeatures,Carbon Monoxide Detector(s)
+SecurityFeatures,Security Features,SecurityFeatures,SecurityFeatures,Fire Sprinkler System,SecurityFeatures,Fire Sprinkler System
+SecurityFeatures,Security Features,SecurityFeatures,SecurityFeatures,Intercom,SecurityFeatures,Intercom
+SecurityFeatures,Security Features,SecurityFeatures,SecurityFeatures,None ,SecurityFeatures,None
+SecurityFeatures,Security Features,SecurityFeatures,SecurityFeatures,Radon Mitigation System,SecurityFeatures,Radon Mitigation System
+SecurityFeatures,Security Features,SecurityFeatures,SecurityFeatures,Security System,SecurityFeatures,Security System
+SecurityFeatures,Security Features,SecurityFeatures,SecurityFeatures,Security Service,SecurityFeatures,Security Service
+SecurityFeatures,Security Features,SecurityFeatures,SecurityFeatures,Smoke Detector(s),SecurityFeatures,Smoke Detector
+Sewer,Sewer,Sewer,Sewer,Public Sewer,Sewer,City Sewer
+Sewer,Sewer,Sewer,Sewer,County Sewer,Sewer,County Sewer
+Sewer,Sewer,Sewer,Sewer,N/A,Sewer,N/A
+Sewer,Sewer,Sewer,Sewer,None,Sewer,None
+Sewer,Sewer,Sewer,Sewer,Other - See Remarks,Sewer,Other - See Remarks
+Sewer,Sewer,Sewer,Sewer,Private Sewer,Sewer,Private Sewer
+Sewer,Sewer,Sewer,Sewer,Public Sewer,Sewer,Public Sewer
+Sewer,Sewer,Sewer,Sewer,Shared Septic,Sewer,Shared Septic
+Sewer,Sewer,Sewer,Sewer,Septic Installed,Sewer,Septic Installed
+Sewer,Sewer,Sewer,Sewer,Septic Installed (Off Site),Sewer,Septic Installed (Off Site)
+Sewer,Sewer,Sewer,Sewer,Septic Needed,Sewer,Septic Needed
+Sewer,Sewer,Sewer,Sewer,Sewage Pump,Sewer,Sewage Pump
+Sewer,Sewer,Sewer,Sewer,Tap Fee Required,Sewer,Tap Fee Required
+SpecialListingConditions,Special Listing Conditions,SpecialListingConditions,SpecialListingConditions,Affordable Homeownership Criteria,SpecialListingConditions,Affordable Homeownership Criteria
+SpecialListingConditions,Special Listing Conditions,SpecialListingConditions,SpecialListingConditions,Bankruptcy Property,SpecialListingConditions,Bankruptcy Property
+SpecialListingConditions,Special Listing Conditions,SpecialListingConditions,SpecialListingConditions,Estate,SpecialListingConditions,Estate
+SpecialListingConditions,Special Listing Conditions,SpecialListingConditions,SpecialListingConditions,In Foreclosure,SpecialListingConditions,Foreclosure Proceeding Commenced
+SpecialListingConditions,Special Listing Conditions,SpecialListingConditions,SpecialListingConditions,Fractional Ownership,SpecialListingConditions,Fractional Ownership
+SpecialListingConditions,Special Listing Conditions,SpecialListingConditions,SpecialListingConditions,HUD Owned,SpecialListingConditions,HUD Owned
+SpecialListingConditions,Special Listing Conditions,SpecialListingConditions,SpecialListingConditions,None,SpecialListingConditions,None
+SpecialListingConditions,Special Listing Conditions,SpecialListingConditions,SpecialListingConditions,Relocation,SpecialListingConditions,Relocation
+SpecialListingConditions,Special Listing Conditions,SpecialListingConditions,SpecialListingConditions,Subject to Lease,SpecialListingConditions,Subject to Lease
+SpecialListingConditions,Special Listing Conditions,SpecialListingConditions,SpecialListingConditions,Third Party Approval,SpecialListingConditions,Subject to Court Approval
+SpecialListingConditions,Special Listing Conditions,SpecialListingConditions,SpecialListingConditions,Short Sale Subject to Approval,SpecialListingConditions,Short Sale Subject to Lender Approval
+SpecialListingConditions,Special Listing Conditions,SpecialListingConditions,SpecialListingConditions,Third Party Approval,SpecialListingConditions,Third Party Approval
+SpecialListingConditions,Special Listing Conditions,SpecialListingConditions,SpecialListingConditions,Notice Of Default,SpecialListingConditions,Transfer Due to Loan Default/Exempt from Property Disclosure
+SpecialListingConditions,Special Listing Conditions,SpecialListingConditions,SpecialListingConditions,Undisclosed,SpecialListingConditions,Undisclosed
+SpecialListingConditions,Special Listing Conditions,SpecialListingConditions,SpecialListingConditions,Third Party Approval,SpecialListingConditions,VA
+StandardStatus,Standard Status,StandardStatus,StandardStatus,Active,StandardStatus,Active
+StandardStatus,Standard Status,StandardStatus,StandardStatus,Active Under Contract,StandardStatus,Active Under Contract
+StandardStatus,Standard Status,StandardStatus,StandardStatus,Canceled,StandardStatus,Canceled
+StandardStatus,Standard Status,StandardStatus,StandardStatus,Closed,StandardStatus,Closed
+StandardStatus,Standard Status,StandardStatus,StandardStatus,Coming Soon,StandardStatus,Coming Soon
+StandardStatus,Standard Status,StandardStatus,StandardStatus,Expired,StandardStatus,Expired
+StandardStatus,Standard Status,StandardStatus,StandardStatus,Hold,StandardStatus,Hold
+StandardStatus,Standard Status,StandardStatus,StandardStatus,Incomplete,StandardStatus,Incomplete
+StandardStatus,Standard Status,StandardStatus,StandardStatus,Pending,StandardStatus,Pending
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,AB,StateOrProvince,Alberta
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,AK,StateOrProvince,Alaska
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,AL,StateOrProvince,Alabama
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,AR,StateOrProvince,Arkansas
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,AS,StateOrProvince,American Samoa
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,AZ,StateOrProvince,Arizona
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,BC,StateOrProvince,British Columbia
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,CA,StateOrProvince,California
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,CO,StateOrProvince,Colorado
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,CT,StateOrProvince,Connecticut
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,DC,StateOrProvince,District of Columbia
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,DE,StateOrProvince,Delaware
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,FL,StateOrProvince,Florida
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,FM,StateOrProvince,Federated States of  Micronesia
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,GA,StateOrProvince,Georgia
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,GU,StateOrProvince,Guam
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,HI,StateOrProvince,Hawaii
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,IA,StateOrProvince,Iowa
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,ID,StateOrProvince,Idaho
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,IL,StateOrProvince,Illinois
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,IN,StateOrProvince,Indiana
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,KS,StateOrProvince,Kansas
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,KY,StateOrProvince,Kentucky
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,LA,StateOrProvince,Louisiana
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,MA,StateOrProvince,Massachusetts
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,MB,StateOrProvince,Manitoba
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,MD,StateOrProvince,Maryland
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,ME,StateOrProvince,Maine
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,MH,StateOrProvince,Marshall Islands
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,MI,StateOrProvince,Michigan
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,MN,StateOrProvince,Minnesota
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,MO,StateOrProvince,Missouri
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,MP,StateOrProvince,Northern Mariana Islands
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,MS,StateOrProvince,Mississippi
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,MT,StateOrProvince,Montana
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,NB,StateOrProvince,New Brunswick
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,NC,StateOrProvince,North Carolina
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,ND,StateOrProvince,North Dakota
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,NE,StateOrProvince,Nebraska
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,NL,StateOrProvince,Newfoundland/Labrador
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,NH,StateOrProvince,New Hampshire
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,NJ,StateOrProvince,New Jersey
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,NM,StateOrProvince,New Mexico
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,NS,StateOrProvince,Nova Scotia
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,NT,StateOrProvince,Northwest Territories
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,NU,StateOrProvince,Nunavut
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,NV,StateOrProvince,Nevada
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,NY,StateOrProvince,New York
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,OH,StateOrProvince,Ohio
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,OK,StateOrProvince,Oklahoma
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,ON,StateOrProvince,Ontario
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,OR,StateOrProvince,Oregon
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,PA,StateOrProvince,Pennsylvania
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,PE,StateOrProvince,Prince Edward Island
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,PR,StateOrProvince,Puerto Rico
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,PW,StateOrProvince,Palau
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,QC,StateOrProvince,Quebec
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,RI,StateOrProvince,Rhode Island
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,SC,StateOrProvince,South Carolina
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,SD,StateOrProvince,South Dakota
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,SK,StateOrProvince,Saskatchewan
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,TN,StateOrProvince,Tennessee
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,TX,StateOrProvince,Texas
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,UT,StateOrProvince,Utah
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,VA,StateOrProvince,Virginia
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,VI,StateOrProvince,Virgin Islands
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,VT,StateOrProvince,Vermont
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,WA,StateOrProvince,Washington
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,WI,StateOrProvince,Wisconsin
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,WV,StateOrProvince,West Virginia
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,WY,StateOrProvince,Wyoming
+StateOrProvince,State Or Province,StateOrProvince,StateOrProvince,YT,StateOrProvince,Yukon
+StreetDirPrefix,Street Dir Prefix,StreetDirPrefix,StreetDirection,E,StreetDirection,E
+StreetDirPrefix,Street Dir Prefix,StreetDirPrefix,StreetDirection,N,StreetDirection,N
+StreetDirPrefix,Street Dir Prefix,StreetDirPrefix,StreetDirection,NE,StreetDirection,NE
+StreetDirPrefix,Street Dir Prefix,StreetDirPrefix,StreetDirection,NW,StreetDirection,NW
+StreetDirPrefix,Street Dir Prefix,StreetDirPrefix,StreetDirection,S,StreetDirection,S
+StreetDirPrefix,Street Dir Prefix,StreetDirPrefix,StreetDirection,SE,StreetDirection,SE
+StreetDirPrefix,Street Dir Prefix,StreetDirPrefix,StreetDirection,SW,StreetDirection,SW
+StreetDirPrefix,Street Dir Prefix,StreetDirPrefix,StreetDirection,W,StreetDirection,W
+StreetDirSuffix,Street Dir Suffix,StreetDirSuffix,StreetDirection,E,StreetDirection,E
+StreetDirSuffix,Street Dir Suffix,StreetDirSuffix,StreetDirection,N,StreetDirection,N
+StreetDirSuffix,Street Dir Suffix,StreetDirSuffix,StreetDirection,NE,StreetDirection,NE
+StreetDirSuffix,Street Dir Suffix,StreetDirSuffix,StreetDirection,NW,StreetDirection,NW
+StreetDirSuffix,Street Dir Suffix,StreetDirSuffix,StreetDirection,S,StreetDirection,S
+StreetDirSuffix,Street Dir Suffix,StreetDirSuffix,StreetDirection,SE,StreetDirection,SE
+StreetDirSuffix,Street Dir Suffix,StreetDirSuffix,StreetDirection,SW,StreetDirection,SW
+StreetDirSuffix,Street Dir Suffix,StreetDirSuffix,StreetDirection,W,StreetDirection,W
+StructureType,Structure Type,StructureType,StructureType,Cabin,StructureType,Cabin
+StructureType,Structure Type,StructureType,StructureType,Dock,StructureType,Dock
+StructureType,Structure Type,StructureType,StructureType,Duplex,StructureType,Duplex
+StructureType,Structure Type,StructureType,StructureType,Flex,StructureType,Flex
+StructureType,Structure Type,StructureType,StructureType,Hotel/Motel,StructureType,Hotel/Motel
+StructureType,Structure Type,StructureType,StructureType,House,StructureType,House
+StructureType,Structure Type,StructureType,StructureType,Industrial,StructureType,Industrial
+StructureType,Structure Type,StructureType,StructureType,Multi Family,StructureType,Multi Family
+StructureType,Structure Type,StructureType,StructureType,Manufactured House,StructureType,Manufactured House
+StructureType,Structure Type,StructureType,StructureType,Mixed Use,StructureType,Mixed Use
+StructureType,Structure Type,StructureType,StructureType,None,StructureType,None
+StructureType,Structure Type,StructureType,StructureType,Office,StructureType,Office
+StructureType,Structure Type,StructureType,StructureType,Other,StructureType,Other
+StructureType,Structure Type,StructureType,StructureType,Quadruplex,StructureType,Quadruplex
+StructureType,Structure Type,StructureType,StructureType,Retail,StructureType,Retail
+StructureType,Structure Type,StructureType,StructureType,Triplex,StructureType,Triplex
+StructureType,Structure Type,StructureType,StructureType,Townhouse,StructureType,Townhouse
+StructureType,Structure Type,StructureType,StructureType,Warehouse,StructureType,Warehouse
+SyndicateTo,Syndicate To,SyndicateTo,SyndicateTo,CarolinaHome.com,SyndicateToProperty,CarolinaHome.com
+SyndicateTo,Syndicate To,SyndicateTo,SyndicateTo,Apartments.com powered by CoStar,SyndicateToProperty,Apartments.com powered by CoStar
+SyndicateTo,Syndicate To,SyndicateTo,SyndicateTo,IDX,SyndicateToProperty,IDX
+SyndicateTo,Syndicate To,SyndicateTo,SyndicateTo,IDX_Address,SyndicateToProperty,IDX_Address
+SyndicateTo,Syndicate To,SyndicateTo,SyndicateTo,Realtor.com,SyndicateToProperty,Realtor.com
+SyndicateTo,Syndicate To,SyndicateTo,SyndicateTo,CarolinaHome.com,SyndicateToProperty,CarolinaHome.com
+SyndicateTo,Syndicate To,SyndicateTo,SyndicateTo,Apartments.com powered by CoStar,SyndicateToProperty,Apartments.com powered by CoStar
+SyndicateTo,Syndicate To,SyndicateTo,SyndicateTo,IDX,SyndicateToProperty,IDX
+SyndicateTo,Syndicate To,SyndicateTo,SyndicateTo,IDX_Address,SyndicateToProperty,IDX_Address
+SyndicateTo,Syndicate To,SyndicateTo,SyndicateTo,Realtor.com,SyndicateToProperty,Realtor.com
+TenantPays,Tenant Pays,TenantPays,TenantPays,All Utilities,TenantPays,All Utilities
+TenantPays,Tenant Pays,TenantPays,TenantPays,Cable TV,TenantPays,Cable TV
+TenantPays,Tenant Pays,TenantPays,TenantPays,Electricity,TenantPays,Electricity
+TenantPays,Tenant Pays,TenantPays,TenantPays,Exterior Maintenance,TenantPays,Exterior Maintenance
+TenantPays,Tenant Pays,TenantPays,TenantPays,All except water,TenantPays,All except water
+TenantPays,Tenant Pays,TenantPays,TenantPays,Gas,TenantPays,Gas
+TenantPays,Tenant Pays,TenantPays,TenantPays,Interior Common Lights,TenantPays,Interior Common Lights
+TenantPays,Tenant Pays,TenantPays,TenantPays,Internet,TenantPays,Internet
+TenantPays,Tenant Pays,TenantPays,TenantPays,None,TenantPays,None
+TenantPays,Tenant Pays,TenantPays,TenantPays,Other,TenantPays,Other
+TenantPays,Tenant Pays,TenantPays,TenantPays,Outdoor Lighting,TenantPays,Outdoor Lighting
+TenantPays,Tenant Pays,TenantPays,TenantPays,Parking Fee,TenantPays,Parking Fee
+TenantPays,Tenant Pays,TenantPays,TenantPays,Trash Collection,TenantPays,Trash Collection
+TenantPays,Tenant Pays,TenantPays,TenantPays,Water,TenantPays,Water
+Utilities,Utilities,Utilities,Utilities,Cable Connected,Utilities,Cable
+Utilities,Utilities,Utilities,Utilities,Cable Available,Utilities,Cable Available
+Utilities,Utilities,Utilities,Utilities,Electricity Connected,Utilities,Electricity Connected
+Utilities,Utilities,Utilities,Utilities,Fiber Optics,Utilities,Fiber Optics
+Utilities,Utilities,Utilities,Utilities,Natural Gas,Utilities,Natural Gas
+Utilities,Utilities,Utilities,Utilities,None,Utilities,None
+Utilities,Utilities,Utilities,Utilities,Other - See Remarks,Utilities,Other - See Remarks
+Utilities,Utilities,Utilities,Utilities,Phone Connected,Utilities,Phone Connected
+Utilities,Utilities,Utilities,Utilities,Propane,Utilities,Propane
+Utilities,Utilities,Utilities,Utilities,Satellite Internet Available,Utilities,Satellite Internet Available
+Utilities,Utilities,Utilities,Utilities,Solar,Utilities,Solar
+Utilities,Utilities,Utilities,Utilities,Underground Utilities,Utilities,Underground Utilities
+Utilities,Utilities,Utilities,Utilities,Underground Power Lines,Utilities,Underground Power Lines
+Utilities,Utilities,Utilities,Utilities,Wired Internet Available,Utilities,Wired Internet Available
+View,View,View,View,City,View,City
+View,View,View,View,Golf Course,View,Golf Course
+View,View,View,View,Long Range,View,Long Range
+View,View,View,View,Mountain(s),View,Mountain(s)
+View,View,View,View,Water,View,Water
+View,View,View,View,Winter,View,Winter
+View,View,View,View,Year Round,View,Year Round
+View,View,View,View,City,View,City
+View,View,View,View,Golf Course,View,Golf Course
+View,View,View,View,Long Range,View,Long Range
+View,View,View,View,Mountain(s),View,Mountain(s)
+View,View,View,View,Water,View,Water
+View,View,View,View,Winter,View,Winter
+View,View,View,View,Year Round,View,Year Round
+WaterSource,Water Source,WaterSource,WaterSource,City,WaterSource,City Water
+WaterSource,Water Source,WaterSource,WaterSource,Community Well,WaterSource,Community Well
+WaterSource,Water Source,WaterSource,WaterSource,County Water,WaterSource,County Water
+WaterSource,Water Source,WaterSource,WaterSource,None,WaterSource,None
+WaterSource,Water Source,WaterSource,WaterSource,Other - See Remarks,WaterSource,Other - See Remarks
+WaterSource,Water Source,WaterSource,WaterSource,Public,WaterSource,Public
+WaterSource,Water Source,WaterSource,WaterSource,Shared Well,WaterSource,Shared Well
+WaterSource,Water Source,WaterSource,WaterSource,Spring,WaterSource,Spring 
+WaterSource,Water Source,WaterSource,WaterSource,Tap Fee Required,WaterSource,Tap Fee Required
+WaterSource,Water Source,WaterSource,WaterSource,Well,WaterSource,Well
+WaterSource,Water Source,WaterSource,WaterSource,Well,WaterSource,Well Installed
+WaterSource,Water Source,WaterSource,WaterSource,Well Needed,WaterSource,Well Needed
+WaterfrontFeatures,Waterfront Features,WaterfrontFeatures,WaterfrontFeatures,Beach - Private,WaterfrontFeatures,Beach
+WaterfrontFeatures,Waterfront Features,WaterfrontFeatures,WaterfrontFeatures,Beach - Public,WaterfrontFeatures,Beach - Community
+WaterfrontFeatures,Waterfront Features,WaterfrontFeatures,WaterfrontFeatures,Boat House,WaterfrontFeatures,Boat House
+WaterfrontFeatures,Waterfront Features,WaterfrontFeatures,WaterfrontFeatures,Boat House - Community,WaterfrontFeatures,Boat House - Community
+WaterfrontFeatures,Waterfront Features,WaterfrontFeatures,WaterfrontFeatures,Boat Lift,WaterfrontFeatures,Boat Lift
+WaterfrontFeatures,Waterfront Features,WaterfrontFeatures,WaterfrontFeatures,Boat Lift – Community,WaterfrontFeatures,Boat Lift - Community
+WaterfrontFeatures,Waterfront Features,WaterfrontFeatures,WaterfrontFeatures,Boat Slip,WaterfrontFeatures,Boat Slip
+WaterfrontFeatures,Waterfront Features,WaterfrontFeatures,WaterfrontFeatures,Boat Slip – Community,WaterfrontFeatures,Boat Slip - Community
+WaterfrontFeatures,Waterfront Features,WaterfrontFeatures,WaterfrontFeatures,Boat Slip (Deed) (Off Site),WaterfrontFeatures,Boat Slip (Deed) (Off Site)
+WaterfrontFeatures,Waterfront Features,WaterfrontFeatures,WaterfrontFeatures,Boat Slip (Deed),WaterfrontFeatures,Boat Slip (Deed)
+WaterfrontFeatures,Waterfront Features,WaterfrontFeatures,WaterfrontFeatures,Boat Slip (Lease/License),WaterfrontFeatures,Boat Slip (Lease/License)
+WaterfrontFeatures,Waterfront Features,WaterfrontFeatures,WaterfrontFeatures,Boat Slip (Lease/License) (Off Site),WaterfrontFeatures,Boat Slip (Lease/License) (Off Site)
+WaterfrontFeatures,Waterfront Features,WaterfrontFeatures,WaterfrontFeatures,Boat Ramp,WaterfrontFeatures,Boat Ramp
+WaterfrontFeatures,Waterfront Features,WaterfrontFeatures,WaterfrontFeatures,Boat Ramp – Community,WaterfrontFeatures,Boat Ramp - Community
+WaterfrontFeatures,Waterfront Features,WaterfrontFeatures,WaterfrontFeatures,Covered structure,WaterfrontFeatures,Covered Structure
+WaterfrontFeatures,Waterfront Features,WaterfrontFeatures,WaterfrontFeatures,Boat Slip – Community,WaterfrontFeatures,Dock - Community
+WaterfrontFeatures,Waterfront Features,WaterfrontFeatures,WaterfrontFeatures,Dock,WaterfrontFeatures,Floating Dock
+WaterfrontFeatures,Waterfront Features,WaterfrontFeatures,WaterfrontFeatures,Lake,WaterfrontFeatures,Lake
+WaterfrontFeatures,Waterfront Features,WaterfrontFeatures,WaterfrontFeatures,Marina,WaterfrontFeatures,Marina in Community
+WaterfrontFeatures,Waterfront Features,WaterfrontFeatures,WaterfrontFeatures,None,WaterfrontFeatures,None
+WaterfrontFeatures,Waterfront Features,WaterfrontFeatures,WaterfrontFeatures,Other - See Remarks,WaterfrontFeatures,Other - See Remarks
+WaterfrontFeatures,Waterfront Features,WaterfrontFeatures,WaterfrontFeatures,Pier,WaterfrontFeatures,Pier
+WaterfrontFeatures,Waterfront Features,WaterfrontFeatures,WaterfrontFeatures,Pier - Community,WaterfrontFeatures,Pier - Community
+WaterfrontFeatures,Waterfront Features,WaterfrontFeatures,WaterfrontFeatures,Paddlesport Launch Site,WaterfrontFeatures,Paddlesport Launch Site
+WaterfrontFeatures,Waterfront Features,WaterfrontFeatures,WaterfrontFeatures,Paddlesport Launch Site - Community,WaterfrontFeatures,Paddlesport Launch Site - Community
+WaterfrontFeatures,Waterfront Features,WaterfrontFeatures,WaterfrontFeatures,Pond,WaterfrontFeatures,Pond
+WaterfrontFeatures,Waterfront Features,WaterfrontFeatures,WaterfrontFeatures,Pond/Lake,WaterfrontFeatures,Pond/Lake
+WaterfrontFeatures,Waterfront Features,WaterfrontFeatures,WaterfrontFeatures,Private Pond,WaterfrontFeatures,Private Pond
+WaterfrontFeatures,Waterfront Features,WaterfrontFeatures,WaterfrontFeatures,Personal Watercraft Lift,WaterfrontFeatures,Personal Watercraft Lift
+WaterfrontFeatures,Waterfront Features,WaterfrontFeatures,WaterfrontFeatures,Retaining Wall,WaterfrontFeatures,Retaining Wall
+WaterfrontFeatures,Waterfront Features,WaterfrontFeatures,WaterfrontFeatures,Dock,WaterfrontFeatures,Stationary Dock
+WaterfrontFeatures,Waterfront Features,WaterfrontFeatures,WaterfrontFeatures,Creek/Stream,WaterfrontFeatures,Stream/Creek
+WaterfrontFeatures,Waterfront Features,WaterfrontFeatures,WaterfrontFeatures,Stream,WaterfrontFeatures,Stream
+WindowFeatures,Window Features,WindowFeatures,WindowFeatures,Display Window(s),WindowFeatures,Display Window(s)
+WindowFeatures,Window Features,WindowFeatures,WindowFeatures,Insulated Window(s),WindowFeatures,Insulated Window(s)
+WindowFeatures,Window Features,WindowFeatures,WindowFeatures,Skylight(s),WindowFeatures,Skylight(s)
+WindowFeatures,Window Features,WindowFeatures,WindowFeatures,Storm Window(s),WindowFeatures,Storm Window(s)
+WindowFeatures,Window Features,WindowFeatures,WindowFeatures,Window Treatments,WindowFeatures,Window Treatments
+WindowFeatures,Window Features,WindowFeatures,WindowFeatures,Display Window(s),WindowFeatures,Display Window(s)
+WindowFeatures,Window Features,WindowFeatures,WindowFeatures,Insulated Window(s),WindowFeatures,Insulated Window(s)
+WindowFeatures,Window Features,WindowFeatures,WindowFeatures,Skylight(s),WindowFeatures,Skylight(s)
+WindowFeatures,Window Features,WindowFeatures,WindowFeatures,Storm Window(s),WindowFeatures,Storm Window(s)
+WindowFeatures,Window Features,WindowFeatures,WindowFeatures,Window Treatments,WindowFeatures,Window Treatments

@@ -1304,6 +1304,11 @@ class DREAMSDatabase:
             rows = conn.execute(query, params).fetchall()
             return [dict(row) for row in rows]
 
+    # Whitelist of valid counter column names for power_hour_sessions
+    _ALLOWED_COUNTER_COLUMNS = frozenset({
+        'calls_reached', 'voicemails', 'texts_sent', 'calls_attempted', 'skipped', 'appointments',
+    })
+
     # Whitelist of valid column names for the leads table
     LEADS_COLUMNS = {
         'id', 'external_id', 'external_source', 'fub_id', 'first_name', 'last_name',
@@ -7073,6 +7078,9 @@ class DREAMSDatabase:
                 'appointment': 'appointments',
             }
             counter_col = counter_map.get(disposition)
+
+            if counter_col and counter_col not in self._ALLOWED_COUNTER_COLUMNS:
+                raise ValueError(f"Invalid counter column: {counter_col!r}")
 
             conn.execute('''
                 UPDATE power_hour_sessions

@@ -17,14 +17,6 @@ from pathlib import Path
 
 import pytest
 
-# BBO guard tests were written against the SQLite backend and seed a local
-# tmp DB via `sqlite3.connect`. The property-api now routes through pg_adapter
-# and reads the real PostgreSQL DATABASE_URL, so seeded fixtures never reach
-# the app under test. Tracked for port in docs/TODO.md (#29 test coverage).
-pytestmark = pytest.mark.skip(
-    reason="Needs port to pg_adapter / PostgreSQL fixtures (see TODO #29)"
-)
-
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 sys.path.insert(0, str(PROJECT_ROOT / 'apps' / 'property-api'))
@@ -67,6 +59,10 @@ def _make_listing(listing_id, idx_opt_in=1, status='ACTIVE', **overrides):
         'sqft': 1800,
         'acreage': 1.5,
         'year_built': 2005,
+        # gallery_status='ready' bypasses the photo-gate filter in ListingService
+        'gallery_status': 'ready',
+        # zone=1 satisfies the public API's default zone IN (1,2) filter
+        'zone': 1,
         'primary_photo': 'https://example.com/photo.jpg',
         'photo_count': 5,
         'public_remarks': 'Beautiful mountain home.',
@@ -112,11 +108,18 @@ def _insert_package_with_listing(db_conn, listing_id, share_token):
 
 
 @pytest.fixture
-def app_with_test_db(tmp_path):
-    """Create a Flask test app with a seeded test database."""
+def app_with_test_db(monkeypatch, tmp_path):
+    """Create a Flask test app with a seeded SQLite test database.
+
+    Strategy: let the app import normally (DATABASE_URL from .env is fine for
+    import). After import, patch src.core.pg_adapter.get_db to return SQLite
+    connections pointing at the test database. This intercepts every DB call
+    inside the app (ListingService._get_connection and all direct get_db()
+    calls in routes/public.py) without touching production Postgres.
+    """
     db_path = str(tmp_path / 'test_dreams.db')
 
-    # Create schema from production database structure
+    # ---- Build schema -------------------------------------------------------
     conn = sqlite3.connect(db_path)
     conn.execute('''CREATE TABLE listings (
         id TEXT PRIMARY KEY, parcel_id TEXT, mls_source TEXT, mls_number TEXT,
@@ -151,7 +154,11 @@ def app_with_test_db(tmp_path):
         photo_local_path TEXT, documents_count INTEGER,
         documents_available TEXT, documents_change_timestamp TEXT,
         elevation_feet INTEGER, flood_zone TEXT, flood_factor INTEGER,
-        view_potential INTEGER
+        view_potential INTEGER,
+        gallery_status TEXT DEFAULT 'pending',
+        gallery_priority INTEGER DEFAULT 0,
+        zone INTEGER DEFAULT 1,
+        address_key TEXT
     )''')
 
     conn.execute('''CREATE TABLE property_packages (
@@ -178,12 +185,12 @@ def app_with_test_db(tmp_path):
         showing_completed_at TEXT, added_at TEXT
     )''')
 
-    # Seed test data
-    # IDX listing (should appear in public API, without BBO fields)
+    # ---- Seed test data -----------------------------------------------------
+    # IDX listings (should appear in public API, without BBO fields)
     _insert_listing(conn, _make_listing('lst_idx_001', idx_opt_in=1))
     _insert_listing(conn, _make_listing('lst_idx_002', idx_opt_in=1, city='Sylva', county='Jackson'))
 
-    # BBO-only listing (should NEVER appear in public API)
+    # BBO-only listings (must NEVER appear in public API)
     _insert_listing(conn, _make_listing('lst_bbo_001', idx_opt_in=0))
     _insert_listing(conn, _make_listing('lst_bbo_002', idx_opt_in=0, city='Cashiers'))
 
@@ -192,28 +199,53 @@ def app_with_test_db(tmp_path):
         'lst_hidden_addr', idx_opt_in=1, idx_address_display=0
     ))
 
-    # Shared package containing one IDX and one BBO listing
+    # Shared package: one IDX + one BBO listing
     _insert_package_with_listing(conn, 'lst_idx_001', 'share_test_token')
-    # Also add the BBO listing to the same package
     pp_id = f'pp_{uuid.uuid4().hex[:12]}'
     conn.execute(
         'INSERT INTO package_properties (id, package_id, listing_id, display_order) VALUES (?, ?, ?, ?)',
-        [pp_id, conn.execute('SELECT id FROM property_packages WHERE share_token = ?', ['share_test_token']).fetchone()[0], 'lst_bbo_001', 2]
+        [pp_id,
+         conn.execute('SELECT id FROM property_packages WHERE share_token = ?',
+                      ['share_test_token']).fetchone()[0],
+         'lst_bbo_001', 2]
     )
 
     conn.commit()
     conn.close()
 
-    # Set env and import app
-    os.environ['DREAMS_DB_PATH'] = db_path
-    os.environ['DREAMS_ENV'] = 'test'
-    # Clear any cached API key so public endpoints work
-    os.environ.pop('DREAMS_API_KEY', None)
+    # ---- Import app ---------------------------------------------------------
+    # load_dotenv in app.py will set DATABASE_URL from .env; that's fine for
+    # the import. We patch get_db below to redirect all queries to our test db.
+    monkeypatch.setenv('DREAMS_ENV', 'test')
+    monkeypatch.delenv('DREAMS_API_KEY', raising=False)
 
-    from app import app
-    app.config['TESTING'] = True
+    from app import app as flask_app
+    flask_app.config['TESTING'] = True
 
-    with app.test_client() as client:
+    # ---- Patch get_db to use the test SQLite file ---------------------------
+    # Every code path in the app that queries the DB goes through
+    # src.core.pg_adapter.get_db. We replace it with a factory that opens
+    # fresh SQLite connections to our temp db. This also covers ListingService
+    # since it imports get_db lazily inside _get_connection().
+    import src.core.pg_adapter as _pg_adapter
+    import routes.public as _routes_public
+
+    def _test_get_db(db_path_arg=None):
+        """Return a sqlite3 connection to the test database."""
+        test_conn = sqlite3.connect(db_path, check_same_thread=False)
+        test_conn.row_factory = sqlite3.Row
+        return test_conn
+
+    monkeypatch.setattr(_pg_adapter, 'get_db', _test_get_db)
+
+    # Also patch the already-instantiated module-level _service in routes.public
+    # so its db_path points at the test db (ListingService imports get_db
+    # lazily, so the patch above handles actual query execution; this just
+    # ensures the stored path matches in case it's logged or inspected).
+    from src.core.listing_service import ListingService
+    monkeypatch.setattr(_routes_public, '_service', ListingService(db_path))
+
+    with flask_app.test_client() as client:
         yield client, db_path
 
 

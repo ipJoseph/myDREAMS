@@ -470,8 +470,7 @@ def get_shared_collection(share_token):
     Returns collection metadata and associated listing data.
     """
     try:
-        conn = _service._get_connection()
-        try:
+        with _service._get_connection() as conn:
             collection = conn.execute(
                 'SELECT id, name, description, status, created_at '
                 'FROM property_packages WHERE share_token = ?',
@@ -512,8 +511,6 @@ def get_shared_collection(share_token):
                 [datetime.now().isoformat(), collection['id']]
             )
             conn.commit()
-        finally:
-            conn.close()
 
         return jsonify({
             'success': True,
@@ -546,61 +543,58 @@ def list_areas():
         status  - Filter by status (default: ACTIVE)
     """
     try:
-        conn = _service._get_connection()
-        try:
-            area_type = request.args.get('type', 'city')
-            if area_type not in ('city', 'county'):
-                area_type = 'city'
+        area_type = request.args.get('type', 'city')
+        if area_type not in ('city', 'county'):
+            area_type = 'city'
 
-            status = request.args.get('status', 'ACTIVE').upper()
+        status = request.args.get('status', 'ACTIVE').upper()
 
-            # Zone filtering
-            zone_param = request.args.get('zone')
-            zone_conditions = []
-            zone_params = []
-            if zone_param and zone_param.lower() == 'all':
-                zone_conditions.append("state = 'NC'")
-            elif zone_param:
-                zone_values = [int(z.strip()) for z in zone_param.split(',')
-                              if z.strip().isdigit() and 1 <= int(z.strip()) <= 5]
-                if zone_values:
-                    placeholders = ','.join(['?'] * len(zone_values))
-                    zone_conditions.append(f"zone IN ({placeholders})")
-                    zone_params.extend(zone_values)
-                else:
-                    zone_conditions.append("zone IN (1, 2)")
+        # Zone filtering
+        zone_param = request.args.get('zone')
+        zone_conditions = []
+        zone_params = []
+        if zone_param and zone_param.lower() == 'all':
+            zone_conditions.append("state = 'NC'")
+        elif zone_param:
+            zone_values = [int(z.strip()) for z in zone_param.split(',')
+                          if z.strip().isdigit() and 1 <= int(z.strip()) <= 5]
+            if zone_values:
+                placeholders = ','.join(['?'] * len(zone_values))
+                zone_conditions.append(f"zone IN ({placeholders})")
+                zone_params.extend(zone_values)
             else:
                 zone_conditions.append("zone IN (1, 2)")
+        else:
+            zone_conditions.append("zone IN (1, 2)")
 
-            zone_where = (" AND " + " AND ".join(zone_conditions)) if zone_conditions else ""
+        zone_where = (" AND " + " AND ".join(zone_conditions)) if zone_conditions else ""
 
-            # Match the public grid's filter + dedup so area counts don't
-            # promise more listings than the user will actually see after
-            # clicking through (PHOTO_PIPELINE_SPEC invariant #4 + the
-            # cross-MLS dedup rule from listing_service.DEDUP_CONDITION).
-            from src.core.listing_service import DEDUP_CONDITION
-            dedup_cond = DEDUP_CONDITION.replace(
-                "AND dup.id != listings.id",
-                "AND dup.id != listings.id AND dup.idx_opt_in = 1"
-            )
+        # Match the public grid's filter + dedup so area counts don't
+        # promise more listings than the user will actually see after
+        # clicking through (PHOTO_PIPELINE_SPEC invariant #4 + the
+        # cross-MLS dedup rule from listing_service.DEDUP_CONDITION).
+        from src.core.listing_service import DEDUP_CONDITION
+        dedup_cond = DEDUP_CONDITION.replace(
+            "AND dup.id != listings.id",
+            "AND dup.id != listings.id AND dup.idx_opt_in = 1"
+        )
 
-            query = (
-                f"SELECT {area_type} as name, COUNT(*) as listing_count, "
-                f"MIN(list_price) as min_price, MAX(list_price) as max_price, "
-                f"AVG(list_price) as avg_price "
-                f"FROM listings "
-                f"WHERE idx_opt_in = 1 AND UPPER(status) = ? "
-                f"AND (gallery_status = 'ready' OR (primary_photo IS NOT NULL AND primary_photo != '' AND LEFT(primary_photo, 19) = '/api/public/photos/')) "
-                f"AND {area_type} IS NOT NULL AND {area_type} != 'Other'"
-                f"{zone_where} "
-                f"AND {dedup_cond} "
-                f"GROUP BY {area_type} "
-                f"ORDER BY listing_count DESC"
-            )
+        query = (
+            f"SELECT {area_type} as name, COUNT(*) as listing_count, "
+            f"MIN(list_price) as min_price, MAX(list_price) as max_price, "
+            f"AVG(list_price) as avg_price "
+            f"FROM listings "
+            f"WHERE idx_opt_in = 1 AND UPPER(status) = ? "
+            f"AND (gallery_status = 'ready' OR (primary_photo IS NOT NULL AND primary_photo != '' AND SUBSTR(primary_photo, 1, 19) = '/api/public/photos/')) "
+            f"AND {area_type} IS NOT NULL AND {area_type} != 'Other'"
+            f"{zone_where} "
+            f"AND {dedup_cond} "
+            f"GROUP BY {area_type} "
+            f"ORDER BY listing_count DESC"
+        )
 
+        with _service._get_connection() as conn:
             rows = conn.execute(query, [status] + zone_params).fetchall()
-        finally:
-            conn.close()
 
         areas = []
         for row in rows:
@@ -739,41 +733,40 @@ def listing_stats():
     Used for homepage stats, search filters, and market overview.
     """
     try:
-        conn = _service._get_connection()
-        try:
-            # Zone filtering
-            zone_param = request.args.get('zone')
-            zone_where = ""
-            zone_params = []
-            if zone_param and zone_param.lower() == 'all':
-                zone_where = "AND state = 'NC'"
-            elif zone_param:
-                zone_values = [int(z.strip()) for z in zone_param.split(',')
-                              if z.strip().isdigit() and 1 <= int(z.strip()) <= 5]
-                if zone_values:
-                    placeholders = ','.join(['?'] * len(zone_values))
-                    zone_where = f"AND zone IN ({placeholders})"
-                    zone_params = list(zone_values)
-                else:
-                    zone_where = "AND zone IN (1, 2)"
+        # Zone filtering
+        zone_param = request.args.get('zone')
+        zone_where = ""
+        zone_params = []
+        if zone_param and zone_param.lower() == 'all':
+            zone_where = "AND state = 'NC'"
+        elif zone_param:
+            zone_values = [int(z.strip()) for z in zone_param.split(',')
+                          if z.strip().isdigit() and 1 <= int(z.strip()) <= 5]
+            if zone_values:
+                placeholders = ','.join(['?'] * len(zone_values))
+                zone_where = f"AND zone IN ({placeholders})"
+                zone_params = list(zone_values)
             else:
                 zone_where = "AND zone IN (1, 2)"
+        else:
+            zone_where = "AND zone IN (1, 2)"
 
-            # Apply the same grid-visibility filter (gallery_status='ready')
-            # and cross-MLS dedup so the homepage's headline number matches
-            # what a user sees when they actually browse. Raw COUNT(*) here
-            # used to inflate "active_listings" by both invisible-on-grid
-            # rows AND cross-MLS duplicates.
-            from src.core.listing_service import DEDUP_CONDITION
-            dedup_cond = DEDUP_CONDITION.replace(
-                "AND dup.id != listings.id",
-                "AND dup.id != listings.id AND dup.idx_opt_in = 1"
-            )
-            # gallery_status='ready' is status-agnostic — applies to both
-            # ACTIVE and PENDING listings. But the CASE-branched fields
-            # (active_listings, min_price, etc.) are scoped to ACTIVE, so
-            # the combined effect is "ACTIVE+ready", matching the grid.
+        # Apply the same grid-visibility filter (gallery_status='ready')
+        # and cross-MLS dedup so the homepage's headline number matches
+        # what a user sees when they actually browse. Raw COUNT(*) here
+        # used to inflate "active_listings" by both invisible-on-grid
+        # rows AND cross-MLS duplicates.
+        from src.core.listing_service import DEDUP_CONDITION
+        dedup_cond = DEDUP_CONDITION.replace(
+            "AND dup.id != listings.id",
+            "AND dup.id != listings.id AND dup.idx_opt_in = 1"
+        )
+        # gallery_status='ready' is status-agnostic — applies to both
+        # ACTIVE and PENDING listings. But the CASE-branched fields
+        # (active_listings, min_price, etc.) are scoped to ACTIVE, so
+        # the combined effect is "ACTIVE+ready", matching the grid.
 
+        with _service._get_connection() as conn:
             overall = conn.execute(f"""
                 SELECT
                     COUNT(*) as total_listings,
@@ -787,7 +780,7 @@ def listing_stats():
                     COUNT(DISTINCT CASE WHEN UPPER(status) = 'ACTIVE'
                         AND county IS NOT NULL AND county != 'Other' THEN county END) as counties_served
                 FROM listings
-                WHERE idx_opt_in = 1 AND (gallery_status = 'ready' OR (primary_photo IS NOT NULL AND primary_photo != '' AND LEFT(primary_photo, 19) = '/api/public/photos/')) {zone_where}
+                WHERE idx_opt_in = 1 AND (gallery_status = 'ready' OR (primary_photo IS NOT NULL AND primary_photo != '' AND SUBSTR(primary_photo, 1, 19) = '/api/public/photos/')) {zone_where}
                   AND {dedup_cond}
             """, zone_params).fetchone()
 
@@ -795,7 +788,7 @@ def listing_stats():
                 SELECT property_type, COUNT(*) as count
                 FROM listings
                 WHERE idx_opt_in = 1 AND UPPER(status) = 'ACTIVE'
-                  AND (gallery_status = 'ready' OR (primary_photo IS NOT NULL AND primary_photo != '' AND LEFT(primary_photo, 19) = '/api/public/photos/')) {zone_where}
+                  AND (gallery_status = 'ready' OR (primary_photo IS NOT NULL AND primary_photo != '' AND SUBSTR(primary_photo, 1, 19) = '/api/public/photos/')) {zone_where}
                   AND {dedup_cond}
                 GROUP BY property_type
                 ORDER BY count DESC
@@ -805,13 +798,11 @@ def listing_stats():
                 SELECT mls_source, COUNT(*) as count
                 FROM listings
                 WHERE idx_opt_in = 1 AND UPPER(status) = 'ACTIVE'
-                  AND (gallery_status = 'ready' OR (primary_photo IS NOT NULL AND primary_photo != '' AND LEFT(primary_photo, 19) = '/api/public/photos/')) {zone_where}
+                  AND (gallery_status = 'ready' OR (primary_photo IS NOT NULL AND primary_photo != '' AND SUBSTR(primary_photo, 1, 19) = '/api/public/photos/')) {zone_where}
                   AND {dedup_cond}
                 GROUP BY mls_source
                 ORDER BY count DESC
             """, zone_params).fetchall()
-        finally:
-            conn.close()
 
         return jsonify({
             'success': True,
@@ -950,7 +941,7 @@ def autocomplete():
             "AND dup.id != listings.id AND dup.idx_opt_in = 1"
         )
         _PUBLIC_BASE = (
-            "idx_opt_in = 1 AND (gallery_status = 'ready' OR (primary_photo IS NOT NULL AND primary_photo != '' AND LEFT(primary_photo, 19) = '/api/public/photos/')) "
+            "idx_opt_in = 1 AND (gallery_status = 'ready' OR (primary_photo IS NOT NULL AND primary_photo != '' AND SUBSTR(primary_photo, 1, 19) = '/api/public/photos/')) "
             "AND status = 'ACTIVE' AND zone IN (1,2) "
             f"AND {dedup_cond}"
         )

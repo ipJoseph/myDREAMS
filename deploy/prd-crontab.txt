@@ -132,4 +132,5 @@ PY=/opt/mydreams/venv/bin/python3
 # Gmail OAuth token: /opt/mydreams/.secrets/gmail_token.json
 # (re-grant via scripts/gmail_auth_setup.py if "invalid_grant" appears)
 # ============================================================================
+# run_tmo_pipeline.sh activates venv internally (sources venv/bin/activate) — no $PY needed
 0 13 * * * /opt/mydreams/scripts/run_tmo_pipeline.sh >> /opt/mydreams/data/logs/tmo-cron.log 2>&1

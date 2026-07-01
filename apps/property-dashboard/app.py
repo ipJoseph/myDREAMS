@@ -221,7 +221,13 @@ if not DASHBOARD_USERNAME or not DASHBOARD_PASSWORD:
 CLIENT_PORTFOLIO_KEY = os.getenv('CLIENT_PORTFOLIO_KEY')  # No default — unset means deny all
 
 # Current user configuration (for filtering contacts)
-CURRENT_USER_ID = int(os.getenv('FUB_MY_USER_ID', 8))  # Default: Joseph Williams
+_fub_user_id_str = os.getenv('FUB_MY_USER_ID')
+if not _fub_user_id_str:
+    import logging as _log
+    _log.getLogger('dreams.config').critical(
+        "FUB_MY_USER_ID not set — contact filtering will use fallback ID 8; leads may be misattributed"
+    )
+CURRENT_USER_ID = int(_fub_user_id_str or 8)
 CURRENT_USER_NAME = os.getenv('FUB_MY_USER_NAME', 'Joseph Williams')
 FUB_APP_URL = os.getenv('FUB_APP_URL', 'https://jontharpteam.followupboss.com')
 
@@ -328,9 +334,29 @@ def get_db():
     return g.dreams_db
 
 
+def get_pg_conn():
+    """Return a request-scoped raw pg_adapter connection (cached on flask.g).
+
+    Use this in routes that need to call .execute() / .commit() directly on a
+    pg_adapter connection rather than going through DREAMSDatabase. The
+    connection is managed by the teardown_appcontext below — callers must NOT
+    call conn.close() themselves.
+    """
+    from src.core.pg_adapter import get_db as _pg_get_db
+    if 'pg_conn' not in g:
+        g.pg_conn = _pg_get_db()
+    return g.pg_conn
+
+
 @app.teardown_appcontext
 def _close_request_db(exc=None):
     g.pop('dreams_db', None)
+    conn = g.pop('pg_conn', None)
+    if conn is not None:
+        try:
+            conn.close()
+        except Exception:
+            pass
 
 
 def enrich_properties_with_idx_photos(properties: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -976,7 +1002,8 @@ def api_generate_calls_report():
             'url': f'/reports/{filename}'
         })
     except (ValueError, FileNotFoundError) as e:
-        return jsonify({'success': False, 'error': str(e)}), 400
+        logger.warning("Report generation failed: %s", e)
+        return jsonify({'success': False, 'error': 'Failed to generate report'}), 400
 
 
 @app.route('/api/reports/generate-property-views', methods=['POST'])
@@ -998,40 +1025,36 @@ def api_generate_property_views_report():
         return jsonify({'success': False, 'error': 'Invalid date format (expected YYYY-MM-DD)'}), 400
 
     # Query all property events (views, favorites, shares) in the date range
-    from src.core.pg_adapter import get_db as _pg_get_db
-    conn = _pg_get_db(str(DB_PATH))
-    try:
-        rows = conn.execute("""
-            SELECT
-                ce.contact_id,
-                l.first_name,
-                l.last_name,
-                l.stage,
-                l.heat_score,
-                l.priority_score,
-                ce.property_mls,
-                ce.property_price,
-                ce.event_type,
-                ce.occurred_at,
-                lst.address as listing_address,
-                lst.city as listing_city,
-                lst.state as listing_state,
-                lst.zip as listing_zip,
-                lst.beds,
-                lst.baths,
-                lst.sqft,
-                lst.acreage,
-                lst.property_type,
-                lst.primary_photo
-            FROM contact_events ce
-            JOIN leads l ON CAST(ce.contact_id AS TEXT) = l.external_id
-            LEFT JOIN listings lst ON ce.property_mls = lst.mls_number
-            WHERE ce.event_type IN ('property_view', 'property_favorite', 'property_share')
-              AND date(ce.occurred_at) BETWEEN ? AND ?
-            ORDER BY l.last_name, l.first_name, ce.property_mls, ce.occurred_at
-        """, (start_str, end_str)).fetchall()
-    finally:
-        conn.close()
+    conn = get_pg_conn()
+    rows = conn.execute("""
+        SELECT
+            ce.contact_id,
+            l.first_name,
+            l.last_name,
+            l.stage,
+            l.heat_score,
+            l.priority_score,
+            ce.property_mls,
+            ce.property_price,
+            ce.event_type,
+            ce.occurred_at,
+            lst.address as listing_address,
+            lst.city as listing_city,
+            lst.state as listing_state,
+            lst.zip as listing_zip,
+            lst.beds,
+            lst.baths,
+            lst.sqft,
+            lst.acreage,
+            lst.property_type,
+            lst.primary_photo
+        FROM contact_events ce
+        JOIN leads l ON CAST(ce.contact_id AS TEXT) = l.external_id
+        LEFT JOIN listings lst ON ce.property_mls = lst.mls_number
+        WHERE ce.event_type IN ('property_view', 'property_favorite', 'property_share')
+          AND date(ce.occurred_at) BETWEEN ? AND ?
+        ORDER BY l.last_name, l.first_name, ce.property_mls, ce.occurred_at
+    """, (start_str, end_str)).fetchall()
 
     if not rows:
         return jsonify({'success': False, 'error': f'No property activity found for {start_str} to {end_str}'}), 404
@@ -1300,33 +1323,29 @@ def api_generate_buyer_activity_report():
     end_date = date_type.today()
     start_date = end_date - timedelta(days=days)
 
-    from src.core.pg_adapter import get_db as _pg_get_db
-    conn = _pg_get_db(str(DB_PATH))
-    try:
-        # Get activities in range
-        activities = conn.execute('''
-            SELECT ba.*, u.name as buyer_name, u.email as buyer_email,
-                   COALESCE(u.lead_id, u.fub_lead_id) as lead_id
-            FROM buyer_activity ba
-            LEFT JOIN users u ON u.id = ba.user_id
-            WHERE ba.occurred_at >= ?
-            ORDER BY ba.occurred_at DESC
-        ''', [start_date.isoformat()]).fetchall()
+    conn = get_pg_conn()
+    # Get activities in range
+    activities = conn.execute('''
+        SELECT ba.*, u.name as buyer_name, u.email as buyer_email,
+               COALESCE(u.lead_id, u.fub_lead_id) as lead_id
+        FROM buyer_activity ba
+        LEFT JOIN users u ON u.id = ba.user_id
+        WHERE ba.occurred_at >= ?
+        ORDER BY ba.occurred_at DESC
+    ''', [start_date.isoformat()]).fetchall()
 
-        # Get showing requests in range
-        showing_requests = conn.execute('''
-            SELECT pp.id, pp.name as collection_name,
-                   pp.showing_requested_at,
-                   u.name as buyer_name, u.email as buyer_email,
-                   (SELECT COUNT(*) FROM package_properties WHERE package_id = pp.id) as property_count
-            FROM property_packages pp
-            LEFT JOIN users u ON u.id = pp.user_id
-            WHERE pp.showing_requested = 1
-            AND pp.showing_requested_at >= ?
-            ORDER BY pp.showing_requested_at DESC
-        ''', [start_date.isoformat()]).fetchall()
-    finally:
-        conn.close()
+    # Get showing requests in range
+    showing_requests = conn.execute('''
+        SELECT pp.id, pp.name as collection_name,
+               pp.showing_requested_at,
+               u.name as buyer_name, u.email as buyer_email,
+               (SELECT COUNT(*) FROM package_properties WHERE package_id = pp.id) as property_count
+        FROM property_packages pp
+        LEFT JOIN users u ON u.id = pp.user_id
+        WHERE pp.showing_requested = 1
+        AND pp.showing_requested_at >= ?
+        ORDER BY pp.showing_requested_at DESC
+    ''', [start_date.isoformat()]).fetchall()
 
     activity_list = [dict(a) for a in activities]
     showing_list = [dict(s) for s in showing_requests]
@@ -1928,8 +1947,7 @@ def pursuits_list():
         p['collection_source'] = 'pursuit'
 
     # Get collections from property_packages (buyer-created + agent-created)
-    from src.core.pg_adapter import get_db as _pg_get_db
-    conn = _pg_get_db(str(DB_PATH))
+    conn = get_pg_conn()
     package_collections = conn.execute('''
         SELECT pp.id, pp.name, pp.status, pp.user_id, pp.share_token,
                pp.lead_id, pp.collection_type, pp.description,
@@ -1948,7 +1966,6 @@ def pursuits_list():
                  l.id, l.first_name, l.last_name, l.email
         ORDER BY pp.updated_at DESC
     ''').fetchall()
-    conn.close()
 
     for pc in package_collections:
         pc = dict(pc)
@@ -2755,15 +2772,13 @@ def collection_save_showing(collection_id):
     """Save a route planner session as a showing record."""
     import uuid
 
-    from src.core.pg_adapter import get_db as _pg_get_db
-    conn = _pg_get_db(str(DB_PATH))
+    conn = get_pg_conn()
 
     collection = conn.execute(
         'SELECT id, lead_id, name FROM property_packages WHERE id = ?', [collection_id]
     ).fetchone()
 
     if not collection:
-        conn.close()
         return redirect('/buyer-activity')
 
     now = datetime.now(ET).isoformat()
@@ -2862,7 +2877,6 @@ def collection_save_showing(collection_id):
         pass
 
     conn.commit()
-    conn.close()
 
     # Return JSON for AJAX requests, redirect for form submissions
     if request.form.get('tour_only') == 'true' or request.form.get('ajax') == 'true':
@@ -3020,12 +3034,10 @@ def collection_itinerary_pdf(collection_id):
     except ImportError:
         return "Tour schedule generator not available", 500
 
-    from src.core.pg_adapter import get_db as _pg_get_db
-    conn = _pg_get_db(str(DB_PATH))
+    conn = get_pg_conn()
     collection = conn.execute(
         'SELECT id, lead_id, name FROM property_packages WHERE id = ?', [collection_id]
     ).fetchone()
-    conn.close()
 
     if not collection:
         return "Collection not found", 404
@@ -3076,8 +3088,7 @@ def showings_plan_route():
     import csv
     import io as _io
 
-    from src.core.pg_adapter import get_db as _pg_get_db
-    conn = _pg_get_db(str(DB_PATH))
+    conn = get_pg_conn()
     stops = []
 
     # Check for CSV file upload
@@ -3234,8 +3245,6 @@ def showings_plan_route():
         prop['_duration'] = stop['duration']
         properties.append(prop)
 
-    conn.close()
-
     today = datetime.now(ET).strftime('%Y-%m-%d')
     home_address = os.getenv('AGENT_HOME_ADDRESS', '')
 
@@ -3263,13 +3272,11 @@ def showings_plan_route():
 @requires_auth
 def buyer_collection_brochure(collection_id):
     """Generate and download a PDF brochure for a buyer collection."""
-    from src.core.pg_adapter import get_db as _pg_get_db
-    conn = _pg_get_db(str(DB_PATH))
+    conn = get_pg_conn()
     collection = conn.execute(
         'SELECT share_token, name FROM property_packages WHERE id = ?',
         [collection_id]
     ).fetchone()
-    conn.close()
 
     if not collection or not collection['share_token']:
         return "Collection not found", 404
@@ -3360,8 +3367,7 @@ def pursuit_brochure(pursuit_id):
 def templates_list():
     """List all templates and featured collections."""
     filter_type = request.args.get('type', '')
-    from src.core.pg_adapter import get_db as _pg_get_db
-    conn = _pg_get_db(str(DB_PATH))
+    conn = get_pg_conn()
 
     query = '''
         SELECT pp.id, pp.name, pp.description, pp.status, pp.collection_type,
@@ -3385,7 +3391,6 @@ def templates_list():
 
     query += ' GROUP BY pp.id ORDER BY pp.updated_at DESC'
     templates = [dict(r) for r in conn.execute(query, params).fetchall()]
-    conn.close()
 
     return render_template('templates_list.html',
         templates=templates,
@@ -3412,8 +3417,7 @@ def template_create():
     slug = re.sub(r'[^\w\s-]', '', name.lower().strip())
     slug = re.sub(r'[\s_]+', '-', slug).strip('-')
 
-    from src.core.pg_adapter import get_db as _pg_get_db
-    conn = _pg_get_db(str(DB_PATH))
+    conn = get_pg_conn()
     now = datetime.now(ET).isoformat()
 
     # Ensure unique slug
@@ -3437,7 +3441,6 @@ def template_create():
         now, now,
     ))
     conn.commit()
-    conn.close()
 
     return redirect(f'/templates/{template_id}')
 
@@ -3446,8 +3449,7 @@ def template_create():
 @requires_auth
 def template_detail(template_id):
     """Template detail with properties."""
-    from src.core.pg_adapter import get_db as _pg_get_db
-    conn = _pg_get_db(str(DB_PATH))
+    conn = get_pg_conn()
 
     template = conn.execute('''
         SELECT * FROM property_packages
@@ -3492,8 +3494,6 @@ def template_detail(template_id):
         LIMIT 200
     ''').fetchall()
 
-    conn.close()
-
     return render_template('template_detail.html',
         template=template,
         properties=[dict(p) for p in properties],
@@ -3511,8 +3511,7 @@ def template_add_property(template_id):
     if not search_term:
         return redirect(f'/templates/{template_id}')
 
-    from src.core.pg_adapter import get_db as _pg_get_db
-    conn = _pg_get_db(str(DB_PATH))
+    conn = get_pg_conn()
 
     # Try to find the listing by ID, MLS number, or address
     listing = conn.execute(
@@ -3545,7 +3544,6 @@ def template_add_property(template_id):
         except Exception:
             pass
 
-    conn.close()
     return redirect(f'/templates/{template_id}')
 
 
@@ -3557,14 +3555,12 @@ def template_remove_property(template_id):
     if not listing_id:
         return redirect(f'/templates/{template_id}')
 
-    from src.core.pg_adapter import get_db as _pg_get_db
-    conn = _pg_get_db(str(DB_PATH))
+    conn = get_pg_conn()
     conn.execute('DELETE FROM package_properties WHERE package_id = ? AND listing_id = ?',
                  (template_id, listing_id))
     conn.execute('UPDATE property_packages SET updated_at = ? WHERE id = ?',
                  (datetime.now(ET).isoformat(), template_id))
     conn.commit()
-    conn.close()
 
     return redirect(f'/templates/{template_id}')
 
@@ -3580,8 +3576,7 @@ def template_clone(template_id):
     if not lead_id:
         return redirect(f'/templates/{template_id}')
 
-    from src.core.pg_adapter import get_db as _pg_get_db
-    conn = _pg_get_db(str(DB_PATH))
+    conn = get_pg_conn()
 
     template = conn.execute(
         'SELECT id, name, description FROM property_packages WHERE id = ?',
@@ -3589,7 +3584,6 @@ def template_clone(template_id):
     ).fetchone()
 
     if not template:
-        conn.close()
         return redirect('/templates')
 
     properties = conn.execute(
@@ -3616,7 +3610,6 @@ def template_clone(template_id):
         ''', (str(uuid.uuid4()), new_id, prop['listing_id'], prop['display_order'], prop['agent_notes'], now))
 
     conn.commit()
-    conn.close()
 
     return redirect(f'/buyer-collections/{new_id}')
 
@@ -3625,15 +3618,13 @@ def template_clone(template_id):
 @requires_auth
 def template_delete(template_id):
     """Delete a template."""
-    from src.core.pg_adapter import get_db as _pg_get_db
-    conn = _pg_get_db(str(DB_PATH))
+    conn = get_pg_conn()
     conn.execute('DELETE FROM package_properties WHERE package_id = ?', (template_id,))
     conn.execute(
         'DELETE FROM property_packages WHERE id = ? AND collection_type IN (?, ?)',
         (template_id, 'template', 'featured')
     )
     conn.commit()
-    conn.close()
     return redirect('/templates')
 
 
@@ -3645,8 +3636,7 @@ def template_delete(template_id):
 @requires_auth
 def smart_collections_queue():
     """Smart collections awaiting agent review."""
-    from src.core.pg_adapter import get_db as _pg_get_db
-    conn = _pg_get_db(str(DB_PATH))
+    conn = get_pg_conn()
 
     # Get pending smart collections
     pending_rows = conn.execute('''
@@ -3706,8 +3696,6 @@ def smart_collections_queue():
 
     total_properties = sum(item['property_count'] for item in pending)
 
-    conn.close()
-
     return render_template('smart_collections_queue.html',
         pending=pending,
         accepted_count=accepted_count,
@@ -3720,8 +3708,7 @@ def smart_collections_queue():
 def smart_collection_review(collection_id):
     """Accept or reject a smart collection."""
     action = request.form.get('action', '')
-    from src.core.pg_adapter import get_db as _pg_get_db
-    conn = _pg_get_db(str(DB_PATH))
+    conn = get_pg_conn()
     now = datetime.now(ET).isoformat()
 
     if action == 'accept':
@@ -3740,7 +3727,6 @@ def smart_collection_review(collection_id):
         ''', (now, collection_id))
 
     conn.commit()
-    conn.close()
     return redirect('/smart-collections')
 
 
@@ -4784,8 +4770,7 @@ def photo_status():
     import subprocess
     from pathlib import Path
 
-    from src.core.pg_adapter import get_db as _pg_get_db
-    db_conn = _pg_get_db(str(DB_PATH))
+    db_conn = get_pg_conn()
 
 
     # Per-source stats with gallery_status breakdown.
@@ -4987,8 +4972,6 @@ def photo_status():
                 daemon_status.append({'unit': unit, 'state': 'active', 'last_log_age_min': None})
     except (subprocess.SubprocessError, FileNotFoundError):
         pass
-
-    db_conn.close()
 
     return render_template('photo_status.html',
                          source_stats=source_stats,
@@ -5641,6 +5624,24 @@ def contact_intake_save(contact_id):
         values = request.form.getlist(field)
         return json.dumps(values) if values else None
 
+    # Whitelist of all columns this route is permitted to write to intake_forms.
+    # Filter data before any INSERT/UPDATE so a future accidental addition of an
+    # unvalidated key cannot reach the SQL.
+    INTAKE_FORM_COLUMNS = frozenset({
+        'id', 'lead_id', 'form_name', 'need_type', 'status', 'priority',
+        'source', 'source_date', 'source_notes',
+        'counties', 'cities', 'zip_codes',
+        'property_types', 'min_price', 'max_price',
+        'min_beds', 'max_beds', 'min_baths', 'max_baths',
+        'min_sqft', 'max_sqft', 'min_acreage', 'max_acreage',
+        'min_year_built', 'max_year_built',
+        'views_required', 'water_features', 'style_preferences',
+        'must_have_features', 'nice_to_have_features', 'deal_breakers',
+        'target_cap_rate', 'target_rental_income', 'accepts_fixer_upper',
+        'urgency', 'move_in_date', 'financing_status', 'pre_approval_amount',
+        'agent_notes', 'confidence_score', 'updated_at', 'created_at',
+    })
+
     # Handle cities as comma-separated input
     cities_input = request.form.get('cities', '')
     cities_list = [c.strip() for c in cities_input.split(',') if c.strip()]
@@ -5700,6 +5701,9 @@ def contact_intake_save(contact_id):
         'confidence_score': request.form.get('confidence_score') or None,
         'updated_at': datetime.now().isoformat(),
     }
+
+    # Enforce column whitelist before writing
+    data = {k: v for k, v in data.items() if k in INTAKE_FORM_COLUMNS}
 
     try:
         with db._get_connection() as conn:

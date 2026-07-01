@@ -344,17 +344,18 @@ def main() -> int:
     # County filter (defense in depth — see src/core/regions.py).
     from src.core.regions import WNC_COUNTIES
     counties_csv = ", ".join(f"'{c}'" for c in sorted(WNC_COUNTIES))
-    rows = conn.execute(
+    cursor = conn.execute(
         f"""
         SELECT id, mls_source, mls_number, photo_count, photos, list_date
         FROM listings
         WHERE status = 'ACTIVE'
           AND mls_source = 'CanopyMLS'
           AND county IN ({counties_csv})
+          AND (gallery_status IS NULL OR gallery_status NOT IN ('skipped', 'ready'))
         ORDER BY {order_by}
         """
-    ).fetchall()
-    rows = [dict(r) for r in rows]
+    )
+    rows = [dict(r) for r in cursor]
 
     if args.shard:
         try:

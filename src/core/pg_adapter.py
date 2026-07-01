@@ -329,21 +329,30 @@ def get_connection_ctx():
 
 def get_db(db_path: Optional[str] = None):
     """
-    Unified database connection factory. Postgres only.
+    Unified database connection factory.
 
-    Reads DATABASE_URL and returns a pooled connection wrapped for
-    sqlite3-compatible interface. The silent SQLite fallback that
-    grew the 905 MB orphan dreams.db on PRD has been removed.
+    When DATABASE_URL is set: returns a pooled PostgreSQL connection wrapped
+    for sqlite3-compatible interface. The db_path argument is ignored.
 
-    The db_path argument is retained for signature compatibility
-    with legacy callers but is ignored.
+    When DATABASE_URL is NOT set and db_path is provided: returns a raw
+    sqlite3 connection (test-isolation mode only). This path is intentionally
+    narrow — production must always have DATABASE_URL set.
+
+    When DATABASE_URL is NOT set and db_path is None: raises RuntimeError
+    (no silent fallback to the orphan data/dreams.db).
     """
-    if not is_postgres():
-        raise RuntimeError(
-            "pg_adapter.get_db() requires DATABASE_URL to be set. "
-            "The SQLite fallback (data/dreams.db) is removed; production "
-            "must run on Postgres. For test-mode SQLite isolation, use "
-            "the test_db fixture (instantiates DREAMSDatabase with an "
-            "explicit path)."
-        )
-    return get_connection()
+    if is_postgres():
+        return get_connection()
+
+    if db_path:
+        # Test-isolation mode: SQLite with the explicit path.
+        conn = sqlite3.connect(db_path, check_same_thread=False)
+        conn.row_factory = sqlite3.Row
+        return conn
+
+    raise RuntimeError(
+        "pg_adapter.get_db() requires DATABASE_URL to be set. "
+        "The SQLite fallback (data/dreams.db) is removed; production "
+        "must run on Postgres. For test-mode SQLite isolation, unset "
+        "DATABASE_URL and pass an explicit db_path."
+    )

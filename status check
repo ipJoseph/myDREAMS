@@ -1,0 +1,64 @@
+
+  Once I see that's done, I'll immediately:
+  1. ssh PRD 'git pull && nohup bash /opt/mydreams/scripts/photo-catchup-20260421.sh < /dev/null > /dev/null 2>&1 & disown; echo
+  STARTED_PID=$!'
+  2. Verify it's running (one ps check)
+  3. Show you how to spot-check progress when you're back
+
+  After that, you can shut down local, and the daemon runs entirely on PRD. When you're back, either of these is enough:
+
+  # Is it still running?
+  ssh root@178.156.221.10 'pgrep -af photo-catchup'
+
+  # Progress
+  ssh root@178.156.221.10 'tail -40 /opt/mydreams/data/logs/photo-catchup-20260421.log'
+
+  # How many Canopy actives still pending?
+  ssh root@178.156.221.10 "sudo -u postgres psql -tA dreams -c \"SELECT COUNT(*) FROM listings WHERE mls_source='CanopyMLS' AND
+  status='ACTIVE' AND gallery_status='pending'\""
+
+  # Completion marker (exists only when done)
+  ssh root@178.156.221.10 'cat /opt/mydreams/data/photo-catchup/COMPLETED 2>/dev/null || echo "still running"'
+
+
+  It's working. Pending went 8,147 → 8,143 in ~1 min. 4 listings drained, matches the expected ~0.07 listings/sec rate at 1.8 req/s. Disk
+  has 329GB of mlsgrid photos, 891k files — actively growing.
+
+  Hand-off for when you're offline
+
+  What's running on PRD:
+  - PID 1405751 — the catchup daemon
+  - PID 1405782 — gallery_backfill_strict.py at 1.8 req/s, 35k/day budget
+  - Navica cron continues at :15/:45 (separate API, no contention)
+
+  Log caveat: The script's internal exec > tee setup failed under nohup redirection, so the catchup log file isn't being populated. Work
+  IS happening. To check status, use these instead (your best monitoring path):
+
+  # 1. Is the daemon still alive?
+  ssh root@178.156.221.10 'pgrep -af photo-catchup'
+
+  # 2. How many pending Canopy active? (should steadily drop toward 0)
+
+  ssh root@178.156.221.10 "sudo -u postgres psql -tA dreams -c \"SELECT COUNT(*) FROM listings WHERE mls_source='CanopyMLS' AND status='ACTIVE' AND gallery_status='pending'\""
+
+  # 3. Has it completed?
+  ssh root@178.156.221.10 'cat /opt/mydreams/data/photo-catchup/COMPLETED 2>/dev/null || echo "still running"'
+
+  # 4. Disk sanity (should slowly climb)
+  ssh root@178.156.221.10 'du -sh /mnt/dreams-photos/mlsgrid/'
+
+  Rough ETA estimate:
+  - 8,143 pending × ~20 photos/listing = ~163k photos
+  - At ~60 photos/min (observed), that's ~45 hours of pure run time
+  - BUT capped by 35k/day budget → likely 3–4 days before completion
+
+  The daemon loops through daily budget cycles automatically. If the daily budget cap hits, it sleeps 1 hour and retries. No intervention
+  needed.
+
+  If you want to stop it early when you return: ssh root@178.156.221.10 'kill 1405751' — the EXIT trap will restore the original crontab
+  automatically. Safe.
+
+  If it hangs or something breaks: crontab /opt/mydreams/data/photo-catchup/crontab-before-catchup.txt on PRD manually restores the old
+  crontab.
+
+  Shut down whenever. PRD runs on its own. I'll be here when you're back.

@@ -25,6 +25,7 @@ Usage:
 """
 
 import argparse
+import fcntl
 import json
 import logging
 import sys
@@ -35,6 +36,8 @@ from typing import List, Optional, Tuple
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(REPO_ROOT))
+
+LOCK_FILE = REPO_ROOT / 'data' / '.hive_photos.lock'
 
 import os
 from dotenv import load_dotenv
@@ -156,16 +159,13 @@ def download_listing_photos(
             """UPDATE listings SET
                primary_photo = ?,
                photos = ?,
-               photo_local_path = ?,
-               photos_refreshed_at = ?,
+               photo_verified_at = CURRENT_TIMESTAMP,
                gallery_status = ?,
                gallery_priority = 0
                WHERE mls_source = 'MountainLakesMLS' AND mls_number = ?""",
             [
                 primary_local,
                 json.dumps(local_paths),
-                primary_local,
-                datetime.now(timezone.utc).isoformat(),
                 gallery_status,
                 mls_number,
             ],
@@ -177,50 +177,63 @@ def download_listing_photos(
 
 
 def run(max_rps: float = 2.0, limit: Optional[int] = None, dry_run: bool = False):
-    conn = _get_db()
+    LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
+    lock_fh = open(LOCK_FILE, 'w')
     try:
-        pending = fetch_pending_listings(conn, limit=limit)
-        total_listings = len(pending)
-        logger.info(f"Found {total_listings} pending Hive/ML listings")
+        fcntl.flock(lock_fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        logger.info("Another hive photo download is already running; exiting.")
+        lock_fh.close()
+        return
 
-        if not pending:
-            logger.info("All caught up.")
-            return
+    try:
+        conn = _get_db()
+        try:
+            pending = fetch_pending_listings(conn, limit=limit)
+            total_listings = len(pending)
+            logger.info(f"Found {total_listings} pending Hive/ML listings")
 
-        total_dl = 0
-        total_err = 0
-        last_request_time = [0.0]
+            if not pending:
+                logger.info("All caught up.")
+                return
 
-        for i, row in enumerate(pending, 1):
-            mls_number = row['mls_number']
-            photo_count = row.get('photo_count') or 0
-            logger.info(f"[{i}/{total_listings}] {mls_number} ({photo_count} photos)")
+            total_dl = 0
+            total_err = 0
+            last_request_time = [0.0]
 
-            dl, err = download_listing_photos(
-                conn, row, max_rps=max_rps,
-                last_request_time=last_request_time,
-                dry_run=dry_run,
-            )
-            total_dl += dl
-            total_err += err
+            for i, row in enumerate(pending, 1):
+                mls_number = row['mls_number']
+                photo_count = row.get('photo_count') or 0
+                logger.info(f"[{i}/{total_listings}] {mls_number} ({photo_count} photos)")
 
-            if i % 50 == 0:
-                dl_stats = photo_dl.stats()
-                logger.info(
-                    f"Progress: {i}/{total_listings} listings | "
-                    f"{total_dl} photos downloaded | {total_err} errors | "
-                    f"dl-stats={dl_stats}"
+                dl, err = download_listing_photos(
+                    conn, row, max_rps=max_rps,
+                    last_request_time=last_request_time,
+                    dry_run=dry_run,
                 )
+                total_dl += dl
+                total_err += err
 
+                if i % 50 == 0:
+                    dl_stats = photo_dl.stats()
+                    logger.info(
+                        f"Progress: {i}/{total_listings} listings | "
+                        f"{total_dl} photos downloaded | {total_err} errors | "
+                        f"dl-stats={dl_stats}"
+                    )
+
+        finally:
+            conn.close()
+
+        dl_stats = photo_dl.stats()
+        logger.info(
+            f"Done: {total_listings} listings processed | "
+            f"{total_dl} photos downloaded | {total_err} errors | "
+            f"downloader stats: {dl_stats}"
+        )
     finally:
-        conn.close()
-
-    dl_stats = photo_dl.stats()
-    logger.info(
-        f"Done: {total_listings} listings processed | "
-        f"{total_dl} photos downloaded | {total_err} errors | "
-        f"downloader stats: {dl_stats}"
-    )
+        fcntl.flock(lock_fh, fcntl.LOCK_UN)
+        lock_fh.close()
 
 
 if __name__ == '__main__':
