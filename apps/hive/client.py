@@ -287,7 +287,9 @@ class HiveClient:
         max_records: Optional[int] = None,
     ) -> List[Dict]:
         """Fetch Mountain Lakes agent/member records."""
-        clauses = [f"ListOfficeMlsId ne null"]
+        # SourceRE Member entity doesn't have ListOfficeMlsId — use MemberAOR
+        # to scope to Mountain Lakes members only.
+        clauses = [f"MemberAOR eq '{ML_AOR}'"]
         if modified_since:
             ts = modified_since.strftime('%Y-%m-%dT%H:%M:%S.000Z')
             clauses.append(f"ModificationTimestamp gt {ts}")
